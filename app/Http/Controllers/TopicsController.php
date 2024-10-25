@@ -48,13 +48,14 @@ class TopicsController extends Controller
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
+            'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
         ]);
 
-        // Create the topic and associate it with the logged-in user
         $topic = Topic::create([
-            'user_id' => Auth::id(), // Assuming you're using Laravel's Auth system
+            'user_id' => auth()->id(),
             'title' => $request->title,
             'description' => $request->description,
+            'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
         ]);
 
         return response()->json($topic, 201);

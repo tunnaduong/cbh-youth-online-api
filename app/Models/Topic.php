@@ -13,9 +13,11 @@ class Topic extends Model
 
     // Define which fields are mass assignable
     protected $fillable = [
+        'subforum_id', // Thêm subforum_id vào đây
         'user_id',
         'title',
         'description',
+        'pinned',
     ];
 
     // Define the relationship: A topic belongs to a user
@@ -37,5 +39,15 @@ class Topic extends Model
     public function comments()
     {
         return $this->hasMany(TopicComment::class);
+    }
+
+    public function isPinned()
+    {
+        return $this->pinned;
+    }
+
+    public function subforum()
+    {
+        return $this->belongsTo(ForumSubforum::class); // Định nghĩa quan hệ với Subforum
     }
 }
