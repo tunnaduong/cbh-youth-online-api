@@ -12,7 +12,7 @@ class UserProfile extends Model
     protected $table = 'cyo_user_profiles'; // The table name associated with this model
     protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'birthday', 'gender', 'location']; // Example of fillable fields
 
-    public function authAccount()
+    public function user()
     {
         return $this->belongsTo(AuthAccount::class, 'auth_account_id');
     }

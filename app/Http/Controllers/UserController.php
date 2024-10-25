@@ -9,34 +9,47 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class UserController extends Controller
 {
     // Get user avatar
     public function getAvatar($username)
     {
-        // Retrieve user by username
-        $user = User::where('username', $username)->firstOrFail();
+        try {
+            // Retrieve user by username
+            $user = AuthAccount::where('username', $username)->firstOrFail();
 
-        // Retrieve user content associated with the user
-        $userContent = UserContent::where('user_id', $user->id)->first();
+            // Retrieve the user's profile and get the profile_picture field
+            $userProfile = $user->profile;
 
-        if ($userContent) {
-            // Get the full path to the image
-            $imagePath = storage_path('app/public/' . $userContent->file_path);
+            if ($userProfile && $userProfile->profile_picture) {
+                // Retrieve the content using profile_picture (which holds the id in cyo_cdn_user_content)
+                $userContent = UserContent::find($userProfile->profile_picture);
 
-            // Check if the file exists
-            if (file_exists($imagePath)) {
-                return response()->file($imagePath, [
-                    'Content-Type' => 'image/png', // Adjust according to the image type
-                ]);
+                if ($userContent) {
+                    // Get the full path to the image
+                    $imagePath = storage_path('app/public/' . $userContent->file_path);
+
+                    // Check if the file exists
+                    if (file_exists($imagePath)) {
+                        return response()->file($imagePath, [
+                            'Content-Type' => $userContent->file_type, // Dynamically set the Content-Type
+                        ]);
+                    }
+
+                    return response()->json(['message' => 'Ảnh không tồn tại.'], 404);
+                }
+
+                return response()->json(['message' => 'Không tìm thấy avatar nào cho người dùng này.'], 404);
             }
 
-            return response()->json(['message' => 'Image not found.'], 404);
+            return response()->json(['message' => 'Trang cá nhân người dùng hoặc avatar người dùng không tồn tại.'], 404);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
         }
-
-        return response()->json(['message' => 'No content found for this user.'], 404);
     }
+
 
     // Update user avatar
     public function updateAvatar(Request $request, $username)
@@ -78,9 +91,9 @@ class UserController extends Controller
                 ]
             );
 
-            $user2->profile_picture = $userContent->id;
+            $user2->profile->profile_picture = $userContent->id;
             /** @var \App\Models\UserProfile $user2 **/
-            $user2->save();
+            $user2->profile->save();
 
             return response()->json([
                 'message' => 'Cập nhật avatar thành công.',
@@ -98,7 +111,7 @@ class UserController extends Controller
         $user = AuthAccount::where('username', $username)->with('profile')->first();
 
         if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
+            return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
         }
 
         // Return the user data, including the profile data
@@ -127,7 +140,7 @@ class UserController extends Controller
 
         // Check if the logged-in user's username matches the requested username
         if ($user->username !== $username) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+            return response()->json(['message' => 'Truy cập trái phép.'], 403);
         }
 
         // Validate incoming profile data
@@ -141,6 +154,6 @@ class UserController extends Controller
         // Update user's profile
         $user->profile->update($validatedData);
 
-        return response()->json(['message' => 'Profile updated successfully.']);
+        return response()->json(['message' => 'Cập nhật trang cá nhân thành công.']);
     }
 }
