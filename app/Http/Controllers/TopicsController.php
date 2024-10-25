@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Topic;
 use App\Models\TopicView;
 use App\Models\TopicVote;
+use App\Models\UserContent;
 use App\Models\TopicComment;
 use Illuminate\Http\Request;
 use App\Models\UserSavedTopic;
@@ -50,13 +51,24 @@ class TopicsController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
+            'user_content_id' => 'nullable|exists:cyo_cdn_user_content,id',
         ]);
+
+        // Fetch the image URL if user_content_id is provided
+        $imageUrl = null;
+        if (isset($request->user_content_id)) {
+            $userContent = UserContent::find($request->user_content_id);
+            if ($userContent) {
+                $imageUrl = $userContent->file_path; // Assuming file_path contains the URL
+            }
+        }
 
         $topic = Topic::create([
             'user_id' => auth()->id(),
             'title' => $request->title,
             'description' => $request->description,
             'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
+            'image_url' => $imageUrl,
         ]);
 
         return response()->json($topic, 201);

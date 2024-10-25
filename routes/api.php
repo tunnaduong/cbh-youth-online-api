@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\TopicsController;
+use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ForgotPasswordController;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,14 +20,35 @@ use App\Http\Controllers\TopicsController;
 |
 */
 
+// Route::post('/password-reset', [PasswordResetController::class, 'sendResetLink'])->name('password.reset');
+Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
+
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+    // Eager load the profile relationship
+    $user = $request->user()->load('profile');
+
+    return response()->json([
+        'id' => $user->id,
+        'username' => $user->username,
+        'email' => $user->email,
+        'created_at' => $user->created_at,
+        'updated_at' => $user->updated_at,
+        'profile' => [
+            'profile_name' => $user->profile->profile_name ?? null,
+            'bio' => $user->profile->bio ?? null,
+            'profile_picture' => $user->profile->profile_picture ?? null,
+            'birthday' => $user->profile->birthday ?? null,
+            'gender' => $user->profile->gender ?? null,
+            'location' => $user->profile->location ?? null,
+        ],
+    ]);
 });
 
-Route::get('/forums/categories', [ForumController::class, 'getCategories']);
-Route::get('/forums/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
+Route::get('/forum/categories', [ForumController::class, 'getCategories']);
+Route::get('/forum/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
 Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
 
 Route::get('/topics', [TopicsController::class, 'index']); // Get list of topics
@@ -41,6 +65,7 @@ Route::post('/topics/{id}/views', [TopicsController::class, 'registerView']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // Your routes that require authentication
+    Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote']);
     Route::post('/comments/{id}/votes', [TopicsController::class, 'voteOnComment']);
     Route::post('/topics/{id}/comments', [TopicsController::class, 'addComment']);
@@ -48,4 +73,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
     Route::post('/topics', [TopicsController::class, 'store']);
     Route::post('/topics/{id}/views/authenticated', [TopicsController::class, 'registerView']);
+    Route::post('/upload', [FileUploadController::class, 'upload']);
 });

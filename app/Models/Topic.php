@@ -18,6 +18,7 @@ class Topic extends Model
         'title',
         'description',
         'pinned',
+        'image_url',
     ];
 
     // Define the relationship: A topic belongs to a user

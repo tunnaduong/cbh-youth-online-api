@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PasswordResetController;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,10 +14,13 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-use App\Http\Controllers\FileUploadController;
+// web.php
+Route::get('/password/reset/{token}', function ($token) {
+    // Return the password reset form view
+    return view('auth.passwords.reset')->with(['token' => $token, 'email' => request('email')]);
+})->name('password.reset');
 
-Route::get('/upload', [FileUploadController::class, 'showForm']);
-Route::post('/upload', [FileUploadController::class, 'upload']);
+Route::post('password/reset', [PasswordResetController::class, 'reset'])->name('password.update');
 
 Route::get('/', function () {
     return view('welcome');

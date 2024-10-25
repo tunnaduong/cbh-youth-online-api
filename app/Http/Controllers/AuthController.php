@@ -23,7 +23,7 @@ class AuthController extends Controller
 
         // Check if user exists and the password matches
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+            return response()->json(['message' => 'Tên tài khoản hoặc mật khảu sai!'], 401);
         }
 
         // Generate an API token (assuming you're using Laravel Sanctum for token-based authentication)
@@ -38,7 +38,6 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        Log::info('Register method called');
         $request->validate([
             'username' => 'required|string|unique:cyo_auth_accounts',
             'password' => 'required|string|min:6',
@@ -63,7 +62,7 @@ class AuthController extends Controller
 
         // Return a success response with the token
         return response()->json([
-            'message' => 'User registered successfully!',
+            'message' => 'Đăng ký thành công!',
             'token' => $token,
             'user' => $account,
         ], 201);
@@ -71,9 +70,16 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        // Revoke the token that was used to authenticate the current request
-        $request->user()->currentAccessToken()->delete();
+        // Get the authenticated user
+        $user = $request->user();
 
-        return response()->json(['message' => 'Logged out successfully'], 200);
+        if ($user) {
+            // Revoke the token that was used to authenticate the current request
+            $user->currentAccessToken()->delete();
+
+            return response()->json(['message' => 'Đăng xuất thành công.']);
+        }
+
+        return response()->json(['message' => 'Người dùng chưa xác thực.'], 401);
     }
 }

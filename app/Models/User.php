@@ -12,6 +12,9 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    // In your User model
+    protected $table = 'cyo_auth_accounts';
+
     /**
      * The attributes that are mass assignable.
      *
