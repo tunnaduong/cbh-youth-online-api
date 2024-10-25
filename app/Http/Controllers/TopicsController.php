@@ -24,6 +24,7 @@ class TopicsController extends Controller
         $formattedTopics = $topics->map(function ($topic) {
             return [
                 'id' => $topic->id,
+                'subforum_id' => $topic->subforum_id,
                 'user_id' => $topic->user_id,
                 'title' => $topic->title,
                 'description' => $topic->description,
@@ -158,7 +159,7 @@ class TopicsController extends Controller
     public function voteOnComment(Request $request, $commentId)
     {
         $request->validate([
-            'vote' => 'required|boolean', // true for upvote, false for downvote
+            'vote_value' => 'required|integer|in:1,-1', // true for upvote, false for downvote
         ]);
 
         TopicCommentVote::updateOrCreate(
@@ -167,7 +168,7 @@ class TopicsController extends Controller
                 'user_id' => auth()->id(),
             ],
             [
-                'vote' => $request->vote,
+                'vote_value' => $request->input('vote_value'),
             ]
         );
 
@@ -185,6 +186,7 @@ class TopicsController extends Controller
 
         return response()->json([
             'comment_id' => $comment->id,
+            'comment' => $comment->comment,
             'votes' => $votes,
         ]);
     }

@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+use App\Http\Controllers\FileUploadController;
+
+Route::get('/upload', [FileUploadController::class, 'showForm']);
+Route::post('/upload', [FileUploadController::class, 'upload']);
+
 Route::get('/', function () {
     return view('welcome');
 });
