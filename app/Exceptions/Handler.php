@@ -29,7 +29,7 @@ class Handler extends ExceptionHandler
     public function render($request, Throwable $exception)
     {
         // If the request is for an API route
-        if ($request->is('api/*')) {
+        if ($request->is('v1.0/*')) {
             // Check if the exception is a validation exception
             if ($exception instanceof \Illuminate\Validation\ValidationException) {
                 return response()->json([

@@ -146,9 +146,11 @@ class UserController extends Controller
         // Validate incoming profile data
         $validatedData = $request->validate([
             'profile_name' => 'nullable|string|max:255',
+            'profile_picture' => 'nullable|integer', // Optional, if updating avatar via URL
             'bio' => 'nullable|string',
+            'birthday' => 'nullable|string',
+            'gender' => 'nullable|string',
             'location' => 'nullable|string|max:255',
-            'avatar_url' => 'nullable|url', // Optional, if updating avatar via URL
         ]);
 
         // Update user's profile
