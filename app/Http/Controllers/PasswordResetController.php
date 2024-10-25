@@ -34,6 +34,7 @@ class PasswordResetController extends Controller
 
         // Update the user's password
         $user->password = Hash::make($request->new_password);
+        /** @var \App\Models\AuthAccount $user **/
         $user->save();
 
         return response()->json(["message" => "Đổi mật khẩu thành công!"], 201);
