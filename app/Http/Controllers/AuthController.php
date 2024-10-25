@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\VerifyEmail;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Models\AuthEmailVerificationCode;
 
 class AuthController extends Controller
 {
@@ -57,12 +60,23 @@ class AuthController extends Controller
             'profile_name' => $request->name,
         ]);
 
+        $verificationCode = AuthEmailVerificationCode::create([
+            'user_id' => $account->id,
+            'verification_code' => Str::random(60), // Generate token
+            'created_at' => now(),
+            'expires_at' => now()->addMinutes(30), // Set expiry time for 30 minutes
+        ]);
+
+
         // Optionally generate a token if using Sanctum/Passport
         $token = $account->createToken('authToken')->plainTextToken;
 
+        // Send the verification email
+        Mail::to($account->email)->send(new VerifyEmail($account, $verificationCode));
+
         // Return a success response with the token
         return response()->json([
-            'message' => 'Đăng ký thành công!',
+            'message' => 'Đăng ký thành công! Vui lòng kiểm tra email.',
             'token' => $token,
             'user' => $account,
         ], 201);
