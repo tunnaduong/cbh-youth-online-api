@@ -7,9 +7,10 @@ use App\Models\TopicView;
 use App\Models\TopicVote;
 use App\Models\TopicComment;
 use Illuminate\Http\Request;
+use App\Models\UserSavedTopic;
 use App\Models\TopicCommentVote;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class TopicsController extends Controller
 {
@@ -29,6 +30,7 @@ class TopicsController extends Controller
                 'created_at' => $topic->created_at,
                 'updated_at' => $topic->updated_at,
                 'author' => [
+                    'id' => $topic->user->id,
                     'username' => $topic->user->username,
                     'email' => $topic->user->email,
                     'profile_name' => $topic->user->profile->profile_name ?? null, // Include profile_name
@@ -113,7 +115,25 @@ class TopicsController extends Controller
     // Get comments for a topic
     public function getComments($topicId)
     {
-        $comments = TopicComment::where('topic_id', $topicId)->with('user')->get();
+        $comments = TopicComment::with(['user', 'user.profile'])
+            ->where('topic_id', $topicId)
+            ->get()
+            ->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'topic_id' => $comment->topic_id,
+                    'comment' => $comment->comment,
+                    'created_at' => $comment->created_at,
+                    'updated_at' => $comment->updated_at,
+                    'author' => [
+                        'id' => $comment->user->id,
+                        'username' => $comment->user->username,
+                        'email' => $comment->user->email,
+                        'profile_name' => $comment->user->profile->profile_name ?? null, // Handle case where profile might not exist
+                    ],
+                ];
+            });
+
         return response()->json($comments);
     }
 
@@ -166,5 +186,32 @@ class TopicsController extends Controller
             'comment_id' => $comment->id,
             'votes' => $votes,
         ]);
+    }
+
+    // Get saved topics for the authenticated user
+    public function getSavedTopics()
+    {
+        // Assuming UserSavedTopic is the model for cyo_user_saved_topics
+        $savedTopics = UserSavedTopic::with('topic') // Load related topic if you have a relationship defined
+            ->where('user_id', Auth::id())
+            ->get();
+
+        return response()->json($savedTopics);
+    }
+
+    public function saveTopicForUser(Request $request)
+    {
+        $request->validate([
+            'topic_id' => 'required|exists:cyo_topics,id', // Validate that the topic exists
+        ]);
+
+        $userId = auth()->id(); // Get authenticated user ID
+
+        UserSavedTopic::create([
+            'user_id' => $userId,
+            'topic_id' => $request->topic_id,
+        ]);
+
+        return response()->json(['message' => 'Topic saved successfully.']);
     }
 }

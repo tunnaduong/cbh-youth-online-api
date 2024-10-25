@@ -39,6 +39,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote']);
     Route::post('/comments/{id}/votes', [TopicsController::class, 'voteOnComment']);
     Route::post('/topics/{id}/comments', [TopicsController::class, 'addComment']);
+    Route::get('/user/saved-topics', [TopicsController::class, 'getSavedTopics']);
+    Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
 });
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
