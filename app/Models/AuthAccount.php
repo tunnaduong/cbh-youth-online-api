@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 // cyo_auth_accounts model
 class AuthAccount extends Authenticatable
 {
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $table = 'cyo_auth_accounts';
     protected $fillable = ['username', 'password', 'email'];

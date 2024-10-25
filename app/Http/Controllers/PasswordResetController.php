@@ -2,48 +2,40 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\ResetsPasswords;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class PasswordResetController extends Controller
 {
-    protected function reset(Request $request)
+    public function changePassword(Request $request)
     {
-        // Validate the request
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|confirmed|min:8',
-            'token' => 'required',
+        // Validate the incoming request data
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|min:6|confirmed',
         ]);
 
-        if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
-        }
+        // Get the authenticated user
+        $user = Auth::user();
 
-        // Find the user by email
-        $user = \App\Models\User::where('email', $request->email)->first();
-
+        // Check if the user is authenticated
         if (!$user) {
-            return redirect()->back()->with('error', 'Không tìm thấy người dùng.');
+            return response()->json(["message" => "Bạn cần phải đăng nhập để đổi mật khẩu"], 401);
         }
 
-        // Reset the password
-        $response = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
-                $user->password = bcrypt($password);
-                $user->save();
-            }
-        );
-
-        // Check for success or failure
-        if ($response == Password::PASSWORD_RESET) {
-            return redirect()->back()->with('status', 'Mật khẩu đã được đổi thành công.');
+        // Check if the current password is correct
+        if (!Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Mật khẩu bạn cung cấp không giống với mật khẩu hiện tại.'],
+            ]);
         }
 
-        return redirect()->back()->with('error', 'Không thể đổi mật khẩu.');
+        // Update the user's password
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json(["message" => "Đổi mật khẩu thành công!"], 201);
     }
 }

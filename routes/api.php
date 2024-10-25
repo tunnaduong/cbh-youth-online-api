@@ -23,7 +23,6 @@ use App\Http\Controllers\ForgotPasswordController;
 // Route::post('/password-reset', [PasswordResetController::class, 'sendResetLink'])->name('password.reset');
 Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 
-
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
@@ -65,6 +64,7 @@ Route::post('/topics/{id}/views', [TopicsController::class, 'registerView']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // Your routes that require authentication
+    Route::post('/password/change', [PasswordResetController::class, 'changePassword'])->name('password.change');
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote']);
     Route::post('/comments/{id}/votes', [TopicsController::class, 'voteOnComment']);
