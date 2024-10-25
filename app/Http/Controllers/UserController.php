@@ -81,9 +81,9 @@ class UserController extends Controller
             $filePath = $file->storeAs('avatars', $fileName, 'public');
 
             // Update or create the user content record for the avatar
-            $userContent = UserContent::updateOrCreate(
-                ['user_id' => $user->id], // Condition to find the record
+            $userContent = UserContent::create(
                 [
+                    'user_id' => $user->id,
                     'file_name' => $fileName,
                     'file_path' => $filePath,
                     'file_type' => $file->getClientMimeType(),
