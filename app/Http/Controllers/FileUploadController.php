@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\UserContent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -13,6 +14,8 @@ class FileUploadController extends Controller
     // Method to handle file upload
     public function upload(Request $request)
     {
+        Log::info($request->all());
+
         // Validate the file input
         $request->validate([
             'file' => 'required|file|max:20480', // Adjust the max size as needed
@@ -54,7 +57,7 @@ class FileUploadController extends Controller
         $fileName = time() . '_' . $file->getClientOriginalName();
 
         // Store the file in the appropriate folder
-        $path = $file->storeAs($folder, time() . '_' . $file->getClientOriginalName(), 'public');
+        $path = $file->storeAs($folder, $fileName, 'public');
 
         // Get file details
         $fileType = $file->getMimeType();

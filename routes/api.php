@@ -8,6 +8,7 @@ use App\Http\Controllers\TopicsController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,7 +21,7 @@ use App\Http\Controllers\ForgotPasswordController;
 |
 */
 
-// Route::post('/password-reset', [PasswordResetController::class, 'sendResetLink'])->name('password.reset');
+Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
 Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -62,8 +63,13 @@ Route::get('/comments/{id}/votes', [TopicsController::class, 'getVotesForComment
 // Allow both authenticated and unauthenticated access to register views
 Route::post('/topics/{id}/views', [TopicsController::class, 'registerView']);
 
+// Route to get user profile by username
+Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
+
 Route::middleware('auth:sanctum')->group(function () {
     // Your routes that require authentication
+    Route::put('/users/{username}/profile', [UserController::class, 'updateProfile']);
+    Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
     Route::post('/password/change', [PasswordResetController::class, 'changePassword'])->name('password.change');
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote']);

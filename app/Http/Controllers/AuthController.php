@@ -72,7 +72,7 @@ class AuthController extends Controller
         $token = $account->createToken('authToken')->plainTextToken;
 
         // Send the verification email
-        Mail::to($account->email)->send(new VerifyEmail($account, $verificationCode));
+        Mail::to($account->email)->send(new VerifyEmail($account, $verificationCode->verification_code));
 
         // Return a success response with the token
         return response()->json([

@@ -20,7 +20,7 @@ Route::get('/password/reset/{token}', function ($token) {
     return view('auth.passwords.reset')->with(['token' => $token, 'email' => request('email')]);
 })->name('password.reset');
 
-use App\Http\Controllers\Auth\VerificationController;
+use App\Http\Controllers\VerificationController;
 
 Route::get('email/verify/{verificationCode}', [VerificationController::class, 'verify'])->name('verification.verify');
 

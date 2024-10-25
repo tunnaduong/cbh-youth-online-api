@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Auth;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuthEmailVerificationCode; // Adjust the path as needed
@@ -13,7 +13,8 @@ class VerificationController extends Controller
         $verification = AuthEmailVerificationCode::where('verification_code', $verificationCode)->first();
 
         if (!$verification) {
-            return redirect()->route('login')->with('error', 'Invalid verification code.');
+            // return redirect()->route('login')->with('error', 'Invalid verification code.');
+            return response()->json(["error" => "Mã xác minh không đúng."], 201);
         }
 
         // Mark the user's email as verified
@@ -23,6 +24,7 @@ class VerificationController extends Controller
         // Optionally, delete the verification code record
         // $verification->delete(); // Delete the verification entry
 
-        return response()->json(["message" => "Xác minh email thành công!"], 201);
+        return response()->json(["message" => "Xác minh email thành công!", "redirect_url" => "/login"], 200);
+        // return redirect()->route('login')->with('status', 'Email verified successfully!');
     }
 }
