@@ -7,6 +7,10 @@ app = 'cyo'
 primary_region = 'hkg'
 console_command = 'php /var/www/html/artisan tinker'
 
+[deploy]
+  # Other deploy configurations...
+  postdeploy = "php artisan storage:link"
+
 [build]
   [build.args]
     NODE_VERSION = '18'
