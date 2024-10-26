@@ -32,8 +32,10 @@ class Handler extends ExceptionHandler
         if ($request->is('v1.0/*')) {
             // Check if the exception is a validation exception
             if ($exception instanceof \Illuminate\Validation\ValidationException) {
+                // Get the first error message
+                $firstErrorMessage = collect($exception->errors())->flatten()->first();
                 return response()->json([
-                    'message' => $exception->getMessage(),
+                    'message' => $firstErrorMessage,
                     'errors' => $exception->errors(), // This method exists only for ValidationException
                 ], $exception->status);
             }
