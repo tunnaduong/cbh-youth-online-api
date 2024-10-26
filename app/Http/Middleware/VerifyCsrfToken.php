@@ -13,6 +13,6 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         //
-        'http://cbh-youth-online-api.test/upload'
+        'v1.0/*'
     ];
 }
