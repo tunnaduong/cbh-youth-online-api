@@ -29,7 +29,6 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
     Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-        // Eager load the profile relationship
         $user = $request->user()->load('profile');
 
         return response()->json([
