@@ -8,6 +8,7 @@ use App\Models\TopicVote;
 use App\Models\UserContent;
 use App\Models\TopicComment;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use App\Models\UserSavedTopic;
 use App\Models\TopicCommentVote;
 use Illuminate\Support\Facades\Log;
@@ -228,5 +229,45 @@ class TopicsController extends Controller
         ]);
 
         return response()->json(['message' => 'Topic saved successfully.']);
+    }
+
+    public function destroyTopic($id)
+    {
+        $topic = Topic::findOrFail($id);
+        $topic->delete();
+
+        return response()->json(['message' => 'Topic deleted successfully.'], Response::HTTP_OK);
+    }
+
+    public function destroyTopicVote($id)
+    {
+        $vote = TopicVote::findOrFail($id);
+        $vote->delete();
+
+        return response()->json(['message' => 'Vote deleted successfully.'], Response::HTTP_OK);
+    }
+
+    public function destroySavedTopic($id)
+    {
+        $savedTopic = UserSavedTopic::findOrFail($id);
+        $savedTopic->delete();
+
+        return response()->json(['message' => 'Saved topic deleted successfully.'], Response::HTTP_OK);
+    }
+
+    public function destroyComment($id)
+    {
+        $comment = TopicComment::findOrFail($id);
+        $comment->delete();
+
+        return response()->json(['message' => 'Comment deleted successfully.'], Response::HTTP_OK);
+    }
+
+    public function destroyCommentVote($id)
+    {
+        $vote = TopicCommentVote::findOrFail($id);
+        $vote->delete();
+
+        return response()->json(['message' => 'Comment vote deleted successfully.'], Response::HTTP_OK);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\UserContent;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -79,5 +80,13 @@ class FileUploadController extends Controller
 
         // Optionally return the path or success response
         return response()->json(['path' => Storage::url($path)], 201);
+    }
+
+    public function destroy($id)
+    {
+        $content = UserContent::findOrFail($id);
+        $content->delete();
+
+        return response()->json(['message' => 'Content deleted successfully.'], Response::HTTP_OK);
     }
 }
