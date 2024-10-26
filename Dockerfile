@@ -66,7 +66,8 @@ RUN composer install --optimize-autoloader --no-dev \
     if [ -d .fly ]; then cp .fly/entrypoint.sh /entrypoint; chmod +x /entrypoint; fi;
 
 
-
+# Run the storage link command
+RUN php artisan storage:link
 
 # Multi-stage build: Build static assets
 # This allows us to not include Node within the final container

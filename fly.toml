@@ -7,46 +7,45 @@ app = 'cyo'
 primary_region = 'hkg'
 console_command = 'php /var/www/html/artisan tinker'
 
-[deploy]
-  # Other deploy configurations...
-  postdeploy = "php artisan storage:link"
-
 [build]
-  [build.args]
-    NODE_VERSION = '18'
-    PHP_VERSION = '8.1'
+[build.args]
+NODE_VERSION = '18'
+PHP_VERSION = '8.1'
+
+[deploy]
+release_command = "php artisan storage:link"
 
 [env]
-  APP_ENV = 'production'
-  LOG_CHANNEL = 'stderr'
-  LOG_LEVEL = 'info'
-  LOG_STDERR_FORMATTER = 'Monolog\Formatter\JsonFormatter'
-  SESSION_DRIVER = 'cookie'
-  SESSION_SECURE_COOKIE = 'true'
+APP_ENV = 'production'
+LOG_CHANNEL = 'stderr'
+LOG_LEVEL = 'info'
+LOG_STDERR_FORMATTER = 'Monolog\Formatter\JsonFormatter'
+SESSION_DRIVER = 'cookie'
+SESSION_SECURE_COOKIE = 'true'
 
 [[services]]
-  internal_port = 8080
-  protocol = "tcp"
-  
-  [[services.ports]]
-    handlers = ["http"]
-    port = 80
-    force_https = true
+internal_port = 8080
+protocol = "tcp"
 
-  [[services.ports]]
-    handlers = ["tls", "http"]
-    port = 443
+[[services.ports]]
+handlers = ["http"]
+port = 80
+force_https = true
 
-  [[services.http_checks]]
-    interval = 10000
-    grace_period = "5s"
-    method = "get"
-    path = "/"
-    protocol = "http"
-    timeout = 2000
-    tls_skip_verify = false
+[[services.ports]]
+handlers = ["tls", "http"]
+port = 443
+
+[[services.http_checks]]
+interval = 10000
+grace_period = "5s"
+method = "get"
+path = "/"
+protocol = "http"
+timeout = 2000
+tls_skip_verify = false
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
+memory = '1gb'
+cpu_kind = 'shared'
+cpus = 1
