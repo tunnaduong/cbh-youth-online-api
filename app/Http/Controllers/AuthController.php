@@ -21,8 +21,10 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // Find the user by their username
-        $user = AuthAccount::where('username', $request->username)->first();
+        // Retrieve the user by username or email
+        $user = AuthAccount::where('username', $request->username)
+            ->orWhere('email', $request->username)
+            ->first();
 
         // Check if user exists and the password matches
         if (!$user || !Hash::check($request->password, $user->password)) {
