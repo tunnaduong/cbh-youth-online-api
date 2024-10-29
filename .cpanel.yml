@@ -1,0 +1,22 @@
+---
+deployment:
+  tasks:
+    - export DEPLOY_PATH=/home/nhpenxsz/api.penguincafe.id.vn
+
+    # Pull the latest changes from the GitHub repo
+    - /bin/git --git-dir=$DEPLOY_PATH/.git --work-tree=$DEPLOY_PATH pull origin main
+
+    # Install/update Composer dependencies
+    - cd $DEPLOY_PATH && /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader
+
+    # Clear application cache
+    - cd $DEPLOY_PATH && /usr/local/bin/php artisan cache:clear
+    - cd $DEPLOY_PATH && /usr/local/bin/php artisan config:clear
+    - cd $DEPLOY_PATH && /usr/local/bin/php artisan route:clear
+    - cd $DEPLOY_PATH && /usr/local/bin/php artisan view:clear
+
+    # Create symbolic link for storage
+    - cd $DEPLOY_PATH && /usr/local/bin/php artisan storage:link
+
+    # Set the correct permissions for storage and bootstrap/cache directories
+    - /bin/chmod -R ug+rwx $DEPLOY_PATH/storage $DEPLOY_PATH/bootstrap/cache
