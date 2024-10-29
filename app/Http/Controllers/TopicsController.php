@@ -28,7 +28,7 @@ class TopicsController extends Controller
                 return [
                     'id' => $topic->id,
                     'title' => $topic->title,
-                    'content' => $topic->description,
+                    'content' => nl2br(e($topic->description)),
                     'author' => [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
