@@ -14,6 +14,9 @@
         "APP_ENV": "production",
         "APP_DEBUG": "true",
         "APP_URL": "https://cyo-api.vercel.app",
-        "APP_KEY": "base64:VkGbW2vvDjGdOFnnoMBkvI8Nz8wDzl179VBAZR5a1pc="
+        "APP_KEY": "base64:VkGbW2vvDjGdOFnnoMBkvI8Nz8wDzl179VBAZR5a1pc=",
+        "LOG_CHANNEL": "stderr",
+        "CACHE_DRIVER": "array",
+        "SESSION_DRIVER": "cookie"
     }
 }
