@@ -43,7 +43,7 @@ class Handler extends ExceptionHandler
             // For other types of exceptions, return a generic error message
             return response()->json([
                 'message' => $exception->getMessage(),
-            ], $this->isHttpException($exception) ? $exception->getCode() : 500);
+            ], $this->isHttpException($exception) ? $exception->getStatusCode() : 500);
         }
 
         return parent::render($request, $exception);

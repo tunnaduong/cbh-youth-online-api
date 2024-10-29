@@ -10,6 +10,7 @@ use App\Models\TopicComment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use App\Models\UserSavedTopic;
+use Illuminate\Support\Carbon;
 use App\Models\TopicCommentVote;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -19,30 +20,45 @@ class TopicsController extends Controller
     // GET /topics – Get list of topics
     public function index()
     {
-        // Fetch all topics along with their associated user details
-        $topics = Topic::with('user')->get();
+        // Fetch topics from the database
+        $topics = Topic::withCount(['views', 'votes', 'comments'])  // Fetch comments count for each topic
+            ->with('user')  // Assuming 'author' is a relation to the User model
+            ->get()
+            ->map(function ($topic) {
+                $totalVotes = $topic->votes->sum('vote_value');
 
-        // Transform the response to include required user details
-        $formattedTopics = $topics->map(function ($topic) {
-            return [
-                'id' => $topic->id,
-                'subforum_id' => $topic->subforum_id,
-                'user_id' => $topic->user_id,
-                'title' => $topic->title,
-                'description' => $topic->description,
-                'created_at' => $topic->created_at,
-                'updated_at' => $topic->updated_at,
-                'author' => [
-                    'id' => $topic->user->id,
-                    'username' => $topic->user->username,
-                    'email' => $topic->user->email,
-                    'profile_name' => $topic->user->profile->profile_name ?? null, // Include profile_name
-                ],
-            ];
-        });
+                return [
+                    'id' => $topic->id,
+                    'title' => $topic->title,
+                    'content' => $topic->description,
+                    'author' => [
+                        'id' => $topic->user->id,
+                        'username' => $topic->user->username,
+                        'email' => $topic->user->email,
+                        'profile_name' => $topic->user->profile->profile_name ?? null,
+                    ],
+                    'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
+                    'comments' => $this->roundToNearestFive($topic->comments_count) . '+', // Comment count in '05+' format
+                    'views' => $topic->views_count, // Fallback to 0 if 'views' is null
+                    'votes' => $totalVotes, // Fallback to 0 if 'votes' is null
+                ];
+            });
 
-        return response()->json($formattedTopics);
+        // Return the topics as a JSON response
+        return response()->json($topics);
     }
+
+    private function roundToNearestFive($count)
+    {
+        if ($count <= 5) {
+            // If count is less than or equal to 5, format it with leading zero
+            return str_pad($count, 2, '0', STR_PAD_LEFT);
+        } else {
+            // Round down to the nearest multiple of 5 and pad to 2 digits
+            return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
+        }
+    }
+
 
     // POST /topics – Create a new topic
     public function store(Request $request)
