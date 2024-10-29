@@ -44,7 +44,14 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'username' => 'required|string|unique:cyo_auth_accounts',
+            'username' =>  [
+                'required',
+                'string',
+                'min:3', // Minimum length
+                'max:20', // Maximum length
+                'regex:/^[a-zA-Z0-9_]+$/', // No whitespace, no Unicode characters, only alphanumeric and underscore
+                'unique:cyo_auth_accounts,username', // Ensure the username is unique in the users table
+            ],
             'password' => 'required|string|min:6',
             'email' => 'required|email|unique:cyo_auth_accounts',
             'name' => 'required|string|max:255',
