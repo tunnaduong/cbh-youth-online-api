@@ -42,7 +42,7 @@ class TopicsController extends Controller
                 ];
             });
 
-        // Return the topics as a JSON response
+        // Return the topics as a JSON response test
         return response()->json($topics);
     }
 
