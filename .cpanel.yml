@@ -6,7 +6,7 @@ deployment:
     # Pull the latest changes from the GitHub repo
     - /bin/git --git-dir=$DEPLOY_PATH/.git --work-tree=$DEPLOY_PATH pull origin main
 
-    # Install/update Composer dependencies
+    # Install/update Composer dependencies test
     - cd $DEPLOY_PATH && /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader
 
     # Clear application cache
