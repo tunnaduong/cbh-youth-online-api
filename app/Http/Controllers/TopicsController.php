@@ -21,12 +21,10 @@ class TopicsController extends Controller
     public function index()
     {
         // Fetch topics from the database
-        $topics = Topic::withCount(['views', 'votes', 'comments'])  // Fetch comments count for each topic
+        $topics = Topic::withCount(['views', 'comments'])  // Fetch comments count for each topic
             ->with('user')  // Assuming 'author' is a relation to the User model
             ->get()
             ->map(function ($topic) {
-                $totalVotes = $topic->votes->sum('vote_value');
-
                 return [
                     'id' => $topic->id,
                     'title' => $topic->title,
@@ -40,7 +38,7 @@ class TopicsController extends Controller
                     'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
                     'comments' => $this->roundToNearestFive($topic->comments_count) . '+', // Comment count in '05+' format
                     'views' => $topic->views_count, // Fallback to 0 if 'views' is null
-                    'votes' => $totalVotes, // Fallback to 0 if 'votes' is null
+                    'votes' => $topic->votes ?? 0, // Fallback to 0 if 'votes' is null
                 ];
             });
 
