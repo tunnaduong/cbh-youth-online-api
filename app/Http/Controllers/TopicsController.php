@@ -21,8 +21,9 @@ class TopicsController extends Controller
     public function index()
     {
         // Fetch topics from the database
-        $topics = Topic::withCount(['views', 'comments'])  // Fetch comments count for each topic
-            ->with('user')  // Assuming 'author' is a relation to the User model
+        $topics = Topic::withCount(['views', 'comments'])
+            ->orderBy('created_at', 'desc')
+            ->with('user')
             ->get()
             ->map(function ($topic) {
                 return [
