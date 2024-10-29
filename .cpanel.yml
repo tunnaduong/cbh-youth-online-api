@@ -2,16 +2,11 @@
 deployment:
   tasks:
     - export DEPLOY_PATH=/home/nhpenxsz/api.penguincafe.id.vn
-
-    - /bin/git --git-dir=$DEPLOY_PATH/.git --work-tree=$DEPLOY_PATH pull origin main
-
+    - /bin/cp -r * $DEPLOYPATH
     - cd $DEPLOY_PATH && /opt/cpanel/composer/bin/composer install --no-dev --optimize-autoloader
-
     - cd $DEPLOY_PATH && /usr/local/bin/php artisan cache:clear
     - cd $DEPLOY_PATH && /usr/local/bin/php artisan config:clear
     - cd $DEPLOY_PATH && /usr/local/bin/php artisan route:clear
     - cd $DEPLOY_PATH && /usr/local/bin/php artisan view:clear
-
     - cd $DEPLOY_PATH && /usr/local/bin/php artisan storage:link
-
     - /bin/chmod -R ug+rwx $DEPLOY_PATH/storage $DEPLOY_PATH/bootstrap/cache
