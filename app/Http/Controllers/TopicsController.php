@@ -133,7 +133,7 @@ class TopicsController extends Controller
     public function registerVote(Request $request, $topicId)
     {
         $request->validate([
-            'vote_value' => 'required|integer|in:1,-1', // true for upvote, false for downvote
+            'vote_value' => 'required|integer|in:1,-1,0', // true for upvote, false for downvote
         ]);
 
         // Retrieve the authenticated user
