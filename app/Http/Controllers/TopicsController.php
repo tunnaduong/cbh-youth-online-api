@@ -12,6 +12,7 @@ use Illuminate\Http\Response;
 use App\Models\UserSavedTopic;
 use Illuminate\Support\Carbon;
 use App\Models\TopicCommentVote;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
@@ -250,9 +251,35 @@ class TopicsController extends Controller
     public function getSavedTopics()
     {
         // Assuming UserSavedTopic is the model for cyo_user_saved_topics
-        $savedTopics = UserSavedTopic::with('topic') // Load related topic if you have a relationship defined
-            ->where('user_id', Auth::id())
-            ->get();
+        $savedTopics = UserSavedTopic::where('user_id', Auth::id()) // Adjust to get the correct user
+            ->with(['topic.user.profile']) // Eager load the topic's user and profile
+            ->get()
+            ->map(function ($savedTopic) {
+                return [
+                    'id' => $savedTopic->id,
+                    'user_id' => $savedTopic->user_id,
+                    'topic_id' => $savedTopic->topic_id,
+                    'created_at' => $savedTopic->created_at,
+                    'updated_at' => $savedTopic->updated_at,
+                    'topic' => [
+                        'id' => $savedTopic->topic->id,
+                        'subforum_id' => $savedTopic->topic->subforum_id,
+                        'user_id' => $savedTopic->topic->user->id,
+                        'title' => $savedTopic->topic->title,
+                        'description' => $savedTopic->topic->description,
+                        'created_at' => $savedTopic->topic->created_at,
+                        'updated_at' => $savedTopic->topic->updated_at,
+                        'pinned' => $savedTopic->topic->pinned,
+                        'image_url' => $savedTopic->topic->image_url,
+                        'author' => [
+                            'id' => $savedTopic->topic->user->id,
+                            'username' => $savedTopic->topic->user->username,
+                            'email' => $savedTopic->topic->user->email,
+                            'profile_name' => $savedTopic->topic->user->profile->profile_name ?? null, // Using profile relation
+                        ],
+                    ]
+                ];
+            });
 
         return response()->json($savedTopics);
     }
@@ -264,6 +291,18 @@ class TopicsController extends Controller
         ]);
 
         $userId = auth()->id(); // Get authenticated user ID
+
+        // Check if the user has already saved the topic
+        $exists = DB::table('cyo_user_saved_topics')
+            ->where('topic_id', $request->topic_id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($exists) {
+            // If the record exists, return a message or take appropriate action
+            return response()->json(['message' => 'This topic is already saved by the user.'], 409); // 409 Conflict
+        }
+
 
         UserSavedTopic::create([
             'user_id' => $userId,
@@ -289,12 +328,24 @@ class TopicsController extends Controller
         return response()->json(['message' => 'Vote deleted successfully.'], Response::HTTP_OK);
     }
 
-    public function destroySavedTopic($id)
+    public function destroySavedTopic($topicId, Request $request)
     {
-        $savedTopic = UserSavedTopic::findOrFail($id);
+        // Optionally, validate the user is authenticated
+        $userId = $request->user()->id; // Get the authenticated user's ID
+
+        // Find the saved topic by topic_id and user_id
+        $savedTopic = UserSavedTopic::where('topic_id', $topicId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$savedTopic) {
+            return response()->json(['message' => 'Saved topic not found'], 404);
+        }
+
+        // Delete the saved topic
         $savedTopic->delete();
 
-        return response()->json(['message' => 'Saved topic deleted successfully.'], Response::HTTP_OK);
+        return response()->json(['message' => 'Saved topic deleted successfully'], 200);
     }
 
     public function destroyComment($id)
