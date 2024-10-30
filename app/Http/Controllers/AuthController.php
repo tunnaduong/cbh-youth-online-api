@@ -24,7 +24,7 @@ class AuthController extends Controller
         // Retrieve the user by username or email
         $user = AuthAccount::where('username', $request->username)
             ->orWhere('email', $request->username)
-            ->first();
+            ->first()->load('profile');
 
         // Check if user exists and the password matches
         if (!$user || !Hash::check($request->password, $user->password)) {
@@ -35,7 +35,15 @@ class AuthController extends Controller
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'profile_name' => $user->profile->profile_name ?? null, // Include profile_name
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+                'email_verified_at' => $user->email_verified_at
+            ],
             'token' => $token,
         ]);
     }
