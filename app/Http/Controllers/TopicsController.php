@@ -23,7 +23,7 @@ class TopicsController extends Controller
         // Fetch topics from the database
         $topics = Topic::withCount(['views', 'comments'])
             ->orderBy('created_at', 'desc')
-            ->with('user')
+            ->with(['user', 'votes.user'])
             ->get()
             ->map(function ($topic) {
                 return [
@@ -39,7 +39,14 @@ class TopicsController extends Controller
                     'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
                     'comments' => $this->roundToNearestFive($topic->comments_count) . '+', // Comment count in '05+' format
                     'views' => $topic->views_count, // Fallback to 0 if 'views' is null
-                    'votes' => $topic->votes ?? 0, // Fallback to 0 if 'votes' is null
+                    'votes' => $topic->votes->map(function ($vote) {
+                        return [
+                            'username' => $vote->user->username, // Assuming votes relation includes the user
+                            'vote_value' => $vote->vote_value,
+                            'created_at' => $vote->created_at->toISOString(),
+                            'updated_at' => $vote->updated_at->toISOString(),
+                        ];
+                    }),
                 ];
             });
 
