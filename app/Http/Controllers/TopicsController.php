@@ -18,15 +18,15 @@ use Illuminate\Support\Facades\Auth;
 class TopicsController extends Controller
 {
     // GET /topics – Get list of topics
-    public function index()
+    public function index(Request $request)
     {
         // Fetch topics from the database
         $topics = Topic::withCount(['views', 'comments'])
             ->orderBy('created_at', 'desc')
             ->with(['user', 'votes.user'])
             ->get()
-            ->map(function ($topic) {
-                return [
+            ->map(function ($topic) use ($request) {
+                $topicData = [
                     'id' => $topic->id,
                     'title' => $topic->title,
                     'content' => nl2br(e($topic->description)),
@@ -47,7 +47,17 @@ class TopicsController extends Controller
                             'updated_at' => $vote->updated_at->toISOString(),
                         ];
                     }),
+                    // 'saved' => $topic->isSavedByUser(Auth::id()),
                 ];
+
+                // Check if the user is authenticated
+                if ($request->user()) {
+                    $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
+                } else {
+                    $topicData['saved'] = false;
+                }
+
+                return $topicData;
             });
 
         // Return the topics as a JSON response test

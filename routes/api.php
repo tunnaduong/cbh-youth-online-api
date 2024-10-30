@@ -23,6 +23,8 @@ use App\Http\Controllers\UserController;
 
 // Change the prefix to v1.0
 Route::prefix('v1.0')->group(function () {
+    Route::middleware('optional.auth')->get('/topics', [TopicsController::class, 'index']); // Allow both authenticated and unauthenticated access
+
     Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
     Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 
@@ -52,8 +54,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/forum/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
     Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
 
-    Route::get('/topics', [TopicsController::class, 'index']); // Get list of topics
-    Route::post('/topics', [TopicsController::class, 'store']); // Create a new topic
+    // Route::get('/topics', [TopicsController::class, 'index']); // Get list of topics
 
     Route::get('/topics/{id}/views', [TopicsController::class, 'getViews']);
     Route::get('/topics/{id}/votes', [TopicsController::class, 'getVotes']);

@@ -2,8 +2,9 @@
 
 namespace App\Exceptions;
 
-use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 
 class Handler extends ExceptionHandler
 {
@@ -38,6 +39,11 @@ class Handler extends ExceptionHandler
                     'message' => $firstErrorMessage,
                     'errors' => $exception->errors(), // This method exists only for ValidationException
                 ], $exception->status);
+            }
+
+            // Check if the exception is an AuthenticationException
+            if ($exception instanceof AuthenticationException) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
             }
 
             // For other types of exceptions, return a generic error message

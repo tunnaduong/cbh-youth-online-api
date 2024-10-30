@@ -51,4 +51,18 @@ class Topic extends Model
     {
         return $this->belongsTo(ForumSubforum::class); // Định nghĩa quan hệ với Subforum
     }
+
+    // In your Topic model
+    public function isSavedByUser($userId)
+    {
+        // Assuming you have a saved_topics table or similar
+        return $this->savedTopics()->where('user_id', $userId)->exists();
+    }
+
+    public function savedTopics()
+    {
+        // Adjust the relationship to match your database structure
+        return $this->belongsToMany(AuthAccount::class, 'cyo_user_saved_topics', 'topic_id', 'user_id');
+        // Make sure to specify the local key and foreign key if they differ from default naming conventions
+    }
 }
