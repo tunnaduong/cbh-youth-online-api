@@ -105,7 +105,27 @@ class TopicsController extends Controller
             'image_url' => $imageUrl,
         ]);
 
-        return response()->json($topic, 201);
+        // Load the user profile to get profile_name
+        $author = $topic->user()->with('profile')->first();
+
+
+
+        return response()->json([
+            'id' => $topic->id,
+            'title' => $topic->title,
+            'content' => $topic->description,
+            'author' => [
+                'id' => $author->id,
+                'username' => $author->username,
+                'email' => $author->email,
+                'profile_name' => $author->profile->profile_name ?? null, // Ensure profile_name is included
+            ],
+            'time' => Carbon::parse($topic->created_at)->diffForHumans(), // You can dynamically calculate the time difference if needed
+            'comments' => '00+', // Adjust this based on actual comment count if necessary
+            'views' => 0, // Initialize view count as 0 or load actual views
+            'votes' => [], // Initialize empty votes array or load actual votes
+            'saved' => false, // Default to false or check if the user has saved the topic
+        ], 201);
     }
 
     // Get views for a topic
