@@ -136,7 +136,10 @@ class TopicsController extends Controller
             'vote_value' => 'required|integer|in:1,-1', // true for upvote, false for downvote
         ]);
 
-        TopicVote::updateOrCreate(
+        // Retrieve the authenticated user
+        $user = Auth::user();
+
+        $vote = TopicVote::updateOrCreate(
             [
                 'topic_id' => $topicId,
                 'user_id' => auth()->id(),
@@ -146,7 +149,14 @@ class TopicsController extends Controller
             ]
         );
 
-        return response()->json(['message' => 'Vote registered'], 201);
+        // Return a custom response
+        return response()->json([
+            'message' => 'Vote registered',
+            'vote' => [
+                'vote_value' => $vote->vote_value,
+                'username' => $user->username
+            ]
+        ]);
     }
 
     // Get comments for a topic
