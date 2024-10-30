@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Topic extends Model
 {
@@ -52,10 +53,8 @@ class Topic extends Model
         return $this->belongsTo(ForumSubforum::class); // Định nghĩa quan hệ với Subforum
     }
 
-    // In your Topic model
     public function isSavedByUser($userId)
     {
-        // Assuming you have a saved_topics table or similar
         return $this->savedTopics()->where('user_id', $userId)->exists();
     }
 
