@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xác Minh Email</title>
+    <title>Reset Password</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -46,19 +46,14 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Xác minh địa chỉ email</h1>
+            <h1>Thiết lập lại mật khẩu</h1>
         </div>
-        <p>Xin chào, {{ $account->username }}!</p>
-        <p>Cảm ơn bạn đã đăng ký tài khoản trên CBH Youth Online. Vui lòng nhấp vào liên kết bên dưới để xác minh địa
-            chỉ
-            email của bạn:</p>
-        <a href="{{ env('APP_UI_URL', 'http://localhost:3000') . '/email/verify/' . $verificationCode }}">Xác minh địa
-            chỉ
-            email</a>
-        <p>Nếu bạn không tạo tài khoản này, bạn không cần thực hiện thêm bất kỳ hành động nào.</p>
+        <p>Xin chào,</p>
+        <p>Bạn vừa yêu cầu thiết lập lại mật khẩu. Nhấn vào nút bên dưới để thiết lập lại mật khẩu của bạn:</p>
+        <a href="{{ $url }}">Thiết lập lại mật khẩu</a>
+        <p>Nếu bạn không yêu cầu thiết lập lại mật khẩu, hãy bỏ qua email này.</p>
         <div class="footer">
-            <p>Trân trọng,</p>
-            <p>Đội ngũ CBH Youth Online</p>
+            <p>Trân trọng,<br>Đội ngũ CBH Youth Online</p>
         </div>
     </div>
 </body>

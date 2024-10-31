@@ -9,6 +9,7 @@ use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VerificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,9 +24,17 @@ use App\Http\Controllers\UserController;
 
 // Change the prefix to v1.0
 Route::prefix('v1.0')->group(function () {
+    Route::get('/password/reset/{token}', [ForgotPasswordController::class, 'sendResetLinkResponse'])->name('password.reset');
+
+
+    Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify'])->name('verification.verify');
+
+    Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
+
+
     Route::middleware('optional.auth')->get('/topics', [TopicsController::class, 'index']); // Allow both authenticated and unauthenticated access
 
-    Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
+    Route::get('/users/{username}/avatar', [UserController::class, 'getAvatar']);
     Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 
     Route::post('/register', [AuthController::class, 'register']);

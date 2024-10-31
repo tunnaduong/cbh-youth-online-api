@@ -24,12 +24,15 @@ class AuthController extends Controller
         // Retrieve the user by username or email
         $user = AuthAccount::where('username', $request->username)
             ->orWhere('email', $request->username)
-            ->first()->load('profile');
+            ->first();
 
         // Check if user exists and the password matches
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Tên tài khoản hoặc mật khảu sai!'], 401);
         }
+
+        // Load the 'profile' relationship if the user exists
+        $user->load('profile');
 
         // Generate an API token (assuming you're using Laravel Sanctum for token-based authentication)
         $token = $user->createToken('api-token')->plainTextToken;
@@ -39,7 +42,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'username' => $user->username,
                 'email' => $user->email,
-                'profile_name' => $user->profile->profile_name ?? null, // Include profile_name
+                'profile_name' => $user->profile->profile_name ?? null, // Include profile_name if it exists
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
                 'email_verified_at' => $user->email_verified_at
@@ -47,6 +50,7 @@ class AuthController extends Controller
             'token' => $token,
         ]);
     }
+
 
 
     public function register(Request $request)
@@ -91,11 +95,24 @@ class AuthController extends Controller
         // Send the verification email
         Mail::to($account->email)->send(new VerifyEmail($account, $verificationCode->verification_code));
 
+        // Retrieve the user by username or email
+        $user = AuthAccount::where('username', $request->username)
+            ->orWhere('email', $request->username)
+            ->first()->load('profile');
+
         // Return a success response with the token
         return response()->json([
             'message' => 'Đăng ký thành công! Vui lòng kiểm tra email.',
             'token' => $token,
-            'user' => $account,
+            'user' => [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'profile_name' => $user->profile->profile_name ?? null, // Include profile_name if it exists
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+                'email_verified_at' => $user->email_verified_at
+            ],
         ], 201);
     }
 
