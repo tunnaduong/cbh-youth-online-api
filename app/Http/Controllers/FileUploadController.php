@@ -12,6 +12,21 @@ use Illuminate\Support\Facades\Validator;
 
 class FileUploadController extends Controller
 {
+    public function show($id)
+    {
+        // Fetch the user content based on the provided ID
+        $content = UserContent::find($id);
+
+        // Check if the content exists and belongs to the authenticated user
+        if (!$content) {
+            return response()->json(['error' => 'Content not found'], 404);
+        }
+
+        // Return the content
+        return response()->json($content, 200);
+    }
+
+
     // Method to handle file upload
     public function upload(Request $request)
     {

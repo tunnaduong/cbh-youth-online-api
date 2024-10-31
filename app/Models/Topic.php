@@ -19,7 +19,7 @@ class Topic extends Model
         'title',
         'description',
         'pinned',
-        'image_url',
+        'cdn_image_id', // Thêm cdn_image_id vào đây
     ];
 
     // Define the relationship: A topic belongs to a user
@@ -63,5 +63,11 @@ class Topic extends Model
         // Adjust the relationship to match your database structure
         return $this->belongsToMany(AuthAccount::class, 'cyo_user_saved_topics', 'topic_id', 'user_id');
         // Make sure to specify the local key and foreign key if they differ from default naming conventions
+    }
+
+    // Define the relationship with UserContent
+    public function cdnUserContent()
+    {
+        return $this->belongsTo(UserContent::class, 'cdn_image_id');
     }
 }

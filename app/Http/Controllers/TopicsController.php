@@ -15,6 +15,7 @@ use App\Models\TopicCommentVote;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class TopicsController extends Controller
 {
@@ -24,14 +25,14 @@ class TopicsController extends Controller
         // Fetch topics from the database
         $topics = Topic::withCount(['views', 'comments'])
             ->orderBy('created_at', 'desc')
-            ->with(['user', 'votes.user'])
+            ->with(['user', 'votes.user', 'cdnUserContent'])
             ->get()
             ->map(function ($topic) use ($request) {
                 $topicData = [
                     'id' => $topic->id,
                     'title' => $topic->title,
                     'content' => nl2br(e($topic->description)),
-                    'image_url' => $topic->image_url,
+                    'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
                     'author' => [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
@@ -49,7 +50,6 @@ class TopicsController extends Controller
                             'updated_at' => $vote->updated_at->toISOString(),
                         ];
                     }),
-                    // 'saved' => $topic->isSavedByUser(Auth::id()),
                 ];
 
                 // Check if the user is authenticated
@@ -86,24 +86,15 @@ class TopicsController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
-            'user_content_id' => 'nullable|exists:cyo_cdn_user_content,id',
+            'cdn_image_id' => 'nullable|exists:cyo_cdn_user_content,id',
         ]);
-
-        // Fetch the image URL if user_content_id is provided
-        $imageUrl = null;
-        if (isset($request->user_content_id)) {
-            $userContent = UserContent::find($request->user_content_id);
-            if ($userContent) {
-                $imageUrl = $userContent->file_path; // Assuming file_path contains the URL
-            }
-        }
 
         $topic = Topic::create([
             'user_id' => auth()->id(),
             'title' => $request->title,
             'description' => $request->description,
             'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
-            'image_url' => $imageUrl,
+            'cdn_image_id' => $request->cdn_image_id,
         ]);
 
         // Load the user profile to get profile_name
@@ -115,7 +106,7 @@ class TopicsController extends Controller
             'id' => $topic->id,
             'title' => $topic->title,
             'content' => nl2br(e($topic->description)),
-            'image_url' => $topic->image_url,
+            'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
             'author' => [
                 'id' => $author->id,
                 'username' => $author->username,

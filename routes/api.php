@@ -63,6 +63,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/forum/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
     Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
 
+    Route::get('/user-content/{id}', [FileUploadController::class, 'show']);
     // Route::get('/topics', [TopicsController::class, 'index']); // Get list of topics
 
     Route::get('/topics/{id}/views', [TopicsController::class, 'getViews']);
