@@ -113,7 +113,7 @@ class TopicsController extends Controller
         return response()->json([
             'id' => $topic->id,
             'title' => $topic->title,
-            'content' => $topic->description,
+            'content' => nl2br(e($topic->description)),
             'author' => [
                 'id' => $author->id,
                 'username' => $author->username,
