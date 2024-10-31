@@ -15,8 +15,6 @@ class FileUploadController extends Controller
     // Method to handle file upload
     public function upload(Request $request)
     {
-        Log::info($request->all());
-
         // Validate the file input
         $request->validate([
             'file' => 'required|file|max:20480', // Adjust the max size as needed
@@ -76,10 +74,10 @@ class FileUploadController extends Controller
             'file_size' => $fileSize,
         ];
 
-        UserContent::create($data);
+        $userContent = UserContent::create($data);
 
         // Optionally return the path or success response
-        return response()->json(['path' => Storage::url($path)], 201);
+        return response()->json(['id' => $userContent->id, 'path' => Storage::url($path)], 201);
     }
 
     public function destroy($id)
