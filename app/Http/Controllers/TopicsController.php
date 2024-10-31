@@ -31,6 +31,7 @@ class TopicsController extends Controller
                     'id' => $topic->id,
                     'title' => $topic->title,
                     'content' => nl2br(e($topic->description)),
+                    'image_url' => $topic->image_url,
                     'author' => [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
@@ -114,6 +115,7 @@ class TopicsController extends Controller
             'id' => $topic->id,
             'title' => $topic->title,
             'content' => nl2br(e($topic->description)),
+            'image_url' => $topic->image_url,
             'author' => [
                 'id' => $author->id,
                 'username' => $author->username,

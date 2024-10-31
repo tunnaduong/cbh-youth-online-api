@@ -77,7 +77,7 @@ class FileUploadController extends Controller
         $userContent = UserContent::create($data);
 
         // Optionally return the path or success response
-        return response()->json(['id' => $userContent->id, 'path' => Storage::url($path)], 201);
+        return response()->json(['message' => 'Upload ảnh thành công!', 'id' => $userContent->id, 'path' => Storage::url($path)], 201);
     }
 
     public function destroy($id)
