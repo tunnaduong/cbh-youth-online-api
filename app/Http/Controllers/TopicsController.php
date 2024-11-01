@@ -88,7 +88,7 @@ class TopicsController extends Controller
         }
 
         // Load comments with their respective votes and voter usernames
-        $comments = $topic->comments()->with(['user.profile', 'votes.user'])
+        $comments = $topic->comments()->orderBy('created_at', 'desc')->with(['user.profile', 'votes.user'])
             ->get()
             ->map(function ($comment) {
                 return [
@@ -248,7 +248,7 @@ class TopicsController extends Controller
     public function getComments($topicId)
     {
         $comments = TopicComment::with(['user', 'user.profile'])
-            ->where('topic_id', $topicId)
+            ->where('topic_id', $topicId)->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($comment) {
                 return [
@@ -282,7 +282,20 @@ class TopicsController extends Controller
             'comment' => $request->comment,
         ]);
 
-        return response()->json($comment, 201);
+        // Load the comment's author profile details
+        $author = $comment->user()->with('profile')->first();
+
+        return response()->json([
+            'id' => $comment->id,
+            'content' => $comment->comment,
+            'author' => [
+                'id' => $author->id,
+                'username' => $author->username,
+                'profile_name' => $author->profile->profile_name ?? null,
+            ],
+            'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
+            'votes' => [], // Initialize an empty array for votes
+        ], 201); // Created status
     }
 
     // Vote on a comment
