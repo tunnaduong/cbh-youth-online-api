@@ -31,7 +31,7 @@ class ForgotPasswordController extends Controller
         $user = \App\Models\User::where('email', $request->email)->first();
 
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'User not found.'], 404); // Not Found
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy tài khoản với email này.'], 404); // Not Found
         }
 
         // Generate the reset token
@@ -43,7 +43,7 @@ class ForgotPasswordController extends Controller
         // Optionally, you can also save the token in the password resets table, but Laravel handles this automatically if you are using the broker.
         Password::broker()->sendResetLink($request->only('email')); // Optional if you want to keep the built-in behavior
 
-        return response()->json(['status' => 'success', 'message' => 'Reset password email sent.']);
+        return response()->json(['status' => 'success', 'message' => 'Email reset mật khẩu đã được gửi.']);
     }
 
     /**
