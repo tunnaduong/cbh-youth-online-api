@@ -77,6 +77,55 @@ class TopicsController extends Controller
         }
     }
 
+    public function show($id)
+    {
+        // Find the topic with related data or return a 404 error if not found
+        $topic = Topic::with(['user.profile', 'votes.user', 'comments.user.profile', 'views', 'cdnUserContent'])
+            ->find($id);
+
+        if (!$topic) {
+            return response()->json(['message' => 'Topic not found.'], 404); // Not Found
+        }
+
+        // Map the topic details into the response format
+        $topicData = [
+            'id' => $topic->id,
+            'title' => $topic->title,
+            'content' => nl2br(e($topic->description)),
+            'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null, // Assuming the relationship is named 'cdnImage'
+            'author' => [
+                'id' => $topic->user->id,
+                'username' => $topic->user->username,
+                'email' => $topic->user->email,
+                'profile_name' => $topic->user->profile->profile_name ?? null,
+            ],
+            'time' => Carbon::parse($topic->created_at)->diffForHumans(),
+            'comments_count' => $topic->comments->count(),
+            'views_count' => $topic->views->count(),
+            'votes' => $topic->votes->map(function ($vote) {
+                return [
+                    'username' => $vote->user->username,
+                    'vote_value' => $vote->vote_value,
+                    'created_at' => $vote->created_at->toISOString(),
+                    'updated_at' => $vote->updated_at->toISOString(),
+                ];
+            }),
+            'comments' => $topic->comments->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'content' => nl2br(e($comment->comment)),
+                    'author' => [
+                        'id' => $comment->user->id,
+                        'username' => $comment->user->username,
+                        'profile_name' => $comment->user->profile->profile_name ?? null,
+                    ],
+                    'created_at' => $comment->created_at->diffForHumans(),
+                ];
+            }),
+        ];
+
+        return response()->json($topicData);
+    }
 
     // POST /topics – Create a new topic
     public function store(Request $request)
