@@ -84,8 +84,31 @@ class TopicsController extends Controller
             ->find($id);
 
         if (!$topic) {
-            return response()->json(['message' => 'Topic not found.'], 404); // Not Found
+            return response()->json(['message' => 'Không tìm thấy bài viết.'], 404); // Not Found
         }
+
+        // Load comments with their respective votes and voter usernames
+        $comments = $topic->comments()->with(['user.profile', 'votes.user'])
+            ->get()
+            ->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'content' => $comment->comment,
+                    'author' => [
+                        'id' => $comment->user->id,
+                        'username' => $comment->user->username,
+                        'profile_name' => $comment->user->profile->profile_name ?? null,
+                    ],
+                    'created_at' => $comment->created_at->diffForHumans(),
+                    'votes' => $comment->votes->map(function ($vote) {
+                        return [
+                            'user_id' => $vote->user_id,
+                            'username' => $vote->user->username, // Include the voter's username
+                            'vote_value' => $vote->vote_value,   // Assuming 1 for upvote, -1 for downvote
+                        ];
+                    }),
+                ];
+            });
 
         // Map the topic details into the response format
         $topicData = [
@@ -110,18 +133,7 @@ class TopicsController extends Controller
                     'updated_at' => $vote->updated_at->toISOString(),
                 ];
             }),
-            'comments' => $topic->comments->map(function ($comment) {
-                return [
-                    'id' => $comment->id,
-                    'content' => nl2br(e($comment->comment)),
-                    'author' => [
-                        'id' => $comment->user->id,
-                        'username' => $comment->user->username,
-                        'profile_name' => $comment->user->profile->profile_name ?? null,
-                    ],
-                    'created_at' => $comment->created_at->diffForHumans(),
-                ];
-            }),
+            'comments' => $comments,
         ];
 
         return response()->json($topicData);
