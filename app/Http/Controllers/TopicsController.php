@@ -77,7 +77,7 @@ class TopicsController extends Controller
         }
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         // Find the topic with related data or return a 404 error if not found
         $topic = Topic::with(['user.profile', 'votes.user', 'comments.user.profile', 'views', 'cdnUserContent'])
@@ -135,6 +135,13 @@ class TopicsController extends Controller
             }),
             'comments' => $comments,
         ];
+
+        // Check if the user is authenticated
+        if ($request->user()) {
+            $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
+        } else {
+            $topicData['saved'] = false;
+        }
 
         return response()->json($topicData);
     }

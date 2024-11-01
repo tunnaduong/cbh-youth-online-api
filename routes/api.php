@@ -31,8 +31,11 @@ Route::prefix('v1.0')->group(function () {
 
     Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
 
-
-    Route::middleware('optional.auth')->get('/topics', [TopicsController::class, 'index']); // Allow both authenticated and unauthenticated access
+    // Optional authentication middleware
+    Route::middleware('optional.auth')->group(function () {
+        Route::get('/topics', [TopicsController::class, 'index']); // Allow both authenticated and unauthenticated access
+        Route::get('/topics/{id}', [TopicsController::class, 'show']);
+    });
 
     Route::get('/users/{username}/avatar', [UserController::class, 'getAvatar']);
     Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
@@ -66,7 +69,6 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/user-content/{id}', [FileUploadController::class, 'show']);
     // Route::get('/topics', [TopicsController::class, 'index']); // Get list of topics
 
-    Route::get('/topics/{id}', [TopicsController::class, 'show']);
     Route::get('/topics/{id}/views', [TopicsController::class, 'getViews']);
     Route::get('/topics/{id}/votes', [TopicsController::class, 'getVotes']);
     Route::get('/topics/{id}/comments', [TopicsController::class, 'getComments']);
