@@ -54,7 +54,7 @@ class ForgotPasswordController extends Controller
         // Validate the request
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
-            'password' => 'required|confirmed|min:8',
+            'password' => 'required|confirmed|min:6',
             'token' => 'required',
         ]);
 
@@ -69,7 +69,7 @@ class ForgotPasswordController extends Controller
         $user = \App\Models\User::where('email', $request->email)->first();
 
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'User not found.'], 404); // Not Found
+            return response()->json(['status' => 'error', 'message' => 'Không tìm thấy người dùng.'], 404); // Not Found
         }
 
         // Reset the password
@@ -83,9 +83,9 @@ class ForgotPasswordController extends Controller
 
         // Check for success or failure
         if ($response == Password::PASSWORD_RESET) {
-            return response()->json(['status' => 'success', 'message' => 'Password has been reset successfully.']);
+            return response()->json(['status' => 'success', 'message' => 'Mật khẩu đã được reset thành công.']);
         }
 
-        return response()->json(['status' => 'error', 'message' => 'Unable to reset password.'], 500); // Internal Server Error
+        return response()->json(['status' => 'error', 'message' => 'Không thể reset mật khẩu.'], 500); // Internal Server Error
     }
 }

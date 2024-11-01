@@ -24,7 +24,7 @@ use App\Http\Controllers\VerificationController;
 
 // Change the prefix to v1.0
 Route::prefix('v1.0')->group(function () {
-    Route::get('/password/reset/{token}', [ForgotPasswordController::class, 'sendResetLinkResponse'])->name('password.reset');
+    Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset'])->name('password.reset');
 
 
     Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify'])->name('verification.verify');
