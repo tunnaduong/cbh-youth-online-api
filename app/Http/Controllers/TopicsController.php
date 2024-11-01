@@ -100,7 +100,7 @@ class TopicsController extends Controller
                 'profile_name' => $topic->user->profile->profile_name ?? null,
             ],
             'time' => Carbon::parse($topic->created_at)->diffForHumans(),
-            'comments_count' => $topic->comments->count(),
+            'comments_count' => $this->roundToNearestFive($topic->comments_count) . '+',
             'views_count' => $topic->views->count(),
             'votes' => $topic->votes->map(function ($vote) {
                 return [
