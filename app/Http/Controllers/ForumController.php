@@ -12,8 +12,45 @@ class ForumController extends Controller
     // Get all main categories
     public function getCategories()
     {
-        return ForumMainCategory::with('subforums')->get();
+        $categories = ForumMainCategory::with(['subforums' => function ($query) {
+            // Eager load post count and latest topic for each subforum
+            $query->withCount('topics')
+                ->with('latestTopic'); // Use the new relationship here
+        }])->get();
+
+        // Format the response
+        $categories = $categories->map(function ($category) {
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'description' => $category->description,
+                'created_at' => $category->created_at,
+                'updated_at' => $category->updated_at,
+                'subforums' => $category->subforums->map(function ($subforum) {
+                    $latestPost = $subforum->latestTopic; // Use the latestTopic relationship
+                    return [
+                        'id' => $subforum->id,
+                        'main_category_id' => $subforum->main_category_id,
+                        'name' => $subforum->name,
+                        'description' => $subforum->description,
+                        'active' => $subforum->active,
+                        'pinned' => $subforum->pinned,
+                        'created_at' => $subforum->created_at,
+                        'updated_at' => $subforum->updated_at,
+                        'post_count' => $subforum->topics_count,
+                        'latest_post' => $latestPost ? [
+                            'id' => $latestPost->id,
+                            'title' => $latestPost->title,
+                            'created_at' => $latestPost->created_at->diffForHumans(),
+                        ] : null,
+                    ];
+                })
+            ];
+        });
+
+        return response()->json($categories);
     }
+
 
     // Get all subforums under a category
     public function getSubforums(ForumMainCategory $mainCategory)
