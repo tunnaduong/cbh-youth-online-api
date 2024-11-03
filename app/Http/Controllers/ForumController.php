@@ -72,12 +72,13 @@ class ForumController extends Controller
             $query->latest('created_at');
         }])->get();
 
-        return $subforums->map(function ($subforum) {
+        return $subforums->map(function ($subforum) use ($mainCategory) {
             $latestPost = $subforum->topics->first(); // Get the latest topic for each subforum
 
             return [
                 'id' => $subforum->id,
                 'main_category_id' => $subforum->main_category_id,
+                'main_category_name' => $mainCategory->name,
                 'name' => $subforum->name,
                 'description' => $subforum->description,
                 'active' => $subforum->active,
