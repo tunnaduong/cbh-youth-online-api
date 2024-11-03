@@ -14,11 +14,15 @@ class ForumController extends Controller
     public function getCategories()
     {
         $categories = ForumMainCategory::with(['subforums' => function ($query) {
-            // Eager load post count and latest topic for each subforum
             $query->withCount('topics')
+                ->withCount(['topics as comment_count' => function ($query) {
+                    $query->join('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
+                        ->selectRaw('count(cyo_topic_comments.id) as comment_count')
+                        ->groupBy('cyo_topics.id');
+                }])
                 ->with(['topics' => function ($query) {
                     $query->latest('created_at')->first()->with(['user.profile']);
-                }]); // Use the new relationship here
+                }]);
         }])->get();
 
         // Format the response
@@ -41,6 +45,7 @@ class ForumController extends Controller
                         'created_at' => $subforum->created_at,
                         'updated_at' => $subforum->updated_at,
                         'post_count' => $subforum->topics_count,
+                        'comment_count' => $subforum->comment_count ?? 0,
                         'latest_post' => $latestPost ? [
                             'id' => $latestPost->id,
                             'title' => $latestPost->title,
