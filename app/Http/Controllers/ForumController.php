@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ForumMainCategory;
-use App\Models\ForumSubforum;
 use App\Models\Topic;
 use Illuminate\Http\Request;
+use App\Models\ForumSubforum;
+use App\Models\ForumMainCategory;
+use Illuminate\Support\Facades\Log;
 
 class ForumController extends Controller
 {
@@ -15,7 +16,9 @@ class ForumController extends Controller
         $categories = ForumMainCategory::with(['subforums' => function ($query) {
             // Eager load post count and latest topic for each subforum
             $query->withCount('topics')
-                ->with('latestTopic'); // Use the new relationship here
+                ->with(['topics' => function ($query) {
+                    $query->latest('created_at')->first()->with(['user.profile']);
+                }]); // Use the new relationship here
         }])->get();
 
         // Format the response
@@ -42,6 +45,11 @@ class ForumController extends Controller
                             'id' => $latestPost->id,
                             'title' => $latestPost->title,
                             'created_at' => $latestPost->created_at->diffForHumans(),
+                            'user' => [
+                                'name' => $latestPost->user->profile->profile_name ?? null,
+                                'username' => $latestPost->user->username,
+                                'verified' => $latestPost->user->profile->verified ?? null,
+                            ],
                         ] : null,
                     ];
                 })
