@@ -68,7 +68,36 @@ class ForumController extends Controller
     // Get all subforums under a category
     public function getSubforums(ForumMainCategory $mainCategory)
     {
-        return $mainCategory->subforums()->where('active', true)->get();
+        $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with(['topics' => function ($query) {
+            $query->latest('created_at');
+        }])->get();
+
+        return $subforums->map(function ($subforum) {
+            $latestPost = $subforum->topics->first(); // Get the latest topic for each subforum
+
+            return [
+                'id' => $subforum->id,
+                'main_category_id' => $subforum->main_category_id,
+                'name' => $subforum->name,
+                'description' => $subforum->description,
+                'active' => $subforum->active,
+                'pinned' => $subforum->pinned,
+                'created_at' => $subforum->created_at,
+                'updated_at' => $subforum->updated_at,
+                'post_count' => $subforum->topics_count,
+                'comment_count' => $subforum->comment_count ?? 0,
+                'latest_post' => $latestPost ? [
+                    'id' => $latestPost->id,
+                    'title' => $latestPost->title,
+                    'created_at' => $latestPost->created_at->diffForHumans(),
+                    'user' => [
+                        'name' => $latestPost->user->profile->profile_name ?? null,
+                        'username' => $latestPost->user->username,
+                        'verified' => $latestPost->user->profile->verified ?? null,
+                    ],
+                ] : null,
+            ];
+        });
     }
 
     // Create a new main category
