@@ -63,7 +63,7 @@ class FileUploadController extends Controller
         // Get file details
         $fileType = $file->getMimeType();
         $fileSize = $file->getSize();
-        $userId = Auth::id(); // Get the authenticated user's ID
+        $userId = $request->uid; // Get the authenticated user's ID
         if (!$userId) {
             return response()->json(['error' => 'User not authenticated'], 401);
         }

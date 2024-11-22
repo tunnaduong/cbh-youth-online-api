@@ -23,6 +23,8 @@ use App\Http\Controllers\UserController;
 
 // Change the prefix to v1.0
 Route::prefix('v1.0')->group(function () {
+
+    Route::post('/upload', [FileUploadController::class, 'upload']);
     Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
     Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 
@@ -86,6 +88,5 @@ Route::prefix('v1.0')->group(function () {
         Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
         Route::post('/topics', [TopicsController::class, 'store']);
         Route::post('/topics/{id}/views/authenticated', [TopicsController::class, 'registerView']);
-        Route::post('/upload', [FileUploadController::class, 'upload']);
     });
 });
