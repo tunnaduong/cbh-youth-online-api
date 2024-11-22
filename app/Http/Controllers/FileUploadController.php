@@ -12,11 +12,24 @@ use Illuminate\Support\Facades\Validator;
 
 class FileUploadController extends Controller
 {
+    public function show($id)
+    {
+        // Fetch the user content based on the provided ID
+        $content = UserContent::find($id);
+
+        // Check if the content exists and belongs to the authenticated user
+        if (!$content) {
+            return response()->json(['error' => 'Content not found'], 404);
+        }
+
+        // Return the content
+        return response()->json($content, 200);
+    }
+
+
     // Method to handle file upload
     public function upload(Request $request)
     {
-        Log::info($request->all());
-
         // Validate the file input
         $request->validate([
             'file' => 'required|file|max:20480', // Adjust the max size as needed
@@ -76,10 +89,10 @@ class FileUploadController extends Controller
             'file_size' => $fileSize,
         ];
 
-        UserContent::create($data);
+        $userContent = UserContent::create($data);
 
         // Optionally return the path or success response
-        return response()->json(['path' => Storage::url($path)], 201);
+        return response()->json(['message' => 'Upload ảnh thành công!', 'id' => $userContent->id, 'path' => Storage::url($path)], 201);
     }
 
     public function destroy($id)

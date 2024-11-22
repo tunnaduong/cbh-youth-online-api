@@ -9,6 +9,7 @@ use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VerificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,6 +27,20 @@ Route::prefix('v1.0')->group(function () {
 
     Route::post('/upload', [FileUploadController::class, 'upload']);
     Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
+    Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset'])->name('password.reset');
+
+
+    Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify'])->name('verification.verify');
+
+    Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
+
+    // Optional authentication middleware
+    Route::middleware('optional.auth')->group(function () {
+        Route::get('/topics', [TopicsController::class, 'index']); // Allow both authenticated and unauthenticated access
+        Route::get('/topics/{id}', [TopicsController::class, 'show']);
+    });
+
+    Route::get('/users/{username}/avatar', [UserController::class, 'getAvatar']);
     Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 
     Route::post('/register', [AuthController::class, 'register']);
@@ -54,8 +69,8 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/forum/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
     Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
 
-    Route::get('/topics', [TopicsController::class, 'index']); // Get list of topics
-    Route::post('/topics', [TopicsController::class, 'store']); // Create a new topic
+    Route::get('/user-content/{id}', [FileUploadController::class, 'show']);
+    // Route::get('/topics', [TopicsController::class, 'index']); // Get list of topics
 
     Route::get('/topics/{id}/views', [TopicsController::class, 'getViews']);
     Route::get('/topics/{id}/votes', [TopicsController::class, 'getVotes']);

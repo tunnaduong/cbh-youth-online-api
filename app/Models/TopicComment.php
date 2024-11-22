@@ -32,6 +32,6 @@ class TopicComment extends Model
     // Define the relationship with TopicCommentVote
     public function votes()
     {
-        return $this->hasMany(TopicCommentVote::class);
+        return $this->hasMany(TopicCommentVote::class, 'comment_id');
     }
 }

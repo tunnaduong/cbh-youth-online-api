@@ -12,24 +12,27 @@ use Illuminate\Http\Response;
 use App\Models\UserSavedTopic;
 use Illuminate\Support\Carbon;
 use App\Models\TopicCommentVote;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class TopicsController extends Controller
 {
     // GET /topics – Get list of topics
-    public function index()
+    public function index(Request $request)
     {
         // Fetch topics from the database
         $topics = Topic::withCount(['views', 'comments'])
             ->orderBy('created_at', 'desc')
-            ->with(['user', 'votes.user'])
+            ->with(['user', 'votes.user', 'cdnUserContent'])
             ->get()
-            ->map(function ($topic) {
-                return [
+            ->map(function ($topic) use ($request) {
+                $topicData = [
                     'id' => $topic->id,
                     'title' => $topic->title,
                     'content' => nl2br(e($topic->description)),
+                    'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
                     'author' => [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
@@ -48,6 +51,15 @@ class TopicsController extends Controller
                         ];
                     }),
                 ];
+
+                // Check if the user is authenticated
+                if ($request->user()) {
+                    $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
+                } else {
+                    $topicData['saved'] = false;
+                }
+
+                return $topicData;
             });
 
         // Return the topics as a JSON response test
@@ -65,6 +77,74 @@ class TopicsController extends Controller
         }
     }
 
+    public function show(Request $request, $id)
+    {
+        // Find the topic with related data or return a 404 error if not found
+        $topic = Topic::with(['user.profile', 'votes.user', 'comments.user.profile', 'views', 'cdnUserContent'])
+            ->find($id);
+
+        if (!$topic) {
+            return response()->json(['message' => 'Không tìm thấy bài viết.'], 404); // Not Found
+        }
+
+        // Load comments with their respective votes and voter usernames
+        $comments = $topic->comments()->orderBy('created_at', 'desc')->with(['user.profile', 'votes.user'])
+            ->get()
+            ->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'content' => $comment->comment,
+                    'author' => [
+                        'id' => $comment->user->id,
+                        'username' => $comment->user->username,
+                        'profile_name' => $comment->user->profile->profile_name ?? null,
+                    ],
+                    'created_at' => $comment->created_at->diffForHumans(),
+                    'votes' => $comment->votes->map(function ($vote) {
+                        return [
+                            'user_id' => $vote->user_id,
+                            'username' => $vote->user->username, // Include the voter's username
+                            'vote_value' => $vote->vote_value,   // Assuming 1 for upvote, -1 for downvote
+                        ];
+                    }),
+                ];
+            });
+
+        // Map the topic details into the response format
+        $topicData = [
+            'id' => $topic->id,
+            'title' => $topic->title,
+            'content' => nl2br(e($topic->description)),
+            'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null, // Assuming the relationship is named 'cdnImage'
+            'author' => [
+                'id' => $topic->user->id,
+                'username' => $topic->user->username,
+                'email' => $topic->user->email,
+                'profile_name' => $topic->user->profile->profile_name ?? null,
+            ],
+            'time' => Carbon::parse($topic->created_at)->diffForHumans(),
+            'comments_count' => $this->roundToNearestFive($topic->comments->count()) . '+',
+            'views_count' => $topic->views->count(),
+            'votes' => $topic->votes->map(function ($vote) {
+                return [
+                    'username' => $vote->user->username,
+                    'vote_value' => $vote->vote_value,
+                    'created_at' => $vote->created_at->toISOString(),
+                    'updated_at' => $vote->updated_at->toISOString(),
+                ];
+            }),
+            'comments' => $comments,
+        ];
+
+        // Check if the user is authenticated
+        if ($request->user()) {
+            $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
+        } else {
+            $topicData['saved'] = false;
+        }
+
+        return response()->json($topicData);
+    }
 
     // POST /topics – Create a new topic
     public function store(Request $request)
@@ -74,27 +154,39 @@ class TopicsController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
-            'user_content_id' => 'nullable|exists:cyo_cdn_user_content,id',
+            'cdn_image_id' => 'nullable|exists:cyo_cdn_user_content,id',
         ]);
-
-        // Fetch the image URL if user_content_id is provided
-        $imageUrl = null;
-        if (isset($request->user_content_id)) {
-            $userContent = UserContent::find($request->user_content_id);
-            if ($userContent) {
-                $imageUrl = $userContent->file_path; // Assuming file_path contains the URL
-            }
-        }
 
         $topic = Topic::create([
             'user_id' => auth()->id(),
             'title' => $request->title,
             'description' => $request->description,
             'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
-            'image_url' => $imageUrl,
+            'cdn_image_id' => $request->cdn_image_id,
         ]);
 
-        return response()->json($topic, 201);
+        // Load the user profile to get profile_name
+        $author = $topic->user()->with('profile')->first();
+
+
+
+        return response()->json([
+            'id' => $topic->id,
+            'title' => $topic->title,
+            'content' => nl2br(e($topic->description)),
+            'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
+            'author' => [
+                'id' => $author->id,
+                'username' => $author->username,
+                'email' => $author->email,
+                'profile_name' => $author->profile->profile_name ?? null, // Ensure profile_name is included
+            ],
+            'time' => Carbon::parse($topic->created_at)->diffForHumans(), // You can dynamically calculate the time difference if needed
+            'comments' => '00+', // Adjust this based on actual comment count if necessary
+            'views' => 0, // Initialize view count as 0 or load actual views
+            'votes' => [], // Initialize empty votes array or load actual votes
+            'saved' => false, // Default to false or check if the user has saved the topic
+        ], 201);
     }
 
     // Get views for a topic
@@ -163,7 +255,7 @@ class TopicsController extends Controller
     public function getComments($topicId)
     {
         $comments = TopicComment::with(['user', 'user.profile'])
-            ->where('topic_id', $topicId)
+            ->where('topic_id', $topicId)->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($comment) {
                 return [
@@ -197,14 +289,27 @@ class TopicsController extends Controller
             'comment' => $request->comment,
         ]);
 
-        return response()->json($comment, 201);
+        // Load the comment's author profile details
+        $author = $comment->user()->with('profile')->first();
+
+        return response()->json([
+            'id' => $comment->id,
+            'content' => $comment->comment,
+            'author' => [
+                'id' => $author->id,
+                'username' => $author->username,
+                'profile_name' => $author->profile->profile_name ?? null,
+            ],
+            'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
+            'votes' => [], // Initialize an empty array for votes
+        ], 201); // Created status
     }
 
     // Vote on a comment
     public function voteOnComment(Request $request, $commentId)
     {
         $request->validate([
-            'vote_value' => 'required|integer|in:1,-1', // true for upvote, false for downvote
+            'vote_value' => 'required|integer|in:1,-1,0', // true for upvote, false for downvote
         ]);
 
         TopicCommentVote::updateOrCreate(
@@ -240,9 +345,35 @@ class TopicsController extends Controller
     public function getSavedTopics()
     {
         // Assuming UserSavedTopic is the model for cyo_user_saved_topics
-        $savedTopics = UserSavedTopic::with('topic') // Load related topic if you have a relationship defined
-            ->where('user_id', Auth::id())
-            ->get();
+        $savedTopics = UserSavedTopic::where('user_id', Auth::id()) // Adjust to get the correct user
+            ->with(['topic.user.profile']) // Eager load the topic's user and profile
+            ->get()
+            ->map(function ($savedTopic) {
+                return [
+                    'id' => $savedTopic->id,
+                    'user_id' => $savedTopic->user_id,
+                    'topic_id' => $savedTopic->topic_id,
+                    'created_at' => $savedTopic->created_at,
+                    'updated_at' => $savedTopic->updated_at,
+                    'topic' => [
+                        'id' => $savedTopic->topic->id,
+                        'subforum_id' => $savedTopic->topic->subforum_id,
+                        'user_id' => $savedTopic->topic->user->id,
+                        'title' => $savedTopic->topic->title,
+                        'description' => $savedTopic->topic->description,
+                        'created_at' => $savedTopic->topic->created_at,
+                        'updated_at' => $savedTopic->topic->updated_at,
+                        'pinned' => $savedTopic->topic->pinned,
+                        'image_url' => $savedTopic->topic->image_url,
+                        'author' => [
+                            'id' => $savedTopic->topic->user->id,
+                            'username' => $savedTopic->topic->user->username,
+                            'email' => $savedTopic->topic->user->email,
+                            'profile_name' => $savedTopic->topic->user->profile->profile_name ?? null, // Using profile relation
+                        ],
+                    ]
+                ];
+            });
 
         return response()->json($savedTopics);
     }
@@ -254,6 +385,18 @@ class TopicsController extends Controller
         ]);
 
         $userId = auth()->id(); // Get authenticated user ID
+
+        // Check if the user has already saved the topic
+        $exists = DB::table('cyo_user_saved_topics')
+            ->where('topic_id', $request->topic_id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($exists) {
+            // If the record exists, return a message or take appropriate action
+            return response()->json(['message' => 'This topic is already saved by the user.'], 409); // 409 Conflict
+        }
+
 
         UserSavedTopic::create([
             'user_id' => $userId,
@@ -279,12 +422,24 @@ class TopicsController extends Controller
         return response()->json(['message' => 'Vote deleted successfully.'], Response::HTTP_OK);
     }
 
-    public function destroySavedTopic($id)
+    public function destroySavedTopic($topicId, Request $request)
     {
-        $savedTopic = UserSavedTopic::findOrFail($id);
+        // Optionally, validate the user is authenticated
+        $userId = $request->user()->id; // Get the authenticated user's ID
+
+        // Find the saved topic by topic_id and user_id
+        $savedTopic = UserSavedTopic::where('topic_id', $topicId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$savedTopic) {
+            return response()->json(['message' => 'Saved topic not found'], 404);
+        }
+
+        // Delete the saved topic
         $savedTopic->delete();
 
-        return response()->json(['message' => 'Saved topic deleted successfully.'], Response::HTTP_OK);
+        return response()->json(['message' => 'Saved topic deleted successfully'], 200);
     }
 
     public function destroyComment($id)
