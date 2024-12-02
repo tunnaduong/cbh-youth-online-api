@@ -32,7 +32,7 @@ class FileUploadController extends Controller
     {
         // Validate the file input
         $request->validate([
-            'file' => 'required|file|max:20480', // Adjust the max size as needed
+            'file' => 'required|file|max:102400', // Adjust the max size as needed
         ]);
 
         $file = $request->file('file');
@@ -76,7 +76,7 @@ class FileUploadController extends Controller
         // Get file details
         $fileType = $file->getMimeType();
         $fileSize = $file->getSize();
-        $userId = Auth::id(); // Get the authenticated user's ID
+        $userId = $request->uid; // Get the authenticated user's ID
         if (!$userId) {
             return response()->json(['error' => 'User not authenticated'], 401);
         }
