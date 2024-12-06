@@ -57,7 +57,6 @@ class UserController extends Controller
         // Validate the incoming request
         $request->validate([
             'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240', // Validate the file type and size
-            'username' => 'required|string|exists:cyo_auth_accounts,username', // Validate the username
         ]);
 
         // Retrieve the user by username
@@ -83,12 +82,24 @@ class UserController extends Controller
                 'file_size' => $file->getSize(),
             ]);
 
-            $user->profile->profile_picture = $userContent->id;
-            $user->profile->save();
+            // Ensure the profile relationship is loaded
+            $user->load('profile');
+
+            // Check if the profile exists
+            if ($user->profile) {
+                $user->profile->profile_picture = $userContent->id;
+                $user->profile->save();
+            } else {
+                // Handle the case where the profile does not exist
+                return response()->json(['message' => 'Trang cá nhân người dùng không tồn tại.'], 404);
+            }
 
             return response()->json([
                 'message' => 'Cập nhật avatar thành công.',
                 'avatar' => Storage::url($filePath), // Return the file path or URL
+                'user_id' => $user->id,
+                'profile_picture_id' => $userContent->id,
+                'profile_picture' => $user->profile->profile_picture,
             ], 200);
         }
 

@@ -19,7 +19,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
 
     public function profile()
     {
-        return $this->hasOne(UserProfile::class, 'id');
+        return $this->hasOne(UserProfile::class, 'auth_account_id');
     }
 
     /**
