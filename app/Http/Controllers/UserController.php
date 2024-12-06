@@ -54,21 +54,15 @@ class UserController extends Controller
     // Update user avatar
     public function updateAvatar(Request $request, $username)
     {
-        // Get the authenticated user
-        $user2 = Auth::user();
-
-        // Check if the authenticated user's username matches the provided username
-        if ($user2->username !== $username) {
-            return response()->json(['message' => 'Bạn không thể đổi avatar của người khác.'], 403);
-        }
-
         // Validate the incoming request
         $request->validate([
             'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240', // Validate the file type and size
+            'username' => 'required|string|exists:cyo_auth_accounts,username', // Validate the username
         ]);
 
         // Retrieve the user by username
         $user = AuthAccount::where('username', $username)->firstOrFail();
+
         // Handle the file upload
         if ($request->hasFile('avatar')) {
             // Get the uploaded file
@@ -81,19 +75,16 @@ class UserController extends Controller
             $filePath = $file->storeAs('avatars', $fileName, 'public');
 
             // Update or create the user content record for the avatar
-            $userContent = UserContent::create(
-                [
-                    'user_id' => $user->id,
-                    'file_name' => $fileName,
-                    'file_path' => $filePath,
-                    'file_type' => $file->getClientMimeType(),
-                    'file_size' => $file->getSize(),
-                ]
-            );
+            $userContent = UserContent::create([
+                'user_id' => $user->id,
+                'file_name' => $fileName,
+                'file_path' => $filePath,
+                'file_type' => $file->getClientMimeType(),
+                'file_size' => $file->getSize(),
+            ]);
 
-            $user2->profile->profile_picture = $userContent->id;
-            /** @var \App\Models\UserProfile $user2 **/
-            $user2->profile->save();
+            $user->profile->profile_picture = $userContent->id;
+            $user->profile->save();
 
             return response()->json([
                 'message' => 'Cập nhật avatar thành công.',
