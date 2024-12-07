@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\AuthAccount;
 use App\Models\UserContent;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Intervention\Image\Facades\Image;
 
 class UserController extends Controller
 {
@@ -70,8 +69,16 @@ class UserController extends Controller
             // Generate a unique filename
             $fileName = time() . '_' . $file->getClientOriginalName();
 
-            // Store the file in the public disk (or any other desired location)
-            $filePath = $file->storeAs('avatars', $fileName, 'public');
+            // Use Intervention Image to crop and resize to a 1:1 ratio
+            $image = Image::make($file->getRealPath());
+            $size = min($image->width(), $image->height()); // Get the smallest dimension
+            $image->crop($size, $size)->resize(500, 500); // Crop and resize to 500x500 pixels (or any preferred size)
+
+            // Define the file path
+            $filePath = 'avatars/' . $fileName;
+
+            // Save the cropped image to the public disk
+            Storage::disk('public')->put($filePath, (string) $image->encode());
 
             // Update or create the user content record for the avatar
             $userContent = UserContent::create([
@@ -79,7 +86,7 @@ class UserController extends Controller
                 'file_name' => $fileName,
                 'file_path' => $filePath,
                 'file_type' => $file->getClientMimeType(),
-                'file_size' => $file->getSize(),
+                'file_size' => Storage::disk('public')->size($filePath),
             ]);
 
             // Ensure the profile relationship is loaded
