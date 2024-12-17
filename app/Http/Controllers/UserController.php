@@ -43,7 +43,11 @@ class UserController extends Controller
                 return response()->json(['message' => 'Không tìm thấy avatar nào cho người dùng này.'], 404);
             }
 
-            return response()->json(['message' => 'Trang cá nhân người dùng hoặc avatar người dùng không tồn tại.'], 404);
+            return response()->file(storage_path('app/public/avatars/placeholder-user.jpg'), [
+                'Content-Type' => "image/jpeg", // Dynamically set the Content-Type
+            ]);
+
+            // return response()->json(['message' => 'Trang cá nhân người dùng hoặc avatar người dùng không tồn tại.'], 404);
         } catch (ModelNotFoundException $e) {
             return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
         }
