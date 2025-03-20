@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\AuthAccount;
 use App\Models\UserContent;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Intervention\Image\Facades\Image;
 
 class UserController extends Controller
 {
@@ -44,7 +43,11 @@ class UserController extends Controller
                 return response()->json(['message' => 'Không tìm thấy avatar nào cho người dùng này.'], 404);
             }
 
-            return response()->json(['message' => 'Trang cá nhân người dùng hoặc avatar người dùng không tồn tại.'], 404);
+            return response()->file(storage_path('app/public/avatars/placeholder-user.jpg'), [
+                'Content-Type' => "image/jpeg", // Dynamically set the Content-Type
+            ]);
+
+            // return response()->json(['message' => 'Trang cá nhân người dùng hoặc avatar người dùng không tồn tại.'], 404);
         } catch (ModelNotFoundException $e) {
             return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
         }
@@ -54,14 +57,6 @@ class UserController extends Controller
     // Update user avatar
     public function updateAvatar(Request $request, $username)
     {
-        // Get the authenticated user
-        $user2 = Auth::user();
-
-        // Check if the authenticated user's username matches the provided username
-        if ($user2->username !== $username) {
-            return response()->json(['message' => 'Bạn không thể đổi avatar của người khác.'], 403);
-        }
-
         // Validate the incoming request
         $request->validate([
             'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240', // Validate the file type and size
@@ -69,6 +64,7 @@ class UserController extends Controller
 
         // Retrieve the user by username
         $user = AuthAccount::where('username', $username)->firstOrFail();
+
         // Handle the file upload
         if ($request->hasFile('avatar')) {
             // Get the uploaded file
@@ -77,27 +73,44 @@ class UserController extends Controller
             // Generate a unique filename
             $fileName = time() . '_' . $file->getClientOriginalName();
 
-            // Store the file in the public disk (or any other desired location)
-            $filePath = $file->storeAs('avatars', $fileName, 'public');
+            // Use Intervention Image to crop and resize to a 1:1 ratio
+            $image = Image::make($file->getRealPath());
+            $size = min($image->width(), $image->height()); // Get the smallest dimension
+            $image->crop($size, $size)->resize(500, 500); // Crop and resize to 500x500 pixels (or any preferred size)
+
+            // Define the file path
+            $filePath = 'avatars/' . $fileName;
+
+            // Save the cropped image to the public disk
+            Storage::disk('public')->put($filePath, (string) $image->encode());
 
             // Update or create the user content record for the avatar
-            $userContent = UserContent::create(
-                [
-                    'user_id' => $user->id,
-                    'file_name' => $fileName,
-                    'file_path' => $filePath,
-                    'file_type' => $file->getClientMimeType(),
-                    'file_size' => $file->getSize(),
-                ]
-            );
+            $userContent = UserContent::create([
+                'user_id' => $user->id,
+                'file_name' => $fileName,
+                'file_path' => $filePath,
+                'file_type' => $file->getClientMimeType(),
+                'file_size' => Storage::disk('public')->size($filePath),
+            ]);
 
-            $user2->profile->profile_picture = $userContent->id;
-            /** @var \App\Models\UserProfile $user2 **/
-            $user2->profile->save();
+            // Ensure the profile relationship is loaded
+            $user->load('profile');
+
+            // Check if the profile exists
+            if ($user->profile) {
+                $user->profile->profile_picture = $userContent->id;
+                $user->profile->save();
+            } else {
+                // Handle the case where the profile does not exist
+                return response()->json(['message' => 'Trang cá nhân người dùng không tồn tại.'], 404);
+            }
 
             return response()->json([
                 'message' => 'Cập nhật avatar thành công.',
                 'avatar' => Storage::url($filePath), // Return the file path or URL
+                'user_id' => $user->id,
+                'profile_picture_id' => $userContent->id,
+                'profile_picture' => $user->profile->profile_picture,
             ], 200);
         }
 

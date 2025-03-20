@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('cyo_topics', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('user_id'); // Assuming each topic is created by a user
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('subforum_id')->nullable()->index('cyo_topics_subforum_id_foreign');
+            $table->unsignedBigInteger('user_id')->index('cyo_topics_user_id_foreign');
             $table->string('title');
             $table->text('description');
             $table->timestamps();
-
-            // Add a foreign key to reference the users table (cyo_auth_accounts)
-            $table->foreign('user_id')->references('id')->on('cyo_auth_accounts')->onDelete('cascade');
+            $table->boolean('pinned')->default(false);
+            $table->unsignedBigInteger('cdn_image_id')->nullable()->index('cyo_topics_cdn_image_id_foreign');
         });
     }
 
