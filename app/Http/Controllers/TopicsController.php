@@ -22,12 +22,12 @@ class TopicsController extends Controller
     // GET /topics – Get list of topics
     public function index(Request $request)
     {
-        // Fetch topics from the database
+        // Fetch topics from the database with pagination
         $topics = Topic::withCount(['views', 'comments'])
             ->orderBy('created_at', 'desc')
             ->with(['user', 'votes.user', 'cdnUserContent'])
-            ->get()
-            ->map(function ($topic) use ($request) {
+            ->paginate(10) // Paginate with 10 items per page
+            ->through(function ($topic) use ($request) {
                 $topicData = [
                     'id' => $topic->id,
                     'title' => $topic->title,
@@ -62,7 +62,7 @@ class TopicsController extends Controller
                 return $topicData;
             });
 
-        // Return the topics as a JSON response test
+        // Return the paginated topics as a JSON response
         return response()->json($topics);
     }
 
