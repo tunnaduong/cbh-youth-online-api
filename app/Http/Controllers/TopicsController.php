@@ -39,6 +39,7 @@ class TopicsController extends Controller
                         'username' => $topic->user->username,
                         'email' => $topic->user->email,
                         'profile_name' => $topic->user->profile->profile_name ?? null,
+                        'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
                     ],
                     'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
                     'comments' => $this->roundToNearestFive($topic->comments_count) . '+', // Comment count in '05+' format
