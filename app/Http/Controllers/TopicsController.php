@@ -24,6 +24,7 @@ class TopicsController extends Controller
     {
         // Fetch topics from the database with pagination
         $topics = Topic::withCount(['views', 'comments'])
+            ->where('hidden', 0)
             ->orderBy('created_at', 'desc')
             ->with(['user', 'votes.user', 'cdnUserContent'])
             ->paginate(10) // Paginate with 10 items per page
