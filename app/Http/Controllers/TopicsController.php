@@ -90,27 +90,81 @@ class TopicsController extends Controller
         }
 
         // Load comments with their respective votes and voter usernames
-        $comments = $topic->comments()->orderBy('created_at', 'desc')->with(['user.profile', 'votes.user'])
-            ->get()
-            ->map(function ($comment) {
-                return [
-                    'id' => $comment->id,
-                    'content' => $comment->comment,
-                    'author' => [
-                        'id' => $comment->user->id,
-                        'username' => $comment->user->username,
-                        'profile_name' => $comment->user->profile->profile_name ?? null,
-                    ],
-                    'created_at' => $comment->created_at->diffForHumans(),
-                    'votes' => $comment->votes->map(function ($vote) {
-                        return [
+        $comments = $topic->comments()
+            ->whereNull('replying_to')
+            ->with([
+                'user.profile',
+                'votes.user',
+                'replies' => function ($q) {
+                    $q->with([
+                        'user.profile',
+                        'votes.user',
+                    ])->paginate(5); // Load 5 replies per request
+                }
+            ])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+
+        $formattedComments = $comments->map(function ($comment) {
+            return [
+                'id' => $comment->id,
+                'content' => $comment->comment,
+                'author' => [
+                    'id' => $comment->user->id,
+                    'username' => $comment->user->username,
+                    'email' => $comment->user->email,
+                    'profile_name' => $comment->user->profile->profile_name ?? null,
+                    'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
+                ],
+                'created_at' => $comment->created_at->diffForHumans(),
+                'votes' => $comment->votes->map(fn($vote) => [
+                    'user_id' => $vote->user_id,
+                    'username' => $vote->user->username,
+                    'vote_value' => $vote->vote_value,
+                ]),
+                'replies' => $comment->replies->map(function ($reply) {
+                    return [
+                        'id' => $reply->id,
+                        'content' => $reply->comment,
+                        'author' => [
+                            'id' => $reply->user->id,
+                            'username' => $reply->user->username,
+                            'email' => $reply->user->email,
+                            'profile_name' => $reply->user->profile->profile_name ?? null,
+                            'verified' => $reply->user->profile->verified == 1 ?? false ? true : false,
+                        ],
+                        'created_at' => $reply->created_at->diffForHumans(),
+                        'votes' => $reply->votes->map(fn($vote) => [
                             'user_id' => $vote->user_id,
-                            'username' => $vote->user->username, // Include the voter's username
-                            'vote_value' => $vote->vote_value,   // Assuming 1 for upvote, -1 for downvote
-                        ];
-                    }),
-                ];
-            });
+                            'username' => $vote->user->username,
+                            'vote_value' => $vote->vote_value,
+                        ]),
+                        'replies' => $reply->replies->map(function ($subReply) {
+                            return [
+                                'id' => $subReply->id,
+                                'content' => $subReply->comment,
+                                'author' => [
+                                    'id' => $subReply->user->id,
+                                    'username' => $subReply->user->username,
+                                    'email' => $subReply->user->email,
+                                    'profile_name' => $subReply->user->profile->profile_name ?? null,
+                                    'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
+                                ],
+                                'created_at' => $subReply->created_at->diffForHumans(),
+                                'votes' => $subReply->votes->map(fn($vote) => [
+                                    'user_id' => $vote->user_id,
+                                    'username' => $vote->user->username,
+                                    'vote_value' => $vote->vote_value,
+                                ]),
+                            ];
+                        }),
+                    ];
+                }),
+            ];
+        });
+
+
 
         // Map the topic details into the response format
         $topicData = [
@@ -123,6 +177,7 @@ class TopicsController extends Controller
                 'username' => $topic->user->username,
                 'email' => $topic->user->email,
                 'profile_name' => $topic->user->profile->profile_name ?? null,
+                'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
             ],
             'time' => Carbon::parse($topic->created_at)->diffForHumans(),
             'comments_count' => $this->roundToNearestFive($topic->comments->count()) . '+',
@@ -135,7 +190,6 @@ class TopicsController extends Controller
                     'updated_at' => $vote->updated_at->toISOString(),
                 ];
             }),
-            'comments' => $comments,
         ];
 
         // Check if the user is authenticated
@@ -145,7 +199,7 @@ class TopicsController extends Controller
             $topicData['saved'] = false;
         }
 
-        return response()->json($topicData);
+        return response()->json(['topic' => $topicData, 'comments' => $formattedComments]);
     }
 
     // POST /topics – Create a new topic

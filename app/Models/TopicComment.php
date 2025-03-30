@@ -12,6 +12,7 @@ class TopicComment extends Model
     protected $table = 'cyo_topic_comments';
 
     protected $fillable = [
+        'replying_to',
         'topic_id',
         'user_id',
         'comment',
@@ -33,5 +34,10 @@ class TopicComment extends Model
     public function votes()
     {
         return $this->hasMany(TopicCommentVote::class, 'comment_id');
+    }
+
+    public function replies()
+    {
+        return $this->hasMany(TopicComment::class, 'replying_to')->with(['user.profile', 'votes.user'])->orderBy('created_at', 'asc'); // Recursive
     }
 }
