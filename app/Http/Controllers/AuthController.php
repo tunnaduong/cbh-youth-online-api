@@ -28,7 +28,7 @@ class AuthController extends Controller
 
         // Check if user exists and the password matches
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Tên tài khoản hoặc mật khảu sai!'], 401);
+            return response()->json(['message' => 'Tên tài khoản hoặc mật khẩu sai!'], 401);
         }
 
         // Load the 'profile' relationship if the user exists
