@@ -38,6 +38,7 @@ Route::prefix('v1.0')->group(function () {
     Route::middleware('optional.auth')->group(function () {
         Route::get('/topics', [TopicsController::class, 'index']); // Allow both authenticated and unauthenticated access
         Route::get('/topics/{id}', [TopicsController::class, 'show']);
+        Route::get('/comments/{commentId}/replies', [TopicsController::class, 'getReplies']);
     });
 
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);

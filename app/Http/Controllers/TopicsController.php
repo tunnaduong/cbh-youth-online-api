@@ -332,6 +332,17 @@ class TopicsController extends Controller
         return response()->json($comments);
     }
 
+    public function getReplies(Request $request, $commentId)
+    {
+        $comment = TopicComment::findOrFail($commentId);
+
+        $replies = $comment->replies()
+            ->paginate(5); // Load replies in chunks
+
+        return response()->json($replies);
+    }
+
+
     // Add a comment to a topic
     public function addComment(Request $request, $topicId)
     {
