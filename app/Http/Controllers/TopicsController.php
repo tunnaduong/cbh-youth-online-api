@@ -170,7 +170,7 @@ class TopicsController extends Controller
         $topicData = [
             'id' => $topic->id,
             'title' => $topic->title,
-            'content' => nl2br(e($topic->description)),
+            'content' => $topic->description,
             'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null, // Assuming the relationship is named 'cdnImage'
             'author' => [
                 'id' => $topic->user->id,
