@@ -180,8 +180,8 @@ class TopicsController extends Controller
                 'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
             ],
             'time' => Carbon::parse($topic->created_at)->diffForHumans(),
-            'comments_count' => $this->roundToNearestFive($topic->comments->count()) . '+',
-            'views_count' => $topic->views->count(),
+            'comments' => $this->roundToNearestFive($topic->comments->count()) . '+',
+            'views' => $topic->views->count(),
             'votes' => $topic->votes->map(function ($vote) {
                 return [
                     'username' => $vote->user->username,
