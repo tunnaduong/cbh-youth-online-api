@@ -10,7 +10,7 @@ class UserProfile extends Model
     use HasFactory;
 
     protected $table = 'cyo_user_profiles'; // The table name associated with this model
-    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'birthday', 'gender', 'location']; // Example of fillable fields
+    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'verified', 'last_username_change']; // Example of fillable fields
 
     public function user()
     {

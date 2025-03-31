@@ -19,40 +19,46 @@ class UserController extends Controller
             // Retrieve user by username
             $user = AuthAccount::where('username', $username)->firstOrFail();
 
-            // Retrieve the user's profile and get the profile_picture field
+            // Retrieve the user's profile and get the profile_picture and oauth_profile_picture fields
             $userProfile = $user->profile;
 
-            if ($userProfile && $userProfile->profile_picture) {
-                // Retrieve the content using profile_picture (which holds the id in cyo_cdn_user_content)
-                $userContent = UserContent::find($userProfile->profile_picture);
+            if ($userProfile) {
+                // Check if profile_picture is set
+                if ($userProfile->profile_picture) {
+                    // Retrieve the content using profile_picture (which holds the id in cyo_cdn_user_content)
+                    $userContent = UserContent::find($userProfile->profile_picture);
 
-                if ($userContent) {
-                    // Get the full path to the image
-                    $imagePath = storage_path('app/public/' . $userContent->file_path);
+                    if ($userContent) {
+                        // Get the full path to the image
+                        $imagePath = storage_path('app/public/' . $userContent->file_path);
 
-                    // Check if the file exists
-                    if (file_exists($imagePath)) {
-                        return response()->file($imagePath, [
-                            'Content-Type' => $userContent->file_type, // Dynamically set the Content-Type
-                        ]);
+                        // Check if the file exists
+                        if (file_exists($imagePath)) {
+                            return response()->file($imagePath, [
+                                'Content-Type' => $userContent->file_type, // Dynamically set the Content-Type
+                            ]);
+                        }
+
+                        return response()->json(['message' => 'Ảnh không tồn tại.'], 404);
                     }
 
-                    return response()->json(['message' => 'Ảnh không tồn tại.'], 404);
+                    return response()->json(['message' => 'Không tìm thấy avatar nào cho người dùng này.'], 404);
                 }
 
-                return response()->json(['message' => 'Không tìm thấy avatar nào cho người dùng này.'], 404);
+                // Check if oauth_profile_picture is set
+                if ($userProfile->oauth_profile_picture) {
+                    return redirect($userProfile->oauth_profile_picture); // Redirect to the external URL
+                }
             }
 
+            // Return the placeholder image if no avatar is found
             return response()->file(storage_path('app/public/avatars/placeholder-user.jpg'), [
                 'Content-Type' => "image/jpeg", // Dynamically set the Content-Type
             ]);
-
-            // return response()->json(['message' => 'Trang cá nhân người dùng hoặc avatar người dùng không tồn tại.'], 404);
         } catch (ModelNotFoundException $e) {
             return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
         }
     }
-
 
     // Update user avatar
     public function updateAvatar(Request $request, $username)
