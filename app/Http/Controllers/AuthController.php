@@ -45,7 +45,8 @@ class AuthController extends Controller
                 'profile_name' => $user->profile->profile_name ?? null, // Include profile_name if it exists
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
-                'email_verified_at' => $user->email_verified_at
+                'email_verified_at' => $user->email_verified_at,
+                'verified' => ($user->profile->verified ?? null) == 1 ? true : false,
             ],
             'token' => $token,
         ]);
@@ -56,7 +57,7 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'username' =>  [
+            'username' => [
                 'required',
                 'string',
                 'min:3', // Minimum length
