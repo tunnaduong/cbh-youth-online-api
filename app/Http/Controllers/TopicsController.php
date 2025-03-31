@@ -348,9 +348,11 @@ class TopicsController extends Controller
     {
         $request->validate([
             'comment' => 'required|string',
+            'replying_to' => 'nullable|exists:cyo_topic_comments,id', // Validate the replying_to field
         ]);
 
         $comment = TopicComment::create([
+            'replying_to' => $request->replying_to,
             'topic_id' => $topicId,
             'user_id' => auth()->id(),
             'comment' => $request->comment,
