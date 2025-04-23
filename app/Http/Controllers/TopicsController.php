@@ -99,7 +99,7 @@ class TopicsController extends Controller
                     $q->with([
                         'user.profile',
                         'votes.user',
-                    ])->paginate(5); // Load 5 replies per request
+                    ]); // Load 5 replies per request
                 }
             ])
             ->orderBy('created_at', 'desc')
