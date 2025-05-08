@@ -155,6 +155,13 @@ class UserController extends Controller
                 'comments' => $this->roundToNearestFive($post->comments_count) . "+", // Example for comments count
                 'views' => $post->views_count ?? 0, // Ensure this field exists in your Post model
                 'votes' => $post->votes_count ?? 0, // Ensure this field exists in your Post model
+                'author' => [
+                    'id' => $post->author->id,
+                    'username' => $post->author->username,
+                    'email' => $post->author->email,
+                    'profile_name' => $post->author->profile->profile_name ?? null,
+                    'verified' => $post->author->verified ?? false,
+                ],
             ];
         });
 
