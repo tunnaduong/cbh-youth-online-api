@@ -3,13 +3,14 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\FollowController;
 use App\Http\Controllers\TopicsController;
 use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\VerificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -105,5 +106,7 @@ Route::prefix('v1.0')->group(function () {
         Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
         Route::post('/topics', [TopicsController::class, 'store']);
         Route::post('/topics/{id}/views/authenticated', [TopicsController::class, 'registerView']);
+        Route::post('/users/{id}/follow', [FollowController::class, 'follow']); // Follow a user
+        Route::delete('/users/{id}/unfollow', [FollowController::class, 'unfollow']); // Unfollow a user
     });
 });

@@ -138,11 +138,26 @@ class UserController extends Controller
     public function getProfile($username)
     {
         // Find the user by username
-        $user = AuthAccount::where('username', $username)->with('profile')->first();
+        $user = AuthAccount::where('username', $username)
+        ->with(['profile', 'followers', 'following', 'posts.votes', 'posts.comments']) // Eager load relationships
+        ->withCount(['followers', 'following', 'posts']) // Count followers, following, and posts
+        ->first();
 
         if (!$user) {
             return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
         }
+
+        // Calculate total likes count
+        $totalLikesCount = $user->posts->sum(function ($post) {
+            return $post->votes->where('vote_value', 1)->count(); // Count only upvotes
+        });
+
+        // Calculate activity points
+        $activityPoints = ($user->posts_count * 10) // 10 points per post
+            + ($totalLikesCount * 5) // 5 points per vote
+            + ($user->posts->sum(function ($post) {
+                return $post->comments->count(); // Count comments on all posts
+            }) * 2); // 2 points per comment
 
         // Transform recent posts
         $recentPosts = $user->posts()->latest()->withCount(['comments', 'views', 'votes'])->take(5)->get()->map(function ($post) {
@@ -191,6 +206,13 @@ class UserController extends Controller
                 'role' => $user->role ?? null,
                 'last_username_change' => $user->profile->last_username_change ?? null,
                 'joined_at' => $user->created_at->translatedFormat('m Y'), // Format as "Tháng 11 2024",
+                'stats' => [
+                    'followers' => $user->followers_count,
+                    'following' => $user->following_count,
+                    'posts' => $user->posts_count,
+                    'total_likes_count' => $totalLikesCount,
+                    'activity_points' => $activityPoints,
+                ],
             ],
             'recent_posts' => $recentPosts,
         ]);

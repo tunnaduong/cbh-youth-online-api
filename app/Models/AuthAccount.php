@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Topic;
+use App\Models\Follower;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -29,6 +30,16 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     public function posts()
     {
         return $this->hasMany(Topic::class, 'user_id'); // Adjust 'Post' and 'user_id' as per your database schema
+    }
+
+    public function followers()
+    {
+        return $this->hasMany(Follower::class, 'followed_id'); // Adjust 'followed_id' as per your schema
+    }
+
+    public function following()
+    {
+        return $this->hasMany(Follower::class, 'follower_id'); // Adjust 'follower_id' as per your schema
     }
 
     /**
