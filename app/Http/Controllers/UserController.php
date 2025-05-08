@@ -139,9 +139,9 @@ class UserController extends Controller
     {
         // Find the user by username
         $user = AuthAccount::where('username', $username)
-        ->with(['profile', 'followers', 'following', 'posts.votes', 'posts.comments']) // Eager load relationships
-        ->withCount(['followers', 'following', 'posts']) // Count followers, following, and posts
-        ->first();
+            ->with(['profile', 'followers.follower', 'following.followed', 'posts.votes', 'posts.comments']) // Eager load relationships
+            ->withCount(['followers', 'following', 'posts']) // Count followers, following, and posts
+            ->first();
 
         if (!$user) {
             return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
@@ -159,6 +159,26 @@ class UserController extends Controller
                 return $post->comments->count(); // Count comments on all posts
             }) * 2); // 2 points per comment
 
+        // Transform followers
+        $followers = $user->followers->map(function ($follower) {
+            return [
+                'id' => $follower->follower->id,
+                'username' => $follower->follower->username,
+                'profile_name' => $follower->follower->profile->profile_name ?? null,
+                'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$follower->follower->username}/avatar",
+            ];
+        });
+
+        // Transform following
+        $following = $user->following->map(function ($followed) {
+            return [
+                'id' => $followed->followed->id,
+                'username' => $followed->followed->username,
+                'profile_name' => $followed->followed->profile->profile_name ?? null,
+                'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$followed->followed->username}/avatar",
+            ];
+        });
+
         // Transform recent posts
         $recentPosts = $user->posts()->latest()->withCount(['comments', 'views', 'votes'])->take(5)->get()->map(function ($post) {
             return [
@@ -166,9 +186,9 @@ class UserController extends Controller
                 'title' => $post->title,
                 'content' => $post->description,
                 'image_url' => $post->cdnUserContent ? Storage::url($post->cdnUserContent->file_path) : null,
-                'time' => $post->created_at->diffForHumans(), // Format time as "x days ago"
-                'comments' => $this->roundToNearestFive($post->comments_count) . "+", // Example for comments count
-                'views' => $post->views_count ?? 0, // Ensure this field exists in your Post model
+                'time' => $post->created_at->diffForHumans(),
+                'comments' => $this->roundToNearestFive($post->comments_count) . "+",
+                'views' => $post->views_count ?? 0,
                 'votes' => $post->votes->map(function ($vote) {
                     return [
                         'username' => $vote->user->username,
@@ -178,16 +198,16 @@ class UserController extends Controller
                     ];
                 }),
                 'author' => [
-                        'id' => $post->author->id,
-                        'username' => $post->author->username,
-                        'email' => $post->author->email,
-                        'profile_name' => $post->author->profile->profile_name ?? null,
-                        'verified' => $post->author->verified ?? false,
-                    ],
+                    'id' => $post->author->id,
+                    'username' => $post->author->username,
+                    'email' => $post->author->email,
+                    'profile_name' => $post->author->profile->profile_name ?? null,
+                    'verified' => $post->author->verified ?? false,
+                ],
             ];
         });
 
-        // Return the user data, including the profile data
+        // Return the user data, including the profile data, stats, followers, and following
         return response()->json([
             'id' => $user->id,
             'username' => $user->username,
@@ -205,15 +225,17 @@ class UserController extends Controller
                 'verified' => $user->profile->verified == 1 ? true : false,
                 'role' => $user->role ?? null,
                 'last_username_change' => $user->profile->last_username_change ?? null,
-                'joined_at' => $user->created_at->translatedFormat('m Y'), // Format as "Tháng 11 2024",
-                'stats' => [
-                    'followers' => $user->followers_count,
-                    'following' => $user->following_count,
-                    'posts' => $user->posts_count,
-                    'total_likes_count' => $totalLikesCount,
-                    'activity_points' => $activityPoints,
-                ],
+                'joined_at' => $user->created_at->translatedFormat('Tháng m Y'),
             ],
+            'stats' => [
+                'followers' => $user->followers_count,
+                'following' => $user->following_count,
+                'posts' => $user->posts_count,
+                'total_likes_count' => $totalLikesCount,
+                'activity_points' => $activityPoints,
+            ],
+            'followers' => $followers,
+            'following' => $following,
             'recent_posts' => $recentPosts,
         ]);
     }
