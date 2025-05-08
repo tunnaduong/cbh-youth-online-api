@@ -154,14 +154,21 @@ class UserController extends Controller
                 'time' => $post->created_at->diffForHumans(), // Format time as "x days ago"
                 'comments' => $this->roundToNearestFive($post->comments_count) . "+", // Example for comments count
                 'views' => $post->views_count ?? 0, // Ensure this field exists in your Post model
-                'votes' => $post->votes_count ?? 0, // Ensure this field exists in your Post model
+                'votes' => $post->votes->map(function ($vote) {
+                    return [
+                        'username' => $vote->user->username,
+                        'vote_value' => $vote->vote_value,
+                        'created_at' => $vote->created_at,
+                        'updated_at' => $vote->updated_at,
+                    ];
+                }),
                 'author' => [
-                    'id' => $post->author->id,
-                    'username' => $post->author->username,
-                    'email' => $post->author->email,
-                    'profile_name' => $post->author->profile->profile_name ?? null,
-                    'verified' => $post->author->verified ?? false,
-                ],
+                        'id' => $post->author->id,
+                        'username' => $post->author->username,
+                        'email' => $post->author->email,
+                        'profile_name' => $post->author->profile->profile_name ?? null,
+                        'verified' => $post->author->verified ?? false,
+                    ],
             ];
         });
 
