@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Topic;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Notifications\CustomResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 // cyo_auth_accounts model
 class AuthAccount extends Authenticatable implements MustVerifyEmail
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens;
+    use HasFactory;
+    use Notifiable;
 
     protected $table = 'cyo_auth_accounts';
     protected $fillable = ['username', 'password', 'email'];
@@ -21,6 +24,11 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     public function profile()
     {
         return $this->hasOne(UserProfile::class, 'auth_account_id', 'id');
+    }
+
+    public function posts()
+    {
+        return $this->hasMany(Topic::class, 'user_id'); // Adjust 'Post' and 'user_id' as per your database schema
     }
 
     /**

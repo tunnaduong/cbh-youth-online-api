@@ -123,6 +123,17 @@ class UserController extends Controller
         return response()->json(['message' => 'Không có file nào được upload.'], 400);
     }
 
+    private function roundToNearestFive($count)
+    {
+        if ($count <= 5) {
+            // If count is less than or equal to 5, format it with leading zero
+            return str_pad($count, 2, '0', STR_PAD_LEFT);
+        } else {
+            // Round down to the nearest multiple of 5 and pad to 2 digits
+            return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
+        }
+    }
+
     // Get user profile by username
     public function getProfile($username)
     {
@@ -133,6 +144,20 @@ class UserController extends Controller
             return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
         }
 
+        // Transform recent posts
+        $recentPosts = $user->posts()->latest()->withCount(['comments', 'views', 'votes'])->take(5)->get()->map(function ($post) {
+            return [
+                'id' => $post->id,
+                'title' => $post->title,
+                'content' => $post->description,
+                'image_url' => $post->cdnUserContent ? Storage::url($post->cdnUserContent->file_path) : null,
+                'time' => $post->created_at->diffForHumans(), // Format time as "x days ago"
+                'comments' => $this->roundToNearestFive($post->comments_count) . "+", // Example for comments count
+                'views' => $post->views_count ?? 0, // Ensure this field exists in your Post model
+                'votes' => $post->votes_count ?? 0, // Ensure this field exists in your Post model
+            ];
+        });
+
         // Return the user data, including the profile data
         return response()->json([
             'id' => $user->id,
@@ -142,12 +167,17 @@ class UserController extends Controller
             'updated_at' => $user->updated_at,
             'profile' => [
                 'profile_name' => $user->profile->profile_name ?? null,
-                'profile_picture' => $user->profile->profile_picture ?? null,
+                'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$user->username}/avatar",
                 'bio' => $user->profile->bio ?? null,
                 'birthday' => $user->profile->birthday ?? null,
                 'gender' => $user->profile->gender ?? null,
                 'location' => $user->profile->location ?? null,
+                'email' => $user->email,
+                'verified' => $user->profile->verified == 1 ? true : false,
+                'role' => $user->role ?? null,
+                'last_username_change' => $user->profile->last_username_change ?? null,
             ],
+            'recent_posts' => $recentPosts,
         ]);
     }
 

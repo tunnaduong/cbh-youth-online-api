@@ -28,19 +28,24 @@ class Topic extends Model
         return $this->belongsTo(AuthAccount::class, 'user_id');
     }
 
+    public function author()
+    {
+        return $this->belongsTo(AuthAccount::class, 'user_id'); // Adjust 'user_id' if necessary
+    }
+
     public function views()
     {
-        return $this->hasMany(TopicView::class);
+        return $this->hasMany(TopicView::class, 'topic_id'); // Adjust 'topic_id' if necessary
     }
 
     public function votes()
     {
-        return $this->hasMany(TopicVote::class);
+        return $this->hasMany(TopicVote::class, 'topic_id');
     }
 
     public function comments()
     {
-        return $this->hasMany(TopicComment::class);
+        return $this->hasMany(TopicComment::class, 'topic_id'); // Adjust 'topic_id' if necessary
     }
 
     public function isPinned()
