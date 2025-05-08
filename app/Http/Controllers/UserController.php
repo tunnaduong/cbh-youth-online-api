@@ -176,6 +176,7 @@ class UserController extends Controller
                 'verified' => $user->profile->verified == 1 ? true : false,
                 'role' => $user->role ?? null,
                 'last_username_change' => $user->profile->last_username_change ?? null,
+                'joined_at' => $user->created_at->translatedFormat('m Y'), // Format as "Tháng 11 2024",
             ],
             'recent_posts' => $recentPosts,
         ]);
