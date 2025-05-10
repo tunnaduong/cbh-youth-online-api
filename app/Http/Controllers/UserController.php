@@ -181,12 +181,21 @@ class UserController extends Controller
 
         // Transform following
         $following = $user->following->map(function ($followed) {
-            return [
+            $response = [
                 'id' => $followed->followed->id,
                 'username' => $followed->followed->username,
                 'profile_name' => $followed->followed->profile->profile_name ?? null,
                 'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$followed->followed->username}/avatar",
             ];
+
+            if (auth()->check()) {
+                // Check if the authenticated user is following this follower
+                $response['isFollowed'] = Follower::where('follower_id', auth()->id())
+                    ->where('followed_id', $followed->follower->id)
+                    ->exists();
+            }
+
+            return $response;
         });
 
         // Transform recent posts
