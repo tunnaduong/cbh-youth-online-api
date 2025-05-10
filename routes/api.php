@@ -40,6 +40,8 @@ Route::prefix('v1.0')->group(function () {
         Route::get('/topics', [TopicsController::class, 'index']); // Allow both authenticated and unauthenticated access
         Route::get('/topics/{id}', [TopicsController::class, 'show']);
         Route::get('/comments/{commentId}/replies', [TopicsController::class, 'getReplies']);
+        // Route to get user profile by username
+        Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
     });
 
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
@@ -85,8 +87,6 @@ Route::prefix('v1.0')->group(function () {
     // Allow both authenticated and unauthenticated access to register views
     Route::post('/topics/{id}/views', [TopicsController::class, 'registerView']);
 
-    // Route to get user profile by username
-    Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
 
     Route::middleware('auth:sanctum')->group(function () {
         // Your routes that require authentication

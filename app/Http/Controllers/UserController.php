@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Follower;
 use App\Models\AuthAccount;
 use App\Models\UserContent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Intervention\Image\Facades\Image;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Intervention\Image\Facades\Image;
 
 class UserController extends Controller
 {
@@ -161,12 +162,21 @@ class UserController extends Controller
 
         // Transform followers
         $followers = $user->followers->map(function ($follower) {
-            return [
+            $response = [
                 'id' => $follower->follower->id,
                 'username' => $follower->follower->username,
                 'profile_name' => $follower->follower->profile->profile_name ?? null,
                 'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$follower->follower->username}/avatar",
             ];
+
+            if (auth()->check()) {
+                // Check if the authenticated user is following this follower
+                $response['isFollowed'] = Follower::where('follower_id', auth()->id())
+                    ->where('followed_id', $follower->follower->id)
+                    ->exists();
+            }
+
+            return $response;
         });
 
         // Transform following
