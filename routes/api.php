@@ -106,7 +106,7 @@ Route::prefix('v1.0')->group(function () {
         Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
         Route::post('/topics', [TopicsController::class, 'store']);
         Route::post('/topics/{id}/views/authenticated', [TopicsController::class, 'registerView']);
-        Route::post('/users/{id}/follow', [FollowController::class, 'follow']); // Follow a user
-        Route::delete('/users/{id}/unfollow', [FollowController::class, 'unfollow']); // Unfollow a user
+        Route::post('/users/{username}/follow', [FollowController::class, 'follow']); // Follow a user
+        Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']); // Unfollow a user
     });
 });
