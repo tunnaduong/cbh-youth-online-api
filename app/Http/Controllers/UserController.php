@@ -190,9 +190,7 @@ class UserController extends Controller
 
             if (auth()->check()) {
                 // Check if the authenticated user is following this follower
-                $response['isFollowed'] = Follower::where('follower_id', auth()->id())
-                    ->where('followed_id', $followed->follower->id)
-                    ->exists();
+                $response['isFollowed'] = true; // Always true for the following list
             }
 
             return $response;
