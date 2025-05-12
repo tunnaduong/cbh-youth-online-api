@@ -191,11 +191,16 @@ class UserController extends Controller
                 'username' => $followed->followed->username,
                 'profile_name' => $followed->followed->profile->profile_name ?? null,
                 'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$followed->followed->username}/avatar",
+                'isFollowed' => false, // Default to false
             ];
 
             if (auth()->check()) {
-                // Check if the authenticated user is following this follower
-                $response['isFollowed'] = true; // Always true for the following list
+                // Check if the authenticated user is following this followed user
+                $isFollowing = Follower::where('follower_id', auth()->id())
+                    ->where('followed_id', $followed->followed->id)
+                    ->exists();
+
+                $response['isFollowed'] = $isFollowing;
             }
 
             return $response;
