@@ -15,14 +15,16 @@ class ForumController extends Controller
     {
         $categories = ForumMainCategory::with(['subforums' => function ($query) {
             $query->withCount('topics')
-                ->withCount(['topics as comment_count' => function ($query) {
-                    $query->leftJoin('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
-                        ->selectRaw('IFNULL(count(cyo_topic_comments.id), 0)');
-                }])
-                ->with(['topics' => function ($query) {
-                    $query->latest('created_at')->with(['user.profile'])->limit(1);
-                }]);
-        }])->get();
+            ->withCount(['topics as comment_count' => function ($query) {
+                $query->leftJoin('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
+                ->selectRaw('IFNULL(count(cyo_topic_comments.id), 0)');
+            }])
+            ->with(['topics' => function ($query) {
+                $query->latest('created_at')->with(['user.profile'])->limit(1);
+            }]);
+        }])
+        ->orderBy('arrange', 'asc')
+        ->get();
 
         // Format the response
         $categories = $categories->map(function ($category) {
