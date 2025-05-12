@@ -42,6 +42,7 @@ Route::prefix('v1.0')->group(function () {
         Route::get('/comments/{commentId}/replies', [TopicsController::class, 'getReplies']);
         // Route to get user profile by username
         Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
+        Route::get('/forum/subforums', [ForumController::class, 'getSubforumsByRole']);
     });
 
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);

@@ -8,7 +8,7 @@ class ForumSubforum extends Model
 {
     protected $table = "cyo_forum_subforums";
 
-    protected $fillable = ['main_category_id', 'name', 'description', 'active', 'pinned'];
+    protected $fillable = ['main_category_id', 'name', 'description', 'active', 'pinned', 'role_restriction'];
 
     public function mainCategory()
     {

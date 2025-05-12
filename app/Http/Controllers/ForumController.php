@@ -10,6 +10,60 @@ use Illuminate\Support\Facades\Log;
 
 class ForumController extends Controller
 {
+    // Get all subforums and filter by role (user, admin, teacher) of current logged in user
+    public function getSubforumsByRole(Request $request)
+    {
+        // Check if a user is authenticated
+        if (auth()->check()) {
+            $user = auth()->user();
+            $role = $user->role; // Assuming 'role' is a field in your user model
+
+            // Get all subforums
+            $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
+                $query->latest('created_at')->with(['user.profile']);
+            }])
+            ->where('active', true)
+            ->get();
+
+            // Filter subforums based on user role
+            if ($role === 'admin') {
+                // Admin can see all subforums with role_restriction = 'user' or 'admin'
+                $subforums = $subforums->filter(function ($subforum) {
+                    return in_array($subforum->role_restriction, ['user', 'admin']);
+                });
+            } elseif ($role === 'teacher') {
+                // Teacher can see all subforums with role_restriction = 'user' or 'teacher'
+                $subforums = $subforums->filter(function ($subforum) {
+                    return in_array($subforum->role_restriction, ['user', 'teacher']);
+                });
+            } else {
+                // Regular users can see only subforums with role_restriction = 'user'
+                $subforums = $subforums->filter(function ($subforum) {
+                    return $subforum->role_restriction === 'user';
+                });
+            }
+        } else {
+            // If user is not logged in, show all subforums
+            $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
+                $query->latest('created_at')->with(['user.profile']);
+            }])
+            ->where('active', true)
+            ->get();
+        }
+
+        // Order the subforums by the arrange field of their main category
+        $transformedSubforums = $subforums->sortBy(function ($subforum) {
+            return $subforum->mainCategory->arrange;
+        })->values()->map(function ($subforum) {
+            return [
+                'label' => $subforum->name,
+                'value' => $subforum->id,
+            ];
+        });
+
+        return response()->json($transformedSubforums);
+    }
+
     // Get all main categories
     public function getCategories()
     {
