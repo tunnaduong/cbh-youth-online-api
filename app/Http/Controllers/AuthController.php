@@ -47,6 +47,7 @@ class AuthController extends Controller
                 'updated_at' => $user->updated_at,
                 'email_verified_at' => $user->email_verified_at,
                 'verified' => ($user->profile->verified ?? null) == 1 ? true : false,
+                'role' => $user->role ?? null, // Include role if it exists
             ],
             'token' => $token,
         ]);
