@@ -6,6 +6,7 @@ use App\Models\Follower;
 use App\Models\AuthAccount;
 use App\Models\UserContent;
 use Illuminate\Http\Request;
+use App\Models\UserSavedTopic;
 use Illuminate\Support\Facades\Auth;
 use Intervention\Image\Facades\Image;
 use Illuminate\Support\Facades\Storage;
@@ -231,6 +232,7 @@ class UserController extends Controller
                     'profile_name' => $post->author->profile->profile_name ?? null,
                     'verified' => $post->author->verified ?? false,
                 ],
+                'saved' => UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists(),
             ];
         });
 
