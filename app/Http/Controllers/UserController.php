@@ -174,6 +174,11 @@ class UserController extends Controller
                 $response['isFollowed'] = Follower::where('follower_id', auth()->id())
                     ->where('followed_id', $follower->follower->id)
                     ->exists();
+
+                // If the follower is the current user, then isFollowed is true
+                if ($follower->follower->id == auth()->id()) {
+                    $response['isFollowed'] = true;
+                }
             }
 
             return $response;
