@@ -118,7 +118,7 @@ class TopicsController extends Controller
                     'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
                 ],
                 'created_at' => $comment->created_at->diffForHumans(),
-                'votes' => $comment->votes->map(fn($vote) => [
+                'votes' => $comment->votes->map(fn ($vote) => [
                     'user_id' => $vote->user_id,
                     'username' => $vote->user->username,
                     'vote_value' => $vote->vote_value,
@@ -135,7 +135,7 @@ class TopicsController extends Controller
                             'verified' => $reply->user->profile->verified == 1 ?? false ? true : false,
                         ],
                         'created_at' => $reply->created_at->diffForHumans(),
-                        'votes' => $reply->votes->map(fn($vote) => [
+                        'votes' => $reply->votes->map(fn ($vote) => [
                             'user_id' => $vote->user_id,
                             'username' => $vote->user->username,
                             'vote_value' => $vote->vote_value,
@@ -152,7 +152,7 @@ class TopicsController extends Controller
                                     'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
                                 ],
                                 'created_at' => $subReply->created_at->diffForHumans(),
-                                'votes' => $subReply->votes->map(fn($vote) => [
+                                'votes' => $subReply->votes->map(fn ($vote) => [
                                     'user_id' => $vote->user_id,
                                     'username' => $vote->user->username,
                                     'vote_value' => $vote->vote_value,
@@ -229,7 +229,7 @@ class TopicsController extends Controller
         return response()->json([
             'id' => $topic->id,
             'title' => $topic->title,
-            'content' => nl2br(e($topic->description)),
+            'content' => $topic->description,
             'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
             'author' => [
                 'id' => $author->id,
