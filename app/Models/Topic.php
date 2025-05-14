@@ -14,12 +14,13 @@ class Topic extends Model
 
     // Define which fields are mass assignable
     protected $fillable = [
-        'subforum_id', // Thêm subforum_id vào đây
+        'subforum_id',
         'user_id',
         'title',
         'description',
         'pinned',
-        'cdn_image_id', // Thêm cdn_image_id vào đây
+        'cdn_image_id',
+        'hidden',
     ];
 
     // Define the relationship: A topic belongs to a user

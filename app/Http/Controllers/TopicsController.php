@@ -211,6 +211,7 @@ class TopicsController extends Controller
             'description' => 'required|string',
             'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
             'cdn_image_id' => 'nullable|exists:cyo_cdn_user_content,id',
+            'visibility' => 'nullable|string|in:0,1', // 0: public, 1: private
         ]);
 
         $topic = Topic::create([
@@ -219,6 +220,7 @@ class TopicsController extends Controller
             'description' => $request->description,
             'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
             'cdn_image_id' => $request->cdn_image_id,
+            'hidden' => $request->visibility,
         ]);
 
         // Load the user profile to get profile_name
