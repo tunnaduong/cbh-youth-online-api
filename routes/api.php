@@ -23,7 +23,6 @@ use App\Http\Controllers\ForgotPasswordController;
 |
 */
 
-// Change the prefix to v1.0
 Route::prefix('v1.0')->group(function () {
 
     Route::post('/upload', [FileUploadController::class, 'upload']);
@@ -44,6 +43,8 @@ Route::prefix('v1.0')->group(function () {
         Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
         Route::get('/forum/subforums', [ForumController::class, 'getSubforumsByRole']);
     });
+
+    Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
 
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
 
@@ -109,5 +110,6 @@ Route::prefix('v1.0')->group(function () {
         Route::post('/topics/{id}/views/authenticated', [TopicsController::class, 'registerView']);
         Route::post('/users/{username}/follow', [FollowController::class, 'follow']); // Follow a user
         Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']); // Unfollow a user
+        Route::post('/online-status', [UserController::class, 'updateLastActivity']);
     });
 });

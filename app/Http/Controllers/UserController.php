@@ -296,4 +296,33 @@ class UserController extends Controller
 
         return response()->json(['message' => 'Cập nhật trang cá nhân thành công.']);
     }
+
+    // Get user online status
+    public function getOnlineStatus($username)
+    {
+        // Find the user by username
+        $user = AuthAccount::where('username', $username)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
+        }
+
+        // Check if the user is online
+        $isOnline = $user->last_activity > now()->subMinutes(5);
+
+        return response()->json(['is_online' => $isOnline, 'last_activity' => $user->last_activity]);
+    }
+
+    // Update user last activity
+    public function updateLastActivity()
+    {
+        // Get the authenticated user
+        $user = Auth::user();
+
+        // Update the user's last activity
+        $user->last_activity = now();
+        $user->save();
+
+        return response()->json(['message' => 'Cập nhật trạng thái hoạt động thành công.']);
+    }
 }
