@@ -7,6 +7,7 @@ use App\Models\AuthAccount;
 use App\Models\UserContent;
 use Illuminate\Http\Request;
 use App\Models\UserSavedTopic;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Intervention\Image\Facades\Image;
 use Illuminate\Support\Facades\Storage;
@@ -247,14 +248,14 @@ class UserController extends Controller
                 'profile_name' => $user->profile->profile_name ?? null,
                 'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$user->username}/avatar",
                 'bio' => $user->profile->bio ?? null,
-                'birthday' => $user->profile->birthday ?? null,
+                'birthday' => $user->profile->birthday ? Carbon::parse($user->profile->birthday)->locale('vi')->format('d \T\h\á\n\g m Y') : null,
                 'gender' => $user->profile->gender ?? null,
                 'location' => $user->profile->location ?? null,
                 'email' => $user->email,
                 'verified' => $user->profile->verified == 1 ? true : false,
                 'role' => $user->role ?? null,
                 'last_username_change' => $user->profile->last_username_change ?? null,
-                'joined_at' => $user->created_at->translatedFormat('m Y'),
+                'joined_at' => $user->created_at->translatedFormat('\T\h\á\n\g m Y'),
             ],
             'stats' => [
                 'followers' => $user->followers_count,
