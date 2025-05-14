@@ -237,6 +237,9 @@ class UserController extends Controller
             ];
         });
 
+        // Check if the user is online
+        $isOnline = $user->last_activity > now()->subMinutes(5);
+
         // Return the user data, including the profile data, stats, followers, and following
         return response()->json([
             'id' => $user->id,
@@ -263,6 +266,8 @@ class UserController extends Controller
                 'posts' => $user->posts_count,
                 'total_likes_count' => $totalLikesCount,
                 'activity_points' => $activityPoints,
+                'is_online' => $isOnline,
+                'last_activity' => $user->last_activity,
             ],
             'followers' => $followers,
             'following' => $following,
