@@ -292,7 +292,7 @@ class UserController extends Controller
             'profile_name' => 'nullable|string|max:255',
             'profile_picture' => 'nullable|integer', // Optional, if updating avatar via URL
             'bio' => 'nullable|string',
-            'birthday' => 'nullable|string',
+            'birthday' => 'nullable|date',
             'gender' => 'nullable|string',
             'location' => 'nullable|string|max:255',
         ]);
@@ -300,7 +300,7 @@ class UserController extends Controller
         // Update user's profile
         $user->profile->update($validatedData);
 
-        return response()->json(['message' => 'Cập nhật trang cá nhân thành công.']);
+        return response()->json(['message' => 'Cập nhật trang cá nhân thành công.', 'request' => $validatedData]);
     }
 
     // Get user online status
