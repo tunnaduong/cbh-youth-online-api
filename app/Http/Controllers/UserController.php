@@ -252,6 +252,7 @@ class UserController extends Controller
                 'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$user->username}/avatar",
                 'bio' => $user->profile->bio ?? null,
                 'birthday' => $user->profile->birthday ? Carbon::parse($user->profile->birthday)->locale('vi')->format('d \T\h\á\n\g m Y') : null,
+                'birthday_raw' => $user->profile->birthday ?? null,
                 'gender' => $user->profile->gender ?? null,
                 'location' => $user->profile->location ?? null,
                 'email' => $user->email,
