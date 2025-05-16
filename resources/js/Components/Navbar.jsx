@@ -1,4 +1,9 @@
+import { useTheme } from "@/Hooks/useTheme";
+import { Sun, Moon } from "lucide-react";
+
 export default function Navbar() {
+    const { theme, toggleTheme } = useTheme();
+
     return (
         <nav className="fixed w-[100%] top-0 bg-white dark:!bg-neutral-700 shadow-md leading-[0] flex justify-between">
             <div className="flex flex-row px-6 py-3.5">
@@ -29,7 +34,7 @@ export default function Navbar() {
                 <a id="logo" className="inline-block" href="/">
                     <div className="flex gap-x-1 items-center min-w-max">
                         <img
-                            src="/assets/images/logo.png"
+                            src="/images/logo.png"
                             alt="CYO's Logo"
                             className="w-10 h-10"
                         />
@@ -51,7 +56,7 @@ export default function Navbar() {
                     <input
                         type="text"
                         placeholder="Tìm kiếm"
-                        className="no-outline-input w-full bg-[#F7F7F7] dark:!bg-neutral-600 text-[13px] p-2 rounded-lg pr-1"
+                        className="border-0 w-full bg-[#F7F7F7] dark:!bg-neutral-600 text-[13px] p-2 rounded-lg pr-1"
                     />
                     <div className="bg-white dark:!bg-neutral-700 rounded-lg min-w-[30px] h-[30px] flex items-center justify-center cursor-pointer search-btn dark:!border-neutral-500">
                         <svg
@@ -102,20 +107,19 @@ export default function Navbar() {
                         }}
                     />
                     <button
+                        onClick={toggleTheme}
                         className="theme-toggle relative hidden xl:block h-8 w-14 rounded-full border !border-neutral-500 dark:border-neutral-500 bg-gray-100 dark:bg-neutral-700 hover:!border-green-600 theme-transition"
                         aria-label="Toggle theme"
                     >
-                        <div className="toggle-circle absolute top-[3px] left-1 flex h-6 w-6 items-center justify-center rounded-full bg-white dark:!bg-black shadow-sm">
+                        <div className="toggle-circle absolute top-[3px] left-1 flex h-6 w-6 items-center justify-center rounded-full bg-white dark:!bg-black shadow-sm dark:transform dark:translate-x-6 transition-transform duration-300">
                             {/* Sun icon for light mode */}
-                            <i
-                                data-lucide="sun"
-                                className="sun-icon h-3.5 w-3.5 text-black"
-                            />
-                            {/* Moon icon for dark mode (hidden initially) */}
-                            <i
-                                data-lucide="moon"
-                                className="moon-icon h-3.5 w-3.5 text-black dark:!text-white hidden"
-                            />
+                            {theme === "light" && (
+                                <Sun className="h-3.5 w-3.5 text-black" />
+                            )}
+                            {/* Moon icon for dark mode */}
+                            {theme === "dark" && (
+                                <Moon className="h-3.5 w-3.5 text-black dark:!text-white" />
+                            )}
                         </div>
                         <span className="sr-only">Toggle theme</span>
                     </button>

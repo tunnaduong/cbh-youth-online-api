@@ -1,13 +1,12 @@
-import Navbar from "@/Components/Navbar";
+import HomeLayout from "@/Layouts/HomeLayout";
 
-export default function Home({ title }) {
+export default function Home() {
     return (
-        <div>
-            <Navbar />
-            <h1>{title}</h1>
-            <div class="container mt-5">
+        <HomeLayout>
+            <h1>Home</h1>
+            <div class="">
                 <button class="btn btn-primary">Test Button</button>
             </div>
-        </div>
+        </HomeLayout>
     );
 }
