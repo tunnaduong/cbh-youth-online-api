@@ -7,6 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\TopicsController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\PasswordResetController;
@@ -111,5 +112,59 @@ Route::prefix('v1.0')->group(function () {
         Route::post('/users/{username}/follow', [FollowController::class, 'follow']); // Follow a user
         Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']); // Unfollow a user
         Route::post('/online-status', [UserController::class, 'updateLastActivity']);
+    });
+
+    // Admin API Routes
+    Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
+        // Quản lý người dùng
+        Route::get('/users', [AdminController::class, 'listUsers']);
+        Route::post('/users', [AdminController::class, 'storeUser']);
+        Route::put('/users/{id}', [AdminController::class, 'updateUser']);
+        Route::delete('/users/{id}', [AdminController::class, 'destroyUser']);
+        Route::get('/users/stats', [AdminController::class, 'userStats']);
+
+        // Quản lý danh mục diễn đàn
+        Route::get('/forum-categories', [AdminController::class, 'listForumCategories']);
+        Route::post('/forum-categories', [AdminController::class, 'storeForumCategory']);
+        Route::put('/forum-categories/{id}', [AdminController::class, 'updateForumCategory']);
+        Route::delete('/forum-categories/{id}', [AdminController::class, 'destroyForumCategory']);
+
+        // Quản lý diễn đàn con
+        Route::get('/subforums', [AdminController::class, 'listSubforums']);
+        Route::post('/subforums', [AdminController::class, 'storeSubforum']);
+        Route::put('/subforums/{id}', [AdminController::class, 'updateSubforum']);
+        Route::delete('/subforums/{id}', [AdminController::class, 'destroySubforum']);
+
+        // Quản lý bài viết
+        Route::get('/posts', [AdminController::class, 'listPosts']);
+        Route::post('/posts', [AdminController::class, 'storePost']);
+        Route::put('/posts/{id}', [AdminController::class, 'updatePost']);
+        Route::delete('/posts/{id}', [AdminController::class, 'destroyPost']);
+        Route::put('/posts/{id}/pin', [AdminController::class, 'togglePinPost']);
+        Route::put('/posts/{id}/lock', [AdminController::class, 'toggleLockPost']);
+
+        // Quản lý lớp học
+        Route::get('/classes', [AdminController::class, 'listClasses']);
+        Route::post('/classes', [AdminController::class, 'storeClass']);
+        Route::put('/classes/{id}', [AdminController::class, 'updateClass']);
+        Route::delete('/classes/{id}', [AdminController::class, 'destroyClass']);
+
+        // Quản lý thời khóa biểu
+        Route::get('/schedules', [AdminController::class, 'listSchedules']);
+        Route::post('/schedules', [AdminController::class, 'storeSchedule']);
+        Route::put('/schedules/{id}', [AdminController::class, 'updateSchedule']);
+        Route::delete('/schedules/{id}', [AdminController::class, 'destroySchedule']);
+
+        // Quản lý vi phạm học sinh
+        Route::get('/violations', [AdminController::class, 'listViolations']);
+        Route::post('/violations', [AdminController::class, 'storeViolation']);
+        Route::put('/violations/{id}', [AdminController::class, 'updateViolation']);
+        Route::delete('/violations/{id}', [AdminController::class, 'destroyViolation']);
+
+        // Quản lý báo cáo xung kích
+        Route::get('/monitor-reports', [AdminController::class, 'listMonitorReports']);
+        Route::post('/monitor-reports', [AdminController::class, 'storeMonitorReport']);
+        Route::put('/monitor-reports/{id}', [AdminController::class, 'updateMonitorReport']);
+        Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport']);
     });
 });
