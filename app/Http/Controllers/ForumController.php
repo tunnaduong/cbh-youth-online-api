@@ -6,6 +6,8 @@ use App\Models\Topic;
 use Illuminate\Http\Request;
 use App\Models\ForumSubforum;
 use App\Models\ForumMainCategory;
+use App\Models\AuthAccount;
+use App\Models\TopicComment;
 use Illuminate\Support\Facades\Log;
 use App\Models\ForumCategory;
 use App\Models\Reply;
@@ -15,14 +17,37 @@ class ForumController extends Controller
 {
     public function index()
     {
-        $categories = ForumCategory::with(['subforums' => function ($query) {
+        $mainCategories = ForumCategory::with(['subforums' => function ($query) {
             $query->withCount('topics');
         }])
         ->orderBy('arrange')
         ->get();
 
-        return Inertia::render('Forum/Index', [
-            'categories' => $categories
+        $latestPosts = Topic::with('user.profile')
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get();
+
+        $userCount = AuthAccount::count();
+        $postCount = Topic::count();
+        $commentCount = TopicComment::count();
+
+        $record = null;
+        $siteStats = [];
+
+        $latestUser = AuthAccount::orderBy('created_at', 'desc')->first();
+
+        return Inertia::render('Home', [
+            'mainCategories' => $mainCategories,
+            'latestPosts' => $latestPosts,
+            'stats' => [
+                'userCount' => $userCount,
+                'postCount' => $postCount,
+                'commentCount' => $commentCount,
+                'record' => $record,
+                'stats' => $siteStats,
+                'latestUser' => $latestUser,
+            ],
         ]);
     }
 
@@ -166,40 +191,32 @@ class ForumController extends Controller
             ->with('success', 'Trả lời đã được xóa thành công.');
     }
 
-    // Get all subforums and filter by role (user, admin, teacher) of current logged in user
     public function getSubforumsByRole(Request $request)
     {
-        // Check if a user is authenticated
         if (auth()->check()) {
             $user = auth()->user();
-            $role = $user->role; // Assuming 'role' is a field in your user model
+            $role = $user->role;
 
-            // Get all subforums
             $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
                 $query->latest('created_at')->with(['user.profile']);
             }])
             ->where('active', true)
             ->get();
 
-            // Filter subforums based on user role
             if ($role === 'admin') {
-                // Admin can see all subforums with role_restriction = 'user' or 'admin'
                 $subforums = $subforums->filter(function ($subforum) {
                     return in_array($subforum->role_restriction, ['user', 'admin']);
                 });
             } elseif ($role === 'teacher') {
-                // Teacher can see all subforums with role_restriction = 'user' or 'teacher'
                 $subforums = $subforums->filter(function ($subforum) {
                     return in_array($subforum->role_restriction, ['user', 'teacher']);
                 });
             } else {
-                // Regular users can see only subforums with role_restriction = 'user'
                 $subforums = $subforums->filter(function ($subforum) {
                     return $subforum->role_restriction === 'user';
                 });
             }
         } else {
-            // If user is not logged in, show all subforums
             $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
                 $query->latest('created_at')->with(['user.profile']);
             }])
@@ -207,7 +224,6 @@ class ForumController extends Controller
             ->get();
         }
 
-        // Order the subforums by the arrange field of their main category
         $transformedSubforums = $subforums->sortBy(function ($subforum) {
             return $subforum->mainCategory->arrange;
         })->values()->map(function ($subforum) {
@@ -220,7 +236,6 @@ class ForumController extends Controller
         return response()->json($transformedSubforums);
     }
 
-    // Get all main categories
     public function getCategories()
     {
         $categories = ForumMainCategory::with(['subforums' => function ($query) {
@@ -236,7 +251,6 @@ class ForumController extends Controller
         ->orderBy('arrange', 'asc')
         ->get();
 
-        // Format the response
         $categories = $categories->map(function ($category) {
             return [
                 'id' => $category->id,
@@ -245,7 +259,7 @@ class ForumController extends Controller
                 'created_at' => $category->created_at,
                 'updated_at' => $category->updated_at,
                 'subforums' => $category->subforums->map(function ($subforum) {
-                    $latestPost = $subforum->latestTopic; // Use the latestTopic relationship
+                    $latestPost = $subforum->latestTopic;
                     return [
                         'id' => $subforum->id,
                         'main_category_id' => $subforum->main_category_id,
@@ -275,8 +289,6 @@ class ForumController extends Controller
         return response()->json($categories);
     }
 
-
-    // Get all subforums under a category
     public function getSubforums(ForumMainCategory $mainCategory)
     {
         $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with(['topics' => function ($query) {
@@ -284,7 +296,7 @@ class ForumController extends Controller
         }])->get();
 
         return $subforums->map(function ($subforum) use ($mainCategory) {
-            $latestPost = $subforum->topics->first(); // Get the latest topic for each subforum
+            $latestPost = $subforum->topics->first();
 
             return [
                 'id' => $subforum->id,
@@ -312,7 +324,6 @@ class ForumController extends Controller
         });
     }
 
-    // Create a new main category
     public function storeCategory(Request $request)
     {
         $request->validate([
@@ -324,7 +335,6 @@ class ForumController extends Controller
         return response()->json($category);
     }
 
-    // Create a new subforum under a main category
     public function storeSubforum(Request $request, ForumMainCategory $mainCategory)
     {
         $request->validate([
@@ -337,13 +347,11 @@ class ForumController extends Controller
         return response()->json($subforum);
     }
 
-    // Get pinned topics
     public function getPinnedTopics()
     {
         return Topic::where('pinned', true)->get();
     }
 
-    // Pin or unpin a topic
     public function pinTopic(Topic $topic, Request $request)
     {
         $topic->pinned = $request->input('pinned', false);
