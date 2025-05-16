@@ -13,10 +13,15 @@ document.addEventListener("DOMContentLoaded", () => {
     createIcons();
 });
 
-const appName = import.meta.env.VITE_APP_NAME || "Laravel";
+const appName = "Diễn đàn học sinh Chuyên Biên Hòa"; // Your base app name
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => {
+        if (title && title !== appName) {
+            return `${title} - ${appName}`;
+        }
+        return appName; // Default title for home or pages without a specific title
+    },
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.jsx`,

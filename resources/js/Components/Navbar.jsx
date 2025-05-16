@@ -1,5 +1,6 @@
 import { useTheme } from "@/Hooks/useTheme";
 import { Sun, Moon } from "lucide-react";
+import { Link } from "@inertiajs/react";
 
 export default function Navbar() {
     const { theme, toggleTheme } = useTheme();
@@ -31,7 +32,7 @@ export default function Navbar() {
                         <line x1={4} x2={20} y1={18} y2={18} />
                     </svg>
                 </button>
-                <a id="logo" className="inline-block" href="/">
+                <Link id="logo" className="inline-block" href="/">
                     <div className="flex gap-x-1 items-center min-w-max">
                         <img
                             src="/images/logo.png"
@@ -51,7 +52,7 @@ export default function Navbar() {
                             <span>Beta</span>
                         </div>
                     </div>
-                </a>
+                </Link>
                 <div className="max-w-52 xl:flex flex-row items-center bg-[#F7F7F7] dark:!bg-neutral-600 rounded-lg pr-1 ml-7 pl-1 hidden">
                     <input
                         type="text"
@@ -76,30 +77,30 @@ export default function Navbar() {
             </div>
             <div className="flex items-center">
                 <div className="h-full items-center flex flex-row gap-x-3 relative nav-item">
-                    <a
+                    <Link
                         className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 nav-active"
                         href="/"
                     >
                         Cộng đồng
-                    </a>
-                    <a
+                    </Link>
+                    <Link
                         className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
                         href="/report"
                     >
                         Báo cáo
-                    </a>
-                    <a
+                    </Link>
+                    <Link
                         className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
                         href="/lookup"
                     >
                         Tra cứu
-                    </a>
-                    <a
+                    </Link>
+                    <Link
                         className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
                         href="/explore"
                     >
                         Khám phá
-                    </a>
+                    </Link>
                     <div className="w-[1px] -ml-5 mr-3 h-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
                     <style
                         dangerouslySetInnerHTML={{
@@ -126,7 +127,7 @@ export default function Navbar() {
                     <div className="w-[1px] h-6 ml-3 mr-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
                 </div>
                 <div className="min-w-max mr-4">
-                    <a
+                    <Link
                         href="/login"
                         className="flex items-center gap-x-1 text-sm font-medium transition-colors duration-200 text-[#319527] hover:text-[#3dbb31]"
                         style={{ borderBottom: "3px solid transparent" }}
@@ -136,7 +137,7 @@ export default function Navbar() {
                             className="text-[20px] flex-shrink-0"
                         />
                         <span className="flex-shrink-0">Đăng nhập/Đăng ký</span>
-                    </a>
+                    </Link>
                 </div>
                 <div
                     className="offcanvas offcanvas-start max-w-72 dark:bg-[var(--main-white)]"
@@ -157,16 +158,16 @@ export default function Navbar() {
                     </div>
                     <div className="offcanvas-body px-0 pt-0 text-gray-700 dark:text-gray-300">
                         <nav>
-                            <a
+                            <Link
                                 className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                 href="/"
                             >
                                 <i className="fa-solid fa-user-group mr-3" />{" "}
                                 Cộng đồng
-                            </a>
+                            </Link>
                             <ul className="pl-8">
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/"
                                     >
@@ -175,10 +176,10 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Diễn đàn
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/feed"
                                     >
@@ -187,10 +188,10 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Bảng tin
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/recordings"
                                     >
@@ -199,10 +200,10 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Loa lớn
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/youth-news"
                                     >
@@ -211,10 +212,10 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Tin tức Đoàn
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/saved"
                                     >
@@ -223,18 +224,18 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Đã lưu
-                                    </a>
+                                    </Link>
                                 </li>
                             </ul>
-                            <a
+                            <Link
                                 className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                 href="/report"
                             >
                                 <i className="fa-solid fa-flag mr-3" /> Báo cáo
-                            </a>
+                            </Link>
                             <ul className="pl-8">
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/report/class"
                                     >
@@ -243,10 +244,10 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Báo cáo tập thể lớp
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/report/student"
                                     >
@@ -255,19 +256,19 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Báo cáo học sinh
-                                    </a>
+                                    </Link>
                                 </li>
                             </ul>
-                            <a
+                            <Link
                                 className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                 href="/lookup"
                             >
                                 <i className="fa-solid fa-magnifying-glass mr-3" />{" "}
                                 Tra cứu
-                            </a>
+                            </Link>
                             <ul className="pl-8">
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/lookup/timetable"
                                     >
@@ -276,10 +277,10 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Thời khóa biểu
-                                    </a>
+                                    </Link>
                                 </li>
                                 <li>
-                                    <a
+                                    <Link
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/lookup/class-ranking"
                                     >
@@ -288,16 +289,16 @@ export default function Navbar() {
                                             className="mr-3"
                                         />{" "}
                                         Xếp hạng thi đua lớp
-                                    </a>
+                                    </Link>
                                 </li>
                             </ul>
-                            <a
+                            <Link
                                 className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                 href="/explore"
                             >
                                 <ion-icon name="apps" className="mr-3" /> Khám
                                 phá
-                            </a>
+                            </Link>
                         </nav>
                     </div>
                 </div>
