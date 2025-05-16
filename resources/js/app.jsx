@@ -1,5 +1,7 @@
-import './bootstrap';
-import '../css/app.css';
+import "./bootstrap";
+import 'antd/dist/reset.css';
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import "../css/app.css";
 
 import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
