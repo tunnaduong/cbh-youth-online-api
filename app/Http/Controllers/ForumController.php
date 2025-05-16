@@ -7,9 +7,165 @@ use Illuminate\Http\Request;
 use App\Models\ForumSubforum;
 use App\Models\ForumMainCategory;
 use Illuminate\Support\Facades\Log;
+use App\Models\ForumCategory;
+use App\Models\Reply;
+use Inertia\Inertia;
 
 class ForumController extends Controller
 {
+    public function index()
+    {
+        $categories = ForumCategory::with(['subforums' => function ($query) {
+            $query->withCount('topics');
+        }])
+        ->orderBy('arrange')
+        ->get();
+
+        return Inertia::render('Forum/Index', [
+            'categories' => $categories
+        ]);
+    }
+
+    public function category(ForumCategory $category)
+    {
+        $category->load(['subforums' => function ($query) {
+            $query->withCount('topics');
+        }]);
+
+        return Inertia::render('Forum/Category', [
+            'category' => $category
+        ]);
+    }
+
+    public function subforum(ForumSubforum $subforum)
+    {
+        $topics = $subforum->topics()
+            ->with('user')
+            ->withCount('replies')
+            ->orderBy('pinned', 'desc')
+            ->orderBy('updated_at', 'desc')
+            ->paginate(20);
+
+        return Inertia::render('Forum/Subforum', [
+            'subforum' => $subforum,
+            'topics' => $topics
+        ]);
+    }
+
+    public function createTopic(ForumSubforum $subforum)
+    {
+        return Inertia::render('Forum/Topic/Create', [
+            'subforum' => $subforum
+        ]);
+    }
+
+    public function storeTopic(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'subforum_id' => 'required|exists:cyo_forum_subforums,id'
+        ]);
+
+        $topic = Topic::create([
+            ...$validated,
+            'user_id' => auth()->id()
+        ]);
+
+        return redirect()->route('forum.topic.show', $topic)
+            ->with('success', 'Chủ đề đã được tạo thành công.');
+    }
+
+    public function showTopic(Topic $topic)
+    {
+        $topic->load(['user', 'subforum']);
+        $replies = $topic->replies()
+            ->with('user')
+            ->orderBy('created_at')
+            ->paginate(20);
+
+        return Inertia::render('Forum/Topic/Show', [
+            'topic' => $topic,
+            'replies' => $replies
+        ]);
+    }
+
+    public function editTopic(Topic $topic)
+    {
+        $this->authorize('update', $topic);
+
+        return Inertia::render('Forum/Topic/Edit', [
+            'topic' => $topic
+        ]);
+    }
+
+    public function updateTopic(Request $request, Topic $topic)
+    {
+        $this->authorize('update', $topic);
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string'
+        ]);
+
+        $topic->update($validated);
+
+        return redirect()->route('forum.topic.show', $topic)
+            ->with('success', 'Chủ đề đã được cập nhật thành công.');
+    }
+
+    public function destroyTopic(Topic $topic)
+    {
+        $this->authorize('delete', $topic);
+
+        $subforum = $topic->subforum;
+        $topic->delete();
+
+        return redirect()->route('forum.subforum', $subforum)
+            ->with('success', 'Chủ đề đã được xóa thành công.');
+    }
+
+    public function storeReply(Request $request, Topic $topic)
+    {
+        $validated = $request->validate([
+            'content' => 'required|string'
+        ]);
+
+        Reply::create([
+            ...$validated,
+            'topic_id' => $topic->id,
+            'user_id' => auth()->id()
+        ]);
+
+        return redirect()->route('forum.topic.show', $topic)
+            ->with('success', 'Trả lời đã được gửi thành công.');
+    }
+
+    public function updateReply(Request $request, Reply $reply)
+    {
+        $this->authorize('update', $reply);
+
+        $validated = $request->validate([
+            'content' => 'required|string'
+        ]);
+
+        $reply->update($validated);
+
+        return redirect()->route('forum.topic.show', $reply->topic)
+            ->with('success', 'Trả lời đã được cập nhật thành công.');
+    }
+
+    public function destroyReply(Reply $reply)
+    {
+        $this->authorize('delete', $reply);
+
+        $topic = $reply->topic;
+        $reply->delete();
+
+        return redirect()->route('forum.topic.show', $topic)
+            ->with('success', 'Trả lời đã được xóa thành công.');
+    }
+
     // Get all subforums and filter by role (user, admin, teacher) of current logged in user
     public function getSubforumsByRole(Request $request)
     {

@@ -1,7 +1,11 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\ForumCategoryController;
+use App\Http\Controllers\Admin\ForumSubforumController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ForumController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -18,11 +22,7 @@ use Inertia\Inertia;
 */
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
+    return Inertia::render('Home', [
     ]);
 });
 
@@ -36,16 +36,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::get('/test', function () {
-    return Inertia::render('Test/index', [
-        'title' => 'Test hihihi',
-    ]);
-});
-
 // Admin Routes với InertiaJS
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     // Dashboard
-    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Quản lý người dùng
     Route::get('/users', [AdminController::class, 'usersIndex'])->name('users.index');
@@ -56,20 +50,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::delete('/users/{id}', [AdminController::class, 'destroyUser'])->name('users.destroy');
 
     // Quản lý danh mục diễn đàn
-    Route::get('/forum-categories', [AdminController::class, 'forumCategoriesIndex'])->name('forum-categories.index');
-    Route::get('/forum-categories/create', [AdminController::class, 'createForumCategory'])->name('forum-categories.create');
-    Route::post('/forum-categories', [AdminController::class, 'storeForumCategory'])->name('forum-categories.store');
-    Route::get('/forum-categories/{id}/edit', [AdminController::class, 'editForumCategory'])->name('forum-categories.edit');
-    Route::put('/forum-categories/{id}', [AdminController::class, 'updateForumCategory'])->name('forum-categories.update');
-    Route::delete('/forum-categories/{id}', [AdminController::class, 'destroyForumCategory'])->name('forum-categories.destroy');
+    Route::resource('categories', ForumCategoryController::class, ['as' => 'admin'])
+        ->except(['show']);
 
     // Quản lý diễn đàn con
-    Route::get('/subforums', [AdminController::class, 'subforumsIndex'])->name('subforums.index');
-    Route::get('/subforums/create', [AdminController::class, 'createSubforum'])->name('subforums.create');
-    Route::post('/subforums', [AdminController::class, 'storeSubforum'])->name('subforums.store');
-    Route::get('/subforums/{id}/edit', [AdminController::class, 'editSubforum'])->name('subforums.edit');
-    Route::put('/subforums/{id}', [AdminController::class, 'updateSubforum'])->name('subforums.update');
-    Route::delete('/subforums/{id}', [AdminController::class, 'destroySubforum'])->name('subforums.destroy');
+    Route::resource('subforums', ForumSubforumController::class, ['as' => 'admin'])
+        ->except(['show']);
 
     // Quản lý bài viết
     Route::get('/posts', [AdminController::class, 'postsIndex'])->name('posts.index');
@@ -112,6 +98,28 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/monitor-reports/{id}/edit', [AdminController::class, 'editMonitorReport'])->name('monitor-reports.edit');
     Route::put('/monitor-reports/{id}', [AdminController::class, 'updateMonitorReport'])->name('monitor-reports.update');
     Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport'])->name('monitor-reports.destroy');
+});
+
+// Public Forum Routes
+Route::prefix('forum')->group(function () {
+    Route::get('/', [ForumController::class, 'index'])->name('forum.index');
+    Route::get('/category/{category}', [ForumController::class, 'category'])->name('forum.category');
+    Route::get('/subforum/{subforum}', [ForumController::class, 'subforum'])->name('forum.subforum');
+
+    // Topic Routes (requires authentication)
+    Route::middleware(['auth'])->group(function () {
+        Route::get('/topic/create/{subforum}', [ForumController::class, 'createTopic'])->name('forum.topic.create');
+        Route::post('/topic/store', [ForumController::class, 'storeTopic'])->name('forum.topic.store');
+        Route::get('/topic/{topic}', [ForumController::class, 'showTopic'])->name('forum.topic.show');
+        Route::get('/topic/{topic}/edit', [ForumController::class, 'editTopic'])->name('forum.topic.edit');
+        Route::put('/topic/{topic}', [ForumController::class, 'updateTopic'])->name('forum.topic.update');
+        Route::delete('/topic/{topic}', [ForumController::class, 'destroyTopic'])->name('forum.topic.destroy');
+
+        // Reply Routes
+        Route::post('/topic/{topic}/reply', [ForumController::class, 'storeReply'])->name('forum.reply.store');
+        Route::put('/reply/{reply}', [ForumController::class, 'updateReply'])->name('forum.reply.update');
+        Route::delete('/reply/{reply}', [ForumController::class, 'destroyReply'])->name('forum.reply.destroy');
+    });
 });
 
 require __DIR__.'/auth.php';
