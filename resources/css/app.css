@@ -69,6 +69,10 @@
     --input: 210 14% 89%;
 }
 
+body {
+    height: unset !important;
+}
+
 .search-btn {
     /* transition: background-color 200ms; */
     border: #f0f0f0 solid 2px;
@@ -257,7 +261,7 @@ a:hover {
 }
 
 hr {
-    /* border-top: 2px solid #d3d3d3; */
+    border-top: 2px solid #d3d3d3;
     background-color: #aaaaaa;
 }
 

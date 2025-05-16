@@ -6,7 +6,7 @@ export default function HomeLayout({ children }) {
     return (
         <div>
             <Navbar />
-            <div className="mt-[4.3rem] flex">
+            <div className="flex">
                 <LeftSidebar />
                 <div className="flex-1">{children}</div>
                 <RightSidebar />

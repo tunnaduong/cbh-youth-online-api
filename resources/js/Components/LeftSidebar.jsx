@@ -10,7 +10,7 @@ import {
 } from "react-ionicons";
 
 export default function LeftSidebar() {
-    const iconColor = "#6B6B6B";
+    const iconColor = "#CACACA";
     const activeIconColor = "#319527";
     const iconSize = "18px";
 
