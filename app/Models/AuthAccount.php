@@ -19,8 +19,41 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     use Notifiable;
 
     protected $table = 'cyo_auth_accounts';
-    protected $fillable = ['username', 'password', 'email', 'last_activity'];
+    protected $fillable = ['username', 'password', 'email', 'last_activity', 'role'];
     protected $hidden = ['password'];
+
+    /**
+     * Scope a query to only include users of a given role.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $role
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeRole($query, $role)
+    {
+        return $query->where('role', $role);
+    }
+
+    /**
+     * Get the user's role.
+     *
+     * @return string|null
+     */
+    public function getRole()
+    {
+        return $this->role;
+    }
+
+    /**
+     * Check if the user has a specific role.
+     *
+     * @param string $role
+     * @return bool
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
 
     public function profile()
     {

@@ -83,7 +83,7 @@ export default function Categories({ categories }) {
             content: 'Bạn có chắc chắn muốn xóa danh mục này?',
             onOk: async () => {
                 try {
-                    await router.delete(`/admin/forum-categories/${id}`);
+                    await router.delete(`/admin/categories/${id}`);
                     message.success('Xóa danh mục thành công');
                 } catch (error) {
                     message.error('Có lỗi xảy ra khi xóa danh mục');
@@ -101,10 +101,10 @@ export default function Categories({ categories }) {
         setLoading(true);
         try {
             if (editingCategory) {
-                await router.put(`/admin/forum-categories/${editingCategory.id}`, values);
+                await router.put(`/admin/categories/${editingCategory.id}`, values);
                 message.success('Cập nhật danh mục thành công');
             } else {
-                await router.post('/admin/forum-categories', values);
+                await router.post('/admin/categories', values);
                 message.success('Thêm danh mục thành công');
             }
             handleModalClose();

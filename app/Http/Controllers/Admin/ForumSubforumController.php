@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ForumSubforum;
 use App\Models\ForumCategory;
-use App\Models\User;
+use App\Models\AuthAccount;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -18,7 +18,7 @@ class ForumSubforumController extends Controller
             ->paginate(10);
 
         $categories = ForumCategory::orderBy('arrange')->get();
-        $moderators = User::role('moderator')->get();
+        $moderators = AuthAccount::role('moderator')->get();
 
         return Inertia::render('Admin/Forum/Subforums/Index', [
             'subforums' => $subforums,
