@@ -56,7 +56,7 @@ class Topic extends Model
 
     public function subforum()
     {
-        return $this->belongsTo(ForumSubforum::class); // Định nghĩa quan hệ với Subforum
+        return $this->belongsTo(ForumSubforum::class, 'subforum_id');
     }
 
     public function isSavedByUser($userId)

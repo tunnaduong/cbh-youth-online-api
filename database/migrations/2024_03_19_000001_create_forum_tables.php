@@ -12,13 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         // Bảng danh mục diễn đàn
-        Schema::create('cyo_forum_categories', function (Blueprint $table) {
+        Schema::create('cyo_forum_main_categories', function (Blueprint $table) {
             $table->id();
+            $table->integer('arrange')->default(0);
             $table->string('name');
-            $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->integer('order')->default(0);
-            $table->boolean('is_active')->default(true);
+            $table->string('slug')->unique();
+            $table->string('role_restriction')->default('user');
+            $table->string('background_image')->nullable();
             $table->timestamps();
         });
 
@@ -28,7 +29,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->foreignId('category_id')->constrained('cyo_forum_categories')->onDelete('cascade');
+            $table->foreignId('category_id')->constrained('cyo_forum_main_categories')->onDelete('cascade');
             $table->integer('order')->default(0);
             $table->boolean('is_active')->default(true);
             $table->foreignId('moderator_id')->nullable()->constrained('cyo_auth_accounts')->onDelete('set null');
@@ -79,6 +80,6 @@ return new class extends Migration
         Schema::dropIfExists('cyo_forum_replies');
         Schema::dropIfExists('cyo_forum_posts');
         Schema::dropIfExists('cyo_forum_subforums');
-        Schema::dropIfExists('cyo_forum_categories');
+        Schema::dropIfExists('cyo_forum_main_categories');
     }
 };

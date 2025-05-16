@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\ForumCategory;
 use App\Models\Subforum;
 use App\Models\Post;
+use App\Models\AuthAccount;
 
 class AdminController extends Controller
 {
@@ -688,7 +689,7 @@ class AdminController extends Controller
     public function forumCategoriesIndex()
     {
         $categories = ForumCategory::withCount('subforums')
-            ->withCount('posts')
+            ->withCount('topics')
             ->ordered()
             ->paginate(10);
 
@@ -700,7 +701,7 @@ class AdminController extends Controller
     public function listForumCategories()
     {
         $categories = ForumCategory::withCount('subforums')
-            ->withCount('posts')
+            ->withCount('topics')
             ->ordered()
             ->paginate(10);
 
@@ -927,13 +928,13 @@ class AdminController extends Controller
     // Subforum Management
     public function subforumsIndex()
     {
-        $subforums = Subforum::with(['category', 'moderator'])
-            ->withCount('posts')
-            ->ordered()
+        $subforums = ForumSubforum::with(['mainCategory', 'moderator'])
+            ->withCount('topics')
+            ->orderBy('name')
             ->paginate(10);
 
         $categories = ForumCategory::active()->ordered()->get();
-        $moderators = User::whereIn('role', ['admin', 'moderator'])->get();
+        $moderators = AuthAccount::whereIn('role', ['admin', 'moderator'])->get();
 
         return Inertia::render('Admin/Forum/Subforums/Index', [
             'subforums' => $subforums,
@@ -944,9 +945,9 @@ class AdminController extends Controller
 
     public function listSubforums()
     {
-        $subforums = Subforum::with(['category', 'moderator'])
-            ->withCount('posts')
-            ->ordered()
+        $subforums = ForumSubforum::with(['mainCategory', 'moderator'])
+            ->withCount('topics')
+            ->orderBy('name')
             ->paginate(10);
 
         return response()->json(['subforums' => $subforums], 200);
@@ -967,11 +968,11 @@ class AdminController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:cyo_forum_subforums',
             'description' => 'nullable|string',
-            'category_id' => 'required|exists:cyo_forum_categories,id',
-            'order' => 'integer|min:0',
-            'is_active' => 'boolean',
+            'main_category_id' => 'required|exists:cyo_forum_main_categories,id',
+            'active' => 'boolean',
+            'pinned' => 'boolean',
+            'role_restriction' => 'string',
             'moderator_id' => 'nullable|exists:cyo_auth_accounts,id'
         ]);
 
@@ -982,7 +983,7 @@ class AdminController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        $subforum = Subforum::create($request->all());
+        $subforum = ForumSubforum::create($request->all());
 
         if ($request->wantsJson()) {
             return response()->json(['message' => 'Tạo diễn đàn con thành công', 'subforum' => $subforum], 201);
@@ -994,7 +995,7 @@ class AdminController extends Controller
 
     public function editSubforum($id)
     {
-        $subforum = Subforum::findOrFail($id);
+        $subforum = ForumSubforum::findOrFail($id);
         $categories = ForumCategory::active()->ordered()->get();
         $moderators = User::whereIn('role', ['admin', 'moderator'])->get();
 
@@ -1007,7 +1008,7 @@ class AdminController extends Controller
 
     public function updateSubforum(Request $request, $id)
     {
-        $subforum = Subforum::findOrFail($id);
+        $subforum = ForumSubforum::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'name' => 'string|max:255',
@@ -1038,7 +1039,7 @@ class AdminController extends Controller
 
     public function destroySubforum($id)
     {
-        $subforum = Subforum::findOrFail($id);
+        $subforum = ForumSubforum::findOrFail($id);
         $subforum->delete();
 
         if (request()->wantsJson()) {
@@ -1052,31 +1053,31 @@ class AdminController extends Controller
     // Post Management
     public function postsIndex()
     {
-        $posts = Post::with(['author', 'subforum.category'])
-            ->withCount('replies')
-            ->original()
+        $topics = Topic::with(['author', 'subforum'])
+            ->withCount('comments')
+            ->where('hidden', false)
             ->latest()
             ->paginate(10);
 
         return Inertia::render('Admin/Forum/Posts/Index', [
-            'posts' => $posts
+            'posts' => $topics
         ]);
     }
 
     public function listPosts()
     {
-        $posts = Post::with(['author', 'subforum.category'])
-            ->withCount('replies')
-            ->original()
+        $topics = Topic::with(['author', 'subforum'])
+            ->withCount('comments')
+            ->where('hidden', false)
             ->latest()
             ->paginate(10);
 
-        return response()->json(['posts' => $posts], 200);
+        return response()->json(['posts' => $topics], 200);
     }
 
     public function createPost()
     {
-        $subforums = Subforum::active()->ordered()->get();
+        $subforums = ForumSubforum::active()->ordered()->get();
         return Inertia::render('Admin/Forum/Posts/Create', [
             'subforums' => $subforums
         ]);
@@ -1086,11 +1087,10 @@ class AdminController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
-            'slug' => 'required|string|max:255',
-            'content' => 'required|string',
+            'description' => 'required|string',
             'subforum_id' => 'required|exists:cyo_forum_subforums,id',
-            'is_pinned' => 'boolean',
-            'is_locked' => 'boolean'
+            'pinned' => 'boolean',
+            'hidden' => 'boolean'
         ]);
 
         if ($validator->fails()) {
@@ -1100,12 +1100,12 @@ class AdminController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        $post = new Post($request->all());
-        $post->author_id = auth()->id();
-        $post->save();
+        $topic = new Topic($request->all());
+        $topic->user_id = auth()->id();
+        $topic->save();
 
         if ($request->wantsJson()) {
-            return response()->json(['message' => 'Tạo bài viết thành công', 'post' => $post], 201);
+            return response()->json(['message' => 'Tạo bài viết thành công', 'topic' => $topic], 201);
         }
 
         return redirect()->route('admin.posts.index')
@@ -1114,26 +1114,25 @@ class AdminController extends Controller
 
     public function editPost($id)
     {
-        $post = Post::findOrFail($id);
-        $subforums = Subforum::active()->ordered()->get();
+        $topic = Topic::findOrFail($id);
+        $subforums = ForumSubforum::active()->ordered()->get();
 
         return Inertia::render('Admin/Forum/Posts/Edit', [
-            'post' => $post,
+            'topic' => $topic,
             'subforums' => $subforums
         ]);
     }
 
     public function updatePost(Request $request, $id)
     {
-        $post = Post::findOrFail($id);
+        $topic = Topic::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'title' => 'string|max:255',
-            'slug' => 'string|max:255',
-            'content' => 'string',
+            'description' => 'string',
             'subforum_id' => 'exists:cyo_forum_subforums,id',
-            'is_pinned' => 'boolean',
-            'is_locked' => 'boolean'
+            'pinned' => 'boolean',
+            'hidden' => 'boolean'
         ]);
 
         if ($validator->fails()) {
@@ -1143,10 +1142,10 @@ class AdminController extends Controller
             return back()->withErrors($validator)->withInput();
         }
 
-        $post->update($request->all());
+        $topic->update($request->all());
 
         if ($request->wantsJson()) {
-            return response()->json(['message' => 'Cập nhật bài viết thành công', 'post' => $post]);
+            return response()->json(['message' => 'Cập nhật bài viết thành công', 'topic' => $topic]);
         }
 
         return redirect()->route('admin.posts.index')
@@ -1155,8 +1154,8 @@ class AdminController extends Controller
 
     public function destroyPost($id)
     {
-        $post = Post::findOrFail($id);
-        $post->delete();
+        $topic = Topic::findOrFail($id);
+        $topic->delete();
 
         if (request()->wantsJson()) {
             return response()->json(['message' => 'Xóa bài viết thành công']);
@@ -1168,23 +1167,23 @@ class AdminController extends Controller
 
     public function togglePinPost($id)
     {
-        $post = Post::findOrFail($id);
-        $post->update(['is_pinned' => !$post->is_pinned]);
+        $topic = Topic::findOrFail($id);
+        $topic->update(['pinned' => !$topic->pinned]);
 
         return response()->json([
-            'message' => $post->is_pinned ? 'Đã ghim bài viết' : 'Đã bỏ ghim bài viết',
-            'post' => $post
+            'message' => $topic->pinned ? 'Đã ghim bài viết' : 'Đã bỏ ghim bài viết',
+            'topic' => $topic
         ]);
     }
 
     public function toggleLockPost($id)
     {
-        $post = Post::findOrFail($id);
-        $post->update(['is_locked' => !$post->is_locked]);
+        $topic = Topic::findOrFail($id);
+        $topic->update(['is_locked' => !$topic->is_locked]);
 
         return response()->json([
-            'message' => $post->is_locked ? 'Đã khóa bài viết' : 'Đã mở khóa bài viết',
-            'post' => $post
+            'message' => $topic->is_locked ? 'Đã khóa bài viết' : 'Đã mở khóa bài viết',
+            'topic' => $topic
         ]);
     }
 }

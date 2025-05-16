@@ -9,29 +9,36 @@ class ForumCategory extends Model
 {
     use HasFactory;
 
-    protected $table = 'cyo_forum_categories';
+    protected $table = 'cyo_forum_main_categories';
 
     protected $fillable = [
         'name',
         'slug',
         'description',
-        'order',
-        'is_active'
+        'arrange',
+        'role_restriction',
+        'background_image'
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'order' => 'integer'
+        'arrange' => 'integer'
     ];
 
     public function subforums()
     {
-        return $this->hasMany(Subforum::class, 'category_id');
+        return $this->hasMany(ForumSubforum::class, 'main_category_id');
     }
 
-    public function posts()
+    public function topics()
     {
-        return $this->hasManyThrough(Post::class, Subforum::class);
+        return $this->hasManyThrough(
+            Topic::class,
+            ForumSubforum::class,
+            'main_category_id', // Foreign key on subforums table
+            'subforum_id', // Foreign key on topics table
+            'id', // Local key on categories table
+            'id' // Local key on subforums table
+        );
     }
 
     // Scope để lấy các danh mục đang hoạt động
@@ -43,6 +50,6 @@ class ForumCategory extends Model
     // Scope để sắp xếp theo thứ tự
     public function scopeOrdered($query)
     {
-        return $query->orderBy('order');
+        return $query->orderBy('arrange');
     }
 }
