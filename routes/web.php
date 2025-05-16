@@ -37,7 +37,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/test', function () {
-    return Inertia::render('Test/index', [
+    return Inertia::render('Home', [
         'title' => 'Test hihihi',
     ]);
 });
