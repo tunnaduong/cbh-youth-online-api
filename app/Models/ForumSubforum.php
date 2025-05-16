@@ -15,6 +15,11 @@ class ForumSubforum extends Model
         return $this->belongsTo(ForumMainCategory::class, 'main_category_id');
     }
 
+    public function moderator()
+    {
+        return $this->belongsTo(AuthAccount::class, 'moderator_id');
+    }
+
     // Define the relationship to topics
     public function topics()
     {

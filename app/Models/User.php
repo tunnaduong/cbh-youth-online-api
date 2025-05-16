@@ -24,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -44,5 +45,27 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'role' => 'string',
     ];
+
+    /**
+     * Get the user's role.
+     *
+     * @return string
+     */
+    public function getRole(): string
+    {
+        return $this->role;
+    }
+
+    /**
+     * Check if the user has a specific role.
+     *
+     * @param string $role
+     * @return bool
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
 }
