@@ -2,9 +2,13 @@
 
 namespace App\Exceptions;
 
-use Throwable;
-use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Auth\AuthenticationException;
+use Throwable;
+use Inertia\Inertia;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class Handler extends ExceptionHandler
 {
@@ -62,6 +66,14 @@ class Handler extends ExceptionHandler
     {
         $this->reportable(function (Throwable $e) {
             //
+        });
+
+        $this->renderable(function (NotFoundHttpException $e) {
+            if (request()->expectsJson()) {
+                return response()->json(['message' => 'Not Found'], 404);
+            }
+
+            return Inertia::render('Errors/404');
         });
     }
 }

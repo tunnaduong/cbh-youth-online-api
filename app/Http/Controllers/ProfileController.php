@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\AuthAccount;
 
 class ProfileController extends Controller
 {
@@ -59,5 +60,29 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    public function show($username)
+    {
+        $user = AuthAccount::with(['profile', 'posts' => function ($query) {
+            $query->latest()->take(10);
+        }])->where('username', $username)->firstOrFail();
+
+        return Inertia::render('Profile/Show', [
+            'profile' => [
+                'username' => $user->username,
+                'profile_name' => $user->profile->profile_name ?? null,
+                'bio' => $user->profile->bio ?? null,
+                'avatar' => route('user.avatar', ['username' => $user->username]),
+                'joined_at' => $user->created_at->format('F Y'),
+                'posts' => $user->posts->map(function ($post) {
+                    return [
+                        'id' => $post->id,
+                        'title' => $post->title,
+                        'created_at' => $post->created_at->diffForHumans(),
+                    ];
+                })
+            ]
+        ]);
     }
 }
