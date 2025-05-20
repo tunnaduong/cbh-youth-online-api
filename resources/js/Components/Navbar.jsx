@@ -17,7 +17,7 @@ import {
     AppsOutline,
 } from "react-ionicons";
 
-export default function Navbar() {
+export default function Navbar({ activeNav }) {
     const { theme, toggleTheme } = useTheme();
 
     const ioniconDefaultColor = theme === "dark" ? "#FFF" : "#000";
@@ -93,25 +93,33 @@ export default function Navbar() {
             <div className="flex items-center">
                 <div className="h-full items-center flex flex-row gap-x-3 relative nav-item">
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 nav-active"
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "home" ? "nav-active" : ""
+                        }`}
                         href="/"
                     >
                         Cộng đồng
                     </Link>
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "report" ? "nav-active" : ""
+                        }`}
                         href="/report"
                     >
                         Báo cáo
                     </Link>
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "lookup" ? "nav-active" : ""
+                        }`}
                         href="/lookup"
                     >
                         Tra cứu
                     </Link>
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "explore" ? "nav-active" : ""
+                        }`}
                         href="/explore"
                     >
                         Khám phá

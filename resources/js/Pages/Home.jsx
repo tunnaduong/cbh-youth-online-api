@@ -11,11 +11,11 @@ export default function Home({
     latestUser,
 }) {
     useEffect(() => {
-        console.log(latestPosts);
+        console.log(mainCategories);
     }, []);
 
     return (
-        <HomeLayout>
+        <HomeLayout activeNav="home">
             <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
             <>
                 <div className="pt-4 !px-2.5">
@@ -25,7 +25,7 @@ export default function Home({
                 </div>
                 <div className="flex flex-1 !p-6 !px-2.5 items-center flex-col -mb-8">
                     {/* Section */}
-                    <ForumSection />
+                    <ForumSection mainCategories={mainCategories} />
                 </div>
             </>
         </HomeLayout>

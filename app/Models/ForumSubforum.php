@@ -26,6 +26,18 @@ class ForumSubforum extends Model
         return $this->hasMany(Topic::class, 'subforum_id');
     }
 
+    public function comments()
+    {
+        return $this->hasManyThrough(
+            TopicComment::class,
+            Topic::class,
+            'subforum_id', // Foreign key on topics table
+            'topic_id', // Foreign key on comments table
+            'id', // Local key on subforums table
+            'id' // Local key on topics table
+        );
+    }
+
     // Accessor to get the number of posts
     public function getPostsCountAttribute()
     {

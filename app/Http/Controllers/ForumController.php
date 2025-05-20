@@ -12,13 +12,22 @@ use Illuminate\Support\Facades\Log;
 use App\Models\ForumCategory;
 use App\Models\Reply;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class ForumController extends Controller
 {
     public function index()
     {
         $mainCategories = ForumCategory::with(['subforums' => function ($query) {
-            $query->withCount('topics');
+            $query->withCount(['topics', 'comments'])
+                ->with(['topics' => function ($query) {
+                    $query->select('cyo_topics.*')
+                        ->join(DB::raw('(SELECT subforum_id, MAX(created_at) as max_created_at FROM cyo_topics GROUP BY subforum_id) as latest'), function ($join) {
+                            $join->on('cyo_topics.subforum_id', '=', 'latest.subforum_id')
+                                ->on('cyo_topics.created_at', '=', 'latest.max_created_at');
+                        })
+                        ->with('user.profile');
+                }]);
         }])
             ->orderBy('arrange')
             ->get();
@@ -55,7 +64,7 @@ class ForumController extends Controller
     public function category(ForumCategory $category)
     {
         $category->load(['subforums' => function ($query) {
-            $query->withCount('topics');
+            $query->withCount(['topics', 'comments']);
         }]);
 
         return Inertia::render('Forum/Category', [
