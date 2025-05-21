@@ -415,38 +415,60 @@ class TopicsController extends Controller
     // Get saved topics for the authenticated user
     public function getSavedTopics()
     {
-        // Assuming UserSavedTopic is the model for cyo_user_saved_topics
-        $savedTopics = UserSavedTopic::where('user_id', Auth::id()) // Adjust to get the correct user
-            ->with(['topic.user.profile']) // Eager load the topic's user and profile
-            ->get()
-            ->map(function ($savedTopic) {
-                return [
-                    'id' => $savedTopic->id,
-                    'user_id' => $savedTopic->user_id,
-                    'topic_id' => $savedTopic->topic_id,
-                    'created_at' => $savedTopic->created_at,
-                    'updated_at' => $savedTopic->updated_at,
-                    'topic' => [
-                        'id' => $savedTopic->topic->id,
-                        'subforum_id' => $savedTopic->topic->subforum_id,
-                        'user_id' => $savedTopic->topic->user->id,
-                        'title' => $savedTopic->topic->title,
-                        'description' => $savedTopic->topic->description,
-                        'created_at' => $savedTopic->topic->created_at,
-                        'updated_at' => $savedTopic->topic->updated_at,
-                        'pinned' => $savedTopic->topic->pinned,
-                        'image_url' => $savedTopic->topic->image_url,
-                        'author' => [
-                            'id' => $savedTopic->topic->user->id,
-                            'username' => $savedTopic->topic->user->username,
-                            'email' => $savedTopic->topic->user->email,
-                            'profile_name' => $savedTopic->topic->user->profile->profile_name ?? null, // Using profile relation
-                        ],
-                    ]
-                ];
-            });
+        $userId = Auth::id();
+        \Log::info('Current user ID: ' . $userId);
 
-        return response()->json($savedTopics);
+        // Get the saved topics query
+        $savedTopics = UserSavedTopic::where('user_id', $userId);
+
+        // Log the SQL query
+        \Log::info('SQL Query: ' . $savedTopics->toSql());
+        \Log::info('Query Bindings: ', $savedTopics->getBindings());
+
+        // Get the result and log count
+        $result = $savedTopics->with(['topic.user.profile'])->get();
+        \Log::info('Number of saved topics found: ' . $result->count());
+
+        if ($result->isEmpty()) {
+            \Log::info('No saved topics found for user');
+            return response()->json([
+                'data' => [],
+                'debug_info' => [
+                    'user_id' => $userId,
+                    'auth_check' => Auth::check(),
+                    'table' => 'cyo_user_saved_topics'
+                ]
+            ]);
+        }
+
+        $mappedTopics = $result->map(function ($savedTopic) {
+            return [
+                'id' => $savedTopic->id,
+                'user_id' => $savedTopic->user_id,
+                'topic_id' => $savedTopic->topic_id,
+                'created_at' => $savedTopic->created_at,
+                'updated_at' => $savedTopic->updated_at,
+                'topic' => [
+                    'id' => $savedTopic->topic->id,
+                    'subforum_id' => $savedTopic->topic->subforum_id,
+                    'user_id' => $savedTopic->topic->user->id,
+                    'title' => $savedTopic->topic->title,
+                    'content' => $savedTopic->topic->description,
+                    'created_at' => $savedTopic->topic->created_at,
+                    'updated_at' => $savedTopic->topic->updated_at,
+                    'pinned' => $savedTopic->topic->pinned,
+                    'image_url' => $savedTopic->topic->image_url,
+                    'author' => [
+                        'id' => $savedTopic->topic->user->id,
+                        'username' => $savedTopic->topic->user->username,
+                        'email' => $savedTopic->topic->user->email,
+                        'profile_name' => $savedTopic->topic->user->profile->profile_name ?? null,
+                    ],
+                ]
+            ];
+        });
+
+        return response()->json($mappedTopics);
     }
 
     public function saveTopicForUser(Request $request)
