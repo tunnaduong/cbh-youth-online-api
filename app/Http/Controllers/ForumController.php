@@ -6,30 +6,65 @@ use App\Models\Topic;
 use Illuminate\Http\Request;
 use App\Models\ForumSubforum;
 use App\Models\ForumMainCategory;
+use App\Models\AuthAccount;
+use App\Models\TopicComment;
 use Illuminate\Support\Facades\Log;
 use App\Models\ForumCategory;
 use App\Models\Reply;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
 
 class ForumController extends Controller
 {
     public function index()
     {
-        $categories = ForumCategory::with(['subforums' => function ($query) {
-            $query->withCount('topics');
+        $mainCategories = ForumCategory::with(['subforums' => function ($query) {
+            $query->withCount(['topics', 'comments'])
+                ->with(['topics' => function ($query) {
+                    $query->select('cyo_topics.*')
+                        ->join(DB::raw('(SELECT subforum_id, MAX(created_at) as max_created_at FROM cyo_topics GROUP BY subforum_id) as latest'), function ($join) {
+                            $join->on('cyo_topics.subforum_id', '=', 'latest.subforum_id')
+                                ->on('cyo_topics.created_at', '=', 'latest.max_created_at');
+                        })
+                        ->with('user.profile');
+                }]);
         }])
-        ->orderBy('arrange')
-        ->get();
+            ->orderBy('arrange')
+            ->get();
 
-        return Inertia::render('Forum/Index', [
-            'categories' => $categories
+        $latestPosts = Topic::with('user.profile')
+            ->orderBy('created_at', 'desc')
+            ->where('hidden', false)
+            ->take(10)
+            ->get();
+
+        $userCount = AuthAccount::count();
+        $postCount = Topic::count();
+        $commentCount = TopicComment::count();
+
+        $record = null;
+        $siteStats = [];
+
+        $latestUser = AuthAccount::orderBy('created_at', 'desc')->first();
+
+        return Inertia::render('Home', [
+            'mainCategories' => $mainCategories,
+            'latestPosts' => $latestPosts,
+            'stats' => [
+                'userCount' => $userCount,
+                'postCount' => $postCount,
+                'commentCount' => $commentCount,
+                'record' => $record,
+                'stats' => $siteStats,
+                'latestUser' => $latestUser,
+            ],
         ]);
     }
 
     public function category(ForumCategory $category)
     {
         $category->load(['subforums' => function ($query) {
-            $query->withCount('topics');
+            $query->withCount(['topics', 'comments']);
         }]);
 
         return Inertia::render('Forum/Category', [
@@ -125,89 +160,80 @@ class ForumController extends Controller
             ->with('success', 'Chủ đề đã được xóa thành công.');
     }
 
-    public function storeReply(Request $request, Topic $topic)
-    {
-        $validated = $request->validate([
-            'content' => 'required|string'
-        ]);
+    // public function storeReply(Request $request, Topic $topic)
+    // {
+    //     $validated = $request->validate([
+    //         'content' => 'required|string'
+    //     ]);
 
-        Reply::create([
-            ...$validated,
-            'topic_id' => $topic->id,
-            'user_id' => auth()->id()
-        ]);
+    //     Reply::create([
+    //         ...$validated,
+    //         'topic_id' => $topic->id,
+    //         'user_id' => auth()->id()
+    //     ]);
 
-        return redirect()->route('forum.topic.show', $topic)
-            ->with('success', 'Trả lời đã được gửi thành công.');
-    }
+    //     return redirect()->route('forum.topic.show', $topic)
+    //         ->with('success', 'Trả lời đã được gửi thành công.');
+    // }
 
-    public function updateReply(Request $request, Reply $reply)
-    {
-        $this->authorize('update', $reply);
+    // public function updateReply(Request $request, Reply $reply)
+    // {
+    //     $this->authorize('update', $reply);
 
-        $validated = $request->validate([
-            'content' => 'required|string'
-        ]);
+    //     $validated = $request->validate([
+    //         'content' => 'required|string'
+    //     ]);
 
-        $reply->update($validated);
+    //     $reply->update($validated);
 
-        return redirect()->route('forum.topic.show', $reply->topic)
-            ->with('success', 'Trả lời đã được cập nhật thành công.');
-    }
+    //     return redirect()->route('forum.topic.show', $reply->topic)
+    //         ->with('success', 'Trả lời đã được cập nhật thành công.');
+    // }
 
-    public function destroyReply(Reply $reply)
-    {
-        $this->authorize('delete', $reply);
+    // public function destroyReply(Reply $reply)
+    // {
+    //     $this->authorize('delete', $reply);
 
-        $topic = $reply->topic;
-        $reply->delete();
+    //     $topic = $reply->topic;
+    //     $reply->delete();
 
-        return redirect()->route('forum.topic.show', $topic)
-            ->with('success', 'Trả lời đã được xóa thành công.');
-    }
+    //     return redirect()->route('forum.topic.show', $topic)
+    //         ->with('success', 'Trả lời đã được xóa thành công.');
+    // }
 
-    // Get all subforums and filter by role (user, admin, teacher) of current logged in user
     public function getSubforumsByRole(Request $request)
     {
-        // Check if a user is authenticated
         if (auth()->check()) {
             $user = auth()->user();
-            $role = $user->role; // Assuming 'role' is a field in your user model
+            $role = $user->role;
 
-            // Get all subforums
             $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
                 $query->latest('created_at')->with(['user.profile']);
             }])
-            ->where('active', true)
-            ->get();
+                ->where('active', true)
+                ->get();
 
-            // Filter subforums based on user role
             if ($role === 'admin') {
-                // Admin can see all subforums with role_restriction = 'user' or 'admin'
                 $subforums = $subforums->filter(function ($subforum) {
                     return in_array($subforum->role_restriction, ['user', 'admin']);
                 });
             } elseif ($role === 'teacher') {
-                // Teacher can see all subforums with role_restriction = 'user' or 'teacher'
                 $subforums = $subforums->filter(function ($subforum) {
                     return in_array($subforum->role_restriction, ['user', 'teacher']);
                 });
             } else {
-                // Regular users can see only subforums with role_restriction = 'user'
                 $subforums = $subforums->filter(function ($subforum) {
                     return $subforum->role_restriction === 'user';
                 });
             }
         } else {
-            // If user is not logged in, show all subforums
             $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
                 $query->latest('created_at')->with(['user.profile']);
             }])
-            ->where('active', true)
-            ->get();
+                ->where('active', true)
+                ->get();
         }
 
-        // Order the subforums by the arrange field of their main category
         $transformedSubforums = $subforums->sortBy(function ($subforum) {
             return $subforum->mainCategory->arrange;
         })->values()->map(function ($subforum) {
@@ -220,23 +246,21 @@ class ForumController extends Controller
         return response()->json($transformedSubforums);
     }
 
-    // Get all main categories
     public function getCategories()
     {
         $categories = ForumMainCategory::with(['subforums' => function ($query) {
             $query->withCount('topics')
-            ->withCount(['topics as comment_count' => function ($query) {
-                $query->leftJoin('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
-                ->selectRaw('IFNULL(count(cyo_topic_comments.id), 0)');
-            }])
-            ->with(['topics' => function ($query) {
-                $query->latest('created_at')->with(['user.profile'])->limit(1);
-            }]);
+                ->withCount(['topics as comment_count' => function ($query) {
+                    $query->leftJoin('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
+                        ->selectRaw('IFNULL(count(cyo_topic_comments.id), 0)');
+                }])
+                ->with(['topics' => function ($query) {
+                    $query->latest('created_at')->with(['user.profile'])->limit(1);
+                }]);
         }])
-        ->orderBy('arrange', 'asc')
-        ->get();
+            ->orderBy('arrange', 'asc')
+            ->get();
 
-        // Format the response
         $categories = $categories->map(function ($category) {
             return [
                 'id' => $category->id,
@@ -245,7 +269,7 @@ class ForumController extends Controller
                 'created_at' => $category->created_at,
                 'updated_at' => $category->updated_at,
                 'subforums' => $category->subforums->map(function ($subforum) {
-                    $latestPost = $subforum->latestTopic; // Use the latestTopic relationship
+                    $latestPost = $subforum->latestTopic;
                     return [
                         'id' => $subforum->id,
                         'main_category_id' => $subforum->main_category_id,
@@ -275,8 +299,6 @@ class ForumController extends Controller
         return response()->json($categories);
     }
 
-
-    // Get all subforums under a category
     public function getSubforums(ForumMainCategory $mainCategory)
     {
         $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with(['topics' => function ($query) {
@@ -284,7 +306,7 @@ class ForumController extends Controller
         }])->get();
 
         return $subforums->map(function ($subforum) use ($mainCategory) {
-            $latestPost = $subforum->topics->first(); // Get the latest topic for each subforum
+            $latestPost = $subforum->topics->first();
 
             return [
                 'id' => $subforum->id,
@@ -312,7 +334,6 @@ class ForumController extends Controller
         });
     }
 
-    // Create a new main category
     public function storeCategory(Request $request)
     {
         $request->validate([
@@ -324,7 +345,6 @@ class ForumController extends Controller
         return response()->json($category);
     }
 
-    // Create a new subforum under a main category
     public function storeSubforum(Request $request, ForumMainCategory $mainCategory)
     {
         $request->validate([
@@ -337,18 +357,48 @@ class ForumController extends Controller
         return response()->json($subforum);
     }
 
-    // Get pinned topics
     public function getPinnedTopics()
     {
         return Topic::where('pinned', true)->get();
     }
 
-    // Pin or unpin a topic
     public function pinTopic(Topic $topic, Request $request)
     {
         $topic->pinned = $request->input('pinned', false);
         $topic->save();
 
         return response()->json($topic);
+    }
+
+    public function show($username, $id)
+    {
+        $user = AuthAccount::where('username', $username)->firstOrFail();
+        $post = Topic::with(['author.profile', 'comments.user.profile'])
+            ->where('user_id', $user->id)
+            ->findOrFail($id);
+
+        return Inertia::render('Posts/Show', [
+            'post' => [
+                'id' => $post->id,
+                'title' => $post->title,
+                'content' => $post->content,
+                'created_at' => $post->created_at->diffForHumans(),
+                'author' => [
+                    'username' => $post->author->username,
+                    'profile_name' => $post->author->profile->profile_name ?? null,
+                ],
+                'comments' => $post->comments->map(function ($comment) {
+                    return [
+                        'id' => $comment->id,
+                        'content' => $comment->content,
+                        'created_at' => $comment->created_at->diffForHumans(),
+                        'user' => [
+                            'username' => $comment->user->username,
+                            'profile_name' => $comment->user->profile->profile_name ?? null,
+                        ]
+                    ];
+                })
+            ]
+        ]);
     }
 }

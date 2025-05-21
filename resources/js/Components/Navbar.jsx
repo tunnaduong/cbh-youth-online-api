@@ -1,9 +1,27 @@
+import { Link } from "@inertiajs/react";
+import DarkmodeToggle from "./DarkmodeToggle";
 import { useTheme } from "@/Hooks/useTheme";
 import { Sun, Moon } from "lucide-react";
-import { Link } from "@inertiajs/react";
+import Tooltip from "./Tooltip";
+import {
+    LogInOutline,
+    ChatboxEllipsesOutline,
+    TelescopeOutline,
+    MegaphoneOutline,
+    NewspaperOutline,
+    BookmarkOutline,
+    PeopleOutline,
+    PersonOutline,
+    CalendarOutline,
+    TrophyOutline,
+    AppsOutline,
+} from "react-ionicons";
 
-export default function Navbar() {
+export default function Navbar({ activeNav }) {
     const { theme, toggleTheme } = useTheme();
+
+    const ioniconDefaultColor = theme === "dark" ? "#FFF" : "#000";
+    const ioniconSize = "20px";
 
     return (
         <nav className="fixed w-[100%] top-0 bg-white dark:!bg-neutral-700 shadow-md leading-[0] flex justify-between">
@@ -43,14 +61,11 @@ export default function Navbar() {
                             <h1 className="text-[14.2px]">Diễn đàn học sinh</h1>
                             <h1 className="font-bold">Chuyên Biên Hòa</h1>
                         </div>
-                        <div
-                            className="bg-yellow-400 text-black text-[14px] font-semibold rounded-full !px-3 !py-3 ml-2 hidden xl:block"
-                            data-bs-toggle="tooltip"
-                            data-bs-placement="bottom"
-                            title="Diễn đàn đang trong giai đoạn thử nghiệm"
-                        >
-                            <span>Beta</span>
-                        </div>
+                        <Tooltip content="Diễn đàn đang trong giai đoạn thử nghiệm">
+                            <div className="bg-yellow-400 text-black text-[14px] font-semibold rounded-full !px-3 !py-3 ml-2 hidden xl:block">
+                                <span>Beta</span>
+                            </div>
+                        </Tooltip>
                     </div>
                 </Link>
                 <div className="max-w-52 xl:flex flex-row items-center bg-[#F7F7F7] dark:!bg-neutral-600 rounded-lg pr-1 ml-7 pl-1 hidden">
@@ -78,63 +93,52 @@ export default function Navbar() {
             <div className="flex items-center">
                 <div className="h-full items-center flex flex-row gap-x-3 relative nav-item">
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 nav-active"
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "home" ? "nav-active" : ""
+                        }`}
                         href="/"
                     >
                         Cộng đồng
                     </Link>
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "report" ? "nav-active" : ""
+                        }`}
                         href="/report"
                     >
                         Báo cáo
                     </Link>
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "lookup" ? "nav-active" : ""
+                        }`}
                         href="/lookup"
                     >
                         Tra cứu
                     </Link>
                     <Link
-                        className="xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 "
+                        className={`xl:flex px-3 py-2 mr-5 dark:text-neutral-300 dark:hover:text-white hidden h-full items-center min-w-max text-center text-sm font-medium transition-colors duration-200 ${
+                            activeNav === "explore" ? "nav-active" : ""
+                        }`}
                         href="/explore"
                     >
                         Khám phá
                     </Link>
                     <div className="w-[1px] -ml-5 mr-3 h-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
-                    <style
-                        dangerouslySetInnerHTML={{
-                            __html: "\n /* Transition styles */\n .theme-transition {\n transition: background-color 0.3s, color 0.3s, border-color 0.3s;\n }\n\n /* Dark mode styles */\n .dark {\n background-color: #2c2f2e;\n color: #f3f4f6;\n }\n\n /* Toggle transition */\n .toggle-circle {\n transition: transform 0.3s ease;\n }\n\n .dark .toggle-circle {\n transform: translateX(1.4rem);\n }\n\n .logo-white:is(.dark *) {\n filter: brightness(0) saturate(100%) invert(100%) sepia(50%) saturate(258%) hue-rotate(319deg) brightness(126%) contrast(96%);\n }\n\n .theme-toggle {\n zoom: 0.75;\n }\n",
-                        }}
-                    />
-                    <button
-                        onClick={toggleTheme}
-                        className="theme-toggle relative hidden xl:block h-8 w-14 rounded-full border !border-neutral-500 dark:border-neutral-500 bg-gray-100 dark:bg-neutral-700 hover:!border-green-600 theme-transition"
-                        aria-label="Toggle theme"
-                    >
-                        <div className="toggle-circle absolute top-[3px] left-1 flex h-6 w-6 items-center justify-center rounded-full bg-white dark:!bg-black shadow-sm dark:transform dark:translate-x-6 transition-transform duration-300">
-                            {/* Sun icon for light mode */}
-                            {theme === "light" && (
-                                <Sun className="h-3.5 w-3.5 text-black" />
-                            )}
-                            {/* Moon icon for dark mode */}
-                            {theme === "dark" && (
-                                <Moon className="h-3.5 w-3.5 text-black dark:!text-white" />
-                            )}
-                        </div>
-                        <span className="sr-only">Toggle theme</span>
-                    </button>
+                    <DarkmodeToggle />
                     <div className="w-[1px] h-6 ml-3 mr-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
                 </div>
                 <div className="min-w-max mr-4">
                     <Link
-                        href="/login"
+                        href={route("login")}
                         className="flex items-center gap-x-1 text-sm font-medium transition-colors duration-200 text-[#319527] hover:text-[#3dbb31]"
                         style={{ borderBottom: "3px solid transparent" }}
                     >
-                        <ion-icon
-                            name="log-in-outline"
-                            className="text-[20px] flex-shrink-0"
+                        <LogInOutline
+                            color={theme === "dark" ? "#3dbb31" : "#319527"}
+                            height={ioniconSize}
+                            width={ioniconSize}
+                            cssClasses="flex-shrink-0"
                         />
                         <span className="flex-shrink-0">Đăng nhập/Đăng ký</span>
                     </Link>
@@ -171,9 +175,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/"
                                     >
-                                        <ion-icon
-                                            name="chatbox-ellipses"
-                                            className="mr-3"
+                                        <ChatboxEllipsesOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Diễn đàn
                                     </Link>
@@ -183,9 +189,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/feed"
                                     >
-                                        <ion-icon
-                                            name="telescope"
-                                            className="mr-3"
+                                        <TelescopeOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Bảng tin
                                     </Link>
@@ -195,9 +203,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/recordings"
                                     >
-                                        <ion-icon
-                                            name="megaphone"
-                                            className="mr-3"
+                                        <MegaphoneOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Loa lớn
                                     </Link>
@@ -207,9 +217,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/youth-news"
                                     >
-                                        <ion-icon
-                                            name="newspaper"
-                                            className="mr-3"
+                                        <NewspaperOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Tin tức Đoàn
                                     </Link>
@@ -219,9 +231,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/saved"
                                     >
-                                        <ion-icon
-                                            name="bookmark"
-                                            className="mr-3"
+                                        <BookmarkOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Đã lưu
                                     </Link>
@@ -239,9 +253,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/report/class"
                                     >
-                                        <ion-icon
-                                            name="people"
-                                            className="mr-3"
+                                        <PeopleOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Báo cáo tập thể lớp
                                     </Link>
@@ -251,9 +267,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/report/student"
                                     >
-                                        <ion-icon
-                                            name="person"
-                                            className="mr-3"
+                                        <PersonOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Báo cáo học sinh
                                     </Link>
@@ -272,9 +290,11 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/lookup/timetable"
                                     >
-                                        <ion-icon
-                                            name="calendar"
-                                            className="mr-3"
+                                        <CalendarOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Thời khóa biểu
                                     </Link>
@@ -284,21 +304,30 @@ export default function Navbar() {
                                         className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                                         href="/lookup/class-ranking"
                                     >
-                                        <ion-icon
-                                            name="trophy"
-                                            className="mr-3"
+                                        <TrophyOutline
+                                            color={ioniconDefaultColor}
+                                            height={ioniconSize}
+                                            width={ioniconSize}
+                                            cssClasses="mr-3"
                                         />{" "}
                                         Xếp hạng thi đua lớp
                                     </Link>
                                 </li>
                             </ul>
-                            <Link
-                                className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                                href="/explore"
-                            >
-                                <ion-icon name="apps" className="mr-3" /> Khám
-                                phá
-                            </Link>
+                            <li>
+                                <Link
+                                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                                    href="/explore"
+                                >
+                                    <AppsOutline
+                                        color={ioniconDefaultColor}
+                                        height={ioniconSize}
+                                        width={ioniconSize}
+                                        cssClasses="mr-3"
+                                    />{" "}
+                                    Khám phá
+                                </Link>
+                            </li>
                         </nav>
                     </div>
                 </div>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\ForumSubforumController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -21,10 +22,7 @@ use Inertia\Inertia;
 |
 */
 
-Route::get('/', function () {
-    return Inertia::render('Home', [
-    ]);
-});
+Route::get('/', [ForumController::class, 'index'])->name('home');
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
@@ -35,6 +33,8 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::get('users/{username}/avatar', [UserController::class, 'getAvatar'])->name('user.avatar');
 
 // Admin Routes với InertiaJS
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
@@ -122,4 +122,13 @@ Route::prefix('forum')->group(function () {
     });
 });
 
-require __DIR__.'/auth.php';
+// User Posts and Profile Routes
+Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])->name('posts.show');
+
+require __DIR__ . '/auth.php';
+Route::get('/{username}', [ProfileController::class, 'show'])->name('profile.show');
+
+// Add this at the end of your routes file
+Route::fallback(function () {
+    return Inertia::render('Errors/404');
+});

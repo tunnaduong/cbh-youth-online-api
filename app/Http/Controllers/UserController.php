@@ -231,7 +231,7 @@ class UserController extends Controller
                     'username' => $post->author->username,
                     'email' => $post->author->email,
                     'profile_name' => $post->author->profile->profile_name ?? null,
-                    'verified' => $post->author->verified ?? false,
+                    'verified' => $post->author->profile->verified == 1 ? true : false,
                 ],
                 'saved' => UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists(),
             ];

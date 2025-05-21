@@ -1,5 +1,5 @@
 import "./bootstrap";
-import 'antd/dist/reset.css';
+import "antd/dist/reset.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "../css/app.css";
 
@@ -33,6 +33,6 @@ createInertiaApp({
         root.render(<App {...props} />);
     },
     progress: {
-        color: "#4B5563",
+        color: "#319528",
     },
 });
