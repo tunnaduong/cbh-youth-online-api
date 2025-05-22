@@ -442,7 +442,7 @@ class TopicsController extends Controller
                     'created_at' => $savedTopic->topic->created_at,
                     'updated_at' => $savedTopic->topic->updated_at,
                     'pinned' => $savedTopic->topic->pinned,
-                    'image_url' => $savedTopic->topic->image_url,
+                    'image_url' => $savedTopic->topic->cdnUserContent ? Storage::url($savedTopic->topic->cdnUserContent->file_path) : null,
                     'author' => [
                         'id' => $savedTopic->topic->user->id,
                         'username' => $savedTopic->topic->user->username,
