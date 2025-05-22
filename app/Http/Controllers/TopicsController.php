@@ -419,6 +419,7 @@ class TopicsController extends Controller
 
         $result = UserSavedTopic::where('user_id', $userId)
             ->with(['topic.user.profile'])
+            ->orderBy('created_at', 'desc')
             ->get();
 
         if ($result->isEmpty()) {
