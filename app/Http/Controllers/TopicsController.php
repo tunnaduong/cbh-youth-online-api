@@ -416,29 +416,13 @@ class TopicsController extends Controller
     public function getSavedTopics()
     {
         $userId = Auth::id();
-        \Log::info('Current user ID: ' . $userId);
 
-        // Get the saved topics query
-        $savedTopics = UserSavedTopic::where('user_id', $userId);
-
-        // Log the SQL query
-        \Log::info('SQL Query: ' . $savedTopics->toSql());
-        \Log::info('Query Bindings: ', $savedTopics->getBindings());
-
-        // Get the result and log count
-        $result = $savedTopics->with(['topic.user.profile'])->get();
-        \Log::info('Number of saved topics found: ' . $result->count());
+        $result = UserSavedTopic::where('user_id', $userId)
+            ->with(['topic.user.profile'])
+            ->get();
 
         if ($result->isEmpty()) {
-            \Log::info('No saved topics found for user');
-            return response()->json([
-                'data' => [],
-                'debug_info' => [
-                    'user_id' => $userId,
-                    'auth_check' => Auth::check(),
-                    'table' => 'cyo_user_saved_topics'
-                ]
-            ]);
+            return response()->json([]);
         }
 
         $mappedTopics = $result->map(function ($savedTopic) {
