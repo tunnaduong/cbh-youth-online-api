@@ -140,7 +140,6 @@ Route::prefix('v1.0')->group(function () {
         });
 
         // Story routes
-        Route::get('stories', [StoryController::class, 'index']);
         Route::post('stories', [StoryController::class, 'store']);
         Route::get('stories/{story}', [StoryController::class, 'show']);
         Route::delete('stories/{story}', [StoryController::class, 'destroy']);
@@ -148,6 +147,7 @@ Route::prefix('v1.0')->group(function () {
         Route::post('stories/{story}/react', [StoryController::class, 'react']);
         Route::delete('stories/{story}/react', [StoryController::class, 'removeReaction']);
     });
+    Route::get('stories', [StoryController::class, 'index']);
 
     // Admin API Routes
     Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
