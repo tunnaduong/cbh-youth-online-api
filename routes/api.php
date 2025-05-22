@@ -14,6 +14,7 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\UserReportController;
+use App\Http\Controllers\StoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -137,6 +138,15 @@ Route::prefix('v1.0')->group(function () {
                 Route::post('/{report}/review', [UserReportController::class, 'review']);
             });
         });
+
+        // Story routes
+        Route::get('stories', [StoryController::class, 'index']);
+        Route::post('stories', [StoryController::class, 'store']);
+        Route::get('stories/{story}', [StoryController::class, 'show']);
+        Route::delete('stories/{story}', [StoryController::class, 'destroy']);
+        Route::post('stories/{story}/view', [StoryController::class, 'markAsViewed']);
+        Route::post('stories/{story}/react', [StoryController::class, 'react']);
+        Route::delete('stories/{story}/react', [StoryController::class, 'removeReaction']);
     });
 
     // Admin API Routes
