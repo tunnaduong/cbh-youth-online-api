@@ -64,7 +64,7 @@ class UserReportController extends Controller
         $request->validate([
             'reported_user_id' => 'required|exists:cyo_auth_accounts,id',
             'topic_id' => 'nullable|exists:cyo_topics,id',
-            'reason' => 'required|string|min:10',
+            'reason' => 'nullable|string|min:10',
         ]);
 
         // Check if user is reporting themselves
