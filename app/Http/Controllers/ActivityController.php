@@ -202,8 +202,46 @@ class ActivityController extends Controller
                 ->filter()
                 ->values();
 
+            // Get saved posts
+            $savedPosts = Topic::whereHas('savedTopics', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->whereHas('user')
+            ->with(['user.profile', 'cdnUserContent', 'savedTopics' => function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            }])
+            ->orderBy('cyo_user_saved_topics.created_at', 'desc')
+            ->join('cyo_user_saved_topics', function ($join) use ($userId) {
+                $join->on('cyo_topics.id', '=', 'cyo_user_saved_topics.topic_id')
+                    ->where('cyo_user_saved_topics.user_id', '=', $userId);
+            })
+            ->select('cyo_topics.*', 'cyo_user_saved_topics.created_at as saved_at', 'cyo_user_saved_topics.updated_at as saved_updated_at')
+            ->get()
+            ->map(function ($topic) {
+                if (!$topic->user) {
+                    return null;
+                }
+                return [
+                    'type' => 'saved',
+                    'updated_at' => Carbon::parse($topic->saved_updated_at)->diffForHumans(),
+                    'created_timestamp' => Carbon::parse($topic->saved_at)->timestamp,
+                    'updated_timestamp' => Carbon::parse($topic->saved_updated_at)->timestamp,
+                    'topic' => [
+                        'id' => $topic->id,
+                        'title' => $topic->title,
+                        'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
+                        'author' => [
+                            'username' => $topic->user->username,
+                            'profile_name' => $topic->user->profile->profile_name ?? null,
+                        ]
+                    ]
+                ];
+            })
+            ->filter()
+            ->values();
+
             // Merge all activities and sort by updated_timestamp
-            $allActivities = $votes->concat($commentVotes)->concat($comments)->concat($createdPosts)
+            $allActivities = $votes->concat($commentVotes)->concat($comments)->concat($createdPosts)->concat($savedPosts)
                 ->sortByDesc('updated_timestamp')
                 ->values();
 
