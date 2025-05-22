@@ -12,6 +12,7 @@ use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\ActivityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -111,7 +112,18 @@ Route::prefix('v1.0')->group(function () {
         Route::post('/topics/{id}/views/authenticated', [TopicsController::class, 'registerView']);
         Route::post('/users/{username}/follow', [FollowController::class, 'follow']); // Follow a user
         Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']); // Unfollow a user
-        Route::post('/online-status', [UserController::class, 'updateLastActivity']);
+
+        // Activity routes - grouped together
+        Route::prefix('activities')->group(function () {
+            Route::get('/', [ActivityController::class, 'getActivities']);
+            Route::get('/liked', [ActivityController::class, 'getLikedPosts']);
+            Route::get('/commented', [ActivityController::class, 'getCommentedPosts']);
+            Route::get('/posts', [ActivityController::class, 'getCreatedPosts']);
+        });
+
+        // User online status routes
+        Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
+        Route::get('/users/{username}/online-status', [ActivityController::class, 'getOnlineStatus']);
     });
 
     // Admin API Routes
