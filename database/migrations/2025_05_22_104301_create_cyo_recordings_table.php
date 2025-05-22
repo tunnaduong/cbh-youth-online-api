@@ -15,7 +15,7 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->unsignedBigInteger('user_id')->index('fk_user_id');
             $table->string('title');
-            $table->text('description');
+            $table->mediumText('description');
             $table->unsignedBigInteger('cdn_audio_id')->index('fk_cdn_audio_id');
             $table->unsignedBigInteger('cdn_preview_id')->nullable()->index('fk_cdn_preview_id');
             $table->string('audio_length', 11);

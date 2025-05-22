@@ -11,11 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->string('email');
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
+        Schema::table('cyo_online_users', function (Blueprint $table) {
+            $table->foreign(['user_id'], 'ibfk_user_id_online')->references(['id'])->on('cyo_auth_accounts')->onUpdate('cascade')->onDelete('cascade');
         });
     }
 
@@ -24,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('password_reset_tokens');
+        Schema::table('cyo_online_users', function (Blueprint $table) {
+            $table->dropForeign('ibfk_user_id_online');
+        });
     }
 };

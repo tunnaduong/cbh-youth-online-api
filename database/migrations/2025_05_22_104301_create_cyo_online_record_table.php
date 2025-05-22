@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('cyo_topic_votes', function (Blueprint $table) {
-            $table->foreign(['user_id'])->references(['id'])->on('cyo_auth_accounts')->onUpdate('restrict')->onDelete('cascade');
+        Schema::create('cyo_online_record', function (Blueprint $table) {
+            $table->integer('id')->primary();
+            $table->integer('max_online')->nullable();
+            $table->dateTime('recorded_at')->nullable();
         });
     }
 
@@ -21,8 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('cyo_topic_votes', function (Blueprint $table) {
-            $table->dropForeign('cyo_topic_votes_user_id_foreign');
-        });
+        Schema::dropIfExists('cyo_online_record');
     }
 };

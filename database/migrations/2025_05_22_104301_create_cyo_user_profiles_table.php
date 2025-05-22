@@ -20,7 +20,7 @@ return new class extends Migration
             $table->unsignedBigInteger('profile_picture')->nullable()->index('cyo_user_profiles_profile_picture_foreign');
             $table->string('oauth_profile_picture', 999)->nullable();
             $table->date('birthday')->nullable();
-            $table->string('gender')->nullable();
+            $table->enum('gender', ['Male', 'Female'])->nullable();
             $table->string('location')->nullable();
             $table->timestamps();
             $table->enum('verified', ['0', '1'])->default('0');

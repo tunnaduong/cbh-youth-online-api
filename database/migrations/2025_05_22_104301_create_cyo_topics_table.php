@@ -19,6 +19,7 @@ return new class extends Migration
             $table->text('description');
             $table->timestamps();
             $table->boolean('pinned')->default(false);
+            $table->integer('hidden')->default(0);
             $table->unsignedBigInteger('cdn_image_id')->nullable()->index('cyo_topics_cdn_image_id_foreign');
         });
     }

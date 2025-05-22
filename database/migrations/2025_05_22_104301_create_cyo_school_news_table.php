@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('cyo_school_news', function (Blueprint $table) {
             $table->integer('id', true);
             $table->string('title');
-            $table->text('content');
+            $table->mediumText('content');
             $table->unsignedBigInteger('author_id')->index('author_id');
             $table->dateTime('published_at')->nullable()->useCurrent();
             $table->dateTime('updated_at')->useCurrentOnUpdate()->nullable()->useCurrent();

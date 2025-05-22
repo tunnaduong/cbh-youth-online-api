@@ -19,8 +19,20 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     use Notifiable;
 
     protected $table = 'cyo_auth_accounts';
-    protected $fillable = ['username', 'password', 'email', 'last_activity'];
+    protected $fillable = [
+        'username',
+        'password',
+        'email',
+        'last_activity',
+        'role', // 'user','student','teacher','volunteer','admin'
+    ];
+
     protected $hidden = ['password'];
+
+    public function hasRole($role)
+    {
+        return $this->role === $role;
+    }
 
     public function profile()
     {

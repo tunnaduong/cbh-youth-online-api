@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('provider', 11)->nullable();
             $table->timestamps();
             $table->timestamp('email_verified_at')->nullable();
+            $table->dateTime('last_activity')->nullable();
         });
     }
 

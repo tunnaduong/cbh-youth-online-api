@@ -19,7 +19,7 @@ return new class extends Migration
             $table->boolean('cleanliness')->nullable()->comment('1=sạch, 0=bẩn');
             $table->boolean('uniform')->nullable()->comment('1=đủ, 0=thiếu');
             $table->unsignedBigInteger('mistake_id')->nullable()->index('fk_mistake_id');
-            $table->text('note')->nullable();
+            $table->mediumText('note')->nullable();
             $table->dateTime('created_at')->nullable();
             $table->dateTime('updated_at')->nullable();
         });

@@ -13,6 +13,7 @@ use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\UserReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -124,6 +125,18 @@ Route::prefix('v1.0')->group(function () {
         // User online status routes
         Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
         Route::get('/users/{username}/online-status', [ActivityController::class, 'getOnlineStatus']);
+
+        // User Report Routes
+        Route::prefix('reports')->group(function () {
+            Route::post('/', [UserReportController::class, 'store']);
+
+            // Admin only routes
+            Route::middleware('role:admin')->group(function () {
+                Route::get('/', [UserReportController::class, 'index']);
+                Route::get('/stats', [UserReportController::class, 'getStats']);
+                Route::post('/{report}/review', [UserReportController::class, 'review']);
+            });
+        });
     });
 
     // Admin API Routes

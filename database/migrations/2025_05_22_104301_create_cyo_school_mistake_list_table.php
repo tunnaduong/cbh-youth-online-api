@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('cyo_school_mistake_list', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->text('description')->nullable();
+            $table->mediumText('description')->nullable();
             $table->string('mistake_type');
             $table->integer('point_penalty');
             $table->dateTime('created_at')->nullable()->useCurrent();

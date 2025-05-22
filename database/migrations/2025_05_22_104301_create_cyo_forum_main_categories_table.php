@@ -11,15 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('cyo_forum_subforums', function (Blueprint $table) {
+        Schema::create('cyo_forum_main_categories', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->unsignedBigInteger('main_category_id')->index('cyo_forum_subforums_main_category_id_foreign');
+            $table->integer('arrange')->nullable();
             $table->string('name');
             $table->string('description')->nullable();
             $table->string('slug', 99)->nullable();
             $table->enum('role_restriction', ['admin', 'moderator', 'user', ''])->default('user');
-            $table->boolean('active')->default(true);
-            $table->boolean('pinned')->default(false);
+            $table->string('background_image', 99)->nullable();
             $table->timestamps();
         });
     }
@@ -29,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('cyo_forum_subforums');
+        Schema::dropIfExists('cyo_forum_main_categories');
     }
 };

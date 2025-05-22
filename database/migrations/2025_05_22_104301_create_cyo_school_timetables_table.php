@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('room_number', 20)->nullable();
             $table->enum('semester', ['1', '2', 'Summer'])->default('1');
             $table->string('school_year', 9);
-            $table->text('notes')->nullable();
+            $table->mediumText('notes')->nullable();
             $table->dateTime('created_at')->nullable()->useCurrent();
             $table->dateTime('updated_at')->useCurrentOnUpdate()->nullable()->useCurrent();
         });
