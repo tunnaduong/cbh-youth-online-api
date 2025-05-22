@@ -431,7 +431,7 @@ class TopicsController extends Controller
                 'id' => $savedTopic->id,
                 'user_id' => $savedTopic->user_id,
                 'topic_id' => $savedTopic->topic_id,
-                'created_at' => $savedTopic->created_at,
+                'created_at' => $savedTopic->created_at->diffForHumans(),
                 'updated_at' => $savedTopic->updated_at,
                 'topic' => [
                     'id' => $savedTopic->topic->id,
