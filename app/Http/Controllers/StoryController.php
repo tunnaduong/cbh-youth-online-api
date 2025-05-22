@@ -20,10 +20,37 @@ class StoryController extends Controller
     public function index()
     {
         $stories = Story::with(['user', 'viewers', 'reactions'])
-            ->active()
-            ->whereIn('privacy', ['public', 'followers'])
-            ->latest()
-            ->get();
+        ->active()
+        ->whereIn('privacy', ['public', 'followers'])
+        ->orderBy('created_at', 'asc')
+        ->get()
+        ->groupBy('user_id')
+        ->map(function ($userStories, $userId) {
+            $firstStory = $userStories->first();
+            $user = $firstStory->user;
+
+            return [
+                'id' => $user->id,
+                'username' => $user->username,
+                'name' => $user->profile->profile_name ?? $user->username,
+                'stories' => $userStories->map(function ($story) {
+                    return [
+                        'id' => (string) $story->id,
+                        'media_url' => $story->media_url,
+                        'type' => $story->media_type,
+                        'created_at' => $story->created_at->toISOString(),
+                        'duration' => $story->duration ?? 10,
+                        'expires_at' => $story->expires_at,
+                        'reactions' => $story->reactions->map(function ($reaction) {
+                            return [
+                                'type' => $reaction->reaction_type,
+                                'user' => $reaction->user->username
+                            ];
+                        })
+                    ];
+                })->values()->toArray()
+            ];
+        })->values();
 
         return response()->json([
             'status' => 'success',
@@ -44,7 +71,8 @@ class StoryController extends Controller
             'font_style' => 'nullable|string',
             'text_position' => 'nullable|json',
             'privacy' => 'required|in:public,followers',
-            'duration' => 'nullable|integer'
+            'duration' => 'nullable|integer',
+            'expires_at' => 'nullable|date'
         ]);
 
         if ($validator->fails()) {
@@ -56,7 +84,11 @@ class StoryController extends Controller
 
         $data = $request->all();
         $data['user_id'] = Auth::id();
-        $data['expires_at'] = Carbon::now()->addHours(24);
+
+        // Set expires_at only if not provided
+        if (!isset($data['expires_at'])) {
+            $data['expires_at'] = Carbon::now()->addHours(24);
+        }
 
         // Handle media upload if present
         if ($request->hasFile('media_file')) {
