@@ -15,6 +15,7 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\UserReportController;
 use App\Http\Controllers\StoryController;
+use App\Http\Controllers\SearchController;
 
 /*
 |--------------------------------------------------------------------------
@@ -147,6 +148,8 @@ Route::prefix('v1.0')->group(function () {
         Route::post('stories/{story}/react', [StoryController::class, 'react']);
         Route::delete('stories/{story}/react', [StoryController::class, 'removeReaction']);
     });
+    // Search routes
+    Route::get('search', [SearchController::class, 'search']);
     Route::get('stories', [StoryController::class, 'index']);
 
     // Admin API Routes
