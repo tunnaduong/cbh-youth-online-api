@@ -136,10 +136,6 @@ class StoryController extends Controller
         }
 
         // Delete associated media file if exists
-        // if ($story->media_url) {
-        //     $path = str_replace('/storage/', '', $story->media_url);
-        //     Storage::disk('public')->delete($path);
-        // }
 
         $story->delete();
 

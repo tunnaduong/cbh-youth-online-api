@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Follower;
 use Carbon\Carbon;
 use App\Models\Topic;
 use App\Models\TopicVote;
@@ -12,6 +13,10 @@ use App\Models\AuthAccount;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use App\Models\TopicCommentVote;
+use App\Models\StoryViewer;
+use App\Models\StoryReaction;
+use App\Models\Story;
+use App\Models\Follow;
 
 class ActivityController extends Controller
 {
@@ -240,8 +245,122 @@ class ActivityController extends Controller
             ->filter()
             ->values();
 
+            // Get story views
+            $storyViews = StoryViewer::where('user_id', $userId)
+                ->whereHas('story')
+                ->whereHas('story.user')
+                ->with(['story.user.profile'])
+                ->orderBy('viewed_at', 'desc')
+                ->get()
+                ->map(function ($view) {
+                    if (!$view->story || !$view->story->user) {
+                        return null;
+                    }
+                    return [
+                        'type' => 'story_view',
+                        'updated_at' => $view->viewed_at->diffForHumans(),
+                        'created_timestamp' => $view->viewed_at->timestamp,
+                        'updated_timestamp' => $view->viewed_at->timestamp,
+                        'story' => [
+                            'id' => $view->story->id,
+                            'media_url' => $view->story->media_url,
+                            'media_type' => $view->story->media_type,
+                            'author' => [
+                                'id' => $view->story->user->id,
+                                'username' => $view->story->user->username,
+                                'profile_name' => $view->story->user->profile->profile_name ?? $view->story->user->username,
+                            ]
+                        ]
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            // Get story reactions
+            $storyReactions = StoryReaction::where('user_id', $userId)
+                ->whereHas('story')
+                ->whereHas('story.user')
+                ->with(['story.user.profile'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($reaction) {
+                    if (!$reaction->story || !$reaction->story->user) {
+                        return null;
+                    }
+                    return [
+                        'type' => 'story_reaction',
+                        'reaction_type' => $reaction->reaction_type,
+                        'updated_at' => $reaction->updated_at->diffForHumans(),
+                        'created_timestamp' => $reaction->created_at->timestamp,
+                        'updated_timestamp' => $reaction->updated_at->timestamp,
+                        'story' => [
+                            'id' => $reaction->story->id,
+                            'media_url' => $reaction->story->media_url,
+                            'media_type' => $reaction->story->media_type,
+                            'author' => [
+                                'id' => $reaction->story->user->id,
+                                'username' => $reaction->story->user->username,
+                                'profile_name' => $reaction->story->user->profile->profile_name ?? $reaction->story->user->username,
+                            ]
+                        ]
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            // Get user's stories
+            $userStories = Story::where('user_id', $userId)
+                ->with(['user.profile'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($story) {
+                    return [
+                        'type' => 'story_create',
+                        'updated_at' => $story->updated_at->diffForHumans(),
+                        'created_timestamp' => $story->created_at->timestamp,
+                        'updated_timestamp' => $story->updated_at->timestamp,
+                        'story' => [
+                            'id' => $story->id,
+                            'media_url' => $story->media_url,
+                            'media_type' => $story->media_type,
+                            'expires_at' => $story->expires_at
+                        ]
+                    ];
+                });
+
+            // Get following relationships
+            $following = Follower::where('follower_id', $userId)
+                ->with(['followed.profile'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($follow) {
+                    if (!$follow->followed) {
+                        return null;
+                    }
+                    return [
+                        'type' => 'follow',
+                        'updated_at' => $follow->created_at->diffForHumans(),
+                        'created_timestamp' => $follow->created_at->timestamp,
+                        'updated_timestamp' => $follow->created_at->timestamp,
+                        'following' => [
+                            'id' => $follow->followed->id,
+                            'username' => $follow->followed->username,
+                            'profile_name' => $follow->followed->profile->profile_name ?? $follow->followed->username,
+                        ]
+                    ];
+                })
+                ->filter()
+                ->values();
+
             // Merge all activities and sort by updated_timestamp
-            $allActivities = $votes->concat($commentVotes)->concat($comments)->concat($createdPosts)->concat($savedPosts)
+            $allActivities = $votes->concat($commentVotes)
+                ->concat($comments)
+                ->concat($createdPosts)
+                ->concat($savedPosts)
+                ->concat($storyViews)
+                ->concat($storyReactions)
+                ->concat($userStories)
+                ->concat($following)
                 ->sortByDesc('updated_timestamp')
                 ->values();
 

@@ -11,7 +11,7 @@ class Follower extends Model
 
     protected $table = 'cyo_user_followers'; // Table name
     protected $fillable = ['follower_id', 'followed_id'];
-    public $timestamps = false;
+    // public $timestamps = false;
 
     // Relationship to the follower (user who follows)
     public function follower()
