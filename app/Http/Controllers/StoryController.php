@@ -65,7 +65,7 @@ class StoryController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'content' => 'nullable|string',
-            'media_type' => 'nullable|in:image,video,audio',
+            'media_type' => 'nullable|in:image,video,audio,text',
             'media_file' => 'nullable|file|mimes:jpeg,png,jpg,gif,mp4,mov,mp3,wav|max:10240', // 10MB max
             'background_color' => 'nullable|string',
             'font_style' => 'nullable|string',
