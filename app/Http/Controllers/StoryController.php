@@ -39,6 +39,7 @@ class StoryController extends Controller
                         'media_url' => $story->media_url,
                         'type' => $story->media_type,
                         'created_at' => $story->created_at->toISOString(),
+                        'created_at_human' => $story->created_at->diffForHumans(),
                         'duration' => $story->duration ?? 10,
                         'expires_at' => $story->expires_at,
                         'reactions' => $story->reactions->map(function ($reaction) {
