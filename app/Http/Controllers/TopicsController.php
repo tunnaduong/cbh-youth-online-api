@@ -210,7 +210,7 @@ class TopicsController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
-            'cdn_image_id' => 'nullable|exists:cyo_cdn_user_content,id',
+            'cdn_image_id' => 'nullable',
             'visibility' => 'nullable|integer|in:0,1', // 0: public, 1: private
         ]);
 
