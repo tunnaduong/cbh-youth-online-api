@@ -214,7 +214,9 @@ class UserController extends Controller
                 'id' => $post->id,
                 'title' => $post->title,
                 'content' => $post->description,
-                'image_url' => $post->cdnUserContent ? Storage::url($post->cdnUserContent->file_path) : null,
+                'image_urls' => $post->getImageUrls()->map(function ($content) {
+                    return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                })->all(),
                 'time' => $post->created_at->diffForHumans(),
                 'comments' => $this->roundToNearestFive($post->comments_count) . "+",
                 'views' => $post->views_count ?? 0,

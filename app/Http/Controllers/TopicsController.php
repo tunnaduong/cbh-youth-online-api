@@ -33,7 +33,9 @@ class TopicsController extends Controller
                     'id' => $topic->id,
                     'title' => $topic->title,
                     'content' => $topic->description,
-                    'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
+                    'image_urls' => $topic->getImageUrls()->map(function ($content) {
+                        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                    })->all(),
                     'author' => [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
@@ -171,7 +173,9 @@ class TopicsController extends Controller
             'id' => $topic->id,
             'title' => $topic->title,
             'content' => $topic->description,
-            'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null, // Assuming the relationship is named 'cdnImage'
+            'image_urls' => $topic->getImageUrls()->map(function ($content) {
+                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+            })->all(),
             'author' => [
                 'id' => $topic->user->id,
                 'username' => $topic->user->username,
@@ -232,7 +236,9 @@ class TopicsController extends Controller
             'id' => $topic->id,
             'title' => $topic->title,
             'content' => $topic->description,
-            'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
+            'image_urls' => $topic->getImageUrls()->map(function ($content) {
+                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+            })->all(),
             'author' => [
                 'id' => $author->id,
                 'username' => $author->username,
@@ -442,7 +448,9 @@ class TopicsController extends Controller
                     'created_at' => $savedTopic->topic->created_at,
                     'updated_at' => $savedTopic->topic->updated_at,
                     'pinned' => $savedTopic->topic->pinned,
-                    'image_url' => $savedTopic->topic->cdnUserContent ? Storage::url($savedTopic->topic->cdnUserContent->file_path) : null,
+                    'image_urls' => $savedTopic->topic->getImageUrls()->map(function ($content) {
+                        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                    })->all(),
                     'author' => [
                         'id' => $savedTopic->topic->user->id,
                         'username' => $savedTopic->topic->user->username,

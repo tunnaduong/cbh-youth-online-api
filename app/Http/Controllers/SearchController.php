@@ -96,7 +96,9 @@ class SearchController extends Controller
                 'id' => $post->id,
                 'title' => $post->title,
                 'content_preview' => Str::limit(strip_tags($post->content), 150),
-                'image_url' => $post->cdnUserContent ? Storage::url($post->cdnUserContent->file_path) : null,
+                'image_urls' => $post->getImageUrls()->map(function ($content) {
+                    return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                })->all(),
                 'created_at' => $post->created_at->diffForHumans(),
                 'author' => [
                     'id' => $post->user->id,

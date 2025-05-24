@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Collection;
 
 class Topic extends Model
 {
@@ -71,9 +72,26 @@ class Topic extends Model
         // Make sure to specify the local key and foreign key if they differ from default naming conventions
     }
 
-    // Define the relationship with UserContent
+    // Define the relationship with UserContent for multiple images
     public function cdnUserContent()
     {
-        return $this->belongsTo(UserContent::class, 'cdn_image_id');
+        if (empty($this->cdn_image_id)) {
+            return $this->hasOne(UserContent::class, 'id', 'cdn_image_id');
+        }
+
+        $imageIds = array_filter(explode(',', $this->cdn_image_id));
+        return $this->hasOne(UserContent::class, 'id', 'cdn_image_id')
+            ->whereIn('id', $imageIds);
+    }
+
+    // Helper method to get image URLs
+    public function getImageUrls()
+    {
+        if (empty($this->cdn_image_id)) {
+            return collect([]);
+        }
+
+        $imageIds = array_filter(explode(',', $this->cdn_image_id));
+        return UserContent::whereIn('id', $imageIds)->get();
     }
 }

@@ -93,7 +93,9 @@ class ActivityController extends Controller
                         'topic' => [
                             'id' => $vote->topic->id,
                             'title' => $vote->topic->title,
-                            'image_url' => $vote->topic->cdnUserContent ? Storage::url($vote->topic->cdnUserContent->file_path) : null,
+                            'image_urls' => $vote->topic->getImageUrls()->map(function ($content) {
+                                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                            })->all(),
                             'author' => [
                                 'username' => $vote->topic->user->username,
                                 'profile_name' => $vote->topic->user->profile->profile_name ?? null,
@@ -133,7 +135,9 @@ class ActivityController extends Controller
                         'topic' => [
                             'id' => $vote->comment->topic->id,
                             'title' => $vote->comment->topic->title,
-                            'image_url' => $vote->comment->topic->cdnUserContent ? Storage::url($vote->comment->topic->cdnUserContent->file_path) : null,
+                            'image_urls' => $vote->comment->topic->getImageUrls()->map(function ($content) {
+                                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                            })->all(),
                             'author' => [
                                 'username' => $vote->comment->topic->user->username,
                                 'profile_name' => $vote->comment->topic->user->profile->profile_name ?? null,
@@ -170,7 +174,9 @@ class ActivityController extends Controller
                         'topic' => [
                             'id' => $comment->topic->id,
                             'title' => $comment->topic->title,
-                            'image_url' => $comment->topic->cdnUserContent ? Storage::url($comment->topic->cdnUserContent->file_path) : null,
+                            'image_urls' => $comment->topic->getImageUrls()->map(function ($content) {
+                                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                            })->all(),
                             'author' => [
                                 'username' => $comment->topic->user->username,
                                 'profile_name' => $comment->topic->user->profile->profile_name ?? null,
@@ -200,7 +206,9 @@ class ActivityController extends Controller
                         'topic' => [
                             'id' => $topic->id,
                             'title' => $topic->title,
-                            'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
+                            'image_urls' => $topic->getImageUrls()->map(function ($content) {
+                                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                            })->all(),
                         ]
                     ];
                 })
@@ -234,7 +242,9 @@ class ActivityController extends Controller
                     'topic' => [
                         'id' => $topic->id,
                         'title' => $topic->title,
-                        'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
+                        'image_urls' => $topic->getImageUrls()->map(function ($content) {
+                            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                        })->all(),
                         'author' => [
                             'username' => $topic->user->username,
                             'profile_name' => $topic->user->profile->profile_name ?? null,
@@ -405,7 +415,9 @@ class ActivityController extends Controller
                     'topic' => [
                         'id' => $vote->topic->id,
                         'title' => $vote->topic->title,
-                        'image_url' => $vote->topic->cdnUserContent ? Storage::url($vote->topic->cdnUserContent->file_path) : null,
+                        'image_urls' => $vote->topic->getImageUrls()->map(function ($content) {
+                            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                        })->all(),
                         'author' => [
                             'username' => $vote->topic->user->username,
                             'profile_name' => $vote->topic->user->profile->profile_name ?? null,
@@ -443,7 +455,9 @@ class ActivityController extends Controller
                     'topic' => [
                         'id' => $comment->topic->id,
                         'title' => $comment->topic->title,
-                        'image_url' => $comment->topic->cdnUserContent ? Storage::url($comment->topic->cdnUserContent->file_path) : null,
+                        'image_urls' => $comment->topic->getImageUrls()->map(function ($content) {
+                            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                        })->all(),
                         'author' => [
                             'username' => $comment->topic->user->username,
                             'profile_name' => $comment->topic->user->profile->profile_name ?? null,
@@ -480,7 +494,9 @@ class ActivityController extends Controller
                     'topic' => [
                         'id' => $topic->id,
                         'title' => $topic->title,
-                        'image_url' => $topic->cdnUserContent ? Storage::url($topic->cdnUserContent->file_path) : null,
+                        'image_urls' => $topic->getImageUrls()->map(function ($content) {
+                            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                        })->all(),
                     ]
                 ];
             })
