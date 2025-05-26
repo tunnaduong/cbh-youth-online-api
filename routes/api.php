@@ -16,6 +16,7 @@ use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\UserReportController;
 use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ChatController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,11 +30,9 @@ use App\Http\Controllers\SearchController;
 */
 
 Route::prefix('v1.0')->group(function () {
-
     Route::post('/upload', [FileUploadController::class, 'upload']);
     Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
     Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset'])->name('password.reset');
-
 
     Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify'])->name('verification.verify');
 
@@ -147,6 +146,17 @@ Route::prefix('v1.0')->group(function () {
         Route::post('stories/{story}/view', [StoryController::class, 'markAsViewed']);
         Route::post('stories/{story}/react', [StoryController::class, 'react']);
         Route::delete('stories/{story}/react', [StoryController::class, 'removeReaction']);
+
+        // Chat routes
+        Route::prefix('chat')->group(function () {
+            Route::get('conversations', [ChatController::class, 'getConversations']);
+            Route::get('conversations/{conversationId}/messages', [ChatController::class, 'getMessages']);
+            Route::post('conversations', [ChatController::class, 'createPrivateConversation']);
+            Route::post('conversations/{conversationId}/messages', [ChatController::class, 'sendMessage']);
+            Route::post('conversations/{conversationId}/read', [ChatController::class, 'markAsRead']);
+            Route::delete('messages/{messageId}', [ChatController::class, 'deleteMessage']);
+            Route::put('messages/{messageId}', [ChatController::class, 'editMessage']);
+        });
     });
     // Search routes
     Route::get('search', [SearchController::class, 'search']);

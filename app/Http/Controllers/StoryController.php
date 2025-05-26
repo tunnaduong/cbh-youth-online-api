@@ -37,6 +37,7 @@ class StoryController extends Controller
                     return [
                         'id' => (string) $story->id,
                         'media_url' => $story->media_url,
+                        'text_content' => $story->content,
                         'type' => $story->media_type,
                         'created_at' => $story->created_at->toISOString(),
                         'created_at_human' => $story->created_at->diffForHumans(),
