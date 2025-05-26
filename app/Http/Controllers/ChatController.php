@@ -48,6 +48,7 @@ class ChatController extends Controller
                     'content' => $conversation->latestMessage->content,
                     'type' => $conversation->latestMessage->type,
                     'sender' => $conversation->latestMessage->user->username,
+                    'is_myself' => $conversation->latestMessage->user_id === $user->id,
                     'created_at' => $conversation->latestMessage->created_at->toISOString(),
                     'created_at_human' => $conversation->latestMessage->created_at->diffForHumans(),
                 ] : null,
