@@ -182,6 +182,8 @@ class ChatController extends Controller
             'content' => $message->content,
             'type' => $message->type,
             'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+            'is_edited' => $message->is_edited,
+            'is_myself' => $message->user_id === $user->id,
             'sender' => [
                 'id' => $message->user->id,
                 'username' => $message->user->username,
@@ -190,6 +192,7 @@ class ChatController extends Controller
             ],
             'created_at' => $message->created_at->toISOString(),
             'created_at_human' => $message->created_at->diffForHumans(),
+            'read_at' => $message->read_at?->toISOString(),
         ];
 
         // Broadcast the message to other participants
