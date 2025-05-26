@@ -73,7 +73,7 @@ class ChatController extends Controller
 
         $messages = $conversation->messages()
             ->with('user.profile')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'asc')
             ->paginate(50)
             ->through(function ($message) use ($user) {
                 return [
