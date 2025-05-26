@@ -271,4 +271,143 @@ class ChatController extends Controller
             'updated_at_human' => $message->updated_at->diffForHumans(),
         ]);
     }
+
+    /**
+     * Create a new group conversation
+     */
+    public function createGroupConversation(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'participants' => 'required|array|min:1',
+            'participants.*' => 'exists:cyo_auth_accounts,id'
+        ]);
+
+        $user = Auth::user();
+
+        // Create new group conversation
+        $conversation = Conversation::create([
+            'type' => 'group',
+            'name' => $request->name,
+            'created_by' => $user->id
+        ]);
+
+        // Add all participants including the creator
+        $participants = array_unique(array_merge([$user->id], $request->participants));
+        $conversation->participants()->attach($participants);
+
+        // Load the conversation with participants
+        $conversation->load('participants.profile');
+
+        return response()->json([
+            'id' => $conversation->id,
+            'name' => $conversation->name,
+            'type' => 'group',
+            'participants' => $conversation->participants->map(function ($participant) {
+                return [
+                    'id' => $participant->id,
+                    'username' => $participant->username,
+                    'profile_name' => $participant->profile->profile_name ?? $participant->username,
+                    'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$participant->username}/avatar",
+                ];
+            })
+        ], 201);
+    }
+
+    /**
+     * Update group conversation details
+     */
+    public function updateGroupConversation(Request $request, $conversationId)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255'
+        ]);
+
+        $user = Auth::user();
+        $conversation = Conversation::findOrFail($conversationId);
+
+        // Check if user is in the conversation
+        if (!$conversation->hasParticipant($user->id)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Check if conversation is a group
+        if ($conversation->type !== 'group') {
+            return response()->json(['message' => 'This is not a group conversation'], 400);
+        }
+
+        $conversation->update([
+            'name' => $request->name
+        ]);
+
+        return response()->json([
+            'id' => $conversation->id,
+            'name' => $conversation->name
+        ]);
+    }
+
+    /**
+     * Add participants to a group conversation
+     */
+    public function addGroupParticipants(Request $request, $conversationId)
+    {
+        $request->validate([
+            'participants' => 'required|array|min:1',
+            'participants.*' => 'exists:cyo_auth_accounts,id'
+        ]);
+
+        $user = Auth::user();
+        $conversation = Conversation::findOrFail($conversationId);
+
+        // Check if user is in the conversation
+        if (!$conversation->hasParticipant($user->id)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Check if conversation is a group
+        if ($conversation->type !== 'group') {
+            return response()->json(['message' => 'This is not a group conversation'], 400);
+        }
+
+        // Add new participants
+        $conversation->participants()->attach($request->participants);
+
+        // Load updated participants
+        $conversation->load('participants.profile');
+
+        return response()->json([
+            'participants' => $conversation->participants->map(function ($participant) {
+                return [
+                    'id' => $participant->id,
+                    'username' => $participant->username,
+                    'profile_name' => $participant->profile->profile_name ?? $participant->username,
+                    'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$participant->username}/avatar",
+                ];
+            })
+        ]);
+    }
+
+    /**
+     * Remove a participant from a group conversation
+     */
+    public function removeGroupParticipant($conversationId, $userId)
+    {
+        $user = Auth::user();
+        $conversation = Conversation::findOrFail($conversationId);
+
+        // Check if user is in the conversation
+        if (!$conversation->hasParticipant($user->id)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Check if conversation is a group
+        if ($conversation->type !== 'group') {
+            return response()->json(['message' => 'This is not a group conversation'], 400);
+        }
+
+        // Remove participant
+        $conversation->participants()->detach($userId);
+
+        return response()->json(['message' => 'Participant removed successfully']);
+    }
 }

@@ -157,6 +157,12 @@ Route::prefix('v1.0')->group(function () {
             Route::post('conversations/{conversationId}/read', [ChatController::class, 'markAsRead']);
             Route::delete('messages/{messageId}', [ChatController::class, 'deleteMessage']);
             Route::put('messages/{messageId}', [ChatController::class, 'editMessage']);
+
+            // New group chat routes
+            Route::post('groups', [ChatController::class, 'createGroupConversation']);
+            Route::put('groups/{conversationId}', [ChatController::class, 'updateGroupConversation']);
+            Route::post('groups/{conversationId}/participants', [ChatController::class, 'addGroupParticipants']);
+            Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
         });
     });
     // Search routes

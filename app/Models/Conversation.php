@@ -59,19 +59,21 @@ class Conversation extends Model
      */
     public function unreadMessagesCount($userId): int
     {
-        $lastRead = $this->participants()
+        $participant = $this->participants()
             ->where('user_id', $userId)
-            ->first()
-            ->pivot
-            ->last_read_at;
+            ->first();
 
-        if (!$lastRead) {
-            return $this->messages()->count();
+        if (!$participant) {
+            return 0;
         }
 
+        $lastRead = $participant->pivot->last_read_at;
+
         return $this->messages()
-            ->where('created_at', '>', $lastRead)
             ->where('user_id', '!=', $userId)
+            ->when($lastRead, function ($query) use ($lastRead) {
+                return $query->where('created_at', '>', $lastRead);
+            })
             ->count();
     }
 }
