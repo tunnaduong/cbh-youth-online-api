@@ -416,7 +416,8 @@ class ForumController extends Controller
             'subforum' => [
                 'id' => $subforum->id,
                 'name' => $subforum->name,
-                'description' => $subforum->description
+                'description' => $subforum->description,
+                'background' => "https://chuyenbienhoa.com/assets/images/" .$subforum->background_image
             ],
             'topics' => $topics->map(function ($topic) {
                 return [
