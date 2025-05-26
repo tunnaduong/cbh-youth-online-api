@@ -75,13 +75,14 @@ class ChatController extends Controller
             ->with('user.profile')
             ->orderBy('created_at', 'desc')
             ->paginate(50)
-            ->through(function ($message) {
+            ->through(function ($message) use ($user) {
                 return [
                     'id' => $message->id,
                     'content' => $message->content,
                     'type' => $message->type,
                     'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
                     'is_edited' => $message->is_edited,
+                    'is_myself' => $message->user_id === $user->id,
                     'sender' => [
                         'id' => $message->user->id,
                         'username' => $message->user->username,
