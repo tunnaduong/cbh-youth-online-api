@@ -46,6 +46,7 @@ Route::prefix('v1.0')->group(function () {
         // Route to get user profile by username
         Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
         Route::get('/forum/subforums', [ForumController::class, 'getSubforumsByRole']);
+        Route::get('/forum/subforums/{subforum}/topics', [ForumController::class, 'getSubforumPosts']);
     });
 
     Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);

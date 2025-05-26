@@ -13,6 +13,7 @@ use App\Models\ForumCategory;
 use App\Models\Reply;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ForumController extends Controller
 {
@@ -399,6 +400,50 @@ class ForumController extends Controller
                     ];
                 })
             ]
+        ]);
+    }
+
+    public function getSubforumPosts(ForumSubforum $subforum)
+    {
+        $topics = $subforum->topics()
+            ->with(['user.profile', 'comments'])
+            ->withCount(['comments as reply_count', 'views'])
+            ->orderBy('pinned', 'desc')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'subforum' => [
+                'id' => $subforum->id,
+                'name' => $subforum->name,
+                'description' => $subforum->description
+            ],
+            'topics' => $topics->map(function ($topic) {
+                return [
+                    'id' => $topic->id,
+                    'title' => $topic->title,
+                    'content' => Str::limit($topic->description, 100),
+                    'pinned' => $topic->pinned,
+                    'created_at' => $topic->created_at->diffForHumans(),
+                    'updated_at' => $topic->updated_at->diffForHumans(),
+                    'reply_count' => $topic->reply_count,
+                    'view_count' => $topic->views_count,
+                    'author' => [
+                        'id' => $topic->user->id,
+                        'username' => $topic->user->username,
+                        'profile_name' => $topic->user->profile->profile_name ?? null,
+                        'avatar' => "https://api.chuyenbienhoa.com/v1.0/users/" . $topic->user->username . "/avatar",
+                        'verified' => $topic->user->profile->verified == 1 ? true : false
+                    ],
+                    'latest_reply' => $topic->comments->sortByDesc('created_at')->first() ? [
+                        'created_at' => $topic->comments->sortByDesc('created_at')->first()->created_at->diffForHumans(),
+                        'user' => [
+                            'username' => $topic->comments->sortByDesc('created_at')->first()->user->username,
+                            'profile_name' => $topic->comments->sortByDesc('created_at')->first()->user->profile->profile_name ?? null
+                        ]
+                    ] : null
+                ];
+            })
         ]);
     }
 }
