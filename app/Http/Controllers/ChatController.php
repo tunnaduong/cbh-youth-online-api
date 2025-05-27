@@ -415,4 +415,44 @@ class ChatController extends Controller
 
         return response()->json(['message' => 'Participant removed successfully']);
     }
+
+    /**
+     * Search for a user by username to start a new conversation
+     */
+    public function searchUserForChat(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string|min:1'
+        ]);
+
+        $user = Auth::user();
+        $searchTerm = $request->username;
+
+        // Find user with exact username match (case-insensitive)
+        $foundUser = AuthAccount::where('id', '!=', $user->id)
+            ->whereRaw('LOWER(username) = ?', [strtolower($searchTerm)])
+            ->with('profile')
+            ->first();
+
+        if (!$foundUser) {
+            return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
+        }
+
+        // Check if there's already a conversation between these users
+        $existingConversation = Conversation::whereHas('participants', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })->whereHas('participants', function ($query) use ($foundUser) {
+            $query->where('user_id', $foundUser->id);
+        })->where('type', 'private')->first();
+
+        return response()->json([
+            'user' => [
+                'id' => $foundUser->id,
+                'username' => $foundUser->username,
+                'profile_name' => $foundUser->profile->profile_name ?? $foundUser->username,
+                'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$foundUser->username}/avatar",
+            ],
+            'existing_conversation_id' => $existingConversation?->id
+        ]);
+    }
 }

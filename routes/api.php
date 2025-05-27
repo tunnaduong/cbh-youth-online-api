@@ -163,6 +163,9 @@ Route::prefix('v1.0')->group(function () {
             Route::put('groups/{conversationId}', [ChatController::class, 'updateGroupConversation']);
             Route::post('groups/{conversationId}/participants', [ChatController::class, 'addGroupParticipants']);
             Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
+
+            // Search user for new conversation
+            Route::get('search/users', [ChatController::class, 'searchUserForChat']);
         });
     });
     // Search routes
