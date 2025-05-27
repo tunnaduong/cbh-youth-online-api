@@ -174,6 +174,9 @@ class ChatController extends Controller
 
         $message = Message::create($messageData);
 
+        // Update conversation's updated_at timestamp
+        $conversation->touch();
+
         // Load relationships for the response
         $message->load('user.profile');
 
