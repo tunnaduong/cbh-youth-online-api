@@ -25,6 +25,7 @@ class ChatController extends Controller
         $conversations = Conversation::whereHas('participants', function ($query) use ($user) {
             $query->where('user_id', $user->id);
         })
+        ->orderBy('updated_at', 'desc')
         ->with(['participants.profile', 'latestMessage'])
         ->get()
         ->map(function ($conversation) use ($user) {
