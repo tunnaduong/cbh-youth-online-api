@@ -72,11 +72,22 @@ class ChatController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        $perPage = 50;
+        $totalMessages = $conversation->messages()->count();
+        $lastPage = ceil($totalMessages / $perPage);
+        $page = (int) request()->get('page', 1);
+        
+        // Calculate the offset from the end
+        $offset = max(0, $totalMessages - ($page * $perPage));
+        $limit = min($perPage, $totalMessages - (($page - 1) * $perPage));
+        
         $messages = $conversation->messages()
             ->with('user.profile')
             ->orderBy('created_at', 'asc')
-            ->paginate(50)
-            ->through(function ($message) use ($user) {
+            ->skip($offset)
+            ->take($limit)
+            ->get()
+            ->map(function ($message) use ($user) {
                 return [
                     'id' => $message->id,
                     'content' => $message->content,
@@ -96,6 +107,24 @@ class ChatController extends Controller
                 ];
             });
 
+        // Calculate pagination data
+        $hasMorePages = $page < $lastPage;
+
+        $paginationData = [
+            'current_page' => $page,
+            'data' => $messages->values()->all(),
+            'first_page_url' => url("/v1.0/chat/conversations/{$conversationId}/messages?page=1"),
+            'from' => $offset + 1,
+            'last_page' => $lastPage,
+            'last_page_url' => url("/v1.0/chat/conversations/{$conversationId}/messages?page={$lastPage}"),
+            'next_page_url' => $hasMorePages ? url("/v1.0/chat/conversations/{$conversationId}/messages?page=" . ($page + 1)) : null,
+            'path' => url("/v1.0/chat/conversations/{$conversationId}/messages"),
+            'per_page' => $perPage,
+            'prev_page_url' => $page > 1 ? url("/v1.0/chat/conversations/{$conversationId}/messages?page=" . ($page - 1)) : null,
+            'to' => $offset + $limit,
+            'total' => $totalMessages,
+        ];
+
         // Mark messages as read
         $conversation->messages()
             ->where('user_id', '!=', $user->id)
@@ -107,7 +136,7 @@ class ChatController extends Controller
             ->where('user_id', $user->id)
             ->update(['last_read_at' => now()]);
 
-        return response()->json($messages);
+        return response()->json($paginationData);
     }
 
     /**
