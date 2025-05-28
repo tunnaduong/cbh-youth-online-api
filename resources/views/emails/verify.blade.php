@@ -30,16 +30,6 @@
             font-size: 12px;
             color: #777;
         }
-
-        a {
-            display: inline-block;
-            margin: 10px 0;
-            padding: 10px 20px;
-            color: #fff;
-            background-color: #007bff;
-            text-decoration: none;
-            border-radius: 5px;
-        }
     </style>
 </head>
 
@@ -51,7 +41,7 @@
         <p>Xin chào, {{ $account->username }}!</p>
         <p>Cảm ơn bạn đã đăng ký tài khoản trên CBH Youth Online. Vui lòng nhấp vào liên kết bên dưới để xác minh địa
             chỉ email của bạn:</p>
-        <a href="{{ $verificationUrl }}">Xác minh địa chỉ email</a>
+        <a href="{{ $verificationUrl }}">{{ $verificationUrl }}</a>
         <p>Nếu bạn không tạo tài khoản này, bạn không cần thực hiện thêm bất kỳ hành động nào.</p>
         <div class="footer">
             <p>Trân trọng,</p>
