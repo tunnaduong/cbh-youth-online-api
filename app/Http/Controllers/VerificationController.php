@@ -3,28 +3,45 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\AuthEmailVerificationCode; // Adjust the path as needed
+use App\Models\AuthEmailVerificationCode;
+use App\Models\AuthAccount;
 use Illuminate\Http\Request;
 
 class VerificationController extends Controller
 {
-    public function verify($verificationCode)
+    public function verify($id, $hash)
     {
-        $verification = AuthEmailVerificationCode::where('verification_code', $verificationCode)->first();
+        $verification = AuthEmailVerificationCode::where('verification_code', $hash)
+            ->where('user_id', $id)
+            ->first();
 
         if (!$verification) {
-            // return redirect()->route('login')->with('error', 'Invalid verification code.');
-            return response()->json(["error" => "Mã xác minh không đúng."], 201);
+            return response()->json(["error" => "Mã xác minh không đúng hoặc đã hết hạn."], 400);
         }
 
-        // Mark the user's email as verified
-        $user = $verification->user; // Assuming you have a relationship set up
-        $user->markEmailAsVerified();
+        // Check if code has expired
+        if ($verification->expires_at && now()->isAfter($verification->expires_at)) {
+            return response()->json(["error" => "Mã xác minh đã hết hạn."], 400);
+        }
 
-        // Optionally, delete the verification code record
-        // $verification->delete(); // Delete the verification entry
+        // Get the user
+        $user = AuthAccount::find($id);
+        
+        if (!$user) {
+            return response()->json(["error" => "Không tìm thấy người dùng."], 404);
+        }
 
-        return response()->json(["message" => "Xác minh email thành công!", "redirect_url" => "/login"], 200);
-        // return redirect()->route('login')->with('status', 'Email verified successfully!');
+        // Mark the user's email as verified if not already verified
+        if (!$user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+        }
+
+        // Delete the verification code as it's been used
+        $verification->delete();
+
+        return response()->json([
+            "message" => "Xác minh email thành công!", 
+            "redirect_url" => "/login"
+        ], 200);
     }
 }

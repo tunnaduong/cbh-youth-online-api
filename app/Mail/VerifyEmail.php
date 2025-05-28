@@ -21,10 +21,14 @@ class VerifyEmail extends Mailable
 
     public function build()
     {
-        return $this->view('emails.verify') // Specify your email view here
+        $verificationUrl = env('APP_UI_URL', 'http://localhost:3000') . '/verify-email/' . $this->account->id . '/' . $this->verificationCode;
+        
+        return $this->view('emails.verify')
             ->subject('Xác minh địa chỉ email của bạn')
             ->with([
-                'verificationUrl' => route('verification.verify', $this->verificationCode),
+                'account' => $this->account,
+                'verificationCode' => $this->verificationCode,
+                'verificationUrl' => $verificationUrl
             ]);
     }
 }

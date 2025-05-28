@@ -34,7 +34,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
     Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset'])->name('password.reset');
 
-    Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify'])->name('verification.verify');
+    Route::get('/verify-email/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify');
 
     Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
 

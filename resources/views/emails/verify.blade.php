@@ -50,11 +50,8 @@
         </div>
         <p>Xin chào, {{ $account->username }}!</p>
         <p>Cảm ơn bạn đã đăng ký tài khoản trên CBH Youth Online. Vui lòng nhấp vào liên kết bên dưới để xác minh địa
-            chỉ
-            email của bạn:</p>
-        <a href="{{ env('APP_UI_URL', 'http://localhost:3000') . '/email/verify/' . $verificationCode }}">Xác minh địa
-            chỉ
-            email</a>
+            chỉ email của bạn:</p>
+        <a href="{{ $verificationUrl }}">Xác minh địa chỉ email</a>
         <p>Nếu bạn không tạo tài khoản này, bạn không cần thực hiện thêm bất kỳ hành động nào.</p>
         <div class="footer">
             <p>Trân trọng,</p>
