@@ -9,10 +9,9 @@ use Illuminate\Http\Request;
 
 class VerificationController extends Controller
 {
-    public function verify($id, $hash)
+    public function verify($verificationCode)
     {
-        $verification = AuthEmailVerificationCode::where('verification_code', $hash)
-            ->where('user_id', $id)
+        $verification = AuthEmailVerificationCode::where('verification_code', $verificationCode)
             ->first();
 
         if (!$verification) {
@@ -25,7 +24,7 @@ class VerificationController extends Controller
         }
 
         // Get the user
-        $user = AuthAccount::find($id);
+        $user = AuthAccount::find($verification->user_id);
         
         if (!$user) {
             return response()->json(["error" => "Không tìm thấy người dùng."], 404);

@@ -21,7 +21,7 @@ class VerifyEmail extends Mailable
 
     public function build()
     {
-        $verificationUrl = env('APP_UI_URL', 'http://localhost:3000') . '/verify-email/' . $this->account->id . '/' . $this->verificationCode;
+        $verificationUrl = env('APP_UI_URL', 'http://localhost:3000') . '/email/verify/' . $this->verificationCode;
         
         return $this->view('emails.verify')
             ->subject('Xác minh địa chỉ email của bạn')
