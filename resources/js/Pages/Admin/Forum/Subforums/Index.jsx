@@ -39,24 +39,22 @@ export default function Subforums({ subforums, categories, moderators }) {
             title: 'Trạng thái',
             key: 'status',
             width: 120,
-            render: (_, record) => (
-                <Space>
-                    {record.active && <Tag color="green">Hoạt động</Tag>}
-                    {record.pinned && <Tag color="blue">Ghim</Tag>}
-                </Space>
-            ),
+            render: (_, record) => {
+                const tags = [];
+                if (record.active) {
+                    tags.push(<Tag key="active" color="green">Hoạt động</Tag>);
+                }
+                if (record.pinned) {
+                    tags.push(<Tag key="pinned" color="blue">Ghim</Tag>);
+                }
+                return <Space>{tags}</Space>;
+            },
         },
         {
             title: 'Phân quyền',
             dataIndex: 'role_restriction',
             key: 'role_restriction',
             width: 120,
-        },
-        {
-            title: 'Người điều hành',
-            dataIndex: 'moderator',
-            key: 'moderator',
-            render: (moderator) => moderator?.username,
         },
         {
             title: 'Số bài viết',
