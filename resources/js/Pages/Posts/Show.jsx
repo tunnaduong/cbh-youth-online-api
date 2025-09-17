@@ -123,7 +123,7 @@ export default function Show() {
                       />
                     </span>
                   </a>
-                  <div className="flex-1 relative">
+                  <div className="flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <a href="/Chocobaiii">
                         <h4 className="text-sm font-semibold flex items-center">
@@ -190,50 +190,48 @@ export default function Show() {
                         </button>
                       </div>
                     </form>
-                    <div className="mt-4 space-y-4 reply-container dark:border-neutral-500 absolute left-0 right-0 z-10">
-                      <div className="flex space-x-4">
+                  </div>
+                </div>
+                <div className="space-y-4 reply-container dark:border-neutral-500 left-0 right-0 z-10">
+                  <div className="flex space-x-4">
+                    <a href="/Tunna">
+                      <span className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                        <img
+                          src="https://api.chuyenbienhoa.com/v1.0/users/Tunna/avatar"
+                          className="flex h-full w-full items-center justify-center rounded-full border"
+                        />
+                      </span>
+                    </a>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
                         <a href="/Tunna">
-                          <span className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full">
-                            <img
-                              src="https://api.chuyenbienhoa.com/v1.0/users/Tunna/avatar"
-                              className="flex h-full w-full items-center justify-center rounded-full border"
-                            />
-                          </span>
+                          <h4 className="text-sm font-semibold flex items-center">
+                            <span className="dont-break-out">Tunna Duong</span>
+                          </h4>
                         </a>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <a href="/Tunna">
-                              <h4 className="text-sm font-semibold flex items-center">
-                                <span className="dont-break-out">Tunna Duong</span>
-                              </h4>
-                            </a>
-                            <span className="text-xs text-gray-500 flex-shrink-0">
-                              3 tháng trước
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-                            :))) không có cách nào đâu e. Đợi a code tính năng đó đã :v
-                          </p>
-                          <div className="mt-2 flex items-center space-x-2 text-gray-400">
-                            <ArrowUpOutline
-                              color={"#9ca3af"}
-                              height="19px"
-                              width="19px"
-                              className="cursor-pointer"
-                            />
-                            <span className="vote-count select-none text-sm font-semibold ">2</span>
-                            <ArrowDownOutline
-                              color={"#9ca3af"}
-                              height="19px"
-                              width="19px"
-                              className="cursor-pointer"
-                            />
-                            <span>·</span>
-                            <span className="reply-comment cursor-pointer text-sm font-semibold">
-                              Trả lời
-                            </span>
-                          </div>
-                        </div>
+                        <span className="text-xs text-gray-500 flex-shrink-0">3 tháng trước</span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                        :))) không có cách nào đâu e. Đợi a code tính năng đó đã :v
+                      </p>
+                      <div className="mt-2 flex items-center space-x-2 text-gray-400">
+                        <ArrowUpOutline
+                          color={"#9ca3af"}
+                          height="19px"
+                          width="19px"
+                          className="cursor-pointer"
+                        />
+                        <span className="vote-count select-none text-sm font-semibold ">2</span>
+                        <ArrowDownOutline
+                          color={"#9ca3af"}
+                          height="19px"
+                          width="19px"
+                          className="cursor-pointer"
+                        />
+                        <span>·</span>
+                        <span className="reply-comment cursor-pointer text-sm font-semibold">
+                          Trả lời
+                        </span>
                       </div>
                     </div>
                   </div>
