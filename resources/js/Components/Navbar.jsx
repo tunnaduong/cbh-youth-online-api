@@ -31,10 +31,10 @@ export default function Navbar({ activeNav }) {
   const ioniconSize = "20px";
 
   return (
-    <nav className="fixed w-[100%] top-0 bg-white dark:!bg-neutral-700 shadow-md leading-[0] flex justify-between">
+    <nav className="fixed w-full top-0 bg-white dark:bg-neutral-700! shadow-md leading-[0] flex justify-between">
       <div className="flex flex-row px-6 py-3.5">
         <button
-          className="inline-flex dark:!border-neutral-500 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm h-9 w-9 xl:hidden mr-3 min-w-[36px]"
+          className="inline-flex dark:border-neutral-500! items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm h-9 w-9 xl:hidden mr-3 min-w-[36px]"
           type="button"
           data-bs-toggle="offcanvas"
           data-bs-target="#offcanvasMenu"
@@ -65,25 +65,25 @@ export default function Navbar({ activeNav }) {
               <h1 className="font-bold">Chuyên Biên Hòa</h1>
             </div>
             <Tooltip content="Diễn đàn đang trong giai đoạn thử nghiệm">
-              <div className="bg-yellow-400 text-black text-[14px] font-semibold rounded-full !px-3 !py-3 ml-2 hidden xl:block">
+              <div className="bg-yellow-400 text-black text-[14px] font-semibold rounded-full px-3! py-3! ml-2 hidden xl:block">
                 <span>Beta</span>
               </div>
             </Tooltip>
           </div>
         </Link>
-        <div className="max-w-52 xl:flex flex-row items-center bg-[#F7F7F7] dark:!bg-neutral-600 rounded-lg pr-1 ml-7 pl-1 hidden">
+        <div className="max-w-52 xl:flex flex-row items-center bg-[#F7F7F7] dark:bg-neutral-600! rounded-lg pr-1 ml-7 pl-1 hidden">
           <input
             type="text"
             placeholder="Tìm kiếm"
-            className="border-0 w-full bg-[#F7F7F7] dark:!bg-neutral-600 text-[13px] p-2 rounded-lg pr-1"
+            className="border-0 w-full bg-[#F7F7F7] dark:bg-neutral-600! text-[13px] p-2 rounded-lg pr-1"
           />
-          <div className="bg-white dark:!bg-neutral-700 rounded-lg min-w-[30px] h-[30px] flex items-center justify-center cursor-pointer search-btn dark:!border-neutral-500">
+          <div className="bg-white dark:bg-neutral-700! rounded-lg min-w-[30px] h-[30px] flex items-center justify-center cursor-pointer search-btn dark:border-neutral-500!">
             <svg
               stroke="currentColor"
               fill="currentColor"
               strokeWidth={0}
               viewBox="0 0 512 512"
-              className="text-[16px] text-[#6B6B6B] dark:!text-neutral-400"
+              className="text-[16px] text-[#6B6B6B] dark:text-neutral-400!"
               height="1em"
               width="1em"
               xmlns="http://www.w3.org/2000/svg"
@@ -127,9 +127,9 @@ export default function Navbar({ activeNav }) {
           >
             Khám phá
           </Link>
-          <div className="w-[1px] -ml-5 mr-3 h-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
+          <div className="w-px -ml-5 mr-3 h-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
           <DarkmodeToggle />
-          <div className="w-[1px] h-6 ml-3 mr-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
+          <div className="w-px h-6 ml-3 mr-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
         </div>
         {!auth?.user ? (
           <div className="min-w-max mr-4">
@@ -142,9 +142,9 @@ export default function Navbar({ activeNav }) {
                 color={theme === "dark" ? "#3dbb31" : "#319527"}
                 height={ioniconSize}
                 width={ioniconSize}
-                cssClasses="flex-shrink-0"
+                cssClasses="shrink-0"
               />
-              <span className="flex-shrink-0">Đăng nhập/Đăng ký</span>
+              <span className="shrink-0">Đăng nhập/Đăng ký</span>
             </Link>
           </div>
         ) : (
@@ -273,7 +273,7 @@ export default function Navbar({ activeNav }) {
         )}
 
         <div
-          className="offcanvas offcanvas-start max-w-72 dark:bg-[var(--main-white)]"
+          className="offcanvas offcanvas-start max-w-72 dark:bg-(--main-white)"
           tabIndex={-1}
           id="offcanvasMenu"
           aria-labelledby="offcanvasMenuLabel"
@@ -474,7 +474,7 @@ export default function Navbar({ activeNav }) {
                 </Link>
               </li>
             </nav>
-            <div className="flex justify-between items-center !mt-4 !mx-3 !p-3 bg-gray-200 dark:bg-neutral-600 rounded-lg">
+            <div className="flex justify-between items-center mt-4! mx-3! p-3! bg-gray-200 dark:bg-neutral-600 rounded-lg">
               <div>Giao diện</div>
               <DarkmodeToggle mobile={true} />
             </div>

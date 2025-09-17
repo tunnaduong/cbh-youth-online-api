@@ -15,7 +15,7 @@ export default function Show() {
       <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
       <div className="px-1 xl:min-h-screen pt-4">
         <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full">
-          <div className="post-container-post post-container mb-4 shadow-lg rounded-xl !p-6 bg-white flex flex-row">
+          <div className="post-container-post post-container mb-4 shadow-lg rounded-xl p-6! bg-white flex flex-row">
             <div className="min-w-[84px] hidden md:block">
               <div className="sticky-reaction-bar items-center mt-1 flex flex-col ml-[-20px] text-[13px] font-semibold text-gray-400">
                 <ArrowUpOutline
@@ -43,7 +43,7 @@ export default function Show() {
                   你好👋。我叫羊松英。我是越南人。今年我二十二岁。我非常喜欢听音乐！我的家在河南，越南。很高兴认识你！
                 </p>
               </div>
-              <hr className="!my-5 border-t-2" />
+              <hr className="my-5! border-t-2" />
               <div className="flex-row flex-wrap flex text-[13px] items-center">
                 <a href="/yangsongying">
                   <span className="relative flex shrink-0 overflow-hidden rounded-full w-8 h-8">
@@ -102,12 +102,12 @@ export default function Show() {
           </div>
         </div>
         <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full mb-4">
-          <div className="shadow !mb-4 long-shadow h-min rounded-lg bg-white post-comment-container">
-            <div className="flex flex-col space-y-1.5 p-6 text-xl -mb-4 font-semibold max-w-sm overflow-hidden whitespace-nowrap overflow-ellipsis">
+          <div className="shadow mb-4! long-shadow h-min rounded-lg bg-white post-comment-container">
+            <div className="flex flex-col space-y-1.5 p-6 text-xl -mb-4 font-semibold max-w-sm overflow-hidden whitespace-nowrap text-ellipsis">
               Bình luận
             </div>
             <div className="p-6 pt-2">
-              <div className="text-base !mb-8">
+              <div className="text-base mb-8!">
                 <a className="text-green-600 hover:text-green-600" href="/login">
                   Đăng nhập
                 </a>{" "}
@@ -130,7 +130,7 @@ export default function Show() {
                           <span className="dont-break-out">Chocobaiii</span>
                         </h4>
                       </a>
-                      <span className="text-xs text-gray-500 flex-shrink-0">3 tháng trước</span>
+                      <span className="text-xs text-gray-500 shrink-0">3 tháng trước</span>
                     </div>
                     <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
                       Hiuhiu chết r em quên chỉnh sửa bài nên trông post buồn cười quá^^. Huhu h sao
@@ -157,7 +157,7 @@ export default function Show() {
                     </div>
                     <form action="" method="POST" className="reply-box hidden mt-2 space-y-4">
                       <textarea
-                        className="flex dark:!border-neutral-500 min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex dark:border-neutral-500! min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         name="comment"
                         required=""
                         placeholder="Viết phản hồi của bạn..."
@@ -207,7 +207,7 @@ export default function Show() {
                                 <span className="dont-break-out">Tunna Duong</span>
                               </h4>
                             </a>
-                            <span className="text-xs text-gray-500 flex-shrink-0">
+                            <span className="text-xs text-gray-500 shrink-0">
                               3 tháng trước
                             </span>
                           </div>
