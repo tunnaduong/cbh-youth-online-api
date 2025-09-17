@@ -113,14 +113,14 @@ class ForumController extends Controller
     ]);
   }
 
-  public function subforum(ForumSubforum $subforum)
+  public function subforum(ForumCategory $category, ForumSubforum $subforum)
   {
     $topics = $subforum->topics()
-      ->with('user')
-      ->withCount('replies')
+      ->with(['user.profile', 'comments'])
+      ->withCount(['comments as reply_count', 'views'])
       ->orderBy('pinned', 'desc')
       ->orderBy('updated_at', 'desc')
-      ->paginate(20);
+      ->get();
 
     return Inertia::render('Forum/Subforum', [
       'subforum' => $subforum,
