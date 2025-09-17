@@ -1,33 +1,20 @@
 import ForumSection from "@/Components/ForumSection";
+import ForumStats from "@/Components/ForumStats";
 import TopPosts from "@/Components/TopPosts";
 import HomeLayout from "@/Layouts/HomeLayout";
 import { Head } from "@inertiajs/react";
-import { useEffect } from "react";
 
-export default function Home({
-    mainCategories,
-    latestPosts,
-    stats,
-    latestUser,
-}) {
-    useEffect(() => {
-        console.log(mainCategories);
-    }, []);
-
-    return (
-        <HomeLayout activeNav="home">
-            <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
-            <>
-                <div className="pt-4 !px-2.5">
-                    <div className="max-w-[775px] mx-auto">
-                        <TopPosts latestPosts={latestPosts} />
-                    </div>
-                </div>
-                <div className="flex flex-1 !p-6 !px-2.5 items-center flex-col -mb-8">
-                    {/* Section */}
-                    <ForumSection mainCategories={mainCategories} />
-                </div>
-            </>
-        </HomeLayout>
-    );
+export default function Home({ mainCategories, latestPosts, stats }) {
+  return (
+    <HomeLayout activeNav="home">
+      <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
+      <div className="px-2.5">
+        <div className="max-w-[775px] mx-auto space-y-6 my-6">
+          <TopPosts latestPosts={latestPosts} />
+          <ForumSection mainCategories={mainCategories} />
+          <ForumStats stats={stats} />
+        </div>
+      </div>
+    </HomeLayout>
+  );
 }
