@@ -108,6 +108,12 @@ export default function Show() {
             </div>
             <div className="p-6 pt-2">
               <div className="text-base !mb-8">
+          <div className="shadow mb-4! long-shadow h-min rounded-lg bg-white post-comment-container">
+            <div className="flex flex-col space-y-1.5 p-6 text-xl -mb-4 font-semibold max-w-sm overflow-hidden whitespace-nowrap text-ellipsis">
+              Bình luận
+            </div>
+            <div className="p-6 pt-2">
+              <div className="text-base mb-8!">
                 <a className="text-green-600 hover:text-green-600" href="/login">
                   Đăng nhập
                 </a>{" "}

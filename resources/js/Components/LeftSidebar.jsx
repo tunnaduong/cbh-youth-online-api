@@ -18,7 +18,7 @@ export default function LeftSidebar() {
         <>
             {/* Left side bar */}
             <div
-                className="w-[260px] hidden xl:flex flex-col !p-6 sticky top-[69px] h-min"
+                className="w-[260px] hidden xl:flex flex-col p-6! sticky top-[69px] h-min"
                 id="left-sidebar"
             >
                 <p className="text-sm font-semibold text-[#6b6b6b] dark:text-neutral-400 pb-3 ml-2.5">
@@ -28,7 +28,7 @@ export default function LeftSidebar() {
                     href="/"
                     className="mb-3 text-base font-semibold flex items-center w-full text-left rounded-xl p-2.5 hover:text-[#319527] text-[#319527] bg-[#E4EEE3] dark:bg-[#495648]"
                 >
-                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center !border-[#BFE5BB] dark:!border-[#4f7b50] bg-[#CDEBCA] dark:bg-[#1d2a1c]">
+                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#BFE5BB]! dark:border-[#4f7b50]! bg-[#CDEBCA] dark:bg-[#1d2a1c]">
                         <ChatboxEllipses
                             color={activeIconColor}
                             height={iconSize}
@@ -41,7 +41,7 @@ export default function LeftSidebar() {
                     href="/feed"
                     className="mb-3 text-base font-semibold flex items-center w-full text-left rounded-xl p-2.5 text-[#6B6B6B] dark:text-[#CACACA] hover:text-[#6B6B6B] dark:hover:text-white"
                 >
-                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:!border-neutral-500">
+                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:border-neutral-500!">
                         <Telescope
                             color={iconColor}
                             height={iconSize}
@@ -56,7 +56,7 @@ export default function LeftSidebar() {
                     href="/recordings"
                     className="mb-3 text-base font-semibold flex items-center w-full text-left rounded-xl p-2.5 text-[#6B6B6B] dark:text-[#CACACA] hover:text-[#6B6B6B] dark:hover:text-white"
                 >
-                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:!border-neutral-500">
+                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:border-neutral-500!">
                         <Megaphone
                             color={iconColor}
                             height={iconSize}
@@ -71,7 +71,7 @@ export default function LeftSidebar() {
                     href="/youth-news"
                     className="mb-3 text-base font-semibold flex items-center w-full text-left rounded-xl p-2.5 text-[#6B6B6B] dark:text-[#CACACA] hover:text-[#6B6B6B] dark:hover:text-white"
                 >
-                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:!border-neutral-500">
+                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:border-neutral-500!">
                         <Newspaper
                             color={iconColor}
                             height={iconSize}
@@ -86,7 +86,7 @@ export default function LeftSidebar() {
                     href="/saved"
                     className="mb-3 text-base font-semibold flex items-center w-full text-left rounded-xl p-2.5 text-[#6B6B6B] dark:text-[#CACACA] hover:text-[#6B6B6B] dark:hover:text-white"
                 >
-                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:!border-neutral-500">
+                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:border-neutral-500!">
                         <Bookmark
                             color={iconColor}
                             height={iconSize}
@@ -102,7 +102,7 @@ export default function LeftSidebar() {
                     href="/help"
                     className="mb-3 text-base font-semibold flex items-center w-full text-left rounded-xl p-2.5 text-[#6B6B6B] dark:text-[#CACACA] hover:text-[#6B6B6B] dark:hover:text-white"
                 >
-                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:!border-neutral-500">
+                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:border-neutral-500!">
                         <HelpCircle
                             color={iconColor}
                             height={iconSize}
@@ -119,7 +119,7 @@ export default function LeftSidebar() {
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:!border-neutral-500">
+                    <div className="text-lg rounded-lg w-[30px] h-[30px] mr-3 menu-border flex items-center justify-center border-[#ECECEC] dark:border-neutral-500!">
                         <Chatbubbles
                             color={iconColor}
                             height={iconSize}

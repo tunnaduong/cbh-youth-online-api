@@ -21,26 +21,26 @@ const ForumStats = ({ stats }) => {
   };
 
   return (
-    <div className="max-w-[775px] mx-auto bg-white dark:!bg-[var(--main-white)] p-6 rounded-lg long-shadow">
+    <div className="max-w-[775px] mx-auto bg-white dark:bg-(--main-white)! p-6 rounded-lg long-shadow">
       <div className="flex flex-row items-center justify-between mb-4">
         <h2 className="text-lg font-semibold uppercase">Thống kê diễn đàn</h2>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[#E7FFE4] dark:!bg-[#2b2d2c] dark:hover:!bg-[#4a4a4a] hover:bg-green-100 shadow-md rounded-lg p-4 text-center">
+        <div className="bg-[#E7FFE4] dark:bg-[#2b2d2c]! dark:hover:bg-[#4a4a4a]! hover:bg-green-100 shadow-md rounded-lg p-4 text-center">
           <div className="flex justify-center">
             <NewspaperOutline color={"#319528"} height={"30px"} width={"30px"} />
           </div>
           <h3 className="text-xl font-semibold">{stats.postCount}</h3>
           <p className="text-gray-500">Bài viết</p>
         </div>
-        <div className="bg-[#E7FFE4] dark:!bg-[#2b2d2c] dark:hover:!bg-[#4a4a4a] hover:bg-green-100 shadow-md rounded-lg p-4 text-center">
+        <div className="bg-[#E7FFE4] dark:bg-[#2b2d2c]! dark:hover:bg-[#4a4a4a]! hover:bg-green-100 shadow-md rounded-lg p-4 text-center">
           <div className="flex justify-center">
             <ChatboxEllipsesOutline color={"#319528"} height={"30px"} width={"30px"} />
           </div>
           <h3 className="text-xl font-semibold">{stats.commentCount}</h3>
           <p className="text-gray-500">Bình luận</p>
         </div>
-        <div className="bg-[#E7FFE4] dark:!bg-[#2b2d2c] dark:hover:!bg-[#4a4a4a] hover:bg-green-100 shadow-md rounded-lg p-4 text-center">
+        <div className="bg-[#E7FFE4] dark:bg-[#2b2d2c]! dark:hover:bg-[#4a4a4a]! hover:bg-green-100 shadow-md rounded-lg p-4 text-center">
           <div className="flex justify-center">
             <PersonOutline color={"#319528"} height={"30px"} width={"30px"} />
           </div>
@@ -49,7 +49,7 @@ const ForumStats = ({ stats }) => {
         </div>
       </div>
       <div className="mt-6">
-        <p className="text-gray-600 dark:!text-gray-50">
+        <p className="text-gray-600 dark:text-gray-50!">
           Chúng ta cùng chào mừng thành viên mới nhất đã tham gia diễn đàn:
           <Link
             href={"/" + stats.latestUser.username}
@@ -58,7 +58,7 @@ const ForumStats = ({ stats }) => {
             {stats.latestUser.profile.profile_name || stats.latestUser.username}
           </Link>
         </p>
-        <p className="text-gray-600 my-2 dark:!text-gray-50">
+        <p className="text-gray-600 my-2 dark:text-gray-50!">
           Tổng cộng có
           <span className="font-bold text-green-600 ml-1">{stats.visitors.total}</span> người dùng
           trực tuyến:
@@ -66,7 +66,7 @@ const ForumStats = ({ stats }) => {
           <span className="font-semibold ml-1">{stats.visitors.hidden}</span> ẩn và
           <span className="font-semibold ml-1">{stats.visitors.guests}</span> khách
         </p>
-        <p className="text-gray-600 dark:!text-gray-50">
+        <p className="text-gray-600 dark:text-gray-50!">
           Số người dùng trực tuyến nhiều nhất là
           <span className="font-semibold text-green-600 mx-1">{stats.record.max_online}</span>
           vào

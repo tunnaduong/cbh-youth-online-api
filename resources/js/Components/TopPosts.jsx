@@ -5,7 +5,7 @@ import { RxHamburgerMenu } from "react-icons/rx";
 
 export default function TopPosts({ latestPosts }) {
   return (
-    <div className="border dark:!border-[#585857] rounded long-shadow bg-white dark:!bg-[var(--main-white)]">
+    <div className="border dark:border-[#585857]! rounded long-shadow bg-white dark:bg-(--main-white)!">
       <div className="flex flex-wrap items-stretch">
         <Link
           href="?sort=latest"
@@ -78,7 +78,7 @@ export default function TopPosts({ latestPosts }) {
             key={`post-${post.id}`}
             className={`${
               index === latestPosts.length - 1 ? "" : "bor-bottom"
-            } dark:!border-b-[#585857] hover:bg-gray-50 flex py-1 px-2 dark:hover:bg-neutral-600`}
+            } dark:border-b-[#585857]! hover:bg-gray-50 flex py-1 px-2 dark:hover:bg-neutral-600`}
           >
             <RankBadge index={index} />
             <div className="flex items-center flex-1 max-w-[90%] overflow-hidden">

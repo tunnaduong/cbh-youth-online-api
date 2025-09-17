@@ -4,7 +4,7 @@ import { Link } from "@inertiajs/react";
 
 export default function Footer() {
   return (
-    <footer className="footer text-[#6B6B6B] dark:!text-white bg-white dark:!bg-[var(--main-white)] relative z-30 mt-4">
+    <footer className="footer text-[#6B6B6B] dark:text-white! bg-white dark:bg-(--main-white)! relative z-30 mt-4">
       <div className="bg-[#319527] shadow-md">
         {/* Menu */}
         <div className="container">
@@ -37,10 +37,10 @@ export default function Footer() {
           <div className="fade-to-left" style={{ width: "50%" }} />
         </div>
         <div className="row">
-          <div className="col-md-3 mb-4 md:!mb-0">
+          <div className="col-md-3 mb-4 md:mb-0!">
             <img src="/images/logo.png" alt="Logo" className="w-[100px] mb-3" />
             <h2 className="font-bold">Diễn đàn học sinh Chuyên Biên Hòa</h2>
-            <div className="flex items-center gap-2 !mt-3 text-[20px]">
+            <div className="flex items-center gap-2 mt-3! text-[20px]">
               <a
                 href="https://facebook.com/cbhyouthonline"
                 target="_blank"
@@ -56,13 +56,13 @@ export default function Footer() {
                 <LogoGithub color={"white"} />
               </a>
             </div>
-            <p className="text-[13px] !mt-5">
+            <p className="text-[13px] mt-5!">
               Trang web hoạt động phi lợi nhuận
               <br />
               <em>(không thuộc quản lý của nhà trường)</em>
             </p>
           </div>
-          <div className="col-md-3 col-6 mb-4 md:!mb-0">
+          <div className="col-md-3 col-6 mb-4 md:mb-0!">
             <h3 className="font-bold text-[16px]">Chuyên mục nổi bật</h3>
             <ul className="list-none mt-3 flex flex-col gap-2">
               <li>
@@ -95,7 +95,7 @@ export default function Footer() {
               </li>
             </ul>
           </div>
-          <div className="col-md-3 col-6 mb-4 md:!mb-0">
+          <div className="col-md-3 col-6 mb-4 md:mb-0!">
             <h3 className="font-bold text-[16px]">Chính sách</h3>
             <ul className="list-none mt-3 flex flex-col gap-2">
               <li>

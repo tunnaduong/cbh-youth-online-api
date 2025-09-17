@@ -34,7 +34,7 @@ export default function Login({ status, canResetPassword }) {
       <Head title="Đăng nhập" />
 
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-neutral-800 px-4">
-        <div className="rounded-xl border bg-card text-card-foreground shadow w-full bg-white dark:!bg-neutral-700 dark:!border-neutral-500 max-w-md">
+        <div className="rounded-xl border bg-card text-card-foreground shadow w-full bg-white dark:bg-neutral-700! dark:border-neutral-500! max-w-md">
           <div className="flex flex-col p-6 -mb-5 space-y-4 text-center">
             <div className="flex justify-center">
               <Link className="flex gap-x-1 items-center" href="/">
@@ -112,7 +112,7 @@ export default function Login({ status, canResetPassword }) {
               <div className="flex justify-center space-x-4">
                 <Link
                   href="/login/facebook"
-                  className="inline-flex dark:!border-neutral-500 dark:bg-[#2c2c2c] items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm hover:bg-[#eeeeee] hover:text-accent-foreground w-10 h-10"
+                  className="inline-flex dark:border-neutral-500! dark:bg-[#2c2c2c] items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm hover:bg-[#eeeeee] hover:text-accent-foreground w-10 h-10"
                 >
                   <svg
                     stroke="currentColor"
@@ -133,7 +133,7 @@ export default function Login({ status, canResetPassword }) {
                 </Link>
                 <Link
                   href="/login/google"
-                  className="inline-flex dark:!border-neutral-500 dark:bg-[#2c2c2c] items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm hover:bg-[#eeeeee] hover:text-accent-foreground w-10 h-10"
+                  className="inline-flex dark:border-neutral-500! dark:bg-[#2c2c2c] items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm hover:bg-[#eeeeee] hover:text-accent-foreground w-10 h-10"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5">
                     <path

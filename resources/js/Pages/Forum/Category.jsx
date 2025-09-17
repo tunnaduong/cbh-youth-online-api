@@ -2,7 +2,7 @@ import HomeLayout from "@/Layouts/HomeLayout";
 import { Head } from "@inertiajs/react";
 import React from "react";
 
-export default function Subforum() {
+export default function Category() {
   return (
     <HomeLayout activeNav="home">
       <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
