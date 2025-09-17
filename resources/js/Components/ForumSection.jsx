@@ -86,7 +86,7 @@ export default function ForumSection({ mainCategories }) {
                             className="ml-0.5 shrink-0"
                           />
                         )}
-                        <span className="text-black shrink-0 dark:text-[#f3f4f6]!">
+                        <span className="text-black shrink-0 dark:!text-[#f3f4f6]">
                           ,{" "}
                           {subforum.topics[0]?.created_at
                             ? moment(subforum.topics[0].created_at).fromNow()

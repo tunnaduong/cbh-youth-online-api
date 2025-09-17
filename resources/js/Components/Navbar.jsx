@@ -474,7 +474,7 @@ export default function Navbar({ activeNav }) {
                 </Link>
               </li>
             </nav>
-            <div className="flex justify-between items-center mt-4! mx-3! p-3! bg-gray-200 dark:bg-neutral-600 rounded-lg">
+            <div className="flex justify-between items-center !mt-4 !mx-3 !p-3 bg-gray-200 dark:bg-neutral-600 rounded-lg">
               <div>Giao diện</div>
               <DarkmodeToggle mobile={true} />
             </div>
