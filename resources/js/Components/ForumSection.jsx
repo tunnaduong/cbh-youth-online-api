@@ -26,13 +26,13 @@ moment.locale("vi", {
 export default function ForumSection({ mainCategories }) {
   // console.log(mainCategories);
   return (
-    <div className="max-w-[775px] w-full">
+    <div className="max-w-[775px] w-[100%]">
       {mainCategories.map((category) => (
         <>
           <Link href={`/forum/${category.slug}`} className="text-lg font-semibold px-4 uppercase">
             {category.name}
           </Link>
-          <div className="bg-white dark:bg-(--main-white)! long-shadow rounded-lg mt-2 mb-6">
+          <div className="bg-white dark:!bg-[var(--main-white)] long-shadow rounded-lg mt-2 mb-6">
             {category.subforums.map((subforum, index) => (
               <>
                 <div className="flex flex-row items-center min-h-[78px] pr-2">
@@ -46,11 +46,11 @@ export default function ForumSection({ mainCategories }) {
                     </Link>
                     <span className="text-sm text-gray-500">
                       Bài viết:{" "}
-                      <span className="mr-1 font-semibold text-black dark:text-[#f3f4f6]!">
+                      <span className="mr-1 font-semibold text-black dark:!text-[#f3f4f6]">
                         {subforum.topics_count}
                       </span>
                       Bình luận:{" "}
-                      <span className="text-black dark:text-[#f3f4f6]! font-semibold">
+                      <span className="text-black dark:!text-[#f3f4f6] font-semibold">
                         {subforum.comments_count}
                       </span>
                     </span>
@@ -59,7 +59,7 @@ export default function ForumSection({ mainCategories }) {
                   {subforum.topics.length !== 0 && (
                     <div
                       style={{ maxWidth: "calc(42%)" }}
-                      className="flex-1 bg-[#E7FFE4] dark:bg-[#2b2d2c]! dark:border-[#545454]! text-[13px] p-2 px-2 rounded-md flex-col hidden sm:flex border-all"
+                      className="flex-1 bg-[#E7FFE4] dark:!bg-[#2b2d2c] dark:!border-[#545454] text-[13px] p-2 px-2 rounded-md flex-col hidden sm:flex border-all"
                     >
                       <div className="flex">
                         <span className="whitespace-nowrap mr-1">Mới nhất:</span>

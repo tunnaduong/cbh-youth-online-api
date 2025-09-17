@@ -16,14 +16,14 @@ export default function DarkmodeToggle({ mobile = false }) {
         onClick={toggleTheme}
         className={`theme-toggle relative ${
           mobile ?? false ? "block xl:hidden" : "hidden xl:block"
-        } h-8 w-14 rounded-full border border-neutral-500! dark:border-neutral-500 bg-gray-100 dark:bg-neutral-700 hover:border-green-600! theme-transition`}
+        } h-8 w-14 rounded-full border !border-neutral-500 dark:border-neutral-500 bg-gray-100 dark:bg-neutral-700 hover:!border-green-600 theme-transition`}
         aria-label="Toggle theme"
       >
-        <div className="toggle-circle absolute top-[3px] left-1 flex h-6 w-6 items-center justify-center rounded-full bg-white dark:bg-black! shadow-sm dark:transform dark:translate-x-6 transition-transform duration-300">
+        <div className="toggle-circle absolute top-[3px] left-1 flex h-6 w-6 items-center justify-center rounded-full bg-white dark:!bg-black shadow-sm dark:transform dark:translate-x-6 transition-transform duration-300">
           {/* Sun icon for light mode */}
           {theme === "light" && <Sun className="h-3.5 w-3.5 text-black" />}
           {/* Moon icon for dark mode */}
-          {theme === "dark" && <Moon className="h-3.5 w-3.5 text-black dark:text-white!" />}
+          {theme === "dark" && <Moon className="h-3.5 w-3.5 text-black dark:!text-white" />}
         </div>
         <span className="sr-only">Toggle theme</span>
       </button>

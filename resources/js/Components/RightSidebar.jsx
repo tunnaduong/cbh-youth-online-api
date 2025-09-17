@@ -12,7 +12,7 @@ export default function RightSidebar() {
   return (
     <>
       {/* Right side bar */}
-      <div className="w-full max-w-[775px] xl:w-[340px] mx-auto pb-6! xl:p-6" id="right-sidebar">
+      <div className="w-full max-w-[775px] xl:w-[340px] mx-auto !pb-6 xl:p-6" id="right-sidebar">
         <div className="sticky top-[calc(69px+24px)]">
           <CustomColorButton
             bgColor={"#319527"}
@@ -22,7 +22,7 @@ export default function RightSidebar() {
             <AddOutline color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
             Tạo bài viết mới
           </CustomColorButton>
-          <div className="bg-white dark:bg-(--main-white)! text-sm p-3 xl:mt-4 rounded-xl long-shadow [@media(max-width:800px)]:mx-2.5">
+          <div className="bg-white dark:!bg-[var(--main-white)] text-sm p-3 xl:mt-4 rounded-xl long-shadow [@media(max-width:800px)]:mx-2.5">
             <div className="flex flex-row items-center justify-between">
               <span className="font-bold text-[#6B6B6B] dark:text-neutral-300 block text-base">
                 Xếp hạng thành viên
