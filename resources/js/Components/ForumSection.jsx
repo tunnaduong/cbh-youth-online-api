@@ -24,6 +24,7 @@ moment.locale("vi", {
 });
 
 export default function ForumSection({ mainCategories }) {
+  // console.log(mainCategories);
   return (
     <div className="max-w-[775px] w-[100%]">
       {mainCategories.map((category) => (
@@ -77,12 +78,14 @@ export default function ForumSection({ mainCategories }) {
                           {subforum.topics[0]?.user?.profile?.profile_name ||
                             subforum.topics[0]?.user?.username}
                         </Link>
-                        <CheckmarkCircle
-                          color="#319528"
-                          height="15px"
-                          width="15px"
-                          className="ml-0.5 shrink-0"
-                        />
+                        {subforum.topics[0]?.user?.profile?.verified == "1" && (
+                          <CheckmarkCircle
+                            color="#319528"
+                            height="15px"
+                            width="15px"
+                            className="ml-0.5 shrink-0"
+                          />
+                        )}
                         <span className="text-black shrink-0 dark:!text-[#f3f4f6]">
                           ,{" "}
                           {subforum.topics[0]?.created_at

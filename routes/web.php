@@ -106,8 +106,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 // Public Forum Routes
 Route::prefix('forum')->group(function () {
   Route::get('/', [ForumController::class, 'index'])->name('forum.index');
-  Route::get('/category/{category}', [ForumController::class, 'category'])->name('forum.category');
-  Route::get('/subforum/{subforum}', [ForumController::class, 'subforum'])->name('forum.subforum');
+  Route::get('/{category}/{subforum}', [ForumController::class, 'subforum'])->name('forum.subforum');
+  Route::get('/{category}', [ForumController::class, 'category'])->name('forum.category');
 
   // Topic Routes (requires authentication)
   Route::middleware(['auth'])->group(function () {

@@ -131,7 +131,7 @@ export default function Navbar({ activeNav }) {
           <DarkmodeToggle />
           <div className="w-[1px] h-6 ml-3 mr-6 bg-[#e2e2e3] dark:bg-[#585858] hidden xl:block" />
         </div>
-        {!auth.user ? (
+        {!auth?.user ? (
           <div className="min-w-max mr-4">
             <Link
               href={route("login")}
@@ -474,7 +474,7 @@ export default function Navbar({ activeNav }) {
                 </Link>
               </li>
             </nav>
-            <div class="flex justify-between items-center !mt-4 !mx-3 !p-3 bg-gray-200 dark:bg-neutral-600 rounded-lg">
+            <div className="flex justify-between items-center !mt-4 !mx-3 !p-3 bg-gray-200 dark:bg-neutral-600 rounded-lg">
               <div>Giao diện</div>
               <DarkmodeToggle mobile={true} />
             </div>
