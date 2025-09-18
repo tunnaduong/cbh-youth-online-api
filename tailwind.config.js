@@ -34,6 +34,9 @@ export default {
 
   theme: {
     extend: {
+      ringColor: {
+        DEFAULT: "#319527",
+      },
       colors: {
         primary: genPalette("#319527"), // brand color
       },
