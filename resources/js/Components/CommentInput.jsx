@@ -3,7 +3,7 @@ import { Button } from "antd";
 import { LuImage, LuType, LuArrowUp } from "react-icons/lu";
 
 export function CommentInput({
-  placeholder = "Join the conversation",
+  placeholder = "Nhập bình luận của bạn...",
   onSubmit,
   onCancel,
   userAvatar,
@@ -42,13 +42,10 @@ export function CommentInput({
         ${isFocused ? "ring-2 ring-ring/20 border-ring/40" : ""}
       `}
       >
-        <div className="flex gap-3 p-4 pb-2">
+        <div className="flex gap-3 p-4 pb-0">
           <img
-            src={
-              userAvatar ||
-              "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"
-            }
-            alt="Your avatar"
+            src={userAvatar || "https://api.chuyenbienhoa.com/v1.0/users/abc/avatar"}
+            alt="Avatar của bạn"
             className="w-8 h-8 rounded-full flex-shrink-0"
           />
           <div className="flex-1">
@@ -64,6 +61,7 @@ export function CommentInput({
                 w-full bg-transparent border-none outline-none resize-none
                 text-foreground placeholder:text-muted-foreground
                 text-sm min-h-[24px] leading-6 ring-transparent focus:ring-transparent focus:border-transparent
+                pl-0 pt-0
               "
               style={{
                 height: "auto",
@@ -94,18 +92,10 @@ export function CommentInput({
           {/* Right side actions */}
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancel}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </Button>
-            <Button
               size="sm"
               onClick={handleSubmit}
               disabled={!comment.trim()}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full h-8 w-8 p-0"
+              className="bg-primary-500 hover:bg-primary-600 disabled:bg-primary-200 text-white rounded-full h-8 w-8 p-0"
             >
               <LuArrowUp className="h-4 w-4" />
             </Button>

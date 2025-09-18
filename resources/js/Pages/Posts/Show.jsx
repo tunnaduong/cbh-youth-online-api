@@ -175,7 +175,9 @@ export default function Show({ post }) {
                   để bình luận và tham gia thảo luận cùng cộng đồng.
                 </div>
               ) : (
-                <CommentInput />
+                <CommentInput
+                  userAvatar={`https://api.chuyenbienhoa.com/v1.0/users/${auth.user.username}/avatar`}
+                />
               )}
               {/* <Comment comment={post.comments} /> */}
             </div>

@@ -2,6 +2,20 @@ import defaultTheme from "tailwindcss/defaultTheme";
 import forms from "@tailwindcss/forms";
 const { TinyColor } = require("@ctrl/tinycolor");
 
+const green = {
+  50: "#f3fbf2",
+  100: "#e3f8e0",
+  200: "#c7f0c2",
+  300: "#9ae392",
+  400: "#65cd5b",
+  500: "#40b235",
+  600: "#319527",
+  700: "#287421",
+  800: "#245c1f",
+  900: "#1e4c1b",
+  950: "#0b290a",
+};
+
 function genPalette(base) {
   const c = new TinyColor(base);
   return {
@@ -9,16 +23,17 @@ function genPalette(base) {
     light: c.lighten(30).toHexString(),
     dark: c.darken(30).toHexString(),
     muted: c.desaturate(20).toHexString(),
-    50: c.lighten(45).toHexString(),
-    100: c.lighten(40).toHexString(),
-    200: c.lighten(30).toHexString(),
-    300: c.lighten(20).toHexString(),
-    400: c.lighten(10).toHexString(),
-    500: c.toHexString(),
-    600: c.darken(10).toHexString(),
-    700: c.darken(20).toHexString(),
-    800: c.darken(30).toHexString(),
-    900: c.darken(40).toHexString(),
+    50: green[50],
+    100: green[100],
+    200: green[200],
+    300: green[300],
+    400: green[400],
+    500: green[500],
+    600: green[600],
+    700: green[700],
+    800: green[800],
+    900: green[900],
+    950: green[950],
   };
 }
 
@@ -35,7 +50,7 @@ export default {
   theme: {
     extend: {
       ringColor: {
-        DEFAULT: "#319527",
+        DEFAULT: "#c7f0c2",
       },
       colors: {
         primary: genPalette("#319527"), // brand color
