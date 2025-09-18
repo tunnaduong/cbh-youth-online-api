@@ -2,16 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { LuImage, LuType, LuArrowUp } from "react-icons/lu";
 import { RiEmojiStickerLine } from "react-icons/ri";
+import { usePage } from "@inertiajs/react";
 
-export function CommentInput({
-  placeholder = "Nhập bình luận của bạn...",
-  onSubmit,
-  onCancel,
-  userAvatar,
-}) {
+export function CommentInput({ placeholder = "Nhập bình luận của bạn...", onSubmit, onCancel }) {
   const [comment, setComment] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const wrapperRef = useRef(null);
+  const { auth } = usePage().props;
 
   const handleSubmit = () => {
     if (comment.trim()) {
@@ -51,13 +48,13 @@ export function CommentInput({
         onClick={() => setIsFocused(true)}
         className={`
         relative bg-muted/30 border border-border rounded-2xl
-        transition-all duration-200
+        transition-all duration-200 dark:!border-gray-600
         ${isFocused ? "ring-2 ring-ring/20 border-ring/40" : ""}
       `}
       >
         <div className={`flex gap-3 p-4 pb-0 ${!isFocused ? "pb-3" : ""}`}>
           <img
-            src={userAvatar || "https://api.chuyenbienhoa.com/v1.0/users/abc/avatar"}
+            src={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
             alt="Avatar của bạn"
             className="w-8 h-8 rounded-full flex-shrink-0"
           />

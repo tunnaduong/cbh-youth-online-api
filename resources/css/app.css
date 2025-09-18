@@ -565,3 +565,17 @@ hr {
     transform: translateY(0);
   }
 }
+
+.bg-background {
+  background-color: hsl(var(--background));
+}
+
+.dark .bg-background {
+  background-color: #3c3c3c !important;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(102px);
+  -webkit-backdrop-filter: blur(36px);
+}

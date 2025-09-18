@@ -63,9 +63,13 @@ function ThemedApp({ App, props }) {
             colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
           },
           Button: {
+            defaultBg: theme === "dark" ? "#3C3C3C" : "#ffffff", // dark = gray-800, light = white
             colorPrimary: "#319527",
             colorPrimaryHover: "#40b235",
             colorPrimaryActive: "#287421",
+            defaultShadow: "none", // bỏ bóng dưới
+            primaryShadow: "none", // nếu dùng primary
+            defaultHoverBg: theme === "dark" ? "#414642" : "#f9fafb",
           },
         },
         algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,

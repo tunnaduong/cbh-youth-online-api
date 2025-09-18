@@ -1,6 +1,6 @@
 import HomeLayout from "@/Layouts/HomeLayout";
 import { Head, Link } from "@inertiajs/react";
-import React from "react";
+import React, { useState } from "react";
 import {
   ArrowDownOutline,
   ArrowUpOutline,
@@ -11,11 +11,86 @@ import {
 import { ReactPhotoCollage } from "react-photo-collage";
 import { usePage } from "@inertiajs/react";
 import { CommentInput } from "@/Components/CommentInput";
+import Comment from "@/Components/Comment";
 
 export default function Show({ post }) {
   const { auth } = usePage().props;
+  const [comments, setComments] = useState(post.comments || []);
 
   console.log(post);
+
+  // Helper function to get time display
+  const getTimeDisplay = (comment) => {
+    if (comment.created_at) {
+      const now = new Date();
+      const commentTime = new Date(comment.created_at);
+      const diffInMinutes = Math.floor((now - commentTime) / (1000 * 60));
+
+      if (diffInMinutes < 1) return "Just now";
+      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+      if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+      return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    }
+    return "Unknown time";
+  };
+
+  // Handle comment editing
+  const handleEditComment = (commentId, newContent) => {
+    const updateCommentInTree = (comments) => {
+      return comments.map((comment) => {
+        if (comment.id === commentId) {
+          return { ...comment, content: newContent };
+        }
+        if (comment.replies) {
+          return {
+            ...comment,
+            replies: updateCommentInTree(comment.replies),
+          };
+        }
+        return comment;
+      });
+    };
+
+    setComments(updateCommentInTree(comments));
+    // Here you would typically make an API call to save the changes
+    console.log(`Editing comment ${commentId} with content: ${newContent}`);
+  };
+
+  // Handle adding replies
+  const handleReplyToComment = (parentId, content) => {
+    const addReplyToComment = (comments) => {
+      return comments.map((comment) => {
+        if (comment.id === parentId) {
+          const newReply = {
+            id: Date.now().toString(), // Simple ID generation
+            content: content,
+            author: {
+              username: auth.user.username,
+              profile_name: auth.user.name || auth.user.username,
+            },
+            created_at: new Date().toISOString(),
+            votes: [],
+            replies: [],
+          };
+          return {
+            ...comment,
+            replies: [newReply, ...(comment.replies || [])],
+          };
+        }
+        if (comment.replies) {
+          return {
+            ...comment,
+            replies: addReplyToComment(comment.replies),
+          };
+        }
+        return comment;
+      });
+    };
+
+    setComments(addReplyToComment(comments));
+    // Here you would typically make an API call to save the reply
+    console.log(`Replying to comment ${parentId} with content: ${content}`);
+  };
 
   // hàm tạo layout + height tự động
   function getCollageSetting(photos) {
@@ -162,11 +237,11 @@ export default function Show({ post }) {
           </div>
         </div>
         <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full mb-4">
-          <div className="shadow !mb-4 long-shadow h-min rounded-lg bg-white post-comment-container">
+          <div className="shadow !mb-4 long-shadow h-min rounded-lg bg-white post-comment-container overflow-clip">
             <div className="flex flex-col space-y-1.5 p-6 text-xl -mb-4 font-semibold max-w-sm overflow-hidden whitespace-nowrap overflow-ellipsis">
               Bình luận
             </div>
-            <div className="p-6 pt-2">
+            <div className="p-6 pt-2 pb-0">
               {!auth?.user ? (
                 <div className="text-base !mb-8">
                   <Link className="text-green-600 hover:text-green-600" href="/login">
@@ -175,11 +250,23 @@ export default function Show({ post }) {
                   để bình luận và tham gia thảo luận cùng cộng đồng.
                 </div>
               ) : (
-                <CommentInput
-                  userAvatar={`https://api.chuyenbienhoa.com/v1.0/users/${auth.user.username}/avatar`}
-                />
+                <CommentInput />
               )}
-              {/* <Comment comment={post.comments} /> */}
+              <div className="pb-6 pt-2">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="mt-6">
+                    <Comment
+                      comment={comment}
+                      level={0}
+                      onEdit={handleEditComment}
+                      onReply={handleReplyToComment}
+                      userAvatar={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
+                      getTimeDisplay={getTimeDisplay}
+                      parentConnectorHovered={false}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

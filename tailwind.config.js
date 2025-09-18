@@ -53,6 +53,9 @@ export default {
       },
       colors: {
         primary: genPalette("#319527"), // brand color
+        gray: {
+          600: "#585858",
+        },
       },
       fontFamily: {
         sans: ["Inter", ...defaultTheme.fontFamily.sans],
