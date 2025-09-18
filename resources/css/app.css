@@ -539,3 +539,14 @@ hr {
 .dark hr {
   border-top: 1px solid #d3d3d3;
 }
+
+.square-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 70%; /* height = width */
+}
+
+.square-wrapper > * {
+  position: absolute;
+  inset: 0;
+}

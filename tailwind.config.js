@@ -41,8 +41,24 @@ export default {
         sans: ["Inter", ...defaultTheme.fontFamily.sans],
         inter: ["Inter", ...defaultTheme.fontFamily.sans],
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            h2: {
+              fontSize: "1.2rem", // tương đương ~28px
+              fontWeight: "700",
+              lineHeight: "1.3",
+              marginTop: "1em",
+              marginBottom: "0.5em",
+            },
+            hr: {
+              borderColor: "#919191", // màu xám nhạt
+            },
+          },
+        },
+      },
     },
   },
 
-  plugins: [forms],
+  plugins: [forms, require("@tailwindcss/typography")],
 };

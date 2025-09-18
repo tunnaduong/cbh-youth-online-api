@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use Inertia\Inertia;
+use App\Models\Reply;
 use App\Models\Topic;
+use App\Models\AuthAccount;
+use Illuminate\Support\Str;
+use App\Models\TopicComment;
 use Illuminate\Http\Request;
+use App\Models\ForumCategory;
 use App\Models\ForumSubforum;
 use App\Models\ForumMainCategory;
-use App\Models\AuthAccount;
-use App\Models\TopicComment;
-use Illuminate\Support\Facades\Log;
-use App\Models\ForumCategory;
-use App\Models\Reply;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ForumController extends Controller
 {
@@ -414,7 +415,8 @@ class ForumController extends Controller
   public function show($username, $id)
   {
     $user = AuthAccount::where('username', $username)->firstOrFail();
-    $post = Topic::with(['author.profile', 'comments.user.profile'])
+    $post = Topic::with(['author.profile', 'comments.user.profile', 'user', 'votes.user', 'cdnUserContent'])
+      ->withCount(['comments as reply_count', 'views'])
       ->where('user_id', $user->id)
       ->findOrFail($id);
 
@@ -422,11 +424,25 @@ class ForumController extends Controller
       'post' => [
         'id' => $post->id,
         'title' => $post->title,
-        'content' => $post->content,
+        'content' => $post->content_html,
+        'image_urls' => $post->getImageUrls()->map(function ($content) {
+          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        })->all(),
+        'votes' => $post->votes->map(function ($vote) {
+          return [
+            'username' => $vote->user->username, // Assuming votes relation includes the user
+            'vote_value' => $vote->vote_value,
+            'created_at' => $vote->created_at->toISOString(),
+            'updated_at' => $vote->updated_at->toISOString(),
+          ];
+        }),
+        'reply_count' => $this->roundToNearestFive($post->reply_count),
+        'view_count' => $post->views_count,
         'created_at' => $post->created_at->diffForHumans(),
         'author' => [
           'username' => $post->author->username,
           'profile_name' => $post->author->profile->profile_name ?? null,
+          'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
         ],
         'comments' => $post->comments->map(function ($comment) {
           return [
@@ -467,7 +483,7 @@ class ForumController extends Controller
           'pinned' => $topic->pinned,
           'created_at' => $topic->created_at->diffForHumans(),
           'updated_at' => $topic->updated_at->diffForHumans(),
-          'reply_count' => $topic->reply_count,
+          'reply_count' => $this->roundToNearestFive($topic->reply_count),
           'view_count' => $topic->views_count,
           'author' => [
             'id' => $topic->user->id,
@@ -486,5 +502,16 @@ class ForumController extends Controller
         ];
       })
     ]);
+  }
+
+  private function roundToNearestFive($count)
+  {
+    if ($count <= 5) {
+      // If count is less than or equal to 5, format it with leading zero
+      return str_pad($count, 2, '0', STR_PAD_LEFT);
+    } else {
+      // Round down to the nearest multiple of 5 and pad to 2 digits
+      return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
+    }
   }
 }

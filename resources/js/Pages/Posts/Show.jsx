@@ -1,5 +1,5 @@
 import HomeLayout from "@/Layouts/HomeLayout";
-import { Head } from "@inertiajs/react";
+import { Head, Link } from "@inertiajs/react";
 import React from "react";
 import {
   ArrowDownOutline,
@@ -8,92 +8,148 @@ import {
   ChatboxOutline,
   EyeOutline,
 } from "react-ionicons";
+import { ReactPhotoCollage } from "react-photo-collage";
 
-export default function Show() {
+export default function Show({ post }) {
+  console.log(post);
+
+  // hàm tạo layout + height tự động
+  function getCollageSetting(photos) {
+    const count = photos.length;
+
+    if (count === 1) {
+      return {
+        width: "100%",
+        height: ["100%"],
+        layout: [1],
+      };
+    }
+
+    if (count === 2) {
+      return {
+        width: "100%",
+        height: ["100%"],
+        layout: [2],
+      };
+    }
+
+    if (count === 3) {
+      return {
+        width: "100%",
+        height: ["100%"],
+        layout: [3],
+      };
+    }
+
+    // mặc định cho 4 ảnh trở lên
+    return {
+      width: "100%",
+      height: ["275px", "170px"],
+      layout: [2, 3], // ví dụ 2 ảnh hàng trên, 3 ảnh hàng dưới
+    };
+  }
+
+  const setting = {
+    ...getCollageSetting(post.image_urls),
+    photos: post.image_urls.map((url) => ({ source: url })),
+    showNumOfRemainingPhotos: true,
+  };
+
   return (
-    <HomeLayout activeNav="home">
-      <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
+    <HomeLayout activeNav="home" activeBar={null}>
+      <Head title={post.title} />
       <div className="px-1 xl:min-h-screen pt-4">
         <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full">
-          <div className="post-container-post post-container mb-4 shadow-lg rounded-xl !p-6 bg-white flex flex-row">
-            <div className="min-w-[84px] hidden md:block">
-              <div className="sticky-reaction-bar items-center mt-1 flex flex-col ml-[-20px] text-[13px] font-semibold text-gray-400">
+          <div className="post-container-post post-container mb-4 shadow-lg rounded-xl !p-6 bg-white flex flex-col-reverse md:flex-row">
+            <div className="min-w-[84px]">
+              <div className="sticky-reaction-bar items-center md:!mt-1 mt-3 gap-x-3 flex md:!flex-col flex-row md:ml-[-20px] text-[13px] font-semibold text-gray-400">
                 <ArrowUpOutline
                   height="26px"
                   width="26px"
                   color={"#9ca3af"}
                   className="cursor-pointer"
                 />
-                <span className="select-none text-lg vote-count">6</span>
+                <span className="select-none text-lg vote-count">{post.votes.length}</span>
                 <ArrowDownOutline
                   height="26px"
                   width="26px"
                   color={"#9ca3af"}
                   className="cursor-pointer"
                 />
-                <div className="save-post-button bg-[#EAEAEA] dark:bg-neutral-500 cursor-pointer rounded-lg w-[33.6px] h-[33.6px] mt-3 flex items-center justify-center">
+                <div className="save-post-button bg-[#EAEAEA] dark:bg-neutral-500 cursor-pointer rounded-lg w-[33.6px] h-[33.6px] md:mt-3 flex items-center justify-center">
                   <Bookmark height="20px" width="20px" color={"#9ca3af"} />
                 </div>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden break-words">
-              <h1 className="text-xl font-semibold mb-1">我住在河南，越南。很高兴认识你！</h1>
-              <div className="text-base max-w-[600px] overflow-wrap prose">
-                <p>
-                  你好👋。我叫羊松英。我是越南人。今年我二十二岁。我非常喜欢听音乐！我的家在河南，越南。很高兴认识你！
-                </p>
-              </div>
-              <hr className="!my-5 border-t-2" />
-              <div className="flex-row flex-wrap flex text-[13px] items-center">
-                <a href="/yangsongying">
-                  <span className="relative flex shrink-0 overflow-hidden rounded-full w-8 h-8">
-                    <img
-                      className="border rounded-full aspect-square h-full w-full"
-                      alt="yangsongying avatar"
-                      src="https://api.chuyenbienhoa.com/v1.0/users/yangsongying/avatar"
-                    />
-                  </span>
-                </a>
-                <span className="text-gray-500 hidden md:block ml-2">Đăng bởi</span>
-                <a
-                  className="flex flex-row items-center ml-2 md:ml-1 text-[#319527] hover:text-[#319527] font-bold hover:underline"
-                  href="/yangsongying"
-                >
-                  羊松英
-                </a>
-                <span className="mb-2 ml-0.5 text-sm text-gray-500">.</span>
-                <span className="ml-0.5 text-gray-500">4 tháng trước</span>
-                <div className="flex-1 flex-row-reverse items-center text-gray-500 hidden sm:flex">
-                  <span>424</span>
+                <div className="flex-1"></div>
+                <div className="flex-1 flex md:hidden flex-row-reverse items-center text-gray-500">
+                  <span>{post.view_count}</span>
                   <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />
                   <span className="flex flex-row-reverse items-center">
-                    <span>40+</span>
+                    <span>{post.reply_count}+</span>
                     <ChatboxOutline height="20px" width="20px" color={"#9ca3af"} className="mr-1" />
                   </span>
                 </div>
               </div>
-              <div className="min-w-[84px] mt-3 flex md:hidden items-center gap-x-3 flex-row text-[13px] font-semibold text-gray-400">
-                <ArrowUpOutline
-                  height="26px"
-                  width="26px"
-                  color={"#9ca3af"}
-                  className="cursor-pointer"
-                />
-                <span className="select-none text-lg vote-count ">6</span>
-                <ArrowDownOutline
-                  height="26px"
-                  width="26px"
-                  color={"#9ca3af"}
-                  className="cursor-pointer"
-                />
-                <div className="save-post-button bg-[#EAEAEA] cursor-pointer rounded-lg w-[33.6px] h-[33.6px] flex items-center justify-center">
-                  <Bookmark height="20px" width="20px" color={"#9ca3af"} />
+            </div>
+            <div className="flex-1 overflow-hidden break-words">
+              <h1 className="text-xl font-semibold mb-1">{post.title}</h1>
+              <div className="text-base max-w-[600px] overflow-wrap prose">
+                <p dangerouslySetInnerHTML={{ __html: post.content }} />
+              </div>
+              {post.image_urls.length != 0 && (
+                <div className="square-wrapper mt-3 rounded overflow-hidden">
+                  <ReactPhotoCollage {...setting} />
                 </div>
-                <div className="flex flex-1 flex-row-reverse items-center text-gray-500 sm:hidden">
-                  <span>424</span>
+              )}
+              <hr className="!my-5 border-t-2" />
+              <div className="flex-row flex-wrap flex text-[13px] items-center">
+                <Link
+                  href={route("profile.show", {
+                    username: post.author.username,
+                  })}
+                >
+                  <span className="relative flex shrink-0 overflow-hidden rounded-full w-8 h-8">
+                    <img
+                      className="border rounded-full aspect-square h-full w-full"
+                      alt={post.author.username + " avatar"}
+                      src={`https://api.chuyenbienhoa.com/v1.0/users/${post.author.username}/avatar`}
+                    />
+                  </span>
+                </Link>
+                <span className="text-gray-500 hidden md:block ml-2">Đăng bởi</span>
+                <Link
+                  className="flex flex-row items-center ml-2 md:ml-1 text-[#319527] hover:text-[#319527] font-bold hover:underline"
+                  href={route("profile.show", {
+                    username: post.author.username,
+                  })}
+                >
+                  {post.author.profile_name}
+                  {post.author.verified && (
+                    <svg
+                      stroke="currentColor"
+                      fill="currentColor"
+                      strokeWidth={0}
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                      className="text-base leading-5 ml-0.5"
+                      height="1em"
+                      width="1em"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
+                </Link>
+                <span className="mb-2 ml-0.5 text-sm text-gray-500">.</span>
+                <span className="ml-0.5 text-gray-500">4 tháng trước</span>
+                <div className="flex-1 flex-row-reverse items-center text-gray-500 hidden md:flex">
+                  <span>{post.view_count}</span>
                   <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />
                   <span className="flex flex-row-reverse items-center">
-                    <span>40+</span>
+                    <span>{post.reply_count}+</span>
                     <ChatboxOutline height="20px" width="20px" color={"#9ca3af"} className="mr-1" />
                   </span>
                 </div>
@@ -108,28 +164,28 @@ export default function Show() {
             </div>
             <div className="p-6 pt-2">
               <div className="text-base !mb-8">
-                <a className="text-green-600 hover:text-green-600" href="/login">
+                <Link className="text-green-600 hover:text-green-600" href="/login">
                   Đăng nhập
-                </a>{" "}
+                </Link>{" "}
                 để bình luận và tham gia thảo luận cùng cộng đồng.
               </div>
-              <div className="gap-y-4 flex flex-col">
+              <div className="flex flex-col">
                 <div className="flex space-x-4">
-                  <a href="/Chocobaiii">
+                  <Link href="/Chocobaiii">
                     <span className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full">
                       <img
                         src="https://api.chuyenbienhoa.com/v1.0/users/Chocobaiii/avatar"
                         className="flex h-full w-full items-center justify-center rounded-full border"
                       />
                     </span>
-                  </a>
+                  </Link>
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <a href="/Chocobaiii">
+                      <Link href="/Chocobaiii">
                         <h4 className="text-sm font-semibold flex items-center">
                           <span className="dont-break-out">Chocobaiii</span>
                         </h4>
-                      </a>
+                      </Link>
                       <span className="text-xs text-gray-500 flex-shrink-0">3 tháng trước</span>
                     </div>
                     <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
@@ -192,23 +248,114 @@ export default function Show() {
                     </form>
                   </div>
                 </div>
-                <div className="space-y-4 reply-container dark:border-neutral-500 left-0 right-0 z-10">
-                  <div className="flex space-x-4">
-                    <a href="/Tunna">
+                {/* 2 level cmt */}
+                <div className="space-y-4 reply-container dark:border-neutral-500">
+                  <div className="flex space-x-4 mt-3">
+                    <Link href="/Tunna">
                       <span className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full">
                         <img
                           src="https://api.chuyenbienhoa.com/v1.0/users/Tunna/avatar"
                           className="flex h-full w-full items-center justify-center rounded-full border"
                         />
                       </span>
-                    </a>
+                    </Link>
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <a href="/Tunna">
+                        <Link href="/Tunna">
                           <h4 className="text-sm font-semibold flex items-center">
                             <span className="dont-break-out">Tunna Duong</span>
                           </h4>
-                        </a>
+                        </Link>
+                        <span className="text-xs text-gray-500 flex-shrink-0">3 tháng trước</span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                        :))) không có cách nào đâu e. Đợi a code tính năng đó đã :v
+                      </p>
+                      <div className="mt-2 flex items-center space-x-2 text-gray-400">
+                        <ArrowUpOutline
+                          color={"#9ca3af"}
+                          height="19px"
+                          width="19px"
+                          className="cursor-pointer"
+                        />
+                        <span className="vote-count select-none text-sm font-semibold ">2</span>
+                        <ArrowDownOutline
+                          color={"#9ca3af"}
+                          height="19px"
+                          width="19px"
+                          className="cursor-pointer"
+                        />
+                        <span>·</span>
+                        <span className="reply-comment cursor-pointer text-sm font-semibold">
+                          Trả lời
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* 2 level cmt */}
+                <div className="space-y-4 reply-container dark:border-neutral-500">
+                  <div className="flex space-x-4 mt-3">
+                    <Link href="/Tunna">
+                      <span className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                        <img
+                          src="https://api.chuyenbienhoa.com/v1.0/users/Tunna/avatar"
+                          className="flex h-full w-full items-center justify-center rounded-full border"
+                        />
+                      </span>
+                    </Link>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <Link href="/Tunna">
+                          <h4 className="text-sm font-semibold flex items-center">
+                            <span className="dont-break-out">Tunna Duong</span>
+                          </h4>
+                        </Link>
+                        <span className="text-xs text-gray-500 flex-shrink-0">3 tháng trước</span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                        :))) không có cách nào đâu e. Đợi a code tính năng đó đã :v
+                      </p>
+                      <div className="mt-2 flex items-center space-x-2 text-gray-400">
+                        <ArrowUpOutline
+                          color={"#9ca3af"}
+                          height="19px"
+                          width="19px"
+                          className="cursor-pointer"
+                        />
+                        <span className="vote-count select-none text-sm font-semibold ">2</span>
+                        <ArrowDownOutline
+                          color={"#9ca3af"}
+                          height="19px"
+                          width="19px"
+                          className="cursor-pointer"
+                        />
+                        <span>·</span>
+                        <span className="reply-comment cursor-pointer text-sm font-semibold">
+                          Trả lời
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* 3 level cmt */}
+                <div className="ml-6 space-y-4 reply-container dark:border-neutral-500">
+                  <div className="flex space-x-4 mt-3">
+                    <Link href="/Tunna">
+                      <span className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full">
+                        <img
+                          src="https://api.chuyenbienhoa.com/v1.0/users/Tunna/avatar"
+                          className="flex h-full w-full items-center justify-center rounded-full border"
+                        />
+                      </span>
+                    </Link>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <Link href="/Tunna">
+                          <h4 className="text-sm font-semibold flex items-center">
+                            <span className="dont-break-out">Tunna Duong</span>
+                          </h4>
+                        </Link>
                         <span className="text-xs text-gray-500 flex-shrink-0">3 tháng trước</span>
                       </div>
                       <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
