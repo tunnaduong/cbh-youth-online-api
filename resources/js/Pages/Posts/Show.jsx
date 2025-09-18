@@ -144,7 +144,7 @@ export default function Show({ post }) {
                   )}
                 </Link>
                 <span className="mb-2 ml-0.5 text-sm text-gray-500">.</span>
-                <span className="ml-0.5 text-gray-500">4 tháng trước</span>
+                <span className="ml-0.5 text-gray-500">{post.created_at}</span>
                 <div className="flex-1 flex-row-reverse items-center text-gray-500 hidden md:flex">
                   <span>{post.view_count}</span>
                   <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />

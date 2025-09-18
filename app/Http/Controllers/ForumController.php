@@ -420,6 +420,81 @@ class ForumController extends Controller
       ->where('user_id', $user->id)
       ->findOrFail($id);
 
+    // Load comments with their respective votes and voter usernames
+    $comments = $post->comments()
+      ->whereNull('replying_to')
+      ->with([
+        'user.profile',
+        'votes.user',
+        'replies' => function ($q) {
+          $q->with([
+            'user.profile',
+            'votes.user',
+          ]); // Load 5 replies per request
+        }
+      ])
+      ->orderBy('created_at', 'desc')
+      ->get();
+
+
+    $formattedComments = $comments->map(function ($comment) {
+      return [
+        'id' => $comment->id,
+        'content' => $comment->comment,
+        'author' => [
+          'id' => $comment->user->id,
+          'username' => $comment->user->username,
+          'email' => $comment->user->email,
+          'profile_name' => $comment->user->profile->profile_name ?? null,
+          'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
+        ],
+        'created_at' => $comment->created_at->diffForHumans(),
+        'votes' => $comment->votes->map(fn($vote) => [
+          'user_id' => $vote->user_id,
+          'username' => $vote->user->username,
+          'vote_value' => $vote->vote_value,
+        ]),
+        'replies' => $comment->replies->map(function ($reply) {
+          return [
+            'id' => $reply->id,
+            'content' => $reply->comment,
+            'author' => [
+              'id' => $reply->user->id,
+              'username' => $reply->user->username,
+              'email' => $reply->user->email,
+              'profile_name' => $reply->user->profile->profile_name ?? null,
+              'verified' => $reply->user->profile->verified == 1 ?? false ? true : false,
+            ],
+            'created_at' => $reply->created_at->diffForHumans(),
+            'votes' => $reply->votes->map(fn($vote) => [
+              'user_id' => $vote->user_id,
+              'username' => $vote->user->username,
+              'vote_value' => $vote->vote_value,
+            ]),
+            'replies' => $reply->replies->map(function ($subReply) {
+              return [
+                'id' => $subReply->id,
+                'content' => $subReply->comment,
+                'author' => [
+                  'id' => $subReply->user->id,
+                  'username' => $subReply->user->username,
+                  'email' => $subReply->user->email,
+                  'profile_name' => $subReply->user->profile->profile_name ?? null,
+                  'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
+                ],
+                'created_at' => $subReply->created_at->diffForHumans(),
+                'votes' => $subReply->votes->map(fn($vote) => [
+                  'user_id' => $vote->user_id,
+                  'username' => $vote->user->username,
+                  'vote_value' => $vote->vote_value,
+                ]),
+              ];
+            }),
+          ];
+        }),
+      ];
+    });
+
     return Inertia::render('Posts/Show', [
       'post' => [
         'id' => $post->id,
@@ -444,17 +519,7 @@ class ForumController extends Controller
           'profile_name' => $post->author->profile->profile_name ?? null,
           'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
         ],
-        'comments' => $post->comments->map(function ($comment) {
-          return [
-            'id' => $comment->id,
-            'content' => $comment->content,
-            'created_at' => $comment->created_at->diffForHumans(),
-            'user' => [
-              'username' => $comment->user->username,
-              'profile_name' => $comment->user->profile->profile_name ?? null,
-            ]
-          ];
-        })
+        'comments' => $formattedComments,
       ]
     ]);
   }
