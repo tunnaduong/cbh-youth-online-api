@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "antd";
 import { LuImage, LuType, LuArrowUp } from "react-icons/lu";
+import { RiEmojiStickerLine } from "react-icons/ri";
 
 export function CommentInput({
   placeholder = "Nhập bình luận của bạn...",
@@ -10,6 +11,7 @@ export function CommentInput({
 }) {
   const [comment, setComment] = useState("");
   const [isFocused, setIsFocused] = useState(false);
+  const wrapperRef = useRef(null);
 
   const handleSubmit = () => {
     if (comment.trim()) {
@@ -33,16 +35,27 @@ export function CommentInput({
     }
   };
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsFocused(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full max-w-4xl mx-auto" ref={wrapperRef}>
       <div
+        onClick={() => setIsFocused(true)}
         className={`
         relative bg-muted/30 border border-border rounded-2xl
         transition-all duration-200
         ${isFocused ? "ring-2 ring-ring/20 border-ring/40" : ""}
       `}
       >
-        <div className="flex gap-3 p-4 pb-0">
+        <div className={`flex gap-3 p-4 pb-0 ${!isFocused ? "pb-3" : ""}`}>
           <img
             src={userAvatar || "https://api.chuyenbienhoa.com/v1.0/users/abc/avatar"}
             alt="Avatar của bạn"
@@ -53,7 +66,6 @@ export function CommentInput({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               rows={1}
@@ -61,7 +73,7 @@ export function CommentInput({
                 w-full bg-transparent border-none outline-none resize-none
                 text-foreground placeholder:text-muted-foreground
                 text-sm min-h-[24px] leading-6 ring-transparent focus:ring-transparent focus:border-transparent
-                pl-0 pt-0
+                pl-0 pt-0 mt-1
               "
               style={{
                 height: "auto",
@@ -78,9 +90,16 @@ export function CommentInput({
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-4 pb-4 ml-11">
+        <div
+          className={`flex items-center justify-between px-4 pb-4 ml-11 ${
+            isFocused ? "fade-in-bottom" : "hidden"
+          }`}
+        >
           {/* Left side controls */}
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-muted">
+              <RiEmojiStickerLine className="h-5 w-5 text-muted-foreground" />
+            </Button>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-muted">
               <LuImage className="h-4 w-4 text-muted-foreground" />
             </Button>
@@ -95,7 +114,7 @@ export function CommentInput({
               size="sm"
               onClick={handleSubmit}
               disabled={!comment.trim()}
-              className="bg-primary-500 hover:bg-primary-600 disabled:bg-primary-200 text-white rounded-full h-8 w-8 p-0"
+              className="!bg-primary-500 hover:!bg-primary-600 disabled:!bg-primary-200 text-white rounded-full h-8 w-8 p-0"
             >
               <LuArrowUp className="h-4 w-4" />
             </Button>

@@ -49,7 +49,7 @@ export default function Show({ post }) {
     return {
       width: "100%",
       height: ["275px", "170px"],
-      layout: [2, 3], // ví dụ 2 ảnh hàng trên, 3 ảnh hàng dưới
+      layout: [2, 3], // 2 ảnh hàng trên, 3 ảnh hàng dưới
     };
   }
 

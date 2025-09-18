@@ -7,8 +7,8 @@ import { createRoot } from "react-dom/client";
 import { createInertiaApp } from "@inertiajs/react";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { createIcons, icons } from "lucide";
-import { ThemeProvider } from "./Contexts/themeContext";
-import { ConfigProvider } from "antd";
+import { ThemeProvider, useTheme } from "./Contexts/themeContext";
+import { ConfigProvider, theme as antdTheme } from "antd";
 
 // Initialize Lucide icons when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
@@ -33,16 +33,7 @@ createInertiaApp({
 
     root.render(
       <ThemeProvider>
-        <ConfigProvider
-          theme={{
-            token: {
-              fontFamily: "Inter, sans-serif",
-              colorPrimary: "#319527",
-            },
-          }}
-        >
-          <App {...props} />
-        </ConfigProvider>
+        <ThemedApp App={App} props={props} />
       </ThemeProvider>
     );
   },
@@ -50,3 +41,37 @@ createInertiaApp({
     color: "#319528",
   },
 });
+
+function ThemedApp({ App, props }) {
+  const { theme } = useTheme();
+
+  return (
+    <ConfigProvider
+      theme={{
+        token: {
+          fontFamily: "Inter, sans-serif",
+          colorPrimary: "#319527",
+        },
+        components: {
+          Input: {
+            colorBgContainer: "transparent",
+            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+            colorTextPlaceholder: "#888",
+          },
+          Checkbox: {
+            colorBgContainer: "transparent",
+            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+          },
+          Button: {
+            colorPrimary: "#319527",
+            colorPrimaryHover: "#40b235",
+            colorPrimaryActive: "#287421",
+          },
+        },
+        algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+      }}
+    >
+      <App {...props} />
+    </ConfigProvider>
+  );
+}
