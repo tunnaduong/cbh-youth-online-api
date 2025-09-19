@@ -321,6 +321,55 @@ class UserController extends Controller
         return response()->json(['is_online' => $isOnline, 'last_activity' => $user->last_activity]);
     }
 
+    // Get top 8 active users
+    public function getTop8ActiveUsers()
+    {
+        try {
+            $topUsers = AuthAccount::with(['profile', 'posts.votes', 'posts.comments'])
+                ->where('role', '!=', 'admin')
+                ->withCount(['posts as posts_count'])
+                ->get()
+                ->map(function ($user) {
+                    // Calculate total likes manually
+                    $totalLikes = 0;
+                    if ($user->posts) {
+                        foreach ($user->posts as $post) {
+                            $totalLikes += $post->votes()->where('vote_value', 1)->count();
+                        }
+                    }
+
+                    // Calculate comments count manually
+                    $commentsCount = 0;
+                    if ($user->posts) {
+                        foreach ($user->posts as $post) {
+                            $commentsCount += $post->comments()->count();
+                        }
+                    }
+
+                    return [
+                        'uid' => $user->id,
+                        'username' => $user->username,
+                        'profile_name' => $user->profile->profile_name ?? $user->username,
+                        'profile_picture' => $user->profile->profile_picture ?? null,
+                        'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
+                        'posts_count' => $user->posts_count ?? 0,
+                        'comments_count' => $commentsCount,
+                        'total_likes' => $totalLikes,
+                        'total_points' => ($user->posts_count * 10) + ($totalLikes * 5) + ($commentsCount * 2)
+                    ];
+                })
+                ->sortByDesc('total_points')
+                ->take(8)
+                ->values()
+                ->toArray();
+
+            return response()->json($topUsers);
+        } catch (\Exception $e) {
+            \Log::error('Error in getTop8ActiveUsers: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch top users: ' . $e->getMessage()], 500);
+        }
+    }
+
     // Update user last activity
     public function updateLastActivity()
     {

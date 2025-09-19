@@ -8,7 +8,10 @@ import { createInertiaApp } from "@inertiajs/react";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 import { createIcons, icons } from "lucide";
 import { ThemeProvider, useTheme } from "./Contexts/themeContext";
+import { TopUsersProvider } from "./Contexts/TopUsersContext";
 import { ConfigProvider, theme as antdTheme } from "antd";
+import { useState, useEffect } from "react";
+import LoadingScreen from "./Components/LoadingScreen";
 
 // Initialize Lucide icons when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
@@ -33,7 +36,9 @@ createInertiaApp({
 
     root.render(
       <ThemeProvider>
-        <ThemedApp App={App} props={props} />
+        <TopUsersProvider>
+          <ThemedApp App={App} props={props} />
+        </TopUsersProvider>
       </ThemeProvider>
     );
   },
@@ -44,6 +49,16 @@ createInertiaApp({
 
 function ThemedApp({ App, props }) {
   const { theme } = useTheme();
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate initial loading time
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 2500); // 2 seconds loading time
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <ConfigProvider
@@ -75,7 +90,9 @@ function ThemedApp({ App, props }) {
         algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
       }}
     >
-      <App {...props} />
+      <LoadingScreen isLoading={isInitialLoading}>
+        <App {...props} />
+      </LoadingScreen>
     </ConfigProvider>
   );
 }

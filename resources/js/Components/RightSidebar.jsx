@@ -1,6 +1,7 @@
 import { Link } from "@inertiajs/react";
 import { AddOutline, HelpCircleOutline } from "react-ionicons";
-import { Button } from "antd";
+import { Button, Skeleton } from "antd";
+import { useTopUsers } from "../Contexts/TopUsersContext";
 import CustomColorButton from "./ui/CustomColorButton";
 
 export default function RightSidebar() {
@@ -8,6 +9,8 @@ export default function RightSidebar() {
   // const iconColor = theme === 'dark' ? '#gray-300' : '#6B6B6B'; // Example dynamic color
   const iconColor = "#6B6B6B"; // Default static color for icons
   const iconSize = "20px"; // Default icon size
+
+  const { topUsers, loading, error, isInitialLoad, refreshTopUsers } = useTopUsers();
 
   return (
     <>
@@ -34,127 +37,56 @@ export default function RightSidebar() {
                 <HelpCircleOutline color="#888888" height={iconSize} width={iconSize} />
               </Link>
             </div>
-            {/* User ranking list - internal links changed to Link */}
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/Chocobaiii">
-                <img
-                  src="https://api.chuyenbienhoa.com/v1.0/users/Chocobaiii/avatar"
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link href="/Chocobaiii" className="ml-1.5 font-semibold flex-1 truncate text-left">
-                Chocobaiii
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">173 điểm</span>
-              <span className="text-green-500 font-bold">#1</span>
-            </div>
-            {/* ... Repeat for other users, changing <a> to <Link> ... */}
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/DoanTruongCBH">
-                <img
-                  src="https://api.chuyenbienhoa.com/v1.0/users/DoanTruongCBH/avatar"
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link
-                href="/DoanTruongCBH"
-                className="ml-1.5 font-semibold flex-1 truncate text-left"
-              >
-                Đoàn trường THPT Chuyên Biên Hòa
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">170 điểm</span>
-              <span className="text-green-500 font-bold">#2</span>
-            </div>
-            {/* ... (Continue for hoangphat, chi, ndhai, TuanAnhDaDen, kienthuctonghop, daomeomeoh) ... */}
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/hoangphat">
-                <img
-                  src="https://api.chuyenbienhoa.com/v1.0/users/hoangphat/avatar"
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link href="/hoangphat" className="ml-1.5 font-semibold flex-1 truncate text-left">
-                Hoàng Phát
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">104 điểm</span>
-              <span className="text-green-500 font-bold">#3</span>
-            </div>
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/chi">
-                <img
-                  src="https://api.chuyenbienhoa.com/v1.0/users/chi/avatar"
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link href="/chi" className="ml-1.5 font-semibold flex-1 truncate text-left">
-                nguyẽn kim chi
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">90 điểm</span>
-              <span className="text-green-500 font-bold">#4</span>
-            </div>
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/ndhai">
-                <img
-                  src="https://api.chuyenbienhoa.com/v1.0/users/ndhai/avatar"
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link href="/ndhai" className="ml-1.5 font-semibold flex-1 truncate text-left">
-                Nguyễn Đặng Hải
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">89 điểm</span>
-              <span className="text-green-500 font-bold">#5</span>
-            </div>
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/TuanAnhDaDen">
-                <img
-                  src="/assets/images/placeholder-user.jpg" // Assuming local asset
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link href="/TuanAnhDaDen" className="ml-1.5 font-semibold flex-1 truncate text-left">
-                quên rồi
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">78 điểm</span>
-              <span className="text-green-500 font-bold">#6</span>
-            </div>
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/kienthuctonghop">
-                <img
-                  src="https://api.chuyenbienhoa.com/v1.0/users/kienthuctonghop/avatar"
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link
-                href="/kienthuctonghop"
-                className="ml-1.5 font-semibold flex-1 truncate text-left"
-              >
-                Kiến thức tổng hợp
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">62 điểm</span>
-              <span className="text-green-500 font-bold">#7</span>
-            </div>
-            <div className="flex flex-row items-center mt-2">
-              <Link href="/daomeomeoh">
-                <img
-                  src="/assets/images/placeholder-user.jpg" // Assuming local asset
-                  className="w-8 h-8 bg-gray-300 rounded-full border"
-                  alt="User avatar"
-                />
-              </Link>
-              <Link href="/daomeomeoh" className="ml-1.5 font-semibold flex-1 truncate text-left">
-                Phạm Xuân Đào
-              </Link>
-              <span className="mr-1.5 text-[#C1C1C1]">61 điểm</span>
-              <span className="text-green-500 font-bold">#8</span>
-            </div>
+            {/* User ranking list - dynamic data from API */}
+            {loading ? (
+              <div className="space-y-2 pt-2">
+                {[...Array(8)].map((_, index) => (
+                  <div key={index} className="flex flex-row items-center">
+                    <Skeleton.Avatar active size={32} className="flex-shrink-0" />
+                    <div className="ml-1.5 flex-1">
+                      <Skeleton.Input active size="small" style={{ width: "60%", height: 16 }} />
+                    </div>
+                    <div className="ml-1.5">
+                      <Skeleton.Button active size="small" style={{ width: "10%", height: 16 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="flex flex-col justify-center items-center py-4">
+                <div className="text-red-500 text-sm">Lỗi tải dữ liệu</div>
+                <div className="text-gray-400 text-xs mt-1">{error}</div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-blue-500 text-xs mt-2 hover:underline"
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : (
+              topUsers.map((user, index) => (
+                <div key={user.uid} className="flex flex-row items-center mt-2">
+                  <Link href={`/${user.username}`}>
+                    <img
+                      src={
+                        user.oauth_profile_picture ||
+                        `https://api.chuyenbienhoa.com/v1.0/users/${user.username}/avatar`
+                      }
+                      className="w-8 h-8 bg-gray-300 rounded-full border object-cover"
+                      alt={`${user.profile_name || user.username} avatar`}
+                    />
+                  </Link>
+                  <Link
+                    href={`/${user.username}`}
+                    className="ml-1.5 font-semibold flex-1 truncate text-left"
+                  >
+                    {user.profile_name || user.username}
+                  </Link>
+                  <span className="mr-1.5 text-[#C1C1C1]">{user.total_points} điểm</span>
+                  <span className="text-green-500 font-bold">#{index + 1}</span>
+                </div>
+              ))
+            )}
           </div>
           <div className="hidden xl:block">
             <div className="flex flex-row text-sm font-semibold p-3 text-[#BCBCBC] dark:text-neutral-400">

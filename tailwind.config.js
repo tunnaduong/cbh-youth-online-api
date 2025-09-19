@@ -55,6 +55,7 @@ export default {
         primary: genPalette("#319527"), // brand color
         gray: {
           600: "#585858",
+          700: "#3C3C3C",
         },
       },
       fontFamily: {

@@ -20,17 +20,21 @@ class ForumController extends Controller
 {
   public function index()
   {
-    $mainCategories = ForumCategory::with(['subforums' => function ($query) {
-      $query->withCount(['topics', 'comments'])
-        ->with(['topics' => function ($query) {
-          $query->select('cyo_topics.*')
-            ->join(DB::raw('(SELECT subforum_id, MAX(created_at) as max_created_at FROM cyo_topics GROUP BY subforum_id) as latest'), function ($join) {
-              $join->on('cyo_topics.subforum_id', '=', 'latest.subforum_id')
-                ->on('cyo_topics.created_at', '=', 'latest.max_created_at');
-            })
-            ->with('user.profile');
-        }]);
-    }])
+    $mainCategories = ForumCategory::with([
+      'subforums' => function ($query) {
+        $query->withCount(['topics', 'comments'])
+          ->with([
+            'topics' => function ($query) {
+              $query->select('cyo_topics.*')
+                ->join(DB::raw('(SELECT subforum_id, MAX(created_at) as max_created_at FROM cyo_topics GROUP BY subforum_id) as latest'), function ($join) {
+                  $join->on('cyo_topics.subforum_id', '=', 'latest.subforum_id')
+                    ->on('cyo_topics.created_at', '=', 'latest.max_created_at');
+                })
+                ->with('user.profile');
+            }
+          ]);
+      }
+    ])
       ->orderBy('arrange')
       ->get();
 
@@ -50,7 +54,7 @@ class ForumController extends Controller
       ->where('last_activity', '>=', now()->subMinutes(5))
       ->get();
 
-    $stats = (object)[
+    $stats = (object) [
       'total' => $onlineUsers->count(),
       'registered' => $onlineUsers->where('user_id', '!=', null)->where('is_hidden', false)->count(),
       'hidden' => $onlineUsers->where('user_id', '!=', null)->where('is_hidden', true)->count(),
@@ -105,9 +109,16 @@ class ForumController extends Controller
 
   public function category(ForumCategory $category)
   {
-    $category->load(['subforums' => function ($query) {
-      $query->withCount(['topics', 'comments']);
-    }]);
+    $category->load([
+      'subforums' => function ($query) {
+        $query->withCount(['topics', 'comments'])
+          ->with([
+            'latestTopic' => function ($q) {
+              $q->with(['user.profile']);
+            }
+          ]);
+      }
+    ]);
 
     return Inertia::render('Forum/Category', [
       'category' => $category
@@ -124,8 +135,35 @@ class ForumController extends Controller
       ->get();
 
     return Inertia::render('Forum/Subforum', [
+      'category' => $category,
       'subforum' => $subforum,
-      'topics' => $topics
+      'topics' => $topics->map(function ($topic) {
+        return [
+          'id' => $topic->id,
+          'title' => $topic->title,
+          'content' => Str::limit($topic->description, 100),
+          'pinned' => $topic->pinned,
+          'created_at' => $topic->created_at->diffForHumans(),
+          'updated_at' => $topic->updated_at->diffForHumans(),
+          'reply_count' => $this->roundToNearestFive($topic->reply_count),
+          'view_count' => $topic->views_count,
+          'author' => [
+            'id' => $topic->user->id,
+            'username' => $topic->user->username,
+            'profile_name' => $topic->user->profile->profile_name ?? null,
+            'avatar' => "https://api.chuyenbienhoa.com/v1.0/users/" . $topic->user->username . "/avatar",
+            'verified' => $topic->user->profile->verified == 1 ? true : false
+          ],
+          'latest_reply' => $topic->comments->sortByDesc('created_at')->first() ? [
+            'created_at' => $topic->comments->sortByDesc('created_at')->first()->created_at->diffForHumans(),
+            'updated_at' => $topic->comments->sortByDesc('created_at')->first()->updated_at->diffForHumans(),
+            'user' => [
+              'username' => $topic->comments->sortByDesc('created_at')->first()->user->username,
+              'profile_name' => $topic->comments->sortByDesc('created_at')->first()->user->profile->profile_name ?? null
+            ]
+          ] : null
+        ];
+      })
     ]);
   }
 
@@ -249,9 +287,12 @@ class ForumController extends Controller
       $user = auth()->user();
       $role = $user->role;
 
-      $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
-        $query->latest('created_at')->with(['user.profile']);
-      }])
+      $subforums = ForumSubforum::with([
+        'mainCategory',
+        'topics' => function ($query) {
+          $query->latest('created_at')->with(['user.profile']);
+        }
+      ])
         ->where('active', true)
         ->get();
 
@@ -269,9 +310,12 @@ class ForumController extends Controller
         });
       }
     } else {
-      $subforums = ForumSubforum::with(['mainCategory', 'topics' => function ($query) {
-        $query->latest('created_at')->with(['user.profile']);
-      }])
+      $subforums = ForumSubforum::with([
+        'mainCategory',
+        'topics' => function ($query) {
+          $query->latest('created_at')->with(['user.profile']);
+        }
+      ])
         ->where('active', true)
         ->get();
     }
@@ -290,16 +334,22 @@ class ForumController extends Controller
 
   public function getCategories()
   {
-    $categories = ForumMainCategory::with(['subforums' => function ($query) {
-      $query->withCount('topics')
-        ->withCount(['topics as comment_count' => function ($query) {
-          $query->leftJoin('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
-            ->selectRaw('IFNULL(count(cyo_topic_comments.id), 0)');
-        }])
-        ->with(['topics' => function ($query) {
-          $query->latest('created_at')->with(['user.profile'])->limit(1);
-        }]);
-    }])
+    $categories = ForumMainCategory::with([
+      'subforums' => function ($query) {
+        $query->withCount('topics')
+          ->withCount([
+            'topics as comment_count' => function ($query) {
+              $query->leftJoin('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
+                ->selectRaw('IFNULL(count(cyo_topic_comments.id), 0)');
+            }
+          ])
+          ->with([
+            'topics' => function ($query) {
+              $query->latest('created_at')->with(['user.profile'])->limit(1);
+            }
+          ]);
+      }
+    ])
       ->orderBy('arrange', 'asc')
       ->get();
 
@@ -343,9 +393,11 @@ class ForumController extends Controller
 
   public function getSubforums(ForumMainCategory $mainCategory)
   {
-    $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with(['topics' => function ($query) {
-      $query->latest('created_at');
-    }])->get();
+    $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with([
+      'topics' => function ($query) {
+        $query->latest('created_at');
+      }
+    ])->get();
 
     return $subforums->map(function ($subforum) use ($mainCategory) {
       $latestPost = $subforum->topics->first();
@@ -559,6 +611,7 @@ class ForumController extends Controller
           ],
           'latest_reply' => $topic->comments->sortByDesc('created_at')->first() ? [
             'created_at' => $topic->comments->sortByDesc('created_at')->first()->created_at->diffForHumans(),
+            'updated_at' => $topic->comments->sortByDesc('created_at')->first()->updated_at->diffForHumans(),
             'user' => [
               'username' => $topic->comments->sortByDesc('created_at')->first()->user->username,
               'profile_name' => $topic->comments->sortByDesc('created_at')->first()->user->profile->profile_name ?? null

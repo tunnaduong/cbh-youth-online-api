@@ -244,7 +244,7 @@ export default function Navbar({ activeNav }) {
               <Dropdown.Content>
                 <Dropdown.Link
                   className="flex items-center gap-2 py-2"
-                  href={"/" + auth.user.username}
+                  href={route("profile.show", { username: auth.user.username })}
                 >
                   <BsPersonCircle />
                   Trang cá nhân

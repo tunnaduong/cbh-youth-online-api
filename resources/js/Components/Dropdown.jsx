@@ -33,7 +33,7 @@ const Trigger = ({ children }) => {
 const Content = ({
   align = "right",
   width = "48",
-  contentClasses = "py-1 bg-white dark:bg-gray-700",
+  contentClasses = "py-1 bg-white dark:!bg-gray-700",
   children,
 }) => {
   const { open, setOpen } = useContext(DropDownContext);
@@ -90,8 +90,8 @@ const DropdownLink = ({ className = "", children, href, method, as, ...props }) 
         rel="noopener noreferrer"
         className={
           "block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 " +
-          "hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 " +
-          "dark:focus:bg-gray-800 transition duration-150 ease-in-out " +
+          "hover:bg-gray-100 dark:hover:bg-neutral-800 focus:outline-none focus:bg-gray-100 " +
+          "dark:focus:bg-neutral-800 transition duration-150 ease-in-out " +
           className
         }
         {...props}
@@ -109,8 +109,8 @@ const DropdownLink = ({ className = "", children, href, method, as, ...props }) 
       {...props}
       className={
         "block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 " +
-        "hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 " +
-        "dark:focus:bg-gray-800 transition duration-150 ease-in-out " +
+        "hover:bg-gray-100 dark:hover:bg-neutral-800 focus:outline-none focus:bg-gray-100 " +
+        "dark:focus:bg-neutral-800 transition duration-150 ease-in-out " +
         className
       }
     >
