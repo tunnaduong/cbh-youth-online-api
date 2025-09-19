@@ -18,7 +18,7 @@ export default function Subforum({ category, subforum, topics }) {
                 </Link>
               </li>
               <li className="breadcrumb-item before:!text-neutral-400">
-                <Link href={route("forum.category", { category: category.id })}>
+                <Link href={route("forum.category", { category: category.slug })}>
                   {category.name}
                 </Link>
               </li>
@@ -127,26 +127,28 @@ export default function Subforum({ category, subforum, topics }) {
                               Trả lời: <span className="text-black">{topic.reply_count}</span> ·
                               Xem: <span className="text-black">{topic.view_count}</span>
                             </div>
-                            <div>{topic.latest_reply.updated_at}</div>
+                            <div>{topic.latest_reply?.created_at || topic.created_at}</div>
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="!p-3 text-center text-sm text-gray-500 hidden sm:table-cell">
-                      {topic.reply_count}
+                      {topic.reply_count}+
                     </td>
                     <td className="!p-3 text-center text-sm text-gray-500 hidden sm:table-cell">
                       {topic.view_count}
                     </td>
                     <td className="!p-3 text-right text-sm text-gray-500 hidden sm:table-cell">
                       <Link
-                        href={route("profile.show", { username: topic.latest_reply.user.username })}
+                        href={route("profile.show", {
+                          username: topic.latest_reply?.user.username || topic.author.username,
+                        })}
                         className="hidden sm:inline"
                       >
                         <span>@</span>
-                        {topic.latest_reply.user.username}
+                        {topic.latest_reply?.user.username || topic.author.username}
                       </Link>
-                      <div>{topic.latest_reply.updated_at}</div>
+                      <div>{topic.latest_reply?.created_at || topic.created_at}</div>
                     </td>
                   </tr>
                 ))}

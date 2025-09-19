@@ -100,7 +100,7 @@ export default function Comment({
       )}
 
       {/* Comment content */}
-      <div className={isLast ? "mb-0" : "mb-4"}>
+      <div className={"mb-4"}>
         <div className="flex gap-3">
           {/* Avatar or Collapse Button */}
           <div className="flex-shrink-0">

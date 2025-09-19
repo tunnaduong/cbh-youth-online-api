@@ -13,6 +13,7 @@ import { usePage } from "@inertiajs/react";
 import { CommentInput } from "@/Components/CommentInput";
 import Comment from "@/Components/Comment";
 import VerifiedBadge from "@/Components/ui/VerifiedBadge";
+import { moment } from "@/Utils/momentConfig";
 
 export default function Show({ post }) {
   const { auth } = usePage().props;
@@ -59,31 +60,78 @@ export default function Show({ post }) {
 
   // Handle adding replies
   const handleReplyToComment = (parentId, content) => {
-    const addReplyToComment = (comments) => {
+    const newReply = {
+      id: Date.now().toString(), // Simple ID generation
+      content: content,
+      author: {
+        username: auth.user.username,
+        profile_name: auth.user.name || auth.user.username,
+      },
+      created_at: moment(new Date().toISOString()).fromNow(),
+      votes: [],
+      replies: [],
+    };
+
+    const addReplyToComment = (comments, level = 1) => {
       return comments.map((comment) => {
+        // Found the target comment
         if (comment.id === parentId) {
-          const newReply = {
-            id: Date.now().toString(), // Simple ID generation
-            content: content,
-            author: {
-              username: auth.user.username,
-              profile_name: auth.user.name || auth.user.username,
-            },
-            created_at: new Date().toISOString(),
-            votes: [],
-            replies: [],
-          };
+          // If this is level 3, add as sibling instead of child
+          if (level >= 3) {
+            return comment; // Don't add here, will be handled by parent
+          }
+
+          // Normal case: add as child
           return {
             ...comment,
             replies: [newReply, ...(comment.replies || [])],
           };
         }
-        if (comment.replies) {
+
+        // Search in replies
+        if (comment.replies && comment.replies.length > 0) {
+          // Check if target is in direct children (level 2)
+          const directChild = comment.replies.find((reply) => reply.id === parentId);
+          if (directChild && level === 1) {
+            // Target is at level 2, add normally
+            return {
+              ...comment,
+              replies: comment.replies.map((reply) =>
+                reply.id === parentId
+                  ? { ...reply, replies: [newReply, ...(reply.replies || [])] }
+                  : reply
+              ),
+            };
+          }
+
+          // Check if target is in grandchildren (level 3)
+          const hasLevel3Target = comment.replies.some(
+            (reply) => reply.replies && reply.replies.some((r) => r.id === parentId)
+          );
+
+          if (hasLevel3Target && level === 1) {
+            // Target is at level 3, add as sibling at level 3
+            return {
+              ...comment,
+              replies: comment.replies.map((reply) => {
+                if (reply.replies && reply.replies.some((r) => r.id === parentId)) {
+                  return {
+                    ...reply,
+                    replies: [newReply, ...reply.replies], // Add as sibling
+                  };
+                }
+                return reply;
+              }),
+            };
+          }
+
+          // Continue searching deeper
           return {
             ...comment,
-            replies: addReplyToComment(comment.replies),
+            replies: addReplyToComment(comment.replies, level + 1),
           };
         }
+
         return comment;
       });
     };
