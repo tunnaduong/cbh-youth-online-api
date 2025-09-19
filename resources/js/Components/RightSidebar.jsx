@@ -1,18 +1,15 @@
 import { Link } from "@inertiajs/react";
 import { AddOutline, HelpCircleOutline } from "react-ionicons";
-import { Button, Skeleton } from "antd";
+import { Skeleton } from "antd";
 import { useTopUsers } from "../Contexts/TopUsersContext";
 import CustomColorButton from "./ui/CustomColorButton";
 import { useState } from "react";
 import CreatePostModal from "./CreatePostModal";
 
 export default function RightSidebar() {
-  // const { theme } = useTheme(); // Uncomment if you need theme
-  // const iconColor = theme === 'dark' ? '#gray-300' : '#6B6B6B'; // Example dynamic color
-  const iconColor = "#6B6B6B"; // Default static color for icons
-  const iconSize = "20px"; // Default icon size
+  const iconSize = "20px";
 
-  const { topUsers, loading, error, isInitialLoad, refreshTopUsers } = useTopUsers();
+  const { topUsers, loading, error } = useTopUsers();
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -27,7 +24,7 @@ export default function RightSidebar() {
             onClick={() => setOpen(true)}
           >
             <AddOutline color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
-            Tạo bài viết mới
+            Tạo cuộc thảo luận
           </CustomColorButton>
           <div className="bg-white dark:!bg-[var(--main-white)] text-sm p-3 xl:mt-4 rounded-xl long-shadow [@media(max-width:800px)]:mx-2.5">
             <div className="flex flex-row items-center justify-between">

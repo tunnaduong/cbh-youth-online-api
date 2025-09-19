@@ -14,6 +14,7 @@ import { CommentInput } from "@/Components/CommentInput";
 import Comment from "@/Components/Comment";
 import VerifiedBadge from "@/Components/ui/VerifiedBadge";
 import { moment } from "@/Utils/momentConfig";
+import getCollageSetting from "@/Utils/getCollageSetting";
 
 export default function Show({ post }) {
   const { auth } = usePage().props;
@@ -143,42 +144,6 @@ export default function Show({ post }) {
     console.log(`Replying to comment ${parentId} with content: ${content}`);
   };
 
-  // hàm tạo layout + height tự động
-  function getCollageSetting(photos) {
-    const count = photos.length;
-
-    if (count === 1) {
-      return {
-        width: "100%",
-        height: ["100%"],
-        layout: [1],
-      };
-    }
-
-    if (count === 2) {
-      return {
-        width: "100%",
-        height: ["100%"],
-        layout: [2],
-      };
-    }
-
-    if (count === 3) {
-      return {
-        width: "100%",
-        height: ["100%"],
-        layout: [3],
-      };
-    }
-
-    // mặc định cho 4 ảnh trở lên
-    return {
-      width: "100%",
-      height: ["275px", "170px"],
-      layout: [2, 3], // 2 ảnh hàng trên, 3 ảnh hàng dưới
-    };
-  }
-
   const setting = {
     ...getCollageSetting(post.image_urls),
     photos: post.image_urls.map((url) => ({ source: url })),
@@ -295,7 +260,7 @@ export default function Show({ post }) {
             </div>
             <div className="p-6 pt-2 pb-0">
               {!auth?.user ? (
-                <div className="text-base !mb-8">
+                <div className="text-base">
                   <Link className="text-green-600 hover:text-green-600" href="/login">
                     Đăng nhập
                   </Link>{" "}

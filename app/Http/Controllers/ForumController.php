@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Inertia\Inertia;
 use App\Models\Reply;
 use App\Models\Topic;
@@ -88,6 +89,47 @@ class ForumController extends Controller
         'visitors' => $visitors,
         'latestUser' => $latestUser,
       ],
+    ]);
+  }
+
+  public function feed()
+  {
+    $posts = Topic::with(['user.profile', 'comments', 'votes'])
+      ->withCount(['comments as reply_count', 'views'])
+      ->orderBy('created_at', 'desc')
+      ->where('hidden', false)
+      ->get()
+      ->map(function ($post) {
+        return [
+          'id' => $post->id,
+          'title' => $post->title,
+          'content' => $post->content_html,
+          'image_urls' => $post->getImageUrls()->map(function ($content) {
+            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+          })->all(),
+          'author' => [
+            'id' => $post->user->id,
+            'username' => $post->user->username,
+            'email' => $post->user->email,
+            'profile_name' => $post->user->profile->profile_name ?? null,
+            'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
+          ],
+          'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
+          'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
+          'view_count' => $post->views_count,
+          'vote_count' => $post->votes->map(function ($vote) {
+            return [
+              'username' => $vote->user->username,
+              'vote_value' => $vote->vote_value,
+              'created_at' => $vote->created_at->toISOString(),
+              'updated_at' => $vote->updated_at->toISOString(),
+            ];
+          }),
+        ];
+      });
+
+    return Inertia::render('Feed/index', [
+      'posts' => $posts
     ]);
   }
 

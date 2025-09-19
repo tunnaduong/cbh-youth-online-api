@@ -6,7 +6,7 @@ export default function Subforum({ category, subforum, topics }) {
   console.log(category, subforum, topics);
   return (
     <HomeLayout activeNav="home">
-      <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
+      <Head title={subforum.name} />
       <div className="px-2.5 min-h-screen py-6 flex justify-center">
         <div className="max-w-[775px] w-full">
           {/* Breadcrumb */}

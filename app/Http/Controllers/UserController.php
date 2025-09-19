@@ -326,7 +326,7 @@ class UserController extends Controller
     {
         try {
             $topUsers = AuthAccount::with(['profile', 'posts.votes', 'posts.comments'])
-                ->where('role', '!=', 'admin')
+                ->where('role', '!=', 'admin') // Exclude admin users
                 ->withCount(['posts as posts_count'])
                 ->get()
                 ->map(function ($user) {

@@ -85,10 +85,14 @@ function ThemedApp({ App, props }) {
             colorPrimaryActive: "#287421",
             defaultShadow: "none", // bỏ bóng dưới
             primaryShadow: "none", // nếu dùng primary
-            defaultHoverBg: theme === "dark" ? "#414642" : "#f9fafb",
+            defaultHoverBg: theme === "dark" ? "#414642" : "#EBFFF5",
           },
           Modal: {
             colorBgElevated: theme === "dark" ? "#3c3c3c" : "#ffffff",
+          },
+          Select: {
+            colorBgContainer: "transparent",
+            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
           },
         },
         algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,

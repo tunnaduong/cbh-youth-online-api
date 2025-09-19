@@ -86,7 +86,7 @@ export default function Login() {
               <CustomColorButton
                 bgColor={"#319527"}
                 block
-                className="text-white font-semibold py-[17px] mb-1.5 rounded hidden xl:flex"
+                className="text-white font-semibold py-[17px] mb-1.5 rounded"
                 loading={processing}
                 htmlType="submit"
               >

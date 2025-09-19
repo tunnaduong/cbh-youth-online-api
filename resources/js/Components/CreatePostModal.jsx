@@ -2,8 +2,15 @@ import React from "react";
 import { Modal, Input, Button, Select } from "antd";
 import CustomInput from "./ui/Input";
 import CustomColorButton from "./ui/CustomColorButton";
+import { usePage } from "@inertiajs/react";
+import VerifiedBadge from "./ui/VerifiedBadge";
+import { IoEarth, IoCaretDown } from "react-icons/io5";
+import { FaMarkdown } from "react-icons/fa";
+import { FaFileLines } from "react-icons/fa6";
 
 const CreatePostModal = ({ open, onClose }) => {
+  const { forum_data, auth } = usePage().props;
+  console.log(forum_data);
   return (
     <>
       <Modal
@@ -15,54 +22,24 @@ const CreatePostModal = ({ open, onClose }) => {
       >
         <div>
           <div className="flex flex-row justify-center items-center pb-[34px] relative">
-            <h1 className="text-lg font-bold text-center absolute -top-1">Tạo bài viết</h1>
+            <h1 className="text-lg font-bold text-center absolute -top-1.5">Tạo cuộc thảo luận</h1>
           </div>
           <hr className="absolute right-0 left-0 w-full" />
           <div className="flex flex-row items-center py-3">
             <img
-              src="https://api.chuyenbienhoa.com/v1.0/users/tunnaduong/avatar"
-              alt="tunnaduong's avatar"
+              src={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
+              alt={auth?.user?.username}
               className="border w-11 h-11 rounded-full"
             />
             <div className="flex flex-col ml-2">
               <span className="text-base font-semibold mb-0.5 flex items-center">
-                Dương Tùng Anh (Tunna Duong)
-                <svg
-                  stroke="currentColor"
-                  fill="currentColor"
-                  strokeWidth={0}
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                  className="text-base ml-0.5 text-green-600 mt-0.5"
-                  height="1em"
-                  width="1em"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                {auth?.user?.profile?.profile_name}
+                {auth?.user?.profile?.verified && <VerifiedBadge />}
               </span>
-              <button className="flex items-center bg-gray-200 dark:bg-neutral-500 rounded-md px-1.5 py-0.5 cursor-pointer w-max">
-                <ion-icon
-                  name="earth"
-                  className="text-base mt-[1px] mr-0.5 md hydrated"
-                  role="img"
-                  aria-label="earth"
-                >
-                  <template shadowrootmode="open" />
-                </ion-icon>
+              <button className="flex items-center bg-gray-200 dark:bg-neutral-500 gap-x-0.5 rounded-md px-1.5 py-0.5 cursor-pointer w-max">
+                <IoEarth className="text-base mt-[1px]" />
                 <span className="text-sm font-semibold">Công khai</span>
-                <ion-icon
-                  name="caret-down-outline"
-                  className="text-[9px] mt-[1px] ml-0.5 md hydrated"
-                  role="img"
-                  aria-label="caret down outline"
-                >
-                  <template shadowrootmode="open" />
-                </ion-icon>
+                <IoCaretDown className="text-[9px] mt-[1px]" />
               </button>
             </div>
           </div>
@@ -84,18 +61,18 @@ const CreatePostModal = ({ open, onClose }) => {
               <div className="px-3 flex items-center gap-x-2 mt-3">
                 <a
                   href="/Admin/posts/213057"
-                  className="-mt-1.5 text-xs font-bold block border-right pr-2"
+                  className="-mt-1.5 text-xs font-bold border-right pr-2 flex items-center"
                   target="_blank"
                 >
-                  <i className="fa-brands fa-markdown mr-1" aria-hidden="true" />
+                  <FaMarkdown className="mr-1" />
                   Hỗ trợ Markdown
                 </a>
                 <a
                   href="/Admin/posts/213054"
-                  className="-mt-1.5 text-xs font-bold block"
+                  className="-mt-1.5 text-xs font-bold flex items-center"
                   target="_blank"
                 >
-                  <i className="fa-solid fa-file-lines mr-1" aria-hidden="true" />
+                  <FaFileLines className="mr-1" />
                   Quy tắc
                 </a>
               </div>
@@ -103,12 +80,14 @@ const CreatePostModal = ({ open, onClose }) => {
             <Select
               defaultValue="Chọn chuyên mục phù hợp"
               style={{ width: "100%" }}
-              options={[
-                { value: "jack", label: "Jack" },
-                { value: "lucy", label: "Lucy" },
-                { value: "Yiminghe", label: "yiminghe" },
-                { value: "disabled", label: "Disabled", disabled: true },
-              ]}
+              options={forum_data.main_categories.map((category) => ({
+                label: <span>{category.name}</span>,
+                title: category.name,
+                options: category.sub_forums.map((subforum) => ({
+                  label: <span>{subforum.name}</span>,
+                  value: subforum.id,
+                })),
+              }))}
               placeholder="Chọn chuyên mục phù hợp"
               className="shadow-sm"
             />
@@ -122,28 +101,22 @@ const CreatePostModal = ({ open, onClose }) => {
               <p className="text-sm font-medium flex-1">Thêm ảnh vào bài viết của bạn</p>
               <input id="fileInput" accept="image/*" type="file" style={{ display: "none" }} />
               <div className="flex gap-1">
-                <button
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-slate-100 dark:hover:bg-neutral-500 hover:text-accent-foreground h-9 w-9 shrink-0 rounded-full"
-                  type="button"
-                  id="selectImage"
-                >
+                <Button size="small" className="h-8 px-2 rounded-full border-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width={24}
-                    height={24}
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="lucide lucide-image h-5 w-5 text-emerald-500"
+                    className="lucide lucide-image h-4 w-4 text-emerald-500"
                   >
                     <rect width={18} height={18} x={3} y={3} rx={2} ry={2}></rect>
                     <circle cx={9} cy={9} r={2} />
                     <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
             <CustomColorButton

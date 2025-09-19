@@ -1,4 +1,4 @@
-export default function VerifiedBadge() {
+export default function VerifiedBadge({ color = "text-green-600" }) {
   return (
     <svg
       stroke="currentColor"
@@ -6,7 +6,7 @@ export default function VerifiedBadge() {
       strokeWidth={0}
       viewBox="0 0 20 20"
       aria-hidden="true"
-      className="text-base leading-5 ml-0.5 shrink-0"
+      className={`text-base leading-5 ml-0.5 shrink-0 ${color}`}
       height="1em"
       width="1em"
       xmlns="http://www.w3.org/2000/svg"

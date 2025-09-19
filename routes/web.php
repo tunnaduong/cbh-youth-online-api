@@ -37,6 +37,8 @@ Route::middleware('auth')->group(function () {
   Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+Route::get('/feed', [ForumController::class, 'feed'])->name('feed');
+
 Route::get('users/{username}/avatar', [UserController::class, 'getAvatar'])->name('user.avatar');
 
 // Admin Routes với InertiaJS

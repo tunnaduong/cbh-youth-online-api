@@ -1,5 +1,5 @@
 import HomeLayout from "@/Layouts/HomeLayout";
-import { Chatbubbles, CheckmarkCircle } from "react-ionicons";
+import { Chatbubbles } from "react-ionicons";
 import { Head, Link } from "@inertiajs/react";
 import React from "react";
 import { moment } from "@/Utils/momentConfig";
@@ -9,8 +9,8 @@ export default function Category({ category }) {
   console.log(category);
   return (
     <HomeLayout activeNav="home">
-      <Head title="Diễn đàn học sinh Chuyên Biên Hòa" />
-      <div className="px-2.5 min-h-screen py-6 flex justify-center">
+      <Head title={category.name} />
+      <div className="px-2.5 xl:min-h-screen py-6 flex justify-center">
         <div className="max-w-[775px] w-[100%] mb-6">
           {/* Breadcrumb */}
           <nav aria-label="breadcrumb">
