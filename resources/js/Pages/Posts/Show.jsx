@@ -84,7 +84,7 @@ export default function Show({ post }) {
           // Normal case: add as child
           return {
             ...comment,
-            replies: [newReply, ...(comment.replies || [])],
+            replies: [...(comment.replies || []), newReply],
           };
         }
 
@@ -98,7 +98,7 @@ export default function Show({ post }) {
               ...comment,
               replies: comment.replies.map((reply) =>
                 reply.id === parentId
-                  ? { ...reply, replies: [newReply, ...(reply.replies || [])] }
+                  ? { ...reply, replies: [...(reply.replies || []), newReply] }
                   : reply
               ),
             };
@@ -117,7 +117,7 @@ export default function Show({ post }) {
                 if (reply.replies && reply.replies.some((r) => r.id === parentId)) {
                   return {
                     ...reply,
-                    replies: [newReply, ...reply.replies], // Add as sibling
+                    replies: [...reply.replies, newReply], // Add as sibling
                   };
                 }
                 return reply;
@@ -136,7 +136,9 @@ export default function Show({ post }) {
       });
     };
 
-    setComments(addReplyToComment(comments));
+    const updatedComments = addReplyToComment(comments);
+    console.log("Updated comments after reply:", updatedComments);
+    setComments(updatedComments);
     // Here you would typically make an API call to save the reply
     console.log(`Replying to comment ${parentId} with content: ${content}`);
   };
@@ -183,6 +185,23 @@ export default function Show({ post }) {
     showNumOfRemainingPhotos: true,
   };
 
+  const handleSubmitComment = (content) => {
+    const newComment = {
+      id: Date.now().toString(), // Simple ID generation
+      content: content,
+      author: {
+        username: auth.user.username,
+        profile_name: auth.user.name || auth.user.username,
+      },
+      created_at: moment(new Date().toISOString()).fromNow(),
+      votes: [],
+      replies: [],
+    };
+
+    setComments([newComment, ...comments]);
+    // TODO: Make an API call to save the comment
+  };
+
   return (
     <HomeLayout activeNav="home" activeBar={null}>
       <Head title={post.title} />
@@ -197,7 +216,9 @@ export default function Show({ post }) {
                   color={"#9ca3af"}
                   className="cursor-pointer"
                 />
-                <span className="select-none text-lg vote-count">{post.votes.length}</span>
+                <span className="select-none text-lg vote-count">
+                  {post.votes.reduce((acc, vote) => acc + vote.vote_value, 0)}
+                </span>
                 <ArrowDownOutline
                   height="26px"
                   width="26px"
@@ -281,7 +302,7 @@ export default function Show({ post }) {
                   để bình luận và tham gia thảo luận cùng cộng đồng.
                 </div>
               ) : (
-                <CommentInput />
+                <CommentInput onSubmit={handleSubmitComment} />
               )}
               <div className="pb-6 pt-2">
                 {comments.map((comment) => (

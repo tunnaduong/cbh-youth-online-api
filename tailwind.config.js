@@ -65,8 +65,22 @@ export default {
       typography: {
         DEFAULT: {
           css: {
+            h1: {
+              fontSize: "1.45rem",
+              fontWeight: "700",
+              lineHeight: "1.3",
+              marginTop: "1em",
+              marginBottom: "0.5em",
+            },
             h2: {
-              fontSize: "1.2rem", // tương đương ~28px
+              fontSize: "1.25rem",
+              fontWeight: "700",
+              lineHeight: "1.3",
+              marginTop: "1em",
+              marginBottom: "0.5em",
+            },
+            h3: {
+              fontSize: "1.1rem",
               fontWeight: "700",
               lineHeight: "1.3",
               marginTop: "1em",

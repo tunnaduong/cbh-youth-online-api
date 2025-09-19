@@ -1,16 +1,11 @@
 import { useEffect } from "react";
-// import Checkbox from "@/Components/ui/Checkbox";
-import GuestLayout from "@/Layouts/GuestLayout";
 import InputError from "@/Components/InputError";
-import InputLabel from "@/Components/InputLabel";
-import PrimaryButton from "@/Components/PrimaryButton";
-import TextInput from "@/Components/TextInput";
 import { Head, Link, useForm } from "@inertiajs/react";
 import CustomColorButton from "@/Components/ui/CustomColorButton";
 import { Input, Checkbox } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 
-export default function Login({ status, canResetPassword }) {
+export default function Login() {
   const { data, setData, post, processing, errors, reset } = useForm({
     email: "",
     password: "",

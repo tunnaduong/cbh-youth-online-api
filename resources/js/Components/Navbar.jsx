@@ -64,7 +64,16 @@ export default function Navbar({ activeNav }) {
               <h1>Diễn đàn học sinh</h1>
               <h1 className="font-bold">Chuyên Biên Hòa</h1>
             </div>
-            <Tooltip content="Diễn đàn đang trong giai đoạn thử nghiệm">
+            <Tooltip
+              content={
+                <>
+                  Diễn đàn đang trong giai đoạn thử nghiệm.
+                  <br />
+                  <br />
+                  Phiên bản 3.0
+                </>
+              }
+            >
               <div className="bg-yellow-400 text-black text-[14px] font-semibold rounded-full !px-3 !py-3 ml-2 hidden xl:block">
                 <span>Beta</span>
               </div>
@@ -75,7 +84,7 @@ export default function Navbar({ activeNav }) {
           <input
             type="text"
             placeholder="Tìm kiếm"
-            className="border-0 w-full bg-[#F7F7F7] dark:!bg-neutral-600 text-[13px] p-2 rounded-lg pr-1"
+            className="border-0 w-full bg-[#F7F7F7] dark:!bg-neutral-600 text-[13px] p-2 rounded-lg pr-1 focus:ring-0"
           />
           <div className="bg-white dark:!bg-neutral-700 rounded-lg min-w-[30px] h-[30px] flex items-center justify-center cursor-pointer search-btn dark:!border-neutral-500">
             <svg

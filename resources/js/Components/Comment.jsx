@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@inertiajs/react";
-import { Button } from "antd";
+import { Button, ConfigProvider } from "antd";
 import {
   MessageCircle,
   Edit,
@@ -190,10 +190,7 @@ export default function Comment({
                 )}
 
                 {/* Vote buttons */}
-                <Button
-                  size="small"
-                  className="h-8 px-2 text-gray-500 dark:!text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-full border-0"
-                >
+                <Button size="small" className="h-8 px-2 text-gray-500 rounded-full border-0">
                   <UpvoteIcon />
                 </Button>
                 <span className="text-xs font-medium text-gray-500 dark:!text-gray-400 min-w-[1rem] text-center">
@@ -201,7 +198,7 @@ export default function Comment({
                 </span>
                 <Button
                   size="small"
-                  className="h-8 px-2 text-gray-500 dark:!text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full border-0"
+                  className="h-8 px-2 text-gray-500 hover:!text-red-500 rounded-full border-0"
                 >
                   <DownvoteIcon />
                 </Button>

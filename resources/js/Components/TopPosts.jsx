@@ -1,27 +1,47 @@
 import RankBadge from "./RankBadge";
-import { Link } from "@inertiajs/react";
+import { Link, router } from "@inertiajs/react";
 import { timeAgoInVietnamese } from "@/Utils/dateFormat";
 import { RxHamburgerMenu } from "react-icons/rx";
+import { useState } from "react";
 
-export default function TopPosts({ latestPosts }) {
+export default function TopPosts({ latestPosts, currentSort = "latest" }) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    router.reload({
+      only: ["latestPosts"],
+      onFinish: () => {
+        setTimeout(() => {
+          setIsRefreshing(false);
+        }, 950);
+      },
+    });
+  };
   return (
     <div className="border dark:!border-[#585857] rounded long-shadow bg-white dark:!bg-[var(--main-white)]">
       <div className="flex flex-wrap items-stretch">
         <Link
           href="?sort=latest"
-          className="px-4 text-sm flex items-center hover:bg-gray-50 tab-button dark:hover:bg-neutral-500 tab-button-active"
+          className={`px-4 text-sm flex items-center hover:bg-gray-50 tab-button dark:hover:bg-neutral-500 ${
+            currentSort === "latest" ? "tab-button-active" : ""
+          }`}
         >
           <span className="py-2">Bài mới</span>
         </Link>
         <Link
           href="?sort=most_viewed"
-          className="hidden sm:flex px-4 text-sm items-center bor-left hover:bg-gray-50 tab-button dark:border-[#585857] dark:hover:bg-neutral-500"
+          className={`hidden sm:flex px-4 text-sm items-center bor-left hover:bg-gray-50 tab-button dark:border-[#585857] dark:hover:bg-neutral-500 ${
+            currentSort === "most_viewed" ? "tab-button-active" : ""
+          }`}
         >
           <span className="py-2">Chủ đề xem nhiều</span>
         </Link>
         <Link
           href="?sort=most_engaged"
-          className="px-4 text-sm hidden sm:flex items-center bor-right bor-left hover:bg-gray-50 tab-button dark:border-[#585857] dark:hover:bg-neutral-500"
+          className={`px-4 text-sm hidden sm:flex items-center bor-right bor-left hover:bg-gray-50 tab-button dark:border-[#585857] dark:hover:bg-neutral-500 ${
+            currentSort === "most_engaged" ? "tab-button-active" : ""
+          }`}
         >
           <span className="py-2">Tương tác nhiều</span>
         </Link>
@@ -50,7 +70,7 @@ export default function TopPosts({ latestPosts }) {
         <div className="ml-auto flex">
           <button
             className="h-9 w-9 border-l dark:border-[#585857] flex items-center justify-center tab-button hover:bg-gray-50 dark:hover:bg-neutral-500"
-            onClick={() => window.location.reload()}
+            onClick={handleRefresh}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -62,7 +82,9 @@ export default function TopPosts({ latestPosts }) {
               strokeWidth={2}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="lucide lucide-refresh-cw-icon lucide-refresh-cw h-4 w-4"
+              className={`lucide lucide-refresh-cw-icon lucide-refresh-cw h-4 w-4 transition-transform duration-1000 ${
+                isRefreshing ? "animate-spin" : ""
+              }`}
             >
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
               <path d="M21 3v5h-5" />

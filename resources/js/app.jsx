@@ -1,6 +1,6 @@
 import "./bootstrap";
-import "antd/dist/reset.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
+import "antd/dist/reset.css";
 import "../css/app.css";
 
 import { createRoot } from "react-dom/client";
@@ -66,6 +66,7 @@ function ThemedApp({ App, props }) {
         token: {
           fontFamily: "Inter, sans-serif",
           colorPrimary: "#319527",
+          controlHeight: 40,
         },
         components: {
           Input: {
@@ -85,6 +86,9 @@ function ThemedApp({ App, props }) {
             defaultShadow: "none", // bỏ bóng dưới
             primaryShadow: "none", // nếu dùng primary
             defaultHoverBg: theme === "dark" ? "#414642" : "#f9fafb",
+          },
+          Modal: {
+            colorBgElevated: theme === "dark" ? "#3c3c3c" : "#ffffff",
           },
         },
         algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,

@@ -643,3 +643,28 @@ hr {
   backdrop-filter: blur(102px);
   -webkit-backdrop-filter: blur(36px);
 }
+
+.ant-input-affix-wrapper-focused {
+  box-shadow: 0 0 0 2px rgba(14, 60, 0, 0.22) !important; /* ring */
+}
+
+.dark .ant-input-affix-wrapper-focused {
+  box-shadow: 0 0 0 2px rgba(73, 249, 55, 0.17) !important; /* ring */
+}
+
+/* .ant-select-focused {
+  box-shadow: 0 0 0 2px rgba(14, 60, 0, 0.22) !important;
+}
+
+.dark .ant-select-focused {
+  box-shadow: 0 0 0 2px rgba(73, 249, 55, 0.17) !important;
+} */
+
+.dark .prose code {
+  background-color: #1f2937;
+}
+
+.prose code {
+  color: white;
+  background-color: #1f2937;
+}

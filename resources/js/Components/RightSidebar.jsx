@@ -3,6 +3,8 @@ import { AddOutline, HelpCircleOutline } from "react-ionicons";
 import { Button, Skeleton } from "antd";
 import { useTopUsers } from "../Contexts/TopUsersContext";
 import CustomColorButton from "./ui/CustomColorButton";
+import { useState } from "react";
+import CreatePostModal from "./CreatePostModal";
 
 export default function RightSidebar() {
   // const { theme } = useTheme(); // Uncomment if you need theme
@@ -11,9 +13,10 @@ export default function RightSidebar() {
   const iconSize = "20px"; // Default icon size
 
   const { topUsers, loading, error, isInitialLoad, refreshTopUsers } = useTopUsers();
-
+  const [open, setOpen] = useState(false);
   return (
     <>
+      <CreatePostModal open={open} onClose={() => setOpen(false)} />
       {/* Right side bar */}
       <div className="w-full max-w-[775px] xl:w-[340px] mx-auto !pb-6 xl:p-6" id="right-sidebar">
         <div className="sticky top-[calc(69px+24px)]">
@@ -21,6 +24,7 @@ export default function RightSidebar() {
             bgColor={"#319527"}
             block
             className="text-base text-white font-semibold py-[19px] mb-1.5 hidden xl:flex"
+            onClick={() => setOpen(true)}
           >
             <AddOutline color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
             Tạo bài viết mới

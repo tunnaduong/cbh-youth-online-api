@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ForumController extends Controller
 {
-  public function index()
+  public function index(Request $request)
   {
     $mainCategories = ForumCategory::with([
       'subforums' => function ($query) {
@@ -38,11 +38,22 @@ class ForumController extends Controller
       ->orderBy('arrange')
       ->get();
 
-    $latestPosts = Topic::with('user.profile')
-      ->orderBy('created_at', 'desc')
-      ->where('hidden', false)
-      ->take(10)
-      ->get();
+    // Handle sorting based on query parameter
+    $sort = $request->get('sort', 'latest');
+    switch ($sort) {
+      case 'latest':
+        $latestPosts = $this->getLatestPosts();
+        break;
+      case 'most_viewed':
+        $latestPosts = $this->getMostViewedPosts();
+        break;
+      case 'most_engaged':
+        $latestPosts = $this->getMostEngagedPosts();
+        break;
+      default:
+        $latestPosts = $this->getLatestPosts();
+        break;
+    }
 
     $userCount = AuthAccount::count();
     $postCount = Topic::count();
@@ -68,6 +79,7 @@ class ForumController extends Controller
     return Inertia::render('Home', [
       'latestPosts' => $latestPosts,
       'mainCategories' => $mainCategories,
+      'currentSort' => $sort,
       'stats' => [
         'userCount' => $userCount,
         'postCount' => $postCount,
@@ -131,7 +143,7 @@ class ForumController extends Controller
       ->with(['user.profile', 'comments'])
       ->withCount(['comments as reply_count', 'views'])
       ->orderBy('pinned', 'desc')
-      ->orderBy('updated_at', 'desc')
+      ->orderBy('created_at', 'desc')
       ->get();
 
     return Inertia::render('Forum/Subforum', [
@@ -631,5 +643,37 @@ class ForumController extends Controller
       // Round down to the nearest multiple of 5 and pad to 2 digits
       return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
     }
+  }
+
+  // Lấy tất cả bài viết mới nhất trong tất cả các danh mục
+  private function getLatestPosts()
+  {
+    return Topic::with('user.profile')
+      ->where('hidden', false)
+      ->orderBy('created_at', 'desc')
+      ->take(10)
+      ->get();
+  }
+
+  // Lấy các bài viết có lượt xem nhiều nhất
+  private function getMostViewedPosts()
+  {
+    return Topic::with('user.profile')
+      ->where('hidden', false)
+      ->withCount('views')
+      ->orderBy('views_count', 'desc')
+      ->take(10)
+      ->get();
+  }
+
+  // Lấy các bài viết có lượt xem và lượt tương tác (bình luận, like) nhiều nhất
+  private function getMostEngagedPosts()
+  {
+    return Topic::with('user.profile')
+      ->where('hidden', false)
+      ->withCount(['comments', 'votes'])
+      ->orderByRaw('(comments_count + votes_count) DESC')
+      ->take(10)
+      ->get();
   }
 }
