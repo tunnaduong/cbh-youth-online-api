@@ -1,20 +1,10 @@
 import HomeLayout from "@/Layouts/HomeLayout";
 import { Head, Link } from "@inertiajs/react";
-import React, { useState } from "react";
-import {
-  ArrowDownOutline,
-  ArrowUpOutline,
-  Bookmark,
-  ChatboxOutline,
-  EyeOutline,
-} from "react-ionicons";
-import { ReactPhotoCollage } from "react-photo-collage";
+import { useState } from "react";
 import { usePage } from "@inertiajs/react";
 import { CommentInput } from "@/Components/CommentInput";
 import Comment from "@/Components/Comment";
-import VerifiedBadge from "@/Components/ui/VerifiedBadge";
 import { moment } from "@/Utils/momentConfig";
-import getCollageSetting from "@/Utils/getCollageSetting";
 import PostItem from "@/Components/PostItem";
 
 export default function Show({ post }) {
@@ -145,12 +135,6 @@ export default function Show({ post }) {
     console.log(`Replying to comment ${parentId} with content: ${content}`);
   };
 
-  const setting = {
-    ...getCollageSetting(post.image_urls),
-    photos: post.image_urls.map((url) => ({ source: url })),
-    showNumOfRemainingPhotos: true,
-  };
-
   const handleSubmitComment = (content) => {
     const newComment = {
       id: Date.now().toString(), // Simple ID generation
@@ -172,7 +156,7 @@ export default function Show({ post }) {
     <HomeLayout activeNav="home" activeBar={null}>
       <Head title={post.title} />
       <div className="px-1 xl:min-h-screen pt-4">
-        <PostItem post={post} />
+        <PostItem post={post} single={true} />
         <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full mb-4">
           <div className="shadow !mb-4 long-shadow h-min rounded-lg bg-white post-comment-container overflow-clip">
             <div className="flex flex-col space-y-1.5 p-6 text-xl -mb-4 font-semibold max-w-sm overflow-hidden whitespace-nowrap overflow-ellipsis">

@@ -617,7 +617,7 @@ class ForumController extends Controller
             'updated_at' => $vote->updated_at->toISOString(),
           ];
         }),
-        'reply_count' => $this->roundToNearestFive($post->reply_count),
+        'reply_count' => $this->roundToNearestFive($post->reply_count) . "+",
         'view_count' => $post->views_count,
         'created_at' => $post->created_at->diffForHumans(),
         'author' => [

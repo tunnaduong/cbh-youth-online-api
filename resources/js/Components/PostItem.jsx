@@ -157,10 +157,20 @@ export default function PostItem({ post, single = false }) {
             <div className="flex-1 flex-row-reverse items-center text-gray-500 hidden md:flex">
               <span>{post.view_count}</span>
               <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />
-              <span className="flex flex-row-reverse items-center">
-                <span>{post.reply_count}</span>
-                <ChatboxOutline height="20px" width="20px" color={"#9ca3af"} className="mr-1" />
-              </span>
+              {!single ? (
+                <Link
+                  href={route("posts.show", { id: post.id, username: post.author.username })}
+                  className="flex flex-row-reverse items-center"
+                >
+                  <span>{post.reply_count}</span>
+                  <ChatboxOutline height="20px" width="20px" color={"#9ca3af"} className="mr-1" />
+                </Link>
+              ) : (
+                <span className="flex flex-row-reverse items-center">
+                  <span>{post.reply_count}</span>
+                  <ChatboxOutline height="20px" width="20px" color={"#9ca3af"} className="mr-1" />
+                </span>
+              )}
             </div>
           </div>
         </div>

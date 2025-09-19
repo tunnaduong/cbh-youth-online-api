@@ -12,6 +12,13 @@ export default function Login() {
     remember: false,
   });
 
+  // Debug: Log errors to console
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log("Login errors:", errors);
+    }
+  }, [errors]);
+
   useEffect(() => {
     return () => {
       reset("password");
@@ -42,9 +49,15 @@ export default function Login() {
             </div>
           </div>
           <div className="p-6 pt-0">
-            {/* if error then show */}
+            {/* Display general errors */}
+            {Object.keys(errors).length > 0 && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {Object.values(errors).map((error, index) => (
+                  <div key={index}>{error}</div>
+                ))}
+              </div>
+            )}
             <form className="space-y-4" onSubmit={submit}>
-              <input type="hidden" name="_token" defaultValue="" />
               <div className="space-y-2">
                 <Input
                   placeholder="Tên người dùng hoặc email"
