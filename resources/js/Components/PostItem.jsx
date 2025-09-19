@@ -11,7 +11,7 @@ import VerifiedBadge from "@/Components/ui/VerifiedBadge";
 import getCollageSetting from "@/Utils/getCollageSetting";
 import { useState } from "react";
 
-export default function PostItem({ post }) {
+export default function PostItem({ post, single = false }) {
   const [showFullContent, setShowFullContent] = useState(false);
   const maxLength = 300; // Số ký tự tối đa trước khi truncate
 
@@ -65,7 +65,11 @@ export default function PostItem({ post }) {
     return content + readMoreLink;
   };
 
-  const setting = getCollageSetting(post.image_urls);
+  const setting = {
+    ...getCollageSetting(post.image_urls),
+    photos: post.image_urls.map((url) => ({ source: url })),
+    showNumOfRemainingPhotos: true,
+  };
 
   return (
     <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full" key={post.id}>
@@ -102,7 +106,13 @@ export default function PostItem({ post }) {
           </div>
         </div>
         <div className="flex-1 overflow-hidden break-words">
-          <h1 className="text-xl font-semibold mb-1">{post.title}</h1>
+          {single ? (
+            <h1 className="text-xl font-semibold mb-1">{post.title}</h1>
+          ) : (
+            <Link href={route("posts.show", { id: post.id, username: post.author.username })}>
+              <h1 className="text-xl font-semibold mb-1">{post.title}</h1>
+            </Link>
+          )}
           <div
             className="text-base max-w-[600px] overflow-wrap prose mt-[0.75em]"
             dangerouslySetInnerHTML={{ __html: getContentWithReadMore() }}

@@ -117,7 +117,7 @@ class ForumController extends Controller
           'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
           'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
           'view_count' => $post->views_count,
-          'vote_count' => $post->votes->map(function ($vote) {
+          'votes' => $post->votes->map(function ($vote) {
             return [
               'username' => $vote->user->username,
               'vote_value' => $vote->vote_value,
