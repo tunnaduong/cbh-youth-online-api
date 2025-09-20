@@ -45,8 +45,8 @@ export default function PostItem({ post, single = false }) {
   };
 
   const getContentWithReadMore = () => {
-    const textContent = post.content.replace(/<[^>]*>/g, ""); // Remove HTML tags để đếm text
-    const needsTruncation = textContent.length > maxLength;
+    const textContent = post.content?.replace(/<[^>]*>/g, ""); // Remove HTML tags để đếm text
+    const needsTruncation = textContent?.length > maxLength;
 
     if (!needsTruncation) {
       return post.content;
@@ -81,7 +81,9 @@ export default function PostItem({ post, single = false }) {
               <ArrowUpOutline height="26px" width="26px" color="currentColor" />
             </Button>
             <span className="select-none text-lg vote-count">
-              {post.votes?.reduce((acc, vote) => acc + vote.vote_value, 0) || 0}
+              {post.votes?.reduce((acc, vote) => acc + vote.vote_value, 0) ||
+                post.votes_sum_vote_value ||
+                0}
             </span>
             <Button
               size="small"

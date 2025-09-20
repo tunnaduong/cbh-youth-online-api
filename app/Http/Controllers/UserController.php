@@ -326,32 +326,17 @@ class UserController extends Controller
     public function getTop8ActiveUsers()
     {
         try {
-            $topUsers = AuthAccount::with(['profile', 'posts.votes', 'posts.comments'])
+            $topUsers = AuthAccount::with(['profile'])
                 ->where('role', '!=', 'admin') // Exclude admin users
-                ->withCount(['posts as posts_count'])
                 ->get()
                 ->map(function ($user) {
-                    // Calculate total likes manually
-                    $totalLikes = 0;
-                    if ($user->posts) {
-                        foreach ($user->posts as $post) {
-                            $totalLikes += $post->votes()->where('vote_value', 1)->count();
-                        }
-                    }
-
-                    // Get count of comments made by this user on any post
-                    $commentsCount = TopicComment::where('user_id', $user->id)->count();
-
                     return [
                         'uid' => $user->id,
                         'username' => $user->username,
                         'profile_name' => $user->profile->profile_name ?? $user->username,
                         'profile_picture' => $user->profile->profile_picture ?? null,
                         'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
-                        'posts_count' => $user->posts_count ?? 0,
-                        'comments_count' => $commentsCount,
-                        'total_likes' => $totalLikes,
-                        'total_points' => ($user->posts_count * 10) + ($totalLikes * 5) + ($commentsCount * 2)
+                        'total_points' => $user->points() // Use the points() method from AuthAccount model
                     ];
                 })
                 ->sortByDesc('total_points')

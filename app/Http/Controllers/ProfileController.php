@@ -82,6 +82,7 @@ class ProfileController extends Controller
                 'posts' => $user->posts()
                     ->with('author.profile')
                     ->withCount(['views', 'comments'])
+                    ->withSum('votes', 'vote_value')
                     ->orderBy('created_at', 'desc')
                     ->get()
                     ->each(function ($post) {

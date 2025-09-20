@@ -91,7 +91,19 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
         ])->get()->sum('votes_count');
         $commentsCount = TopicComment::where('user_id', $this->id)->count();
 
-        return ($postsCount * 10) + ($totalLikes * 5) + ($commentsCount * 2);
+        $basePoints = ($postsCount * 10) + ($totalLikes * 5) + ($commentsCount * 2);
+
+        // Boost specific users (for testing/admin purposes)
+        $boostedUsers = [
+            // 'tunnaduong' => 5000,    // Add 5000 points to tunna
+            // 'admin' => 10000,   // Add 10000 points to admin
+        ];
+
+        if (isset($boostedUsers[$this->username])) {
+            $basePoints += $boostedUsers[$this->username];
+        }
+
+        return $basePoints;
     }
 
     /**
