@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Follower;
 use App\Models\AuthAccount;
 use App\Models\UserContent;
+use App\Models\TopicComment;
 use Illuminate\Http\Request;
 use App\Models\UserSavedTopic;
 use Illuminate\Support\Carbon;
@@ -338,13 +339,8 @@ class UserController extends Controller
                         }
                     }
 
-                    // Calculate comments count manually
-                    $commentsCount = 0;
-                    if ($user->posts) {
-                        foreach ($user->posts as $post) {
-                            $commentsCount += $post->comments()->count();
-                        }
-                    }
+                    // Get count of comments made by this user on any post
+                    $commentsCount = TopicComment::where('user_id', $user->id)->count();
 
                     return [
                         'uid' => $user->id,

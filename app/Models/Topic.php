@@ -4,8 +4,9 @@ namespace App\Models;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Topic extends Model
 {
@@ -24,6 +25,8 @@ class Topic extends Model
     'cdn_image_id',
     'hidden',
   ];
+
+  protected $appends = ['content'];
 
   // Define the relationship: A topic belongs to a user
   public function user()
@@ -96,5 +99,41 @@ class Topic extends Model
     return UserContent::whereIn('id', $imageIds)
       ->orderByRaw("FIELD(id, " . implode(',', $imageIds) . ")")
       ->get();
+  }
+
+  public function getImageUrlsAttribute()
+  {
+    return $this->getImageUrls()->map(function ($content) {
+      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+    })->all();
+  }
+
+  public function getContentAttribute()
+  {
+    return $this->content_html;
+  }
+
+  // khi query withCount('comments'), Laravel sẽ gắn vào thuộc tính comments_count
+  public function getCommentsCountAttribute($value)
+  {
+    return $this->roundToNearestFive($value) . "+";
+  }
+
+  public function getCreatedAtHumanAttribute($value)
+  {
+    return $this->created_at
+      ? $this->created_at->diffForHumans()
+      : null;
+  }
+
+  private function roundToNearestFive($count)
+  {
+    if ($count <= 5) {
+      // Nếu <= 5 thì thêm số 0 phía trước
+      return str_pad($count, 2, '0', STR_PAD_LEFT);
+    } else {
+      // Làm tròn xuống bội số của 5 và pad 2 chữ số
+      return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
+    }
   }
 }

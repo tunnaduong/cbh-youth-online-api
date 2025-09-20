@@ -41,6 +41,7 @@ class HandleInertiaRequests extends Middleware
           ForumMainCategory::with('subForums')->get() :
           ForumMainCategory::with('subForums')->where('role_restriction', '!=', 'admin')->get(),
       ],
+      'is_logged_in' => $request->user() ? true : false,
     ];
   }
 }

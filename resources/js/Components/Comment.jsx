@@ -198,7 +198,7 @@ export default function Comment({
                 </span>
                 <Button
                   size="small"
-                  className="h-8 px-2 text-gray-500 hover:!text-red-500 rounded-full border-0"
+                  className="h-8 px-2 text-gray-500 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0"
                 >
                   <DownvoteIcon />
                 </Button>

@@ -75,6 +75,25 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Follower::class, 'follower_id'); // Adjust 'follower_id' as per your schema
     }
 
+    public function likes()
+    {
+        return $this->hasMany(TopicVote::class, 'user_id'); // Adjust 'user_id' as per your schema
+    }
+
+    public function points()
+    {
+        // Calculate total points based on posts, likes, and comments
+        $postsCount = $this->posts()->count();
+        $totalLikes = $this->posts()->withCount([
+            'votes' => function ($query) {
+                $query->where('vote_value', 1);
+            }
+        ])->get()->sum('votes_count');
+        $commentsCount = TopicComment::where('user_id', $this->id)->count();
+
+        return ($postsCount * 10) + ($totalLikes * 5) + ($commentsCount * 2);
+    }
+
     /**
      * Send the password reset notification.
      *

@@ -2,9 +2,11 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Topic;
+use Illuminate\Console\Command;
 use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\Autolink\AutolinkExtension;
 
 class ConvertMarkdownPosts extends Command
 {
@@ -20,12 +22,14 @@ class ConvertMarkdownPosts extends Command
 
   public function handle()
   {
-    $converter = new CommonMarkConverter([
+    $config = [
       'renderer' => [
-        'soft_break' => "<br>\n", // 1 enter = <br>
+        'soft_break' => "<br>\n",
       ],
-    ]);
+    ];
 
+    $converter = new CommonMarkConverter($config);
+    $converter->getEnvironment()->addExtension(new AutolinkExtension());
     $posts = Topic::all();
     $count = 0;
 

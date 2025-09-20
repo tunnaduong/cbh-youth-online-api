@@ -64,9 +64,12 @@ class ProfileController extends Controller
 
     public function show($username)
     {
-        $user = AuthAccount::with(['profile', 'posts' => function ($query) {
-            $query->latest()->take(10);
-        }])->where('username', $username)->firstOrFail();
+        $user = AuthAccount::with([
+            'profile',
+            'posts' => function ($query) {
+                $query->latest()->take(10);
+            }
+        ])->where('username', $username)->firstOrFail();
 
         return Inertia::render('Profile/Show', [
             'profile' => [
@@ -74,14 +77,23 @@ class ProfileController extends Controller
                 'profile_name' => $user->profile->profile_name ?? null,
                 'bio' => $user->profile->bio ?? null,
                 'avatar' => route('user.avatar', ['username' => $user->username]),
-                'joined_at' => $user->created_at->format('F Y'),
-                'posts' => $user->posts->map(function ($post) {
-                    return [
-                        'id' => $post->id,
-                        'title' => $post->title,
-                        'created_at' => $post->created_at->diffForHumans(),
-                    ];
-                })
+                'joined_at' => ucfirst($user->created_at->translatedFormat('F Y')),
+                'location' => $user->profile->location ?? null,
+                'posts' => $user->posts()
+                    ->with('author.profile')
+                    ->withCount(['views', 'comments'])
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->each(function ($post) {
+                        $post->append(['image_urls', 'created_at_human']);
+                    }),
+                'stats' => [
+                    'posts' => $user->posts()->count() ?? 0,
+                    'followers' => $user->followers()->count() ?? 0,
+                    'following' => $user->following()->count() ?? 0,
+                    'likes' => $user->likes()->count() ?? 0,
+                    'points' => $user->points() ?? 0,
+                ]
             ]
         ]);
     }

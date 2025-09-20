@@ -1,4 +1,4 @@
-import { Link } from "@inertiajs/react";
+import { Link, usePage, router } from "@inertiajs/react";
 import { AddOutline, HelpCircleOutline } from "react-ionicons";
 import { Skeleton } from "antd";
 import { useTopUsers } from "../Contexts/TopUsersContext";
@@ -8,7 +8,7 @@ import CreatePostModal from "./CreatePostModal";
 
 export default function RightSidebar() {
   const iconSize = "20px";
-
+  const { is_logged_in } = usePage().props;
   const { topUsers, loading, error } = useTopUsers();
   const [open, setOpen] = useState(false);
   return (
@@ -21,7 +21,7 @@ export default function RightSidebar() {
             bgColor={"#319527"}
             block
             className="text-base text-white font-semibold py-[19px] mb-1.5 hidden xl:flex"
-            onClick={() => setOpen(true)}
+            onClick={() => (is_logged_in ? setOpen(true) : router.visit("/login"))}
           >
             <AddOutline color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
             Tạo cuộc thảo luận
