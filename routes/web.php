@@ -9,6 +9,7 @@ use App\Http\Controllers\ForumController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\RecordingController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ForumCategoryController;
 use App\Http\Controllers\Admin\ForumSubforumController;
@@ -67,6 +68,13 @@ Route::prefix('forum')->group(function () {
     Route::delete('/reply/{reply}', [ForumController::class, 'destroyReply'])->name('forum.reply.destroy');
   });
 });
+
+// Recordings Routes
+Route::get('/recordings', [RecordingController::class, 'index'])->name('recordings.index');
+Route::get('/recordings/create', [RecordingController::class, 'create'])->name('recordings.create');
+Route::post('/recordings', [RecordingController::class, 'store'])->name('recordings.store');
+Route::get('/recordings/{recording}', [RecordingController::class, 'show'])->name('recordings.show');
+Route::delete('/recordings/{recording}', [RecordingController::class, 'destroy'])->name('recordings.destroy');
 
 // User Posts and Profile Routes
 Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])->name('posts.show');

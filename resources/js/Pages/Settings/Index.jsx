@@ -52,7 +52,7 @@ export default function Settings({ auth, user }) {
 
             <form
               onSubmit={handleSubmit}
-              className="space-y-6 md:space-y-0 flex flex-col md:flex-row gap-4"
+              className="space-y-6 md:space-y-0 flex flex-col-reverse md:flex-row gap-4"
             >
               {/* Username */}
               <div className="flex flex-col gap-y-4">
