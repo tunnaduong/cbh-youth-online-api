@@ -111,7 +111,7 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
               size="sm"
               onClick={handleSubmit}
               disabled={!comment.trim()}
-              className="!bg-primary-500 hover:!bg-primary-600 disabled:!bg-primary-200 text-white rounded-full h-8 w-8 p-0"
+              className="!bg-primary-500 hover:!bg-primary-600 disabled:!bg-primary-200 disabled:!text-gray-400 text-white rounded-full h-8 w-8 p-0"
             >
               <LuArrowUp className="h-4 w-4" />
             </Button>

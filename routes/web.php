@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\FollowController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -21,9 +22,6 @@ use Inertia\Inertia;
 | contains the "web" middleware group. Now create something great!
 |
 */
-
-// Update online visitor
-ForumController::updateMaxOnline();
 
 Route::get('/', [ForumController::class, 'index'])->name('home');
 
@@ -40,6 +38,37 @@ Route::middleware('auth')->group(function () {
 Route::get('/feed', [ForumController::class, 'feed'])->name('feed');
 
 Route::get('users/{username}/avatar', [UserController::class, 'getAvatar'])->name('user.avatar');
+
+// Follow/Unfollow routes
+Route::middleware('auth')->group(function () {
+  Route::post('/users/{username}/follow', [FollowController::class, 'follow'])->name('user.follow');
+  Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow'])->name('user.unfollow');
+});
+
+// Public Forum Routes
+Route::prefix('forum')->group(function () {
+  Route::get('/', [ForumController::class, 'index'])->name('forum.index');
+  Route::get('/{category}/{subforum}', [ForumController::class, 'subforum'])->name('forum.subforum');
+  Route::get('/{category}', [ForumController::class, 'category'])->name('forum.category');
+
+  // Topic Routes (requires authentication)
+  Route::middleware(['auth'])->group(function () {
+    Route::get('/topic/create/{subforum}', [ForumController::class, 'createTopic'])->name('forum.topic.create');
+    Route::post('/topic/store', [ForumController::class, 'storeTopic'])->name('forum.topic.store');
+    Route::get('/topic/{topic}', [ForumController::class, 'showTopic'])->name('forum.topic.show');
+    Route::get('/topic/{topic}/edit', [ForumController::class, 'editTopic'])->name('forum.topic.edit');
+    Route::put('/topic/{topic}', [ForumController::class, 'updateTopic'])->name('forum.topic.update');
+    Route::delete('/topic/{topic}', [ForumController::class, 'destroyTopic'])->name('forum.topic.destroy');
+
+    // Reply Routes
+    Route::post('/topic/{topic}/reply', [ForumController::class, 'storeReply'])->name('forum.reply.store');
+    Route::put('/reply/{reply}', [ForumController::class, 'updateReply'])->name('forum.reply.update');
+    Route::delete('/reply/{reply}', [ForumController::class, 'destroyReply'])->name('forum.reply.destroy');
+  });
+});
+
+// User Posts and Profile Routes
+Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])->name('posts.show');
 
 // Admin Routes với InertiaJS
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
@@ -105,33 +134,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport'])->name('monitor-reports.destroy');
 });
 
-// Public Forum Routes
-Route::prefix('forum')->group(function () {
-  Route::get('/', [ForumController::class, 'index'])->name('forum.index');
-  Route::get('/{category}/{subforum}', [ForumController::class, 'subforum'])->name('forum.subforum');
-  Route::get('/{category}', [ForumController::class, 'category'])->name('forum.category');
-
-  // Topic Routes (requires authentication)
-  Route::middleware(['auth'])->group(function () {
-    Route::get('/topic/create/{subforum}', [ForumController::class, 'createTopic'])->name('forum.topic.create');
-    Route::post('/topic/store', [ForumController::class, 'storeTopic'])->name('forum.topic.store');
-    Route::get('/topic/{topic}', [ForumController::class, 'showTopic'])->name('forum.topic.show');
-    Route::get('/topic/{topic}/edit', [ForumController::class, 'editTopic'])->name('forum.topic.edit');
-    Route::put('/topic/{topic}', [ForumController::class, 'updateTopic'])->name('forum.topic.update');
-    Route::delete('/topic/{topic}', [ForumController::class, 'destroyTopic'])->name('forum.topic.destroy');
-
-    // Reply Routes
-    Route::post('/topic/{topic}/reply', [ForumController::class, 'storeReply'])->name('forum.reply.store');
-    Route::put('/reply/{reply}', [ForumController::class, 'updateReply'])->name('forum.reply.update');
-    Route::delete('/reply/{reply}', [ForumController::class, 'destroyReply'])->name('forum.reply.destroy');
-  });
-});
-
-// User Posts and Profile Routes
-Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])->name('posts.show');
-
 require __DIR__ . '/auth.php';
 Route::get('/{username}', [ProfileController::class, 'show'])->name('profile.show');
+Route::get('/{username}/settings', [ProfileController::class, 'settings'])->name('profile.settings');
+Route::get('/{username}/{tab}', [ProfileController::class, 'showWithTab'])->name('profile.show.tab')->where('tab', 'posts|followers|following');
 
 // Add this at the end of your routes file
 Route::fallback(function () {

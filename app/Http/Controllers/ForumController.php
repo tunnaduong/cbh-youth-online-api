@@ -223,7 +223,7 @@ class ForumController extends Controller
 
   public function createTopic(ForumSubforum $subforum)
   {
-    return Inertia::render('Forum/Topic/Create', [
+    return Inertia::render('Posts/Create', [
       'subforum' => $subforum
     ]);
   }
@@ -253,7 +253,7 @@ class ForumController extends Controller
       ->orderBy('created_at')
       ->paginate(20);
 
-    return Inertia::render('Forum/Topic/Show', [
+    return Inertia::render('Posts/Show', [
       'topic' => $topic,
       'replies' => $replies
     ]);
@@ -263,7 +263,7 @@ class ForumController extends Controller
   {
     $this->authorize('update', $topic);
 
-    return Inertia::render('Forum/Topic/Edit', [
+    return Inertia::render('Posts/Edit', [
       'topic' => $topic
     ]);
   }

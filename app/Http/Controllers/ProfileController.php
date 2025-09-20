@@ -64,12 +64,30 @@ class ProfileController extends Controller
 
     public function show($username)
     {
+        return $this->renderProfile($username, 'posts');
+    }
+
+    public function showWithTab($username, $tab)
+    {
+        return $this->renderProfile($username, $tab);
+    }
+
+    private function renderProfile($username, $tab = 'posts')
+    {
         $user = AuthAccount::with([
             'profile',
             'posts' => function ($query) {
                 $query->latest()->take(10);
             }
         ])->where('username', $username)->firstOrFail();
+
+        // Check if current user is following this profile
+        $isFollowing = false;
+        if (auth()->check()) {
+            $isFollowing = \App\Models\Follower::where('follower_id', auth()->id())
+                ->where('followed_id', $user->id)
+                ->exists();
+        }
 
         return Inertia::render('Profile/Show', [
             'profile' => [
@@ -88,14 +106,35 @@ class ProfileController extends Controller
                     ->each(function ($post) {
                         $post->append(['image_urls', 'created_at_human']);
                     }),
+                'verified' => $user->profile->verified ?? 0,
                 'stats' => [
                     'posts' => $user->posts()->count() ?? 0,
                     'followers' => $user->followers()->count() ?? 0,
                     'following' => $user->following()->count() ?? 0,
-                    'likes' => $user->likes()->count() ?? 0,
+                    'likes' => $user->posts()->withCount([
+                        'votes' => function ($query) {
+                            $query->where('vote_value', 1);
+                        }
+                    ])->get()->sum('votes_count') ?? 0,
                     'points' => $user->points() ?? 0,
-                ]
-            ]
+                ],
+                'followers' => $user->followers()->with('follower.profile')->get()->map(function ($follower) {
+                    $follower->follower->isFollowing = auth()->check() ?
+                        \App\Models\Follower::where('follower_id', auth()->id())
+                            ->where('followed_id', $follower->follower->id)
+                            ->exists() : false;
+                    return $follower;
+                }),
+                'following' => $user->following()->with('followed.profile')->get()->map(function ($following) {
+                    $following->followed->isFollowing = auth()->check() ?
+                        \App\Models\Follower::where('follower_id', auth()->id())
+                            ->where('followed_id', $following->followed->id)
+                            ->exists() : false;
+                    return $following;
+                }),
+                'isFollowing' => $isFollowing,
+            ],
+            'activeTab' => $tab,
         ]);
     }
 }

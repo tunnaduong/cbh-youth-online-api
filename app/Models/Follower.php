@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Follower extends Model
 {
@@ -23,5 +23,10 @@ class Follower extends Model
     public function followed()
     {
         return $this->belongsTo(AuthAccount::class, 'followed_id');
+    }
+
+    public function profile()
+    {
+        return $this->belongsTo(\App\Models\UserProfile::class, 'followed_id');
     }
 }
