@@ -1,7 +1,6 @@
-import Footer from "@/Components/Footer";
 import Navbar from "@/Components/Navbar";
 
-export default function DefaultLayout({ children, type = "default", activeNav, activeBar }) {
+export default function DefaultLayout({ children, activeNav }) {
   return (
     <div>
       <Navbar activeNav={activeNav} />

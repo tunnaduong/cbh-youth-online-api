@@ -12,6 +12,7 @@ import { TopUsersProvider } from "./Contexts/TopUsersContext";
 import { ConfigProvider, theme as antdTheme } from "antd";
 import { useState, useEffect } from "react";
 import LoadingScreen from "./Components/LoadingScreen";
+import viVN from "antd/locale/vi_VN";
 
 // Initialize Lucide icons when the DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
@@ -62,6 +63,7 @@ function ThemedApp({ App, props }) {
 
   return (
     <ConfigProvider
+      locale={viVN}
       theme={{
         token: {
           fontFamily: "Inter, sans-serif",
@@ -91,6 +93,14 @@ function ThemedApp({ App, props }) {
             colorBgElevated: theme === "dark" ? "#3c3c3c" : "#ffffff",
           },
           Select: {
+            colorBgContainer: "transparent",
+            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+          },
+          Radio: {
+            colorBgContainer: "transparent",
+            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+          },
+          DatePicker: {
             colorBgContainer: "transparent",
             colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
           },

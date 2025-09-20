@@ -1,16 +1,17 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Admin\ForumCategoryController;
-use App\Http\Controllers\Admin\ForumSubforumController;
-use App\Http\Controllers\Admin\DashboardController;
+use Inertia\Inertia;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Foundation\Application;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ForumController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\FollowController;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ForumCategoryController;
+use App\Http\Controllers\Admin\ForumSubforumController;
 
 /*
 |--------------------------------------------------------------------------
@@ -135,8 +136,14 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 });
 
 require __DIR__ . '/auth.php';
+
+// Settings routes
+Route::middleware('auth')->group(function () {
+  Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+  Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+});
+
 Route::get('/{username}', [ProfileController::class, 'show'])->name('profile.show');
-Route::get('/{username}/settings', [ProfileController::class, 'settings'])->name('profile.settings');
 Route::get('/{username}/{tab}', [ProfileController::class, 'showWithTab'])->name('profile.show.tab')->where('tab', 'posts|followers|following');
 
 // Add this at the end of your routes file

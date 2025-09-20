@@ -365,7 +365,14 @@ export default function Show({ profile, activeTab }) {
                 </div>
               </div>
               <div className="flex-1 flex justify-end items-center mt-3">
-                {auth.user && auth.user.username !== profile.username && (
+                {auth.user && auth.user.username == profile.username ? (
+                  <Link href="/settings" className="flex items-center gap-x-2">
+                    <Button className="rounded-full text-[#6c757d] px-4">
+                      <BsFillGearFill className="w-4 h-4" />
+                      <span className="text-[1rem]">Sửa hồ sơ</span>
+                    </Button>
+                  </Link>
+                ) : (
                   <FollowButton
                     isFollowing={isFollowing}
                     loading={loading}
@@ -451,7 +458,7 @@ export default function Show({ profile, activeTab }) {
               </div>
               <div className="flex-1 flex justify-end items-center">
                 {auth.user && auth.user.username == profile.username ? (
-                  <Link href="" className="flex items-center gap-x-2">
+                  <Link href="/settings" className="flex items-center gap-x-2">
                     <Button className="rounded-full text-[#6c757d] px-4">
                       <BsFillGearFill className="w-4 h-4" />
                       <span className="text-[1rem]">Sửa hồ sơ</span>
