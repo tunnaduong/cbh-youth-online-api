@@ -669,6 +669,99 @@ hr {
   background-color: #1f2937;
 }
 
+/* Custom Audio Player Styles */
+.audio-player {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  margin: 0;
+}
+
+/* Time display */
+.audio-player::-webkit-media-time-display {
+  color: #4b5563;
+}
+
+.dark .audio-player::-webkit-media-time-display {
+  color: #e5e7eb;
+}
+
+/* Progress bar */
+.audio-player::-webkit-media-slider-container {
+  height: 4px;
+}
+
+.audio-player::-webkit-slider-runnable-track {
+  background: #e5e7eb;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.dark .audio-player::-webkit-slider-runnable-track {
+  background: #4b5563;
+}
+
+.audio-player::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  background-color: #319527;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  border: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.audio-player::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background-color: #2a7a22;
+}
+
+/* Volume control */
+.audio-player::-webkit-media-controls-volume-slider {
+  height: 4px;
+  border-radius: 2px;
+  background-color: #e5e7eb;
+}
+
+.dark .audio-player::-webkit-media-controls-volume-slider {
+  background-color: #4b5563;
+}
+
+.audio-player::-webkit-media-controls-volume-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #319527;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  border: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.audio-player::-webkit-media-controls-volume-slider-thumb:hover {
+  transform: scale(1.2);
+  background-color: #2a7a22;
+}
+
+/* Control panel */
+.audio-player::-webkit-media-controls-panel {
+  background: transparent;
+}
+
+.audio-player::-webkit-media-controls-play-button {
+  background-color: #319527;
+  border-radius: 50%;
+  transition: all 0.2s ease-in-out;
+}
+
+.audio-player::-webkit-media-controls-play-button:hover {
+  transform: scale(1.1);
+  background-color: #2a7a22;
+}
+
 body {
   background-color: #f8f8f8;
 }

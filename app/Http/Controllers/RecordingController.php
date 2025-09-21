@@ -15,7 +15,12 @@ class RecordingController extends Controller
      */
     public function index()
     {
-        $recordings = Recording::with('author.profile')->latest()->paginate(10);
+        $recordings = Recording::with([
+            'author.profile',
+            'cdnAudio',
+            'cdnPreview',
+            'views'
+        ])->latest()->get();
 
         return Inertia::render('Recordings/Index', [
             'recordings' => $recordings
