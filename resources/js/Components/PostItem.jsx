@@ -6,6 +6,7 @@ import {
   EyeOutline,
   ChatboxOutline,
 } from "react-ionicons";
+import { generatePostSlug } from "@/Utils/slugify";
 import { ReactPhotoCollage } from "react-photo-collage";
 import VerifiedBadge from "@/Components/ui/VerifiedBadge";
 import getCollageSetting from "@/Utils/getCollageSetting";
@@ -112,7 +113,12 @@ export default function PostItem({ post, single = false }) {
           {single ? (
             <h1 className="text-xl font-semibold mb-1">{post.title}</h1>
           ) : (
-            <Link href={route("posts.show", { id: post.id, username: post.author.username })}>
+            <Link
+              href={route("posts.show", {
+                id: generatePostSlug(post.id, post.title),
+                username: post.author.username,
+              })}
+            >
               <h1 className="text-xl font-semibold mb-1">{post.title}</h1>
             </Link>
           )}
@@ -162,7 +168,10 @@ export default function PostItem({ post, single = false }) {
               <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />
               {!single ? (
                 <Link
-                  href={route("posts.show", { id: post.id, username: post.author.username })}
+                  href={route("posts.show", {
+                    id: generatePostSlug(post.id, post.title),
+                    username: post.author.username,
+                  })}
                   className="flex flex-row-reverse items-center"
                 >
                   <span>{post.reply_count || post.comments_count}</span>

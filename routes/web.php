@@ -77,7 +77,9 @@ Route::get('/recordings/{recording}', [RecordingController::class, 'show'])->nam
 Route::delete('/recordings/{recording}', [RecordingController::class, 'destroy'])->name('recordings.destroy');
 
 // User Posts and Profile Routes
-Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])->name('posts.show');
+Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])
+  ->where('id', '[0-9]+(?:-[a-z0-9-]+)?')
+  ->name('posts.show');
 
 // Admin Routes với InertiaJS
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {

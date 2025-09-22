@@ -298,7 +298,7 @@ export default function Navbar({ activeNav }) {
               aria-label="Close"
             />
           </div>
-          <div className="offcanvas-body px-0 pt-0 text-gray-700 dark:text-gray-300">
+          <div className="offcanvas-body px-0 pt-0 text-gray-700 dark:text-gray-300 min-h-[calc(100vh-56px)] bg-white dark:!bg-[#3C3C3C]">
             <nav>
               <Link
                 className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"

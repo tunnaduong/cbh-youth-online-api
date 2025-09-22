@@ -1,6 +1,7 @@
 import HomeLayout from "@/Layouts/HomeLayout";
 import { Chatbubbles } from "react-ionicons";
 import { Head, Link } from "@inertiajs/react";
+import { generatePostSlug } from "@/Utils/slugify";
 import React from "react";
 import { moment } from "@/Utils/momentConfig";
 import VerifiedBadge from "@/Components/ui/VerifiedBadge";
@@ -86,7 +87,10 @@ export default function Category({ category }) {
                         <Link
                           href={route("posts.show", {
                             username: subforum.latest_topic?.user?.username,
-                            id: subforum.latest_topic?.id,
+                            id: generatePostSlug(
+                              subforum.latest_topic?.id,
+                              subforum.latest_topic?.title
+                            ),
                           })}
                           className="text-[#319528] hover:text-[#319528] hover:underline inline-block text-ellipsis whitespace-nowrap overflow-hidden"
                         >

@@ -1,5 +1,6 @@
 import RankBadge from "./RankBadge";
 import { Link, router } from "@inertiajs/react";
+import { generatePostSlug } from "@/Utils/slugify";
 import { timeAgoInVietnamese } from "@/Utils/dateFormat";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { useState } from "react";
@@ -107,7 +108,7 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
               <Link
                 href={route("posts.show", {
                   username: post.user.username,
-                  id: post.id,
+                  id: generatePostSlug(post.id, post.title),
                 })}
                 className="truncate block w-full text-[12.7px] text-[#319528] hover:underline"
               >

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Button } from "antd";
 import { PlayCircle, PauseCircle, Volume2, VolumeX } from "lucide-react";
+import { Button } from "antd";
+import { Link } from "@inertiajs/react";
 
-export default function AudioPlayer({ src, title, artist, className, thumbnail }) {
+export default function AudioPlayer({ src, title, className, thumbnail, content, id }) {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -80,84 +81,99 @@ export default function AudioPlayer({ src, title, artist, className, thumbnail }
   };
 
   return (
-    <div className={`bg-card rounded-lg border shadow-sm ${className}`}>
+    <div className={className}>
       <audio ref={audioRef} src={src} preload="metadata" />
 
-      {/* Play/Pause Button */}
-      {thumbnail && (
-        <a
-          href={thumbnail}
-          target="_blank"
-          className="rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group"
-        >
-          <img
-            src={thumbnail}
-            alt={title}
-            className="w-full h-[80px] object-cover rounded-lg transform group-hover:scale-105 transition-transform duration-300"
-          />
-        </a>
-      )}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={togglePlay}
-          className="w-10 h-10 bg-gradient-to-br from-[#319527] to-[#2a7a22] rounded-full flex items-center justify-center shadow-md hover:shadow-lg hover:from-[#2a7a22] hover:to-[#1f5c19] transform hover:scale-105 transition-all duration-300"
-        >
-          {isPlaying ? (
-            <PauseCircle className="w-5 h-5 text-white" />
-          ) : (
-            <PlayCircle className="w-5 h-5 text-white" />
-          )}
-        </button>
-
-        {/* Track Info */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-4">
-            <div className="min-w-0 flex-1">
-              <h3 className="font-medium text-sm truncate">{title}</h3>
-              {artist && <p className="text-xs text-muted-foreground truncate">{artist}</p>}
-            </div>
-
-            {/* Time Display */}
-            <div className="text-xs text-muted-foreground shrink-0">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mt-2">
-            <input
-              type="range"
-              value={currentTime}
-              max={duration || 100}
-              step={1}
-              onChange={(e) => handleSeek([parseFloat(e.target.value)])}
-              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-            />
-          </div>
-        </div>
-
-        {/* Volume Controls */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={toggleMute}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            {isMuted || volume === 0 ? (
-              <VolumeX className="w-4 h-4" />
+      <div>
+        <div className="flex gap-4 mt-1">
+          {/* Thumbnail and Play Button */}
+          <div className="shrink-0 relative w-[110px] h-[110px] rounded-lg overflow-hidden">
+            {thumbnail ? (
+              <img src={thumbnail} alt={title} className="w-full h-full object-cover" />
             ) : (
-              <Volume2 className="w-4 h-4" />
+              <img
+                src={"/images/soundwaves.png"}
+                alt={title}
+                className="w-full h-full object-cover"
+              />
             )}
-          </button>
+            <button
+              onClick={togglePlay}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center transform hover:scale-105 transition-all duration-300"
+            >
+              {isPlaying ? (
+                <PauseCircle className="w-12 h-12 text-white" />
+              ) : (
+                <PlayCircle className="w-12 h-12 text-white" />
+              )}
+            </button>
+          </div>
 
-          <div className="w-20">
-            <input
-              type="range"
-              value={isMuted ? 0 : volume}
-              max={1}
-              step={0.1}
-              onChange={(e) => handleVolumeChange([parseFloat(e.target.value)])}
-              className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-            />
+          {/* Track Info and Controls */}
+          <div className="flex-1 min-w-0">
+            <div className="max-w-full">
+              <h3 className="text-xl font-medium truncate">{title}</h3>
+              {content ? (
+                <p className="text-gray-500 text-sm mt-1 w-[80%] inline-block">
+                  {content.replace(/<[^>]*>/g, "").length > 75 ? (
+                    <>
+                      {content.replace(/<[^>]*>/g, "").substring(0, 75)}
+                      <Link
+                        className="inline text-primary-500"
+                        href={route("recordings.show", { id: id })}
+                      >
+                        ...Xem thêm
+                      </Link>
+                    </>
+                  ) : (
+                    content.replace(/<[^>]*>/g, "")
+                  )}
+                </p>
+              ) : (
+                <div className="h-[45.5px]"></div>
+              )}
+            </div>
+
+            <div className="flex gap-x-3">
+              {/* Progress Bar */}
+              <div className="flex-1 flex items-center gap-x-3">
+                <div className="flex text-sm text-gray-500 gap-x-1">
+                  <span>{formatTime(currentTime)}</span>
+                  <span>/</span>
+                  <span>{formatTime(duration)}</span>
+                </div>
+                <input
+                  type="range"
+                  value={currentTime}
+                  max={duration || 100}
+                  step={1}
+                  onChange={(e) => handleSeek([parseFloat(e.target.value)])}
+                  className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              {/* Volume Controls */}
+              <div className="flex items-center gap-1">
+                <Button onClick={toggleMute} className="p-2 w-10 h-10 rounded-full border-0">
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <Volume2 className="w-5 h-5 text-gray-500" />
+                  )}
+                </Button>
+
+                <div className="w-32 -mt-1">
+                  <input
+                    type="range"
+                    value={isMuted ? 0 : volume}
+                    max={1}
+                    step={0.1}
+                    onChange={(e) => handleVolumeChange([parseFloat(e.target.value)])}
+                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

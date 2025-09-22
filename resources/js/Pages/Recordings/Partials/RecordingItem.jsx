@@ -62,13 +62,13 @@ export default function RecordingItem({ recording }) {
 
   return (
     <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full">
-      <div className="post-container-post post-container mb-4 shadow-lg rounded-xl !p-6 bg-white flex flex-col-reverse md:flex-row">
+      <div className="post-container-post post-container mb-4 bg-white flex flex-row rounded-xl shadow-lg p-6">
         <div className="min-w-[72px]">
           <div className="sticky-reaction-bar items-center md:!mt-1 mt-3 gap-x-3 flex md:!flex-col flex-row md:ml-[-20px] text-[13px] font-semibold text-gray-400">
             <Button size="small" className="w-8 px-2 text-gray-400 rounded-full border-0">
               <ArrowUpOutline height="26px" width="26px" color="currentColor" />
             </Button>
-            <span className="select-none text-lg vote-count">
+            <span className="select-none text-lg text-gray-400 font-semibold">
               {recording.votes?.reduce((acc, vote) => acc + vote.vote_value, 0) ||
                 recording.votes_sum_vote_value ||
                 0}
@@ -81,45 +81,26 @@ export default function RecordingItem({ recording }) {
             </Button>
             <Button
               size="small"
-              className="border-0 bg-[#EAEAEA] dark:bg-neutral-500 rounded-lg w-[33.6px] h-[33.6px] md:mt-3 flex items-center justify-center"
+              className="border-0 bg-[#EAEAEA] dark:bg-neutral-500 rounded-lg w-[33.6px] h-[33.6px] mt-3 flex items-center justify-center"
             >
               <Bookmark height="20px" width="20px" color={"#9ca3af"} />
             </Button>
-            <div className="flex-1"></div>
-            <div className="flex-1 flex md:hidden flex-row-reverse items-center text-gray-500">
-              <span>{recording.view_count || 0}</span>
-              <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />
-              <span className="flex flex-row-reverse items-center">
-                <span>0</span>
-                <ChatboxOutline height="20px" width="20px" color={"#9ca3af"} className="mr-1" />
-              </span>
-            </div>
           </div>
         </div>
         <div className="flex-1 overflow-hidden break-words">
-          <Link
-            href={route("posts.show", {
-              id: recording.id,
-              username: recording.author.username,
-            })}
-          >
-            <h1 className="text-xl font-semibold mb-1">{recording.title}</h1>
-          </Link>
-          <div
-            className="text-base max-w-[600px] overflow-wrap prose mt-[0.75em]"
-            dangerouslySetInnerHTML={{
-              __html: getContentWithReadMore(),
-            }}
-            onClick={toggleShowFullContent}
-          />
-
           {recording.cdn_audio_id && (
             <AudioPlayer
               src={`https://api.chuyenbienhoa.com/storage/${recording.cdn_audio.file_path}`}
               title={recording.title}
-              artist={recording.author.profile_name || recording.author.profile.profile_name}
-              thumbnail={`https://api.chuyenbienhoa.com/storage/${recording.cdn_preview.file_path}`}
-              className={"mt-4"}
+              thumbnail={
+                recording.cdn_preview
+                  ? `https://api.chuyenbienhoa.com/storage/${
+                      recording.cdn_preview.file_path
+                    }?v=${new Date().getTime()}`
+                  : false
+              }
+              content={recording.content_html}
+              id={recording.id}
             />
           )}
 

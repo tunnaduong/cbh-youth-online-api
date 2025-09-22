@@ -1,5 +1,6 @@
 import HomeLayout from "@/Layouts/HomeLayout";
 import { Head, Link } from "@inertiajs/react";
+import { generatePostSlug } from "@/Utils/slugify";
 import React from "react";
 
 export default function Subforum({ category, subforum, topics }) {
@@ -89,7 +90,7 @@ export default function Subforum({ category, subforum, topics }) {
                               <Link
                                 href={route("posts.show", {
                                   username: topic.author.username,
-                                  id: topic.id,
+                                  id: generatePostSlug(topic.id, topic.title),
                                 })}
                                 className="text-green-600 hover:text-green-800 dark:hover:text-green-500"
                               >

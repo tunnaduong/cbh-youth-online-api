@@ -1,6 +1,7 @@
 import { Chatbubbles } from "react-ionicons";
 import { moment } from "@/Utils/momentConfig";
 import { Link } from "@inertiajs/react";
+import { generatePostSlug } from "@/Utils/slugify";
 import VerifiedBadge from "@/Components/ui/VerifiedBadge";
 
 export default function ForumSection({ mainCategories }) {
@@ -52,7 +53,7 @@ export default function ForumSection({ mainCategories }) {
                         <Link
                           href={route("posts.show", {
                             username: subforum.topics[0]?.user?.username,
-                            id: subforum.topics[0]?.id,
+                            id: generatePostSlug(subforum.topics[0]?.id, subforum.topics[0]?.title),
                           })}
                           className="text-[#319528] hover:text-[#319528] hover:underline inline-block text-ellipsis whitespace-nowrap overflow-hidden"
                         >
