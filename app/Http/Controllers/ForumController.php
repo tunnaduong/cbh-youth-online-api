@@ -530,14 +530,27 @@ class ForumController extends Controller
         // Extract the numeric ID from the slug format (e.g., "123-my-post-title" -> "123")
         $postId = intval(explode('-', $id)[0]);
 
-        // Get the user first
-        $user = AuthAccount::where('username', $username)->firstOrFail();
-
-        // Find the post
+        // Find the post first
         $post = Topic::with(['author.profile', 'comments.user.profile', 'user', 'votes.user', 'cdnUserContent'])
             ->withCount(['comments as reply_count', 'views'])
-            ->where('user_id', $user->id)
             ->findOrFail($postId);
+
+        // Handle anonymous posts
+        if ($post->anonymous) {
+            // For anonymous posts, the username in URL should be "anonymous"
+            if ($username !== 'anonymous') {
+                return redirect()->route('posts.show', [
+                    'username' => 'anonymous',
+                    'id' => $id
+                ], 301);
+            }
+        } else {
+            // For regular posts, verify the username matches the author
+            $user = AuthAccount::where('username', $username)->firstOrFail();
+            if ($post->user_id !== $user->id) {
+                abort(404);
+            }
+        }
 
         // Get the correct slug
         $titleSlug = str()->slug($post->title, '-', 'vi');
@@ -548,8 +561,9 @@ class ForumController extends Controller
 
         // If the slug is wrong, redirect to the correct URL
         if ($id !== $correctSlug) {
+            $correctUsername = $post->anonymous ? 'anonymous' : $username;
             return redirect()->route('posts.show', [
-                'username' => $username,
+                'username' => $correctUsername,
                 'id' => $correctSlug
             ], 301); // 301 Permanent redirect for SEO
         }

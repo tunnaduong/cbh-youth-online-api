@@ -1,8 +1,27 @@
-@import "bootstrap/dist/css/bootstrap.min.css";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Bootstrap-like utility classes */
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.row {
+  @apply flex flex-wrap -mx-4;
+}
+
+.col-md-3 {
+  @apply w-full md:w-1/4 px-4;
+}
+
+.col-md-12 {
+  @apply w-full px-4;
+}
+
+.col-6 {
+  @apply w-1/2 px-4;
+}
 
 /* Loading Screen Animations */
 @keyframes fadeInUp {
@@ -597,11 +616,11 @@ input:is(.dark *) {
 }
 
 hr {
-  border-top: 1px solid #bbbbbb;
+  border-top: 1px solid #ededed;
 }
 
 .dark hr {
-  border-top: 1px solid #d3d3d3;
+  border-top: 1px solid #545454;
 }
 
 .square-wrapper {
@@ -764,4 +783,54 @@ hr {
 
 body {
   background-color: #f8f8f8;
+}
+
+/* http://meyerweb.com/eric/tools/css/reset/
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+.bootstrap-off {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section {
+  display: block;
+}
+body-bootstrap-off {
+  line-height: 1;
+}
+ol-bootstrp-off,
+ul-bootstrp-off {
+  list-style: none;
+}
+blockquote-bootstrap-off,
+q-bootstrap-off {
+  quotes: none;
+}
+blockquote-bootstrap-off:before,
+blockquote-bootstrap-off:after,
+q-bootstrap-off:before,
+q-bootstrap-off:after {
+  content: "";
+  content: none;
+}
+table-bootstrap-off {
+  border-collapse: collapse;
+  border-spacing: 0;
 }

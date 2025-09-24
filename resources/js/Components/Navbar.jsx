@@ -20,12 +20,13 @@ import { useTheme } from "@/Contexts/themeContext";
 import { usePage } from "@inertiajs/react";
 import { BsBoxArrowRight, BsGear, BsPersonCircle, BsQuestionCircle } from "react-icons/bs";
 import Dropdown from "./Dropdown";
+import { Drawer } from "antd";
+import { useState } from "react";
 
 export default function Navbar({ activeNav }) {
   const { theme } = useTheme();
   const { auth } = usePage().props;
-
-  // console.log(auth);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const ioniconDefaultColor = theme === "dark" ? "#FFF" : "#000";
   const ioniconSize = "20px";
@@ -36,9 +37,7 @@ export default function Navbar({ activeNav }) {
         <button
           className="inline-flex dark:!border-neutral-500 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm h-9 w-9 xl:hidden mr-3 min-w-[36px]"
           type="button"
-          data-bs-toggle="offcanvas"
-          data-bs-target="#offcanvasMenu"
-          aria-controls="offcanvasMenu"
+          onClick={() => setDrawerOpen(true)}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -281,214 +280,214 @@ export default function Navbar({ activeNav }) {
           </div>
         )}
 
-        <div
-          className="offcanvas offcanvas-start max-w-72 dark:bg-[var(--main-white)]"
-          tabIndex={-1}
-          id="offcanvasMenu"
-          aria-labelledby="offcanvasMenuLabel"
+        <Drawer
+          title="Menu"
+          placement="left"
+          onClose={() => setDrawerOpen(false)}
+          open={drawerOpen}
+          width={288}
+          className="dark:bg-[#3C3C3C]"
+          styles={{
+            header: {
+              padding: 16,
+            },
+            body: {
+              paddingBottom: 20,
+              paddingLeft: 0,
+              paddingRight: 0,
+              paddingTop: 5,
+            },
+          }}
         >
-          <div className="offcanvas-header">
-            <h5 className="offcanvas-title dark:text-gray-300" id="offcanvasMenuLabel">
-              Menu
-            </h5>
-            <button
-              type="button"
-              className="btn-close text-reset dark:invert"
-              data-bs-dismiss="offcanvas"
-              aria-label="Close"
-            />
-          </div>
-          <div className="offcanvas-body px-0 pt-0 text-gray-700 dark:text-gray-300 min-h-[calc(100vh-56px)] bg-white dark:!bg-[#3C3C3C]">
-            <nav>
-              <Link
-                className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                href="/"
-              >
-                <PeopleOutline
-                  color={ioniconDefaultColor}
-                  height={ioniconSize}
-                  width={ioniconSize}
-                  cssClasses="mr-3"
-                />
-                Cộng đồng
-              </Link>
-              <ul className="pl-8">
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/"
-                  >
-                    <ChatboxEllipsesOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Diễn đàn
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/feed"
-                  >
-                    <TelescopeOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Bảng tin
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/recordings"
-                  >
-                    <MegaphoneOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Loa lớn
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/youth-news"
-                  >
-                    <NewspaperOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Tin tức Đoàn
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/saved"
-                  >
-                    <BookmarkOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Đã lưu
-                  </Link>
-                </li>
-              </ul>
-              <Link
-                className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                href="/report"
-              >
-                <FlagOutline
-                  color={ioniconDefaultColor}
-                  height={ioniconSize}
-                  width={ioniconSize}
-                  cssClasses="mr-3"
-                />
-                Báo cáo
-              </Link>
-              <ul className="pl-8">
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/report/class"
-                  >
-                    <PeopleOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Báo cáo tập thể lớp
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/report/student"
-                  >
-                    <PersonOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Báo cáo học sinh
-                  </Link>
-                </li>
-              </ul>
-              <Link
-                className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                href="/lookup"
-              >
-                <SearchOutline
-                  color={ioniconDefaultColor}
-                  height={ioniconSize}
-                  width={ioniconSize}
-                  cssClasses="mr-3"
-                />
-                Tra cứu
-              </Link>
-              <ul className="pl-8">
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/lookup/timetable"
-                  >
-                    <CalendarOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Thời khóa biểu
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                    href="/lookup/class-ranking"
-                  >
-                    <TrophyOutline
-                      color={ioniconDefaultColor}
-                      height={ioniconSize}
-                      width={ioniconSize}
-                      cssClasses="mr-3"
-                    />
-                    Xếp hạng thi đua lớp
-                  </Link>
-                </li>
-              </ul>
+          <nav className="text-gray-700 dark:text-gray-300">
+            <Link
+              className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+              href="/"
+            >
+              <PeopleOutline
+                color={ioniconDefaultColor}
+                height={ioniconSize}
+                width={ioniconSize}
+                cssClasses="mr-3"
+              />
+              Cộng đồng
+            </Link>
+            <ul className="pl-8">
               <li>
                 <Link
                   className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
-                  href="/explore"
+                  href="/"
                 >
-                  <AppsOutline
+                  <ChatboxEllipsesOutline
                     color={ioniconDefaultColor}
                     height={ioniconSize}
                     width={ioniconSize}
                     cssClasses="mr-3"
                   />
-                  Khám phá
+                  Diễn đàn
                 </Link>
               </li>
-            </nav>
-            <div className="flex justify-between items-center !mt-4 !mx-3 !p-3 bg-gray-200 dark:bg-neutral-600 rounded-lg">
-              <div>Giao diện</div>
-              <DarkmodeToggle mobile={true} />
-            </div>
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/feed"
+                >
+                  <TelescopeOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Bảng tin
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/recordings"
+                >
+                  <MegaphoneOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Loa lớn
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/youth-news"
+                >
+                  <NewspaperOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Tin tức Đoàn
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/saved"
+                >
+                  <BookmarkOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Đã lưu
+                </Link>
+              </li>
+            </ul>
+            <Link
+              className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+              href="/report"
+            >
+              <FlagOutline
+                color={ioniconDefaultColor}
+                height={ioniconSize}
+                width={ioniconSize}
+                cssClasses="mr-3"
+              />
+              Báo cáo
+            </Link>
+            <ul className="pl-8">
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/report/class"
+                >
+                  <PeopleOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Báo cáo tập thể lớp
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/report/student"
+                >
+                  <PersonOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Báo cáo học sinh
+                </Link>
+              </li>
+            </ul>
+            <Link
+              className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+              href="/lookup"
+            >
+              <SearchOutline
+                color={ioniconDefaultColor}
+                height={ioniconSize}
+                width={ioniconSize}
+                cssClasses="mr-3"
+              />
+              Tra cứu
+            </Link>
+            <ul className="pl-8">
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/lookup/timetable"
+                >
+                  <CalendarOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Thời khóa biểu
+                </Link>
+              </li>
+              <li>
+                <Link
+                  className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                  href="/lookup/class-ranking"
+                >
+                  <TrophyOutline
+                    color={ioniconDefaultColor}
+                    height={ioniconSize}
+                    width={ioniconSize}
+                    cssClasses="mr-3"
+                  />
+                  Xếp hạng thi đua lớp
+                </Link>
+              </li>
+            </ul>
+            <li>
+              <Link
+                className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
+                href="/explore"
+              >
+                <AppsOutline
+                  color={ioniconDefaultColor}
+                  height={ioniconSize}
+                  width={ioniconSize}
+                  cssClasses="mr-3"
+                />
+                Khám phá
+              </Link>
+            </li>
+          </nav>
+          <div className="flex justify-between items-center !mt-4 !mx-3 !p-3 bg-gray-200 dark:bg-neutral-600 rounded-lg">
+            <div>Giao diện</div>
+            <DarkmodeToggle mobile={true} />
           </div>
-        </div>
+        </Drawer>
       </div>
     </nav>
   );

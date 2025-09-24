@@ -13,6 +13,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\RecordingController;
 use App\Http\Controllers\YouthNewsController;
 use App\Http\Controllers\SavedPostsController;
+use App\Http\Controllers\StoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ForumCategoryController;
 use App\Http\Controllers\Admin\ForumSubforumController;
@@ -87,15 +88,37 @@ Route::get('/saved', [SavedPostsController::class, 'index'])->name('saved.index'
 Route::post('/saved', [SavedPostsController::class, 'store'])->name('saved.store');
 Route::delete('/saved/{savedPost}', [SavedPostsController::class, 'destroy'])->name('saved.destroy');
 
-// User Posts and Profile Routes
-Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])
-    ->where('id', '[0-9]+(?:-[a-z0-9-]+)?')
-    ->name('posts.show');
+// Story routes for authenticated users (must be before catch-all routes)
+Route::middleware('auth')->group(function () {
+    Route::get('/stories', [StoryController::class, 'index'])->name('stories.index');
+    Route::post('/stories', [StoryController::class, 'store'])->name('stories.store');
+    Route::get('/stories/{story}', [StoryController::class, 'show'])->name('stories.show');
+    Route::delete('/stories/{story}', [StoryController::class, 'destroy'])->name('stories.destroy');
+    Route::post('/stories/{story}/view', [StoryController::class, 'markAsViewed'])->name('stories.view');
+    Route::post('/stories/{story}/react', [StoryController::class, 'react'])->name('stories.react');
+    Route::delete('/stories/{story}/react', [StoryController::class, 'removeReaction'])->name('stories.react.remove');
+});
+
+// API routes for stories (keep for API usage)
+Route::middleware('auth')->prefix('api')->group(function () {
+    Route::get('/stories', [StoryController::class, 'index'])->name('api.stories.index');
+    Route::post('/stories', [StoryController::class, 'store'])->name('api.stories.store');
+    Route::get('/stories/{story}', [StoryController::class, 'show'])->name('api.stories.show');
+    Route::delete('/stories/{story}', [StoryController::class, 'destroy'])->name('api.stories.destroy');
+    Route::post('/stories/{story}/view', [StoryController::class, 'markAsViewed'])->name('api.stories.view');
+    Route::post('/stories/{story}/react', [StoryController::class, 'react'])->name('api.stories.react');
+    Route::delete('/stories/{story}/react', [StoryController::class, 'removeReaction'])->name('api.stories.react.remove');
+});
 
 // Topic creation route for authenticated users
 Route::middleware('auth')->group(function () {
     Route::post('/topics', [TopicsController::class, 'store'])->name('topics.store');
 });
+
+// User Posts and Profile Routes
+Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])
+    ->where('id', '[0-9]+(?:-[a-z0-9-]+)?')
+    ->name('posts.show');
 
 // Admin Routes với InertiaJS
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {

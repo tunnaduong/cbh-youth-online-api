@@ -225,7 +225,7 @@ const CreatePostModal = ({ open, onClose }) => {
             {errors.subforum_id && <div className="text-red-500 text-sm">{errors.subforum_id}</div>}
 
             {/* Anonymous Posting Switcher */}
-            <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-2 shadow-sm">
               <div className="flex items-center justify-between p-3 rounded-lg border dark:!border-neutral-500 bg-gray-50 dark:bg-neutral-700">
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">

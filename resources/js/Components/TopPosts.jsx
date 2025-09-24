@@ -4,6 +4,7 @@ import { generatePostSlug } from "@/Utils/slugify";
 import { timeAgoInVietnamese } from "@/Utils/dateFormat";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { useState } from "react";
+import Dropdown from "./Dropdown";
 
 export default function TopPosts({ latestPosts, currentSort = "latest" }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -46,28 +47,31 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
         >
           <span className="py-2">Tương tác nhiều</span>
         </Link>
-        <div>
-          <button
-            className="h-9 w-9 border-l items-center justify-center tab-button bor-right flex sm:hidden hover:bg-gray-50 dark:border-neutral-500 dark:hover:bg-neutral-500"
-            id="dropdownMenu"
-            data-bs-toggle="dropdown"
-            aria-expanded="false"
-          >
-            <RxHamburgerMenu />
-          </button>
-          <ul className="dropdown-menu" aria-labelledby="dropdownMenu">
-            <li>
-              <Link className="dropdown-item" href="?sort=most_viewed">
-                Chủ đề xem nhiều
-              </Link>
-            </li>
-            <li>
-              <Link className="dropdown-item" href="?sort=most_engaged">
-                Tương tác nhiều
-              </Link>
-            </li>
-          </ul>
-        </div>
+        <Dropdown>
+          <Dropdown.Trigger>
+            <button className="h-9 w-9 border-l items-center justify-center tab-button bor-right flex sm:hidden hover:bg-gray-50 dark:border-neutral-500 dark:hover:bg-neutral-500">
+              <RxHamburgerMenu />
+            </button>
+          </Dropdown.Trigger>
+          <Dropdown.Content align="responsive">
+            <Dropdown.Link
+              href="?sort=most_viewed"
+              className={
+                currentSort === "most_viewed" ? "bg-gray-100 dark:bg-neutral-800 font-medium" : ""
+              }
+            >
+              Chủ đề xem nhiều
+            </Dropdown.Link>
+            <Dropdown.Link
+              href="?sort=most_engaged"
+              className={
+                currentSort === "most_engaged" ? "bg-gray-100 dark:bg-neutral-800 font-medium" : ""
+              }
+            >
+              Tương tác nhiều
+            </Dropdown.Link>
+          </Dropdown.Content>
+        </Dropdown>
         <div className="ml-auto flex">
           <button
             className="h-9 w-9 border-l dark:border-[#585857] flex items-center justify-center tab-button hover:bg-gray-50 dark:hover:bg-neutral-500"
@@ -107,7 +111,7 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
             <div className="flex items-center flex-1 max-w-[90%] overflow-hidden">
               <Link
                 href={route("posts.show", {
-                  username: post.user.username,
+                  username: post.anonymous ? "anonymous" : post.user.username,
                   id: generatePostSlug(post.id, post.title),
                 })}
                 className="truncate block w-full text-[12.7px] text-[#319528] hover:underline"

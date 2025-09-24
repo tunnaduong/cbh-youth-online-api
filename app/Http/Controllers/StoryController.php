@@ -15,49 +15,60 @@ use Carbon\Carbon;
 class StoryController extends Controller
 {
     /**
-     * Get all active stories for the authenticated user and their connections
+     * Get all active stories
+     * For authenticated users: shows public and followers stories
+     * For non-authenticated users: shows only public stories
      */
-    public function index()
+    public function index(Request $request)
     {
+        // For logged-out users, only show public stories
+        // For authenticated users, show public and followers stories
+        $privacyLevels = $request->user() ? ['public', 'followers'] : ['public'];
+
         $stories = Story::with(['user', 'viewers', 'reactions'])
-        ->active()
-        ->whereIn('privacy', ['public', 'followers'])
-        ->orderBy('created_at', 'asc')
-        ->get()
-        ->groupBy('user_id')
-        ->map(function ($userStories, $userId) {
-            $firstStory = $userStories->first();
-            $user = $firstStory->user;
+            ->active()
+            ->whereIn('privacy', $privacyLevels)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->groupBy('user_id')
+            ->map(function ($userStories, $userId) {
+                $firstStory = $userStories->first();
+                $user = $firstStory->user;
 
-            return [
-                'id' => $user->id,
-                'username' => $user->username,
-                'name' => $user->profile->profile_name ?? $user->username,
-                'stories' => $userStories->map(function ($story) {
-                    return [
-                        'id' => (string) $story->id,
-                        'media_url' => $story->media_url,
-                        'text_content' => $story->content,
-                        'type' => $story->media_type,
-                        'created_at' => $story->created_at->toISOString(),
-                        'created_at_human' => $story->created_at->diffForHumans(),
-                        'duration' => $story->duration ?? 10,
-                        'expires_at' => $story->expires_at,
-                        'reactions' => $story->reactions->map(function ($reaction) {
-                            return [
-                                'type' => $reaction->reaction_type,
-                                'user' => $reaction->user->username
-                            ];
-                        })
-                    ];
-                })->values()->toArray()
-            ];
-        })->values();
+                return [
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'name' => $user->profile->profile_name ?? $user->username,
+                    'stories' => $userStories->map(function ($story) {
+                        return [
+                            'id' => (string) $story->id,
+                            'media_url' => $story->media_url,
+                            'text_content' => $story->content,
+                            'type' => $story->media_type,
+                            'created_at' => $story->created_at->toISOString(),
+                            'created_at_human' => $story->created_at->diffForHumans(),
+                            'duration' => $story->duration ?? 10,
+                            'expires_at' => $story->expires_at,
+                            'reactions' => $story->reactions->map(function ($reaction) {
+                                return [
+                                    'type' => $reaction->reaction_type,
+                                    'user' => $reaction->user->username
+                                ];
+                            })
+                        ];
+                    })->values()->toArray()
+                ];
+            })->values();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $stories
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $stories
+            ]);
+        }
+
+        // For Inertia requests, return JSON with proper structure
+        return response()->json($stories);
     }
 
     /**
@@ -78,10 +89,14 @@ class StoryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $validator->errors()
-            ], 422);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $validator->errors()
+                ], 422);
+            }
+
+            return back()->withErrors($validator)->withInput();
         }
 
         $data = $request->all();
@@ -101,10 +116,14 @@ class StoryController extends Controller
 
         $story = Story::create($data);
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $story->load(['user', 'viewers', 'reactions'])
-        ], 201);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $story->load(['user', 'viewers', 'reactions'])
+            ], 201);
+        }
+
+        return back()->with('success', 'Story created successfully!');
     }
 
     /**
@@ -128,35 +147,49 @@ class StoryController extends Controller
     /**
      * Delete a story
      */
-    public function destroy(Story $story)
+    public function destroy(Request $request, Story $story)
     {
         if ($story->user_id !== Auth::id()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized'
-            ], 403);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
+            return back()->with('error', 'Unauthorized');
         }
 
         // Delete associated media file if exists
+        if ($story->media_url) {
+            $filePath = str_replace('/storage/', '', $story->media_url);
+            Storage::disk('public')->delete($filePath);
+        }
 
         $story->delete();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Story deleted successfully'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Story deleted successfully'
+            ]);
+        }
+
+        return back()->with('success', 'Story deleted successfully');
     }
 
     /**
      * Mark a story as viewed
      */
-    public function markAsViewed(Story $story)
+    public function markAsViewed(Request $request, Story $story)
     {
         if ($story->hasExpired()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Story has expired'
-            ], 404);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story has expired'
+                ], 404);
+            }
+            return back()->with('error', 'Story has expired');
         }
 
         StoryViewer::firstOrCreate([
@@ -166,10 +199,14 @@ class StoryController extends Controller
             'viewed_at' => now()
         ]);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Story marked as viewed'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Story marked as viewed'
+            ]);
+        }
+
+        return back()->with('success', 'Story marked as viewed');
     }
 
     /**
@@ -182,17 +219,23 @@ class StoryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $validator->errors()
-            ], 422);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $validator->errors()
+                ], 422);
+            }
+            return back()->withErrors($validator)->withInput();
         }
 
         if ($story->hasExpired()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Story has expired'
-            ], 404);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story has expired'
+                ], 404);
+            }
+            return back()->with('error', 'Story has expired');
         }
 
         $reaction = StoryReaction::updateOrCreate(
@@ -205,16 +248,20 @@ class StoryController extends Controller
             ]
         );
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $reaction
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $reaction
+            ]);
+        }
+
+        return back()->with('success', 'Reaction added successfully');
     }
 
     /**
      * Remove a reaction from a story
      */
-    public function removeReaction(Story $story)
+    public function removeReaction(Request $request, Story $story)
     {
         $reaction = StoryReaction::where([
             'story_id' => $story->id,
@@ -225,9 +272,13 @@ class StoryController extends Controller
             $reaction->delete();
         }
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Reaction removed successfully'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Reaction removed successfully'
+            ]);
+        }
+
+        return back()->with('success', 'Reaction removed successfully');
     }
 }

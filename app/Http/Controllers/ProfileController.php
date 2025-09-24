@@ -98,6 +98,7 @@ class ProfileController extends Controller
                 'joined_at' => ucfirst($user->created_at->translatedFormat('F Y')),
                 'location' => $user->profile->location ?? null,
                 'posts' => $user->posts()
+                    ->where('anonymous', false)
                     ->with('author.profile')
                     ->withCount(['views', 'comments'])
                     ->withSum('votes', 'vote_value')
@@ -108,10 +109,10 @@ class ProfileController extends Controller
                     }),
                 'verified' => $user->profile->verified ?? 0,
                 'stats' => [
-                    'posts' => $user->posts()->count() ?? 0,
+                    'posts' => $user->posts()->where('anonymous', false)->count() ?? 0,
                     'followers' => $user->followers()->count() ?? 0,
                     'following' => $user->following()->count() ?? 0,
-                    'likes' => $user->posts()->withCount([
+                    'likes' => $user->posts()->where('anonymous', false)->withCount([
                         'votes' => function ($query) {
                             $query->where('vote_value', 1);
                         }

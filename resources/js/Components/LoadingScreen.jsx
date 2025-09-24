@@ -11,7 +11,7 @@ export default function LoadingScreen({ isLoading, children }) {
             <div className="flex items-center justify-center">
               <Lottie animationData={splash} loop={false} style={{ width: 180, height: 180 }} />
             </div>
-            <div className="text-xl mt-3 font-light text-[#319527] leading-4">
+            <div className="text-xl mt-3 font-light text-[#319527] leading-4 flex flex-col gap-y-2">
               <h1>Diễn đàn học sinh</h1>
               <h1 className="font-bold">Chuyên Biên Hòa</h1>
             </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\StoryController;
 use App\Models\ForumMainCategory;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -44,7 +45,23 @@ class HandleInertiaRequests extends Middleware
                         ->orderBy('arrange', 'asc')
                         ->get(),
             ],
+            'stories' => $this->getStories($request),
             'is_logged_in' => $request->user() ? true : false,
         ];
+    }
+
+    /**
+     * Get stories data for Inertia using StoryController
+     */
+    private function getStories(Request $request)
+    {
+        // Use StoryController's index method
+        $storyController = new StoryController();
+        $response = $storyController->index($request);
+
+        // Extract the stories data from the response
+        $storiesData = $response->getData(true);
+
+        return $storiesData;
     }
 }

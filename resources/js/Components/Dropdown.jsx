@@ -44,6 +44,10 @@ const Content = ({
     alignmentClasses = "ltr:origin-top-left rtl:origin-top-right start-0";
   } else if (align === "right") {
     alignmentClasses = "ltr:origin-top-right rtl:origin-top-left end-0";
+  } else if (align === "responsive") {
+    // Responsive alignment: left on small screens, right on larger screens
+    alignmentClasses =
+      "ltr:origin-top-left rtl:origin-top-right start-0 sm:ltr:origin-top-right sm:rtl:origin-top-left sm:end-0 sm:start-auto";
   }
 
   let widthClasses = "";

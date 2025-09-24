@@ -1,11 +1,22 @@
 import { Input as AntdInput } from "antd";
 
-const Input = ({ ...props }) => {
-  return <AntdInput {...props} prefix={<></>} className="!pl-2 shadow-sm focus:shadow-md-ring" />;
+const Input = ({ className = "", ...props }) => {
+  return (
+    <AntdInput
+      {...props}
+      prefix={<></>}
+      className={`!pl-2 shadow-sm focus:shadow-md-ring ${className}`}
+    />
+  );
 };
 
-Input.TextArea = ({ ...props }) => {
-  return <AntdInput.TextArea {...props} className="shadow-sm focus:shadow-md-ring" />;
+Input.TextArea = ({ className = "", shadow = true, ...props }) => {
+  return (
+    <AntdInput.TextArea
+      {...props}
+      className={`${shadow ? "shadow-sm focus:!shadow-md-ring" : ""} ${className}`}
+    />
+  );
 };
 
 export default Input;

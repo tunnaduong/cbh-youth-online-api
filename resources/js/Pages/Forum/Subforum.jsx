@@ -115,7 +115,7 @@ export default function Subforum({ category, subforum, topics }) {
                             <div className="text-sm font-medium">
                               <Link
                                 href={route("posts.show", {
-                                  username: topic.author.username,
+                                  username: topic.anonymous ? "anonymous" : topic.author.username,
                                   id: generatePostSlug(topic.id, topic.title),
                                 })}
                                 className="text-green-600 hover:text-green-800 dark:hover:text-green-500"

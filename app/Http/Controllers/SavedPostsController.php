@@ -31,6 +31,7 @@ class SavedPostsController extends Controller
                     'title' => $topic->title,
                     'description' => $topic->description,
                     'image_urls' => $topic->getImageUrls(),
+                    'anonymous' => $topic->anonymous,
                     'author' => [
                         'username' => $topic->author->username,
                         'profile_name' => $topic->author->profile->profile_name ?? null,
@@ -41,7 +42,7 @@ class SavedPostsController extends Controller
                         'comments' => $topic->comments_count,
                         'votes' => $topic->votes_sum_vote_value ?? 0
                     ],
-                    'created_at' => $topic->created_at->diffForHumans()
+                    'saved_at_human' => $savedTopic->created_at->diffForHumans()
                 ];
             });
 

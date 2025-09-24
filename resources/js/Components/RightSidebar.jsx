@@ -1,6 +1,6 @@
 import { Link, usePage, router } from "@inertiajs/react";
 import { AddOutline, HelpCircleOutline } from "react-ionicons";
-import { Skeleton } from "antd";
+import { Skeleton, message } from "antd";
 import { useTopUsers } from "../Contexts/TopUsersContext";
 import CustomColorButton from "./ui/CustomColorButton";
 import { useState } from "react";
@@ -11,6 +11,16 @@ export default function RightSidebar() {
   const { is_logged_in } = usePage().props;
   const { topUsers, loading, error } = useTopUsers();
   const [open, setOpen] = useState(false);
+
+  const handleCreatePost = () => {
+    if (!is_logged_in) {
+      message.error("Bạn cần đăng nhập để tạo cuộc thảo luận");
+      router.visit("/login", { preserveScroll: true });
+    } else {
+      setOpen(true);
+    }
+  };
+
   return (
     <>
       <CreatePostModal open={open} onClose={() => setOpen(false)} />
@@ -21,7 +31,7 @@ export default function RightSidebar() {
             bgColor={"#319527"}
             block
             className="text-base text-white font-semibold py-[19px] mb-1.5 hidden xl:flex"
-            onClick={() => (is_logged_in ? setOpen(true) : router.visit("/login"))}
+            onClick={handleCreatePost}
           >
             <AddOutline color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
             Tạo cuộc thảo luận
