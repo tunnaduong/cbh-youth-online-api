@@ -16,9 +16,28 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\Autolink\AutolinkExtension;
 
 class TopicsController extends Controller
 {
+    /**
+     * Convert markdown to HTML using CommonMark
+     */
+    private function convertMarkdownToHtml($markdown)
+    {
+        $config = [
+            'renderer' => [
+                'soft_break' => "<br>\n",
+            ],
+        ];
+
+        $converter = new CommonMarkConverter($config);
+        $converter->getEnvironment()->addExtension(new AutolinkExtension());
+
+        return $converter->convert($markdown)->getContent();
+    }
     // GET /topics – Get list of topics
     public function index(Request $request)
     {
@@ -29,6 +48,13 @@ class TopicsController extends Controller
             ->with(['user', 'votes.user', 'cdnUserContent'])
             ->paginate(10) // Paginate with 10 items per page
             ->through(function ($topic) use ($request) {
+                // Check if user is moderator/admin (you may need to adjust this logic based on your role system)
+                $isModerator = $request->user() && (
+                    $request->user()->hasRole('admin') ||
+                    $request->user()->hasRole('moderator') ||
+                    $request->user()->id === 1 // Assuming user ID 1 is admin, adjust as needed
+                );
+
                 $topicData = [
                     'id' => $topic->id,
                     'title' => $topic->title,
@@ -36,13 +62,20 @@ class TopicsController extends Controller
                     'image_urls' => $topic->getImageUrls()->map(function ($content) {
                         return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
                     })->all(),
-                    'author' => [
+                    'author' => $topic->anonymous && !$isModerator ? [
+                        'id' => null,
+                        'username' => 'Ẩn danh',
+                        'email' => null,
+                        'profile_name' => 'Người dùng ẩn danh',
+                        'verified' => false,
+                    ] : [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
                         'email' => $topic->user->email,
                         'profile_name' => $topic->user->profile->profile_name ?? null,
                         'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
                     ],
+                    'anonymous' => $topic->anonymous,
                     'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
                     'comments' => $this->roundToNearestFive($topic->comments_count) . '+', // Comment count in '05+' format
                     'views' => $topic->views_count, // Fallback to 0 if 'views' is null
@@ -168,6 +201,13 @@ class TopicsController extends Controller
 
 
 
+        // Check if user is moderator/admin
+        $isModerator = $request->user() && (
+            $request->user()->hasRole('admin') ||
+            $request->user()->hasRole('moderator') ||
+            $request->user()->id === 1 // Assuming user ID 1 is admin, adjust as needed
+        );
+
         // Map the topic details into the response format
         $topicData = [
             'id' => $topic->id,
@@ -176,13 +216,20 @@ class TopicsController extends Controller
             'image_urls' => $topic->getImageUrls()->map(function ($content) {
                 return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
             })->all(),
-            'author' => [
+            'author' => $topic->anonymous && !$isModerator ? [
+                'id' => null,
+                'username' => 'Ẩn danh',
+                'email' => null,
+                'profile_name' => 'Người dùng ẩn danh',
+                'verified' => false,
+            ] : [
                 'id' => $topic->user->id,
                 'username' => $topic->user->username,
                 'email' => $topic->user->email,
                 'profile_name' => $topic->user->profile->profile_name ?? null,
                 'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
             ],
+            'anonymous' => $topic->anonymous,
             'time' => Carbon::parse($topic->created_at)->diffForHumans(),
             'comments' => $this->roundToNearestFive($topic->comments->count()) . '+',
             'views' => $topic->views->count(),
@@ -209,48 +256,110 @@ class TopicsController extends Controller
     // POST /topics – Create a new topic
     public function store(Request $request)
     {
+        // Debug: Log the incoming request data
+        \Log::info('Topic creation request data:', ['data' => $request->all()]);
+        \Log::info('Request method:', ['method' => $request->method()]);
+        \Log::info('Request headers:', ['headers' => $request->headers->all()]);
+
         // Validate the request data
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
-            'cdn_image_id' => 'nullable',
+            'image_files' => 'nullable|array',
+            'image_files.*' => 'file|image|max:10240', // 10MB max for each image
             'visibility' => 'nullable|integer|in:0,1', // 0: public, 1: private
+            'anonymous' => 'nullable|boolean', // Anonymous posting
         ]);
+
+        $cdnImageIds = [];
+
+        // Handle multiple image uploads if present
+        if ($request->hasFile('image_files')) {
+            $files = $request->file('image_files');
+
+            foreach ($files as $file) {
+                $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+                $path = $file->storeAs('images', $fileName, 'public');
+
+                // Create UserContent record for each image
+                $userContent = UserContent::create([
+                    'user_id' => auth()->id(),
+                    'file_name' => $fileName,
+                    'file_path' => $path,
+                    'file_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                ]);
+
+                $cdnImageIds[] = $userContent->id;
+            }
+        }
+
+        // Convert array of IDs to comma-separated string for database storage
+        $cdnImageId = !empty($cdnImageIds) ? implode(',', $cdnImageIds) : null;
+
+        // Convert markdown description to HTML
+        $contentHtml = $this->convertMarkdownToHtml($request->description);
 
         $topic = Topic::create([
             'user_id' => auth()->id(),
             'title' => $request->title,
-            'description' => $request->description,
+            'description' => $request->description, // Keep original markdown
+            'content_html' => $contentHtml, // Store converted HTML
             'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
-            'cdn_image_id' => $request->cdn_image_id,
+            'cdn_image_id' => $cdnImageId,
             'hidden' => $request->visibility,
+            'anonymous' => $request->boolean('anonymous', false), // Default to false if not provided
+        ]);
+
+        // Debug: Log the created topic
+        \Log::info('Topic created successfully:', [
+            'topic' => [
+                'id' => $topic->id,
+                'title' => $topic->title,
+                'description' => $topic->description,
+                'content_html' => $topic->content_html,
+                'user_id' => $topic->user_id,
+                'subforum_id' => $topic->subforum_id,
+                'cdn_image_id' => $topic->cdn_image_id,
+            ]
         ]);
 
         // Load the user profile to get profile_name
         $author = $topic->user()->with('profile')->first();
 
+        // Check if this is an API request or web request
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json([
+                'id' => $topic->id,
+                'title' => $topic->title,
+                'content' => $topic->description,
+                'image_urls' => $topic->getImageUrls()->map(function ($content) {
+                    return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+                })->all(),
+                'author' => $topic->anonymous ? [
+                    'id' => null,
+                    'username' => 'Ẩn danh',
+                    'email' => null,
+                    'profile_name' => 'Người dùng ẩn danh',
+                    'verified' => false,
+                ] : [
+                    'id' => $author->id,
+                    'username' => $author->username,
+                    'email' => $author->email,
+                    'profile_name' => $author->profile->profile_name ?? null, // Ensure profile_name is included
+                ],
+                'anonymous' => $topic->anonymous,
+                'time' => Carbon::parse($topic->created_at)->diffForHumans(), // You can dynamically calculate the time difference if needed
+                'comments' => '00+', // Adjust this based on actual comment count if necessary
+                'views' => 0, // Initialize view count as 0 or load actual views
+                'votes' => [], // Initialize empty votes array or load actual votes
+                'saved' => false, // Default to false or check if the user has saved the topic
+            ], 201);
+        }
 
-
-        return response()->json([
-            'id' => $topic->id,
-            'title' => $topic->title,
-            'content' => $topic->description,
-            'image_urls' => $topic->getImageUrls()->map(function ($content) {
-                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
-            })->all(),
-            'author' => [
-                'id' => $author->id,
-                'username' => $author->username,
-                'email' => $author->email,
-                'profile_name' => $author->profile->profile_name ?? null, // Ensure profile_name is included
-            ],
-            'time' => Carbon::parse($topic->created_at)->diffForHumans(), // You can dynamically calculate the time difference if needed
-            'comments' => '00+', // Adjust this based on actual comment count if necessary
-            'views' => 0, // Initialize view count as 0 or load actual views
-            'votes' => [], // Initialize empty votes array or load actual votes
-            'saved' => false, // Default to false or check if the user has saved the topic
-        ], 201);
+        // For web requests (Inertia), return a redirect or success response
+        return back()->with('success', 'Bài viết đã được tạo thành công!');
     }
 
     // Get views for a topic

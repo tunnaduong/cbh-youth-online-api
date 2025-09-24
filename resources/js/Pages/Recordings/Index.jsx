@@ -62,7 +62,9 @@ export default function Index({ recordings }) {
     <HomeLayout activeBar={"recordings"}>
       <Head title="Loa lớn" />
 
-      <div className="p-6 xl:min-h-screen">
+      <div className="px-1 xl:min-h-screen pt-4 md:max-w-[775px] mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Loa lớn</h1>
+
         {recordings.map((recording) => (
           <RecordingItem recording={recording} />
         ))}

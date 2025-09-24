@@ -20,7 +20,7 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
     });
   };
   return (
-    <div className="border dark:!border-[#585857] rounded long-shadow bg-white dark:!bg-[var(--main-white)]">
+    <div className="border dark:!border-[#585857] rounded-lg long-shadow bg-white dark:!bg-[var(--main-white)] overflow-hidden">
       <div className="flex flex-wrap items-stretch">
         <Link
           href="?sort=latest"
@@ -120,14 +120,20 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
             </div>
             <div className="sm:flex items-center pl-2 hidden text-right text-[11px] whitespace-nowrap w-[150px] max-w-[150px]">
               <div className="flex items-center justify-end">
-                <Link
-                  href={route("profile.show", {
-                    username: post.user.username,
-                  })}
-                  className="text-[#319528] hover:underline truncate inline-block max-w-[150px]"
-                >
-                  {post.user.profile.profile_name}
-                </Link>
+                {post.anonymous ? (
+                  <span className="text-[#319528] truncate inline-block max-w-[150px]">
+                    Người dùng ẩn danh
+                  </span>
+                ) : (
+                  <Link
+                    href={route("profile.show", {
+                      username: post.user.username,
+                    })}
+                    className="text-[#319528] hover:underline truncate inline-block max-w-[150px]"
+                  >
+                    {post.user.profile.profile_name}
+                  </Link>
+                )}
               </div>
             </div>
           </div>

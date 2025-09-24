@@ -7,6 +7,7 @@ import axios from "axios";
 import FollowButton from "./Partials/FollowButton";
 import { Edit2Icon } from "lucide-react";
 import { BsFillGearFill } from "react-icons/bs";
+import { IoCalendarOutline, IoLocationOutline } from "react-icons/io5";
 
 export default function Show({ profile, activeTab }) {
   console.log(profile);
@@ -509,28 +510,18 @@ export default function Show({ profile, activeTab }) {
                 </div>
                 <p>{profile.bio}</p>
                 <div className="flex flex-col gap-y-2">
-                  <div className="flex items-center -ml-0.5 gap-x-1 text-gray-500">
-                    <ion-icon
-                      name="location-outline"
-                      className="text-lg md hydrated"
-                      role="img"
-                      aria-label="location outline"
-                    >
-                      <template shadowrootmode="open" />
-                    </ion-icon>
-                    <span className="text-sm">{profile.location}</span>
-                  </div>
-                  <div className="flex items-center -ml-0.5 gap-x-1 text-gray-500">
-                    <ion-icon
-                      name="calendar-outline"
-                      className="text-lg md hydrated"
-                      role="img"
-                      aria-label="calendar outline"
-                    >
-                      <template shadowrootmode="open" />
-                    </ion-icon>
-                    <span className="text-sm">Đã tham gia {profile.joined_at}</span>
-                  </div>
+                  {profile.location && (
+                    <div className="flex items-center -ml-0.5 gap-x-1 text-gray-500">
+                      <IoLocationOutline className="text-lg" />
+                      <span className="text-sm">{profile.location}</span>
+                    </div>
+                  )}
+                  {profile.joined_at && (
+                    <div className="flex items-center -ml-0.5 gap-x-1 text-gray-500">
+                      <IoCalendarOutline className="text-lg" />
+                      <span className="text-sm">Đã tham gia {profile.joined_at}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex-1 !my-6 !px-3 md:!px-0 flex flex-col items-center">

@@ -19,7 +19,7 @@ function CustomColorButton({ bgColor, children, ...props }) {
       <Button
         type="primary"
         {...props}
-        className={`text-white bg-primary-500 hover:bg-[#36aa2c] active:bg-[#298221] ${props.className}`}
+        className={`text-white bg-primary-500 hover:bg-[#36aa2c] active:bg-[#298221] disabled:bg-primary-300 ${props.className}`}
       >
         {children}
       </Button>

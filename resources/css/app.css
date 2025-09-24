@@ -282,15 +282,15 @@ a:hover {
     .post-container {
       zoom: 0.85;
     }
-  
+
     .post-container * {
       zoom: 0.98;
     }
-  
+
     .post-container-post {
       zoom: 0.85;
     }
-  
+
     .post-container-post * {
       zoom: 1.002;
     }

@@ -8,40 +8,43 @@ use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
-  /**
-   * The root template that is loaded on the first page visit.
-   *
-   * @var string
-   */
-  protected $rootView = 'app';
+    /**
+     * The root template that is loaded on the first page visit.
+     *
+     * @var string
+     */
+    protected $rootView = 'app';
 
-  /**
-   * Determine the current asset version.
-   */
-  public function version(Request $request): string|null
-  {
-    return parent::version($request);
-  }
+    /**
+     * Determine the current asset version.
+     */
+    public function version(Request $request): string|null
+    {
+        return parent::version($request);
+    }
 
-  /**
-   * Define the props that are shared by default.
-   *
-   * @return array<string, mixed>
-   */
-  public function share(Request $request): array
-  {
-    return [
-      ...parent::share($request),
-      'auth' => [
-        'user' => $request->user(),
-        'profile' => $request->user() ? $request->user()->profile : null,
-      ],
-      'forum_data' => [
-        'main_categories' => $request->user()?->role == 'admin' ?
-          ForumMainCategory::with('subForums')->get() :
-          ForumMainCategory::with('subForums')->where('role_restriction', '!=', 'admin')->get(),
-      ],
-      'is_logged_in' => $request->user() ? true : false,
-    ];
-  }
+    /**
+     * Define the props that are shared by default.
+     *
+     * @return array<string, mixed>
+     */
+    public function share(Request $request): array
+    {
+        return [
+            ...parent::share($request),
+            'auth' => [
+                'user' => $request->user(),
+                'profile' => $request->user() ? $request->user()->profile : null,
+            ],
+            'forum_data' => [
+                'main_categories' => $request->user()?->role == 'admin' ?
+                    ForumMainCategory::with('subForums')->get() :
+                    ForumMainCategory::with('subForums')
+                        ->where('role_restriction', '!=', 'admin')
+                        ->orderBy('arrange', 'asc')
+                        ->get(),
+            ],
+            'is_logged_in' => $request->user() ? true : false,
+        ];
+    }
 }

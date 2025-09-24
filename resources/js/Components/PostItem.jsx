@@ -116,7 +116,7 @@ export default function PostItem({ post, single = false }) {
             <Link
               href={route("posts.show", {
                 id: generatePostSlug(post.id, post.title),
-                username: post.author.username,
+                username: post.anonymous ? "anonymous" : post.author.username,
               })}
             >
               <h1 className="text-xl font-semibold mb-1">{post.title}</h1>
@@ -138,39 +138,55 @@ export default function PostItem({ post, single = false }) {
           )}
           <hr className="!my-5 border-t-2" />
           <div className="flex-row flex-wrap flex text-[13px] items-center">
-            <Link
-              href={route("profile.show", {
-                username: post.author.username,
-              })}
-            >
-              <span className="relative flex shrink-0 overflow-hidden rounded-full w-8 h-8">
-                <img
-                  className="border rounded-full aspect-square h-full w-full"
-                  alt={post.author.username + " avatar"}
-                  src={`https://api.chuyenbienhoa.com/v1.0/users/${post.author.username}/avatar`}
-                />
-              </span>
-            </Link>
-            <span className="text-gray-500 hidden md:block ml-2">Đăng bởi</span>
-            <Link
-              className="flex flex-row items-center ml-2 md:ml-1 text-[#319527] hover:text-[#319527] font-bold hover:underline"
-              href={route("profile.show", {
-                username: post.author.username,
-              })}
-            >
-              {post.author.profile_name || post.author.profile.profile_name}
-              {(post.author.verified || post.author?.profile?.verified) && <VerifiedBadge />}
-            </Link>
+            {post.anonymous ? (
+              <>
+                <span className="relative flex shrink-0 overflow-hidden rounded-full w-8 h-8">
+                  <div className="border rounded-full aspect-square h-full w-full bg-[#e9f1e9] dark:bg-[#1d281b] dark:!border-gray-500 flex items-center justify-center">
+                    <span className="text-lg font-bold text-white dark:text-gray-300">?</span>
+                  </div>
+                </span>
+                <span className="text-gray-500 hidden md:block ml-2">Đăng bởi</span>
+                <span className="flex flex-row items-center ml-2 md:ml-1 text-[#319527] font-bold">
+                  Người dùng ẩn danh
+                </span>
+              </>
+            ) : (
+              <>
+                <Link
+                  href={route("profile.show", {
+                    username: post.author.username,
+                  })}
+                >
+                  <span className="relative flex shrink-0 overflow-hidden rounded-full w-8 h-8">
+                    <img
+                      className="border rounded-full aspect-square h-full w-full"
+                      alt={post.author.username + " avatar"}
+                      src={`https://api.chuyenbienhoa.com/v1.0/users/${post.author.username}/avatar`}
+                    />
+                  </span>
+                </Link>
+                <span className="text-gray-500 hidden md:block ml-2">Đăng bởi</span>
+                <Link
+                  className="flex flex-row items-center ml-2 md:ml-1 text-[#319527] hover:text-[#319527] font-bold hover:underline"
+                  href={route("profile.show", {
+                    username: post.author.username,
+                  })}
+                >
+                  {post.author.profile_name || post.author.profile.profile_name}
+                  {(post.author.verified || post.author?.profile?.verified) && <VerifiedBadge />}
+                </Link>
+              </>
+            )}
             <span className="mb-2 ml-0.5 text-sm text-gray-500">.</span>
             <span className="ml-0.5 text-gray-500">{post.created_at_human || post.created_at}</span>
             <div className="flex-1 flex-row-reverse items-center text-gray-500 hidden md:flex">
-              <span>{post.view_count || post.views_count}</span>
+              <span>{(post.view_count || post.views_count) ?? 0}</span>
               <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />
               {!single ? (
                 <Link
                   href={route("posts.show", {
                     id: generatePostSlug(post.id, post.title),
-                    username: post.author.username,
+                    username: post.anonymous ? "anonymous" : post.author.username,
                   })}
                   className="flex flex-row-reverse items-center"
                 >

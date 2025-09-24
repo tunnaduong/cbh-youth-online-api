@@ -7,7 +7,8 @@ export default function Feed({ posts }) {
   return (
     <HomeLayout activeNav="home" activeBar={"feed"}>
       <Head title="Bảng tin" />
-      <div className="px-1 xl:min-h-screen pt-4">
+      <div className="px-1 xl:min-h-screen pt-4 md:max-w-[775px] mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Bảng tin</h1>
         {posts.map((post) => (
           <PostItem key={post.id} post={post} />
         ))}

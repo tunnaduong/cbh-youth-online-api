@@ -25,6 +25,7 @@ class Topic extends Model
         'pinned',
         'cdn_image_id',
         'hidden',
+        'anonymous',
     ];
 
     protected $appends = ['content'];
@@ -143,7 +144,8 @@ class Topic extends Model
      */
     public function getSlug()
     {
-        return Str::slug($this->title);
+        $slug = Str::slug($this->title, '-', 'vi');
+        return empty($slug) ? 'untitled' : $slug;
     }
 
     /**

@@ -229,13 +229,20 @@ class UserController extends Controller
                         'updated_at' => $vote->updated_at,
                     ];
                 }),
-                'author' => [
+                'author' => $post->anonymous ? [
+                    'id' => null,
+                    'username' => 'Ẩn danh',
+                    'email' => null,
+                    'profile_name' => 'Người dùng ẩn danh',
+                    'verified' => false,
+                ] : [
                     'id' => $post->author->id,
                     'username' => $post->author->username,
                     'email' => $post->author->email,
                     'profile_name' => $post->author->profile->profile_name ?? null,
                     'verified' => $post->author->profile->verified == 1 ? true : false,
                 ],
+                'anonymous' => $post->anonymous,
                 'saved' => UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists(),
             ];
         });

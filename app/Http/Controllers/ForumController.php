@@ -107,13 +107,20 @@ class ForumController extends Controller
                     'image_urls' => $post->getImageUrls()->map(function ($content) {
                         return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
                     })->all(),
-                    'author' => [
+                    'author' => $post->anonymous ? [
+                        'id' => null,
+                        'username' => 'Ẩn danh',
+                        'email' => null,
+                        'profile_name' => 'Người dùng ẩn danh',
+                        'verified' => false,
+                    ] : [
                         'id' => $post->user->id,
                         'username' => $post->user->username,
                         'email' => $post->user->email,
                         'profile_name' => $post->user->profile->profile_name ?? null,
                         'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
                     ],
+                    'anonymous' => $post->anonymous,
                     'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
                     'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
                     'view_count' => $post->views_count,
@@ -533,7 +540,11 @@ class ForumController extends Controller
             ->findOrFail($postId);
 
         // Get the correct slug
-        $correctSlug = $postId . '-' . str()->slug($post->title, '-', 'vi');
+        $titleSlug = str()->slug($post->title, '-', 'vi');
+        if (empty($titleSlug)) {
+            $titleSlug = 'untitled';
+        }
+        $correctSlug = $postId . '-' . $titleSlug;
 
         // If the slug is wrong, redirect to the correct URL
         if ($id !== $correctSlug) {
@@ -637,11 +648,16 @@ class ForumController extends Controller
                 'reply_count' => $this->roundToNearestFive($post->reply_count) . "+",
                 'view_count' => $post->views_count,
                 'created_at' => $post->created_at->diffForHumans(),
-                'author' => [
+                'author' => $post->anonymous ? [
+                    'username' => 'Ẩn danh',
+                    'profile_name' => 'Người dùng ẩn danh',
+                    'verified' => false,
+                ] : [
                     'username' => $post->author->username,
                     'profile_name' => $post->author->profile->profile_name ?? null,
                     'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
                 ],
+                'anonymous' => $post->anonymous,
                 'comments' => $formattedComments,
             ]
         ]);

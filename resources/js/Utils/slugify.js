@@ -9,17 +9,22 @@ import slugify from "@sindresorhus/slugify";
 export const generateSlug = (title) => {
   if (!title) return "untitled";
 
-  return (
-    slugify(title, {
-      customReplacements: [
-        ["đ", "d"],
-        ["Đ", "D"],
-        // Add more Vietnamese-specific replacements if needed
-      ],
-      lowercase: true,
-      strict: true,
-    }) || "untitled"
-  );
+  const slug = slugify(title, {
+    customReplacements: [
+      ["đ", "d"],
+      ["Đ", "D"],
+      // Add more Vietnamese-specific replacements if needed
+    ],
+    lowercase: true,
+    strict: true,
+  });
+
+  // If slug is empty or only contains dashes, return "untitled"
+  if (!slug || slug.replace(/-/g, "") === "") {
+    return "untitled";
+  }
+
+  return slug;
 };
 
 /**
