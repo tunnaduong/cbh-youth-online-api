@@ -2,7 +2,7 @@ import { Chatbubbles } from "react-ionicons";
 import { moment } from "@/Utils/momentConfig";
 import { Link } from "@inertiajs/react";
 import { generatePostSlug } from "@/Utils/slugify";
-import VerifiedBadge from "@/Components/ui/VerifiedBadge";
+import VerifiedBadge from "@/Components/ui/Badges";
 
 export default function ForumSection({ mainCategories }) {
   // console.log(mainCategories);
@@ -61,16 +61,24 @@ export default function ForumSection({ mainCategories }) {
                         </Link>
                       </div>
                       <div className="flex items-center mt-1 text-[#319528]">
-                        <Link
-                          href={route("profile.show", {
-                            username: subforum.topics[0]?.user?.username,
-                          })}
-                          className="hover:text-[#319528] hover:underline truncate"
-                        >
-                          {subforum.topics[0]?.user?.profile?.profile_name ||
-                            subforum.topics[0]?.user?.username}
-                        </Link>
-                        {subforum.topics[0]?.user?.profile?.verified == "1" && <VerifiedBadge />}
+                        {subforum.topics[0]?.anonymous ? (
+                          <span className="hover:text-[#319528] truncate">Người dùng ẩn danh</span>
+                        ) : (
+                          <>
+                            <Link
+                              href={route("profile.show", {
+                                username: subforum.topics[0]?.user?.username,
+                              })}
+                              className="hover:text-[#319528] hover:underline truncate"
+                            >
+                              {subforum.topics[0]?.user?.profile?.profile_name ||
+                                subforum.topics[0]?.user?.username}
+                            </Link>
+                            {subforum.topics[0]?.user?.profile?.verified == "1" && (
+                              <VerifiedBadge />
+                            )}
+                          </>
+                        )}
                         <span className="text-black shrink-0 dark:!text-[#f3f4f6]">
                           ,{" "}
                           {subforum.topics[0]?.created_at

@@ -3,7 +3,7 @@ import { Modal, Input, Button, Select, message, Switch } from "antd";
 import CustomInput from "./ui/Input";
 import CustomColorButton from "./ui/CustomColorButton";
 import { usePage, useForm } from "@inertiajs/react";
-import VerifiedBadge from "./ui/VerifiedBadge";
+import VerifiedBadge from "./ui/Badges";
 import { IoEarth, IoCaretDown } from "react-icons/io5";
 import { FaMarkdown } from "react-icons/fa";
 import { FaFileLines } from "react-icons/fa6";

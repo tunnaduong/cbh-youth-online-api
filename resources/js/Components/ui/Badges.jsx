@@ -1,4 +1,4 @@
-export default function VerifiedBadge({ color = "text-green-600" }) {
+export default function Badges({ color = "text-green-600" }) {
   return (
     <svg
       stroke="currentColor"

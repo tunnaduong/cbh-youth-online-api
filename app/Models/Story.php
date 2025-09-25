@@ -25,13 +25,15 @@ class Story extends Model
         'text_position',
         'privacy',
         'expires_at',
-        'duration'
+        'duration',
+        'pinned'
     ];
 
     protected $casts = [
         'text_position' => 'array',
         'expires_at' => 'datetime',
-        'duration' => 'integer'
+        'duration' => 'integer',
+        'pinned' => 'boolean'
     ];
 
     protected $hidden = [
@@ -77,7 +79,15 @@ class Story extends Model
     {
         return $query->where(function ($q) {
             $q->whereNull('expires_at')
-              ->orWhere('expires_at', '>', now());
+                ->orWhere('expires_at', '>', now());
         });
+    }
+
+    /**
+     * Scope a query to only include pinned stories
+     */
+    public function scopePinned($query)
+    {
+        return $query->where('pinned', true);
     }
 }

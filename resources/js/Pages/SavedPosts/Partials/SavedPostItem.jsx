@@ -1,7 +1,7 @@
 import { Link } from "@inertiajs/react";
 import { Button, Dropdown } from "antd";
 import { generatePostSlug } from "@/Utils/slugify";
-import VerifiedBadge from "@/Components/ui/VerifiedBadge";
+import VerifiedBadge from "@/Components/ui/Badges";
 import { BsThreeDots } from "react-icons/bs";
 
 export default function SavedPostItem({ post, onUnsave }) {

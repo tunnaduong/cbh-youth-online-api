@@ -20,7 +20,9 @@ export default function LeftSidebar({ activeBar = "forum" }) {
     if (!auth?.user) {
       e.preventDefault();
       message.error("Vui lòng đăng nhập để xem các bài viết đã lưu của bạn.");
-      router.visit("/login", { preserveScroll: true });
+      router.visit("/login?continue=" + encodeURIComponent("/saved"), {
+        preserveScroll: true,
+      });
     }
   };
 

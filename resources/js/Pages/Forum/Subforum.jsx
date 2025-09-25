@@ -38,22 +38,29 @@ export default function Subforum({ category, subforum, topics }) {
         <div className="max-w-[775px] w-full">
           {/* Breadcrumb */}
           <nav aria-label="breadcrumb">
-            <ol className="breadcrumb px-1.5">
-              <li className="breadcrumb-item">
-                <Link href="/" className=" flex items-center">
+            <ol className="flex items-center space-x-2 text-sm px-1.5">
+              <li className="flex items-center">
+                <Link
+                  href="/"
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-base"
+                >
                   Diễn đàn
                 </Link>
               </li>
-              <li className="breadcrumb-item before:!text-neutral-400">
-                <Link href={route("forum.category", { category: category.slug })}>
+              <li className="flex items-center">
+                <span className="mr-2 text-gray-400">/</span>
+                <Link
+                  href={route("forum.category", { category: category.slug })}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-base"
+                >
                   {category.name}
                 </Link>
               </li>
-              <li
-                className="breadcrumb-item active dark:text-neutral-400 before:!text-neutral-400"
-                aria-current="page"
-              >
-                {subforum.name}
+              <li className="flex items-center">
+                <span className="mr-2 text-gray-400">/</span>
+                <span className="text-gray-900 dark:text-gray-100 text-base" aria-current="page">
+                  {subforum.name}
+                </span>
               </li>
             </ol>
           </nav>
@@ -126,8 +133,8 @@ export default function Subforum({ category, subforum, topics }) {
                             <div className="text-sm text-gray-500 flex gap-x-2 items-center">
                               {topic.anonymous ? (
                                 <div className="flex items-center gap-x-2">
-                                  <div className="h-6 w-6 rounded-full border bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300">
+                                  <div className="h-6 w-6 rounded-full border bg-[#e9f1e9] dark:bg-[#1d281b] flex items-center justify-center">
+                                    <span className="text-xs font-bold text-white dark:text-gray-300">
                                       ?
                                     </span>
                                   </div>
@@ -190,15 +197,22 @@ export default function Subforum({ category, subforum, topics }) {
                         {topic.view_count}
                       </td>
                       <td className="!p-3 text-right text-sm text-gray-500 dark:!text-neutral-400 hidden sm:table-cell">
-                        <Link
-                          href={route("profile.show", {
-                            username: topic.latest_reply?.user.username || topic.author.username,
-                          })}
-                          className="hidden sm:inline"
-                        >
-                          <span>@</span>
-                          {topic.latest_reply?.user.username || topic.author.username}
-                        </Link>
+                        {topic.anonymous ? (
+                          <div className="hidden sm:inline">
+                            <span>@</span>
+                            Người dùng ẩn danh
+                          </div>
+                        ) : (
+                          <Link
+                            href={route("profile.show", {
+                              username: topic.latest_reply?.user.username || topic.author.username,
+                            })}
+                            className="hidden sm:inline"
+                          >
+                            <span>@</span>
+                            {topic.latest_reply?.user.username || topic.author.username}
+                          </Link>
+                        )}
                         <div>{topic.latest_reply?.created_at || topic.created_at}</div>
                       </td>
                     </tr>

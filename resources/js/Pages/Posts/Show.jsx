@@ -166,7 +166,10 @@ export default function Show({ post }) {
             <div className="p-6 pt-2 pb-0">
               {!auth?.user ? (
                 <div className="text-base">
-                  <Link className="text-green-600 hover:text-green-600" href="/login">
+                  <Link
+                    className="text-green-600 hover:text-green-600"
+                    href={"/login?continue=" + encodeURIComponent(window.location.href)}
+                  >
                     Đăng nhập
                   </Link>{" "}
                   để bình luận và tham gia thảo luận cùng cộng đồng.

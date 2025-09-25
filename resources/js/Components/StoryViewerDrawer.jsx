@@ -6,15 +6,22 @@ import { usePage, router } from "@inertiajs/react";
 const StoryViewerDrawer = ({
   open,
   onClose,
-  userStories,
+  userStories = [],
   currentStoryIndex = 0,
+  globalStoryIndex = 0,
+  totalGlobalStories = 0,
   onStoriesUpdate,
+  onNextUser,
+  onPreviousUser,
 }) => {
   const { auth } = usePage().props;
   const [currentIndex, setCurrentIndex] = useState(currentStoryIndex);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [viewedStories, setViewedStories] = useState(new Set());
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationDirection, setAnimationDirection] = useState("next");
+  // Always use cube effect
 
   // Debug: Log when open prop changes
   useEffect(() => {
@@ -23,6 +30,10 @@ const StoryViewerDrawer = ({
 
   const currentStory = userStories?.stories?.[currentIndex];
   const totalStories = userStories?.stories?.length || 0;
+
+  // Calculate disabled states based on global position
+  const isFirstGlobalStory = globalStoryIndex === 0;
+  const isLastGlobalStory = globalStoryIndex === totalGlobalStories - 1;
 
   useEffect(() => {
     if (open && currentStory) {
@@ -70,28 +81,61 @@ const StoryViewerDrawer = ({
   };
 
   const handleNext = () => {
+    if (isAnimating) return;
+
     if (currentIndex < totalStories - 1) {
+      setIsAnimating(true);
+      setAnimationDirection("next");
       const newIndex = currentIndex + 1;
-      setCurrentIndex(newIndex);
-      // Update URL
-      const storyId = userStories.stories[newIndex]?.id;
-      if (storyId) {
-        window.history.pushState(null, "", `/?story=${storyId}`);
-      }
+
+      setTimeout(() => {
+        setCurrentIndex(newIndex);
+        setProgress(0);
+        setIsAnimating(false);
+        // Update URL
+        const storyId = userStories.stories[newIndex]?.id;
+        if (storyId) {
+          window.history.pushState(null, "", `/?story=${storyId}`);
+        }
+      }, 500);
     } else {
-      console.log("StoryViewerModal - handleNext calling onClose");
-      onClose();
+      console.log("StoryViewerModal - handleNext calling onNextUser");
+      if (onNextUser) {
+        // Reset progress bar when switching to next user
+        setProgress(0);
+        setIsPlaying(true);
+        onNextUser();
+      } else {
+        onClose();
+      }
     }
   };
 
   const handlePrevious = () => {
+    if (isAnimating) return;
+
     if (currentIndex > 0) {
+      setIsAnimating(true);
+      setAnimationDirection("prev");
       const newIndex = currentIndex - 1;
-      setCurrentIndex(newIndex);
-      // Update URL
-      const storyId = userStories.stories[newIndex]?.id;
-      if (storyId) {
-        window.history.pushState(null, "", `/?story=${storyId}`);
+
+      setTimeout(() => {
+        setCurrentIndex(newIndex);
+        setProgress(0);
+        setIsAnimating(false);
+        // Update URL
+        const storyId = userStories.stories[newIndex]?.id;
+        if (storyId) {
+          window.history.pushState(null, "", `/?story=${storyId}`);
+        }
+      }, 500);
+    } else {
+      // At first story, move to previous user's last story
+      if (onPreviousUser) {
+        // Reset progress bar when switching to previous user
+        setProgress(0);
+        setIsPlaying(true);
+        onPreviousUser();
       }
     }
   };
@@ -150,13 +194,21 @@ const StoryViewerDrawer = ({
     router.delete(route("stories.destroy", currentStory.id), {
       onSuccess: () => {
         message.success("Đã xóa tin");
-        // Navigate to next story or close if no more stories
+        // Navigate to next story or move to next user if no more stories
         if (updatedStories.length === 0) {
-          onClose();
+          if (onNextUser) {
+            onNextUser();
+          } else {
+            onClose();
+          }
         } else if (newIndex < updatedStories.length) {
           setCurrentIndex(newIndex);
         } else {
-          onClose();
+          if (onNextUser) {
+            onNextUser();
+          } else {
+            onClose();
+          }
         }
       },
       onError: (error) => {
@@ -176,6 +228,17 @@ const StoryViewerDrawer = ({
     setIsPlaying(!isPlaying);
   };
 
+  const handleCubeIndexChange = (newIndex) => {
+    setCurrentIndex(newIndex);
+    setProgress(0);
+    setIsPlaying(true);
+
+    // Update URL
+    const storyId = userStories.stories[newIndex]?.id;
+    if (storyId) {
+      window.history.pushState(null, "", `/?story=${storyId}`);
+    }
+  };
   return (
     <Drawer
       open={open}
@@ -223,14 +286,14 @@ const StoryViewerDrawer = ({
             icon={<LeftOutlined />}
             className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 bg-black bg-opacity-50 border-none text-white hover:bg-opacity-70"
             onClick={handlePrevious}
-            disabled={currentIndex === 0}
+            disabled={isFirstGlobalStory}
           />
 
           <Button
             icon={<RightOutlined />}
             className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 bg-black bg-opacity-50 border-none text-white hover:bg-opacity-70"
             onClick={handleNext}
-            disabled={currentIndex === totalStories - 1}
+            disabled={isLastGlobalStory}
           />
 
           {/* Story Content */}

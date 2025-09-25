@@ -12,6 +12,14 @@ function StoriesSection() {
   const [selectedUserStories, setSelectedUserStories] = useState(null);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [storiesData, setStoriesData] = useState(stories);
+  const [globalStoryIndex, setGlobalStoryIndex] = useState(0);
+  const [totalGlobalStories, setTotalGlobalStories] = useState(0);
+
+  // Calculate total global stories
+  useEffect(() => {
+    const total = storiesData.reduce((sum, userStories) => sum + userStories.stories.length, 0);
+    setTotalGlobalStories(total);
+  }, [storiesData]);
 
   // Handle URL routing for stories
   useEffect(() => {
@@ -84,8 +92,20 @@ function StoriesSection() {
       );
       return;
     }
+
+    // Calculate global story index
+    let globalIndex = 0;
+    for (let i = 0; i < storiesData.length; i++) {
+      if (storiesData[i].id === userStories.id) {
+        globalIndex += storyIndex;
+        break;
+      }
+      globalIndex += storiesData[i].stories.length;
+    }
+
     setSelectedUserStories(userStories);
     setCurrentStoryIndex(storyIndex);
+    setGlobalStoryIndex(globalIndex);
     setViewerModalOpen(true);
 
     // Update URL to be shareable
@@ -133,6 +153,53 @@ function StoriesSection() {
         setStoriesData(page.props.stories);
       },
     });
+  };
+
+  const handleNextUser = () => {
+    if (!selectedUserStories || !storiesData) return;
+
+    // Find current user index
+    const currentUserIndex = storiesData.findIndex((user) => user.id === selectedUserStories.id);
+
+    // Find next user with stories
+    let nextUserIndex = currentUserIndex + 1;
+    while (nextUserIndex < storiesData.length && storiesData[nextUserIndex].stories.length === 0) {
+      nextUserIndex++;
+    }
+
+    if (nextUserIndex < storiesData.length) {
+      // Move to next user's first story
+      const nextUser = storiesData[nextUserIndex];
+      handleViewStory(nextUser, 0);
+    } else {
+      // No more users with stories, close the drawer
+      setViewerModalOpen(false);
+      setSelectedUserStories(null);
+      window.history.pushState(null, "", "/");
+    }
+  };
+
+  const handlePreviousUser = () => {
+    if (!selectedUserStories || !storiesData) return;
+
+    // Find current user index
+    const currentUserIndex = storiesData.findIndex((user) => user.id === selectedUserStories.id);
+
+    // Find previous user with stories
+    let prevUserIndex = currentUserIndex - 1;
+    while (prevUserIndex >= 0 && storiesData[prevUserIndex].stories.length === 0) {
+      prevUserIndex--;
+    }
+
+    if (prevUserIndex >= 0) {
+      // Move to previous user's last story
+      const prevUser = storiesData[prevUserIndex];
+      const lastStoryIndex = prevUser.stories.length - 1;
+      handleViewStory(prevUser, lastStoryIndex);
+    } else {
+      // No previous users with stories, stay at current user's first story
+      handleViewStory(selectedUserStories, 0);
+    }
   };
 
   const CreateStoryButton = () => (
@@ -305,7 +372,11 @@ function StoriesSection() {
         }}
         userStories={selectedUserStories}
         currentStoryIndex={currentStoryIndex}
+        globalStoryIndex={globalStoryIndex}
+        totalGlobalStories={totalGlobalStories}
         onStoriesUpdate={handleStoriesUpdate}
+        onNextUser={handleNextUser}
+        onPreviousUser={handlePreviousUser}
       />
     </div>
   );

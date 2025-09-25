@@ -29,7 +29,8 @@ class StoryController extends Controller
         $stories = Story::with(['user', 'viewers', 'reactions'])
             ->active()
             ->whereIn('privacy', $privacyLevels)
-            ->orderBy('created_at', 'asc')
+            ->orderByDesc('pinned') // Order by pinned first
+            ->orderByDesc('created_at') // Then by created_at
             ->get()
             ->groupBy('user_id')
             ->map(function ($userStories, $userId) {
@@ -54,6 +55,7 @@ class StoryController extends Controller
                             'duration' => $story->duration ?? 10,
                             'expires_at' => $story->expires_at,
                             'user_id' => $story->user_id,
+                            'pinned' => $story->pinned, // Add pinned status
                             'reactions' => $story->reactions->map(function ($reaction) {
                                 return [
                                     'type' => $reaction->reaction_type,

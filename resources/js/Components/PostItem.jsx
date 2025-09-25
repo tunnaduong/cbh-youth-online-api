@@ -8,7 +8,7 @@ import {
 } from "react-ionicons";
 import { generatePostSlug } from "@/Utils/slugify";
 import { ReactPhotoCollage } from "react-photo-collage";
-import VerifiedBadge from "@/Components/ui/VerifiedBadge";
+import VerifiedBadge from "@/Components/ui/Badges";
 import getCollageSetting from "@/Utils/getCollageSetting";
 import { useState } from "react";
 import { Button } from "antd";

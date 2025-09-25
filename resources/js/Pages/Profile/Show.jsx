@@ -20,7 +20,7 @@ export default function Show({ profile, activeTab }) {
   const handleFollow = async () => {
     // Check if user is authenticated
     if (!auth.user) {
-      router.visit("/login");
+      router.visit("/login?continue=" + encodeURIComponent(window.location.href));
       return;
     }
 
@@ -45,7 +45,7 @@ export default function Show({ profile, activeTab }) {
   const handleFollowUser = async (username, isUnfollow = false) => {
     // Check if user is authenticated
     if (!auth.user) {
-      router.visit("/login");
+      router.visit("/login?continue=" + encodeURIComponent(window.location.href));
       return;
     }
 

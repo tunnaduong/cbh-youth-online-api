@@ -204,11 +204,18 @@ class ForumController extends Controller
                     'title' => $topic->title,
                     'content' => Str::limit($topic->description, 100),
                     'pinned' => $topic->pinned,
+                    'anonymous' => $topic->anonymous,
                     'created_at' => $topic->created_at->diffForHumans(),
                     'updated_at' => $topic->updated_at->diffForHumans(),
                     'reply_count' => $this->roundToNearestFive($topic->reply_count),
                     'view_count' => $topic->views_count,
-                    'author' => [
+                    'author' => $topic->anonymous ? [
+                        'id' => null,
+                        'username' => 'Ẩn danh',
+                        'profile_name' => 'Người dùng ẩn danh',
+                        'avatar' => null,
+                        'verified' => false
+                    ] : [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
                         'profile_name' => $topic->user->profile->profile_name ?? null,
@@ -699,11 +706,18 @@ class ForumController extends Controller
                     'title' => $topic->title,
                     'content' => Str::limit($topic->description, 100),
                     'pinned' => $topic->pinned,
+                    'anonymous' => $topic->anonymous,
                     'created_at' => $topic->created_at->diffForHumans(),
                     'updated_at' => $topic->updated_at->diffForHumans(),
                     'reply_count' => $this->roundToNearestFive($topic->reply_count),
                     'view_count' => $topic->views_count,
-                    'author' => [
+                    'author' => $topic->anonymous ? [
+                        'id' => null,
+                        'username' => 'Ẩn danh',
+                        'profile_name' => 'Người dùng ẩn danh',
+                        'avatar' => null,
+                        'verified' => false
+                    ] : [
                         'id' => $topic->user->id,
                         'username' => $topic->user->username,
                         'profile_name' => $topic->user->profile->profile_name ?? null,

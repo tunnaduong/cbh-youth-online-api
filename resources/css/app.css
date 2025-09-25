@@ -784,3 +784,48 @@ hr {
 body {
   background-color: #f8f8f8;
 }
+
+@keyframes slideOutLeft {
+  0% {
+    transform: translateX(0) rotateY(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100%) rotateY(-30deg) scale(0.9);
+    opacity: 0.3;
+  }
+}
+
+@keyframes slideOutRight {
+  0% {
+    transform: translateX(0) rotateY(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%) rotateY(30deg) scale(0.9);
+    opacity: 0.3;
+  }
+}
+
+@keyframes slideIn {
+  0% {
+    transform: translateX(100%) rotateY(30deg) scale(0.9);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateX(0) rotateY(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-out-left {
+  animation: slideOutLeft 0.5s forwards;
+}
+
+.animate-slide-out-right {
+  animation: slideOutRight 0.5s forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.5s forwards;
+}

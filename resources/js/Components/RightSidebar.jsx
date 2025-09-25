@@ -15,7 +15,9 @@ export default function RightSidebar() {
   const handleCreatePost = () => {
     if (!is_logged_in) {
       message.error("Bạn cần đăng nhập để tạo cuộc thảo luận");
-      router.visit("/login", { preserveScroll: true });
+      router.visit("/login?continue=" + encodeURIComponent(window.location.href), {
+        preserveScroll: true,
+      });
     } else {
       setOpen(true);
     }
