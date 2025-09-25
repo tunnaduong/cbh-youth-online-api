@@ -103,6 +103,9 @@ function ThemedApp({ App, props }) {
             colorBgContainer: "transparent",
             colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
           },
+          ColorPicker: {
+            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+          },
         },
         algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
       }}

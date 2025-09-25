@@ -176,7 +176,7 @@ const CreatePostModal = ({ open, onClose }) => {
                 <Input.TextArea
                   id="postDescription"
                   name="description"
-                  className="bg-white dark:!bg-[#3c3c3c]"
+                  className="!bg-white dark:!bg-[#3c3c3c]"
                   placeholder="Nội dung bài viết"
                   spellCheck="false"
                   data-ms-editor="true"

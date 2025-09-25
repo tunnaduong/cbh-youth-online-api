@@ -3,6 +3,7 @@ import { Modal, Upload, Button, Select, message, ColorPicker, Checkbox } from "a
 import { CameraOutlined, VideoCameraOutlined, FileTextOutlined } from "@ant-design/icons";
 import { usePage, useForm, router } from "@inertiajs/react";
 import Input from "./ui/Input";
+import { PiFileAudio } from "react-icons/pi";
 
 const gradientBackgrounds = [
   ["#FF6B6B", "#4ECDC4"],
@@ -140,7 +141,7 @@ const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
       case "video":
         return <VideoCameraOutlined />;
       case "audio":
-        return <VideoCameraOutlined />;
+        return <PiFileAudio />;
       default:
         return <FileTextOutlined />;
     }
@@ -254,7 +255,7 @@ const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
                 checked={useCustomColor}
                 onChange={(e) => setUseCustomColor(e.target.checked)}
               >
-                <span className="text-sm text-gray-600">Tùy chỉnh màu</span>
+                <span className="text-sm text-gray-600 dark:text-white">Tùy chỉnh màu</span>
               </Checkbox>
             </div>
 
@@ -275,6 +276,7 @@ const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
                       setData("background_color", [newColor, "#6C5B7B"]);
                     }
                   }}
+                  className="!bg-white dark:!bg-[#3c3c3c]"
                 />
                 <ColorPicker
                   value={
@@ -288,6 +290,7 @@ const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
                       setData("background_color", [data.background_color, newColor]);
                     }
                   }}
+                  className="!bg-white dark:!bg-[#3c3c3c]"
                 />
               </div>
             )}

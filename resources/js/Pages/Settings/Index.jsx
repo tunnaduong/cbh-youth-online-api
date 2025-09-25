@@ -129,7 +129,7 @@ export default function Settings({ auth, user }) {
                     value={data.bio}
                     onChange={(e) => setData("bio", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Nội dung bài viết"
+                    placeholder="Nhập tiểu sử của bạn"
                     rows={4}
                   />
                 </div>

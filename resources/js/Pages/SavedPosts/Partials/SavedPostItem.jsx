@@ -24,8 +24,9 @@ export default function SavedPostItem({ post, onUnsave }) {
       >
         <img
           src={
-            "https://api.chuyenbienhoa.com/storage/" + post.image_urls[0].file_path ||
-            "https://api.chuyenbienhoa.com/v1.0/users/" + post.author.username + "/avatar"
+            post.image_urls[0]?.file_path
+              ? "https://api.chuyenbienhoa.com/storage/" + post.image_urls[0].file_path
+              : "https://api.chuyenbienhoa.com/v1.0/users/" + post.author.username + "/avatar"
           }
           alt={post.title}
           className="w-36 h-36 object-cover rounded-lg"
@@ -68,7 +69,9 @@ export default function SavedPostItem({ post, onUnsave }) {
                 className="text-[#319527] hover:underline flex items-center gap-1"
               >
                 {post.author.profile_name || post.author.profile?.profile_name}
-                {(post.author.verified || post.author?.profile?.verified) && <VerifiedBadge />}
+                {(post.author.verified == "1" || post.author?.profile?.verified == "1") && (
+                  <VerifiedBadge />
+                )}
               </Link>
             </div>
           )}
