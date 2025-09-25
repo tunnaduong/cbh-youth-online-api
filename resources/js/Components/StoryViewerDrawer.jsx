@@ -228,17 +228,6 @@ const StoryViewerDrawer = ({
     setIsPlaying(!isPlaying);
   };
 
-  const handleCubeIndexChange = (newIndex) => {
-    setCurrentIndex(newIndex);
-    setProgress(0);
-    setIsPlaying(true);
-
-    // Update URL
-    const storyId = userStories.stories[newIndex]?.id;
-    if (storyId) {
-      window.history.pushState(null, "", `/?story=${storyId}`);
-    }
-  };
   return (
     <Drawer
       open={open}
