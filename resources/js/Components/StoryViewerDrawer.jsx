@@ -424,7 +424,9 @@ const StoryViewerDrawer = ({
             ✕
           </Button>
         </div>
-      ) : null}
+      ) : (
+        <div className="bg-black w-full h-full"></div>
+      )}
     </Drawer>
   );
 };
