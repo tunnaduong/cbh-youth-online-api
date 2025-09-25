@@ -1,5 +1,4 @@
 import "./bootstrap";
-import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import "antd/dist/reset.css";
 import "../css/app.css";
 

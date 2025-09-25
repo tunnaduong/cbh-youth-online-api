@@ -34,7 +34,13 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(RouteServiceProvider::HOME);
+        // Get the return URL from query parameter or session, fallback to HOME
+        $returnUrl = $request->input('continue') ?? session('url.intended', RouteServiceProvider::HOME);
+
+        // Clear the intended URL from session
+        session()->forget('url.intended');
+
+        return redirect($returnUrl);
     }
 
     /**

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { IoIosAdd } from "react-icons/io";
 import { router, usePage } from "@inertiajs/react";
 import CreateStoryModal from "./CreateStoryModal";
-import StoryViewerModal from "./StoryViewerModal";
 import { message } from "antd";
+import StoryViewerDrawer from "./StoryViewerDrawer";
 
 function StoriesSection() {
   const { auth, stories } = usePage().props;
@@ -11,6 +11,57 @@ function StoriesSection() {
   const [viewerModalOpen, setViewerModalOpen] = useState(false);
   const [selectedUserStories, setSelectedUserStories] = useState(null);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const [storiesData, setStoriesData] = useState(stories);
+
+  // Handle URL routing for stories
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const storyId = urlParams.get("story");
+
+      if (storyId) {
+        // Find the story and open it
+        const foundStory = storiesData.find((userStories) =>
+          userStories.stories.some((story) => story.id == storyId)
+        );
+        if (foundStory) {
+          const storyIndex = foundStory.stories.findIndex((story) => story.id == storyId);
+          if (storyIndex !== -1) {
+            handleViewStory(foundStory, storyIndex);
+          }
+        }
+      } else {
+        // Close modal if not on a story URL
+        setViewerModalOpen(false);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [storiesData]);
+
+  // Handle story parameter from URL on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const storyId = urlParams.get("story");
+
+    if (storyId && storiesData && storiesData.length > 0) {
+      // Find the story and open it
+      const foundStory = storiesData.find((userStories) =>
+        userStories.stories.some((story) => story.id == storyId)
+      );
+      if (foundStory) {
+        const storyIndex = foundStory.stories.findIndex((story) => story.id == storyId);
+        if (storyIndex !== -1) {
+          handleViewStory(foundStory, storyIndex);
+          // Clean up URL parameter
+          const url = new URL(window.location);
+          url.searchParams.delete("story");
+          window.history.replaceState({}, "", url);
+        }
+      }
+    }
+  }, [storiesData]);
 
   const handleCreateStory = () => {
     if (!auth?.user) {
@@ -21,59 +72,144 @@ function StoriesSection() {
     setCreateModalOpen(true);
   };
 
-  const handleViewStory = (userStories) => {
+  const handleViewStory = (userStories, storyIndex = 0) => {
     if (!auth?.user) {
       message.error("Bạn cần đăng nhập để xem tin");
-      router.visit("/login", { preserveScroll: true });
+      router.visit(
+        "/login?continue=" +
+          encodeURIComponent(window.location.href + "?story=" + userStories.stories[storyIndex].id),
+        {
+          preserveScroll: true,
+        }
+      );
       return;
     }
     setSelectedUserStories(userStories);
-    setCurrentStoryIndex(0);
+    setCurrentStoryIndex(storyIndex);
     setViewerModalOpen(true);
+
+    // Update URL to be shareable
+    const storyId = userStories.stories[storyIndex]?.id;
+    if (storyId) {
+      window.history.pushState(null, "", `/?story=${storyId}`);
+    }
   };
 
-  if (!stories || stories.length === 0) {
-    return (
-      <div className="mx-auto mt-4 flex gap-2">
-        <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-        <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-        <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-        <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-        <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-        <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+  const handleStoriesUpdate = (updatedUserStories, newIndex) => {
+    // If no stories left, remove the user completely
+    if (updatedUserStories.stories.length === 0) {
+      setStoriesData((prevStories) =>
+        prevStories.filter((userStories) => userStories.id !== updatedUserStories.id)
+      );
+
+      // Close the viewer if this was the selected user
+      if (selectedUserStories && selectedUserStories.id === updatedUserStories.id) {
+        setViewerModalOpen(false);
+        setSelectedUserStories(null);
+      }
+      return;
+    }
+
+    // Update the stories data immediately
+    setStoriesData((prevStories) =>
+      prevStories.map((userStories) =>
+        userStories.id === updatedUserStories.id ? updatedUserStories : userStories
+      )
+    );
+
+    // Update selected user stories if it's the same user
+    if (selectedUserStories && selectedUserStories.id === updatedUserStories.id) {
+      setSelectedUserStories(updatedUserStories);
+      setCurrentStoryIndex(newIndex);
+    }
+  };
+
+  const handleStoryCreated = () => {
+    // Reload the page to get updated stories
+    router.reload({
+      only: ["stories"],
+      onSuccess: (page) => {
+        // Update the local stories data with the new data from server
+        setStoriesData(page.props.stories);
+      },
+    });
+  };
+
+  const CreateStoryButton = () => (
+    <div
+      className="overflow-hidden rounded-xl shadow-sm w-[115px] h-[195px] flex flex-col cursor-pointer hover:opacity-90 transition-opacity"
+      onClick={handleCreateStory}
+    >
+      <img
+        src={
+          auth?.user
+            ? `https://api.chuyenbienhoa.com/v1.0/users/${auth.user.username}/avatar`
+            : "/images/story_user.jpg"
+        }
+        className="object-cover w-full flex-1 h-[145px]"
+      />
+      <div className="bg-white dark:bg-[#3c3c3c] flex flex-col items-center justify-center h-[50px] relative">
+        <div className="bg-primary-500 rounded-full border-[4px] border-white dark:border-[#3c3c3c] absolute -top-[20px]">
+          <IoIosAdd size={30} color="white" />
+        </div>
+        <span className="font-semibold text-[13px] text-black dark:text-white mt-3">Tạo tin</span>
       </div>
+    </div>
+  );
+
+  if (!storiesData || storiesData.length === 0) {
+    return (
+      <>
+        <div className="mx-auto mt-4 flex gap-2 md:scale-100 scale-75 origin-top-left md:w-auto w-[135%] md:overflow-visible overflow-x-auto">
+          {/* Create Story Button */}
+          <CreateStoryButton />
+          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse xs:block hidden"></div>
+        </div>
+
+        {/* Create Story Modal */}
+        <CreateStoryModal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          onStoryCreated={handleStoryCreated}
+        />
+
+        {/* Story Viewer Modal */}
+        <StoryViewerDrawer
+          open={viewerModalOpen}
+          onClose={() => {
+            console.log("StoriesSection - onClose called, setting viewerModalOpen to false");
+            setViewerModalOpen(false);
+            // Reset URL when closing
+            window.history.pushState(null, "", "/");
+          }}
+          userStories={selectedUserStories}
+          currentStoryIndex={currentStoryIndex}
+          onStoriesUpdate={handleStoriesUpdate}
+        />
+      </>
     );
   }
 
   return (
-    <div className="mx-auto mt-4 flex gap-2">
+    <div className="mx-auto mt-4 flex gap-2 sm:scale-100 scale-75 origin-top-left">
       {/* Create Story Button */}
-      <div
-        className="overflow-hidden rounded-xl shadow-sm w-[115px] h-[195px] flex flex-col cursor-pointer hover:opacity-90 transition-opacity"
-        onClick={handleCreateStory}
-      >
-        <img
-          src={
-            auth?.user
-              ? `https://api.chuyenbienhoa.com/v1.0/users/${auth.user.username}/avatar`
-              : "/images/story_user.jpg"
-          }
-          className="object-cover w-full flex-1 h-[145px]"
-        />
-        <div className="bg-white dark:bg-gray-800 flex flex-col items-center justify-center h-[50px] relative">
-          <div className="bg-[#1877f2] rounded-full border-[4px] border-white dark:border-gray-800 absolute -top-[20px]">
-            <IoIosAdd size={30} color="white" />
-          </div>
-          <span className="font-semibold text-[13px] text-black dark:text-white mt-3">Tạo tin</span>
-        </div>
-      </div>
+      <CreateStoryButton />
 
       {/* User Stories */}
-      {stories.map((userStories) => {
-        const firstStory = userStories.stories[0];
+      {storiesData.map((userStories) => {
+        const lastStory = userStories.stories[userStories.stories.length - 1];
         const hasUnviewedStories = userStories.stories.some(
           (story) => !story.viewers?.some((viewer) => viewer.user_id === auth?.user?.id)
         );
+
+        // Skip rendering if no stories
+        if (!lastStory) {
+          return null;
+        }
 
         return (
           <div
@@ -92,14 +228,51 @@ function StoriesSection() {
                 alt={userStories.name}
               />
             </div>
-            <img
-              src={
-                firstStory.media_url ||
-                `https://api.chuyenbienhoa.com/v1.0/users/${userStories.username}/avatar`
-              }
-              className="object-cover w-full flex-1"
-              alt="Story"
-            />
+            {lastStory.type === "text" ? (
+              <div
+                className="w-full flex-1 flex items-center justify-center text-white text-2xl font-bold text-center p-4"
+                style={{
+                  background: (() => {
+                    if (!lastStory.background_color) return "#1877f2";
+
+                    if (
+                      lastStory.background_color.startsWith("[") ||
+                      lastStory.background_color.startsWith("{")
+                    ) {
+                      try {
+                        const bgColor = JSON.parse(lastStory.background_color);
+                        if (Array.isArray(bgColor) && bgColor.length === 2) {
+                          return `linear-gradient(135deg, ${bgColor[0]}, ${bgColor[1]})`;
+                        }
+                      } catch (error) {
+                        console.log("Error parsing background_color:", error);
+                      }
+                    }
+
+                    return lastStory.background_color;
+                  })(),
+                  fontStyle: lastStory.font_style || "normal",
+                }}
+              >
+                {lastStory.text_content}
+              </div>
+            ) : lastStory.type === "audio" ? (
+              <div className="w-full flex-1 flex flex-col items-center justify-center bg-gray-100 dark:bg-[#3c3c3c]">
+                <div className="text-6xl mb-2">🎵</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400 text-center px-2">
+                  Tin âm thanh
+                </div>
+              </div>
+            ) : (
+              <img
+                src={
+                  lastStory.media_url ||
+                  `https://api.chuyenbienhoa.com/v1.0/users/${userStories.username}/avatar`
+                }
+                className="object-cover w-full flex-1"
+                alt="Story"
+              />
+            )}
             <div
               className="absolute w-full h-14 bottom-0 px-2.5 flex items-end"
               style={{
@@ -115,14 +288,24 @@ function StoriesSection() {
       })}
 
       {/* Create Story Modal */}
-      <CreateStoryModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
+      <CreateStoryModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onStoryCreated={handleStoryCreated}
+      />
 
       {/* Story Viewer Modal */}
-      <StoryViewerModal
+      <StoryViewerDrawer
         open={viewerModalOpen}
-        onClose={() => setViewerModalOpen(false)}
+        onClose={() => {
+          console.log("StoriesSection - onClose called, setting viewerModalOpen to false");
+          setViewerModalOpen(false);
+          // Reset URL when closing
+          window.history.pushState(null, "", "/");
+        }}
         userStories={selectedUserStories}
         currentStoryIndex={currentStoryIndex}
+        onStoriesUpdate={handleStoriesUpdate}
       />
     </div>
   );

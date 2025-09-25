@@ -39,7 +39,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'forum_data' => [
                 'main_categories' => $request->user()?->role == 'admin' ?
-                    ForumMainCategory::with('subForums')->get() :
+                    ForumMainCategory::with('subForums')->orderBy('arrange', 'asc')->get() :
                     ForumMainCategory::with('subForums')
                         ->where('role_restriction', '!=', 'admin')
                         ->orderBy('arrange', 'asc')

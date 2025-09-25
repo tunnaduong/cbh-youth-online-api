@@ -1,4 +1,5 @@
-import { Link } from "@inertiajs/react";
+import { Link, usePage, router } from "@inertiajs/react";
+import { message } from "antd";
 import {
   ChatboxEllipses,
   Telescope,
@@ -10,9 +11,18 @@ import {
 } from "react-ionicons";
 
 export default function LeftSidebar({ activeBar = "forum" }) {
+  const { auth } = usePage().props;
   const iconColor = "#CACACA";
   const activeIconColor = "#319527";
   const iconSize = "18px";
+
+  const handleSavedClick = (e) => {
+    if (!auth?.user) {
+      e.preventDefault();
+      message.error("Vui lòng đăng nhập để xem các bài viết đã lưu của bạn.");
+      router.visit("/login", { preserveScroll: true });
+    }
+  };
 
   const items = [
     {
@@ -91,10 +101,14 @@ export default function LeftSidebar({ activeBar = "forum" }) {
             ? { href: it.href, target: "_blank", rel: "noopener noreferrer" }
             : { href: it.href };
 
+          // Add click handler for saved posts
+          const handleClick = it.key === "saved" ? handleSavedClick : undefined;
+
           return (
             <LinkComp
               key={it.key}
               {...props}
+              onClick={handleClick}
               className={`${baseLinkClass} ${isActive ? activeLinkClass : inactiveLinkClass}`}
             >
               <div className={isActive ? activeIconWrapper : inactiveIconWrapper}>

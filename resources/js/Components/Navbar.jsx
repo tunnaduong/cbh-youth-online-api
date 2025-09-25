@@ -1,4 +1,5 @@
-import { Link } from "@inertiajs/react";
+import { Link, router } from "@inertiajs/react";
+import { message } from "antd";
 import DarkmodeToggle from "./DarkmodeToggle";
 import Tooltip from "./Tooltip";
 import {
@@ -27,6 +28,16 @@ export default function Navbar({ activeNav }) {
   const { theme } = useTheme();
   const { auth } = usePage().props;
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const handleSavedClick = (e) => {
+    if (!auth?.user) {
+      e.preventDefault();
+      message.error("Vui lòng đăng nhập để xem các bài viết đã lưu của bạn.");
+      router.visit(`/login?continue=${encodeURIComponent(window.location.href)}`, {
+        preserveScroll: true,
+      });
+    }
+  };
 
   const ioniconDefaultColor = theme === "dark" ? "#FFF" : "#000";
   const ioniconSize = "20px";
@@ -142,7 +153,7 @@ export default function Navbar({ activeNav }) {
         {!auth?.user ? (
           <div className="min-w-max mr-4">
             <Link
-              href={route("login")}
+              href={`${route("login")}?continue=${encodeURIComponent(window.location.href)}`}
               className="flex items-center gap-x-1 text-sm font-medium transition-colors duration-200 text-[#319527] hover:text-[#3dbb31]"
               style={{ borderBottom: "3px solid transparent" }}
             >
@@ -373,6 +384,7 @@ export default function Navbar({ activeNav }) {
                 <Link
                   className="flex items-center px-4 py-3 hover:bg-gray-100 dark:hover:bg-neutral-500 text-base active:bg-green-600 active:text-white"
                   href="/saved"
+                  onClick={handleSavedClick}
                 >
                   <BookmarkOutline
                     color={ioniconDefaultColor}

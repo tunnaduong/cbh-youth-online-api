@@ -48,6 +48,9 @@ export default {
 
   theme: {
     extend: {
+      screens: {
+        xs: "475px", // thêm breakpoint mới
+      },
       ringColor: {
         DEFAULT: "#c7f0c2",
       },

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePage } from "@inertiajs/react";
 import { CommentInput } from "@/Components/CommentInput";
 import Comment from "@/Components/Comment";
+import EmptyCommentsState from "@/Components/EmptyCommentsState";
 import { moment } from "@/Utils/momentConfig";
 import PostItem from "@/Components/PostItem";
 
@@ -174,19 +175,23 @@ export default function Show({ post }) {
                 <CommentInput onSubmit={handleSubmitComment} />
               )}
               <div className="pb-6 pt-2">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="mt-6">
-                    <Comment
-                      comment={comment}
-                      level={0}
-                      onEdit={handleEditComment}
-                      onReply={handleReplyToComment}
-                      userAvatar={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
-                      getTimeDisplay={getTimeDisplay}
-                      parentConnectorHovered={false}
-                    />
-                  </div>
-                ))}
+                {comments.length === 0 ? (
+                  <EmptyCommentsState />
+                ) : (
+                  comments.map((comment) => (
+                    <div key={comment.id} className="mt-6">
+                      <Comment
+                        comment={comment}
+                        level={0}
+                        onEdit={handleEditComment}
+                        onReply={handleReplyToComment}
+                        userAvatar={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
+                        getTimeDisplay={getTimeDisplay}
+                        parentConnectorHovered={false}
+                      />
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

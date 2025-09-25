@@ -4,12 +4,10 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
 {
-    use RefreshDatabase;
 
     public function test_login_screen_can_be_rendered(): void
     {
@@ -51,5 +49,24 @@ class AuthenticationTest extends TestCase
 
         $this->assertGuest();
         $response->assertRedirect('/');
+    }
+
+    public function test_users_are_redirected_to_intended_url_after_login(): void
+    {
+        $user = User::factory()->create();
+        $intendedUrl = '/saved';
+
+        // First, visit a protected page to set the intended URL
+        $response = $this->get($intendedUrl);
+        $response->assertRedirect('/login?continue=' . urlencode($intendedUrl));
+
+        // Now login with continue parameter
+        $response = $this->post('/login?continue=' . urlencode($intendedUrl), [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect($intendedUrl);
     }
 }

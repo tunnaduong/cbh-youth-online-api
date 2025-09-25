@@ -102,9 +102,9 @@ export default function AudioPlayer({ src, title, className, thumbnail, content,
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center transform hover:scale-105 transition-all duration-300"
             >
               {isPlaying ? (
-                <PauseCircle className="w-12 h-12 text-white" />
+                <PauseCircle className="w-12 h-12 text-white drop-shadow-lg" />
               ) : (
-                <PlayCircle className="w-12 h-12 text-white" />
+                <PlayCircle className="w-12 h-12 text-white drop-shadow-lg" />
               )}
             </button>
           </div>

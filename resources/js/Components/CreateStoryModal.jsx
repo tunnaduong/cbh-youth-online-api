@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Modal, Upload, Button, Select, message, ColorPicker, Checkbox } from "antd";
 import { CameraOutlined, VideoCameraOutlined, FileTextOutlined } from "@ant-design/icons";
-import { usePage, useForm } from "@inertiajs/react";
+import { usePage, useForm, router } from "@inertiajs/react";
 import Input from "./ui/Input";
 
 const gradientBackgrounds = [
@@ -12,18 +12,19 @@ const gradientBackgrounds = [
   ["#355C7D", "#6C5B7B"],
 ];
 
-const CreateStoryModal = ({ open, onClose }) => {
+const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
   const { auth } = usePage().props;
   const [mediaType, setMediaType] = useState("text");
   const [mediaFile, setMediaFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [useCustomColor, setUseCustomColor] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data, setData, post, processing, errors, reset } = useForm({
     content: "",
     media_type: "text",
     media_file: null,
-    background_color: ["#355C7D", "#6C5B7B"],
+    background_color: ["#FF6B6B", "#4ECDC4"],
     font_style: "normal",
     text_position: { x: 50, y: 50 },
     privacy: "public",
@@ -48,30 +49,63 @@ const CreateStoryModal = ({ open, onClose }) => {
       return;
     }
 
-    // Prepare form data for Inertia
-    const formData = {
+    // Create FormData for file upload
+    const formData = new FormData();
+    formData.append("content", data.content || "");
+    formData.append("media_type", mediaType);
+    formData.append("privacy", data.privacy);
+    formData.append("duration", data.duration);
+
+    // Add media file if present
+    if (mediaFile) {
+      formData.append("media_file", mediaFile);
+    }
+
+    // Only add text-specific fields for text stories
+    if (mediaType === "text") {
+      formData.append(
+        "background_color",
+        Array.isArray(data.background_color)
+          ? JSON.stringify(data.background_color)
+          : data.background_color
+      );
+      formData.append("font_style", data.font_style);
+      formData.append("text_position", JSON.stringify(data.text_position));
+    }
+
+    // Debug: Log the data being sent
+    console.log("Sending data:", {
       content: data.content,
       media_type: mediaType,
+      media_file: mediaFile,
+      background_color: mediaType === "text" ? data.background_color : undefined,
+      text_position: mediaType === "text" ? data.text_position : undefined,
       privacy: data.privacy,
       duration: data.duration,
-      background_color: data.background_color,
-      font_style: data.font_style,
-      text_position: data.text_position,
-      media_file: mediaFile,
-    };
+    });
 
-    post(route("stories.store"), {
-      data: formData,
-      onSuccess: () => {
+    // Set loading state
+    setIsSubmitting(true);
+
+    // Use router.post with FormData
+    router.post(route("stories.store"), formData, {
+      onSuccess: (page) => {
         message.success("Tin đã được tạo thành công!");
         reset();
         setMediaFile(null);
         setPreviewUrl(null);
         setUseCustomColor(false);
+        setIsSubmitting(false);
         onClose();
+
+        // Call the callback to update stories list
+        if (onStoryCreated) {
+          onStoryCreated();
+        }
       },
       onError: (errors) => {
         console.error("Form errors:", errors);
+        setIsSubmitting(false);
         if (errors.media_file) {
           message.error(`Lỗi file: ${errors.media_file}`);
         } else if (errors.content) {
@@ -306,8 +340,10 @@ const CreateStoryModal = ({ open, onClose }) => {
 
         {/* Submit Button */}
         <div className="flex justify-end space-x-2 pt-4">
-          <Button onClick={onClose}>Hủy</Button>
-          <Button type="primary" htmlType="submit" loading={processing}>
+          <Button onClick={onClose} disabled={isSubmitting}>
+            Hủy
+          </Button>
+          <Button type="primary" htmlType="submit" loading={isSubmitting}>
             Tạo tin
           </Button>
         </div>

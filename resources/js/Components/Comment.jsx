@@ -180,7 +180,7 @@ export default function Comment({
                 {comment.replies?.length > 0 && (
                   <div
                     className="absolute cursor-pointer z-10"
-                    style={{ left: "-34px", top: "8px" }}
+                    style={{ left: "-31px", top: "8px" }}
                     onClick={() => setIsCollapsed(!isCollapsed)}
                   >
                     <div className="bg-white dark:!bg-[#3C3C3C] rounded-full border border-gray-200 dark:!border-gray-600">

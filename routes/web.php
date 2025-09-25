@@ -83,10 +83,12 @@ Route::delete('/recordings/{recording}', [RecordingController::class, 'destroy']
 // Youth News Routes
 Route::get('/youth-news', [YouthNewsController::class, 'index'])->name('youth-news.index');
 
-// Saved Posts Routes
-Route::get('/saved', [SavedPostsController::class, 'index'])->name('saved.index');
-Route::post('/saved', [SavedPostsController::class, 'store'])->name('saved.store');
-Route::delete('/saved/{savedPost}', [SavedPostsController::class, 'destroy'])->name('saved.destroy');
+// Saved Posts Routes (require authentication)
+Route::middleware('auth')->group(function () {
+    Route::get('/saved', [SavedPostsController::class, 'index'])->name('saved.index');
+    Route::post('/saved', [SavedPostsController::class, 'store'])->name('saved.store');
+    Route::delete('/saved/{savedPost}', [SavedPostsController::class, 'destroy'])->name('saved.destroy');
+});
 
 // Story routes for authenticated users (must be before catch-all routes)
 Route::middleware('auth')->group(function () {

@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import InputError from "@/Components/InputError";
-import { Head, Link, useForm } from "@inertiajs/react";
+import { Head, Link, useForm, usePage } from "@inertiajs/react";
 import CustomColorButton from "@/Components/ui/CustomColorButton";
-import { Input, Checkbox } from "antd";
+import { Input, Checkbox, message } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 
 export default function Login() {
@@ -12,16 +12,34 @@ export default function Login() {
     remember: false,
   });
 
+  const { props } = usePage();
+
   useEffect(() => {
     return () => {
       reset("password");
     };
   }, []);
 
+  // Display flash message if present
+  useEffect(() => {
+    if (props.flash?.message) {
+      message.info(props.flash.message);
+    }
+  }, [props.flash?.message]);
+
   const submit = (e) => {
     e.preventDefault();
 
-    post(route("login"));
+    // Get continue from current URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const returnUrl = urlParams.get("continue");
+
+    // Build the login route with continue parameter if it exists
+    const loginRoute = returnUrl
+      ? `${route("login")}?continue=${encodeURIComponent(returnUrl)}`
+      : route("login");
+
+    post(loginRoute);
   };
 
   return (
