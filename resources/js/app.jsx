@@ -51,68 +51,82 @@ function ThemedApp({ App, props }) {
   const { theme } = useTheme();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  // Check if loading should be hidden via environment variable
+  const hideLoading = import.meta.env.VITE_HIDE_LOADING === "true";
+
   useEffect(() => {
+    if (hideLoading) {
+      setIsInitialLoading(false);
+      return;
+    }
+
     // Simulate initial loading time
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
     }, 2500); // 2 seconds loading time
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [hideLoading]);
+
+  const configProviderProps = {
+    locale: viVN,
+    theme: {
+      token: {
+        fontFamily: "Inter, sans-serif",
+        colorPrimary: "#319527",
+        controlHeight: 40,
+      },
+      components: {
+        Input: {
+          colorBgContainer: "transparent",
+          colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+          colorTextPlaceholder: "#888",
+        },
+        Checkbox: {
+          colorBgContainer: "transparent",
+          colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+        },
+        Button: {
+          defaultBg: theme === "dark" ? "#3C3C3C" : "#ffffff", // dark = gray-800, light = white
+          colorPrimary: "#319527",
+          colorPrimaryHover: "#40b235",
+          colorPrimaryActive: "#287421",
+          defaultShadow: "none", // bỏ bóng dưới
+          primaryShadow: "none", // nếu dùng primary
+          defaultHoverBg: theme === "dark" ? "#414642" : "#EBFFF5",
+        },
+        Modal: {
+          colorBgElevated: theme === "dark" ? "#3c3c3c" : "#ffffff",
+        },
+        Select: {
+          colorBgContainer: "transparent",
+          colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+        },
+        Radio: {
+          colorBgContainer: "transparent",
+          colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+        },
+        DatePicker: {
+          colorBgContainer: "transparent",
+          colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+        },
+        ColorPicker: {
+          colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
+        },
+      },
+      algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+    },
+  };
 
   return (
-    <ConfigProvider
-      locale={viVN}
-      theme={{
-        token: {
-          fontFamily: "Inter, sans-serif",
-          colorPrimary: "#319527",
-          controlHeight: 40,
-        },
-        components: {
-          Input: {
-            colorBgContainer: "transparent",
-            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
-            colorTextPlaceholder: "#888",
-          },
-          Checkbox: {
-            colorBgContainer: "transparent",
-            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
-          },
-          Button: {
-            defaultBg: theme === "dark" ? "#3C3C3C" : "#ffffff", // dark = gray-800, light = white
-            colorPrimary: "#319527",
-            colorPrimaryHover: "#40b235",
-            colorPrimaryActive: "#287421",
-            defaultShadow: "none", // bỏ bóng dưới
-            primaryShadow: "none", // nếu dùng primary
-            defaultHoverBg: theme === "dark" ? "#414642" : "#EBFFF5",
-          },
-          Modal: {
-            colorBgElevated: theme === "dark" ? "#3c3c3c" : "#ffffff",
-          },
-          Select: {
-            colorBgContainer: "transparent",
-            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
-          },
-          Radio: {
-            colorBgContainer: "transparent",
-            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
-          },
-          DatePicker: {
-            colorBgContainer: "transparent",
-            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
-          },
-          ColorPicker: {
-            colorBorder: theme === "dark" ? "#737373" : "#e5e7eb",
-          },
-        },
-        algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-      }}
-    >
-      <LoadingScreen isLoading={isInitialLoading}>
+    <ConfigProvider {...configProviderProps}>
+      {hideLoading ? (
         <App {...props} />
-      </LoadingScreen>
+      ) : (
+        <LoadingScreen isLoading={isInitialLoading}>
+          <App {...props} />
+        </LoadingScreen>
+      )}
     </ConfigProvider>
   );
 }
