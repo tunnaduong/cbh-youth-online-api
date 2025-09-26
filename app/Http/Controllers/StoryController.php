@@ -30,7 +30,7 @@ class StoryController extends Controller
             ->active()
             ->whereIn('privacy', $privacyLevels)
             ->orderByDesc('pinned') // Order by pinned first
-            ->orderByDesc('created_at') // Then by created_at
+            ->orderBy('created_at', 'asc') // Order by oldest first so latest stories appear at end
             ->get()
             ->groupBy('user_id')
             ->map(function ($userStories, $userId) {

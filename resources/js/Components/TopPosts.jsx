@@ -21,7 +21,7 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
     });
   };
   return (
-    <div className="border dark:!border-[#585857] rounded-lg long-shadow bg-white dark:!bg-[var(--main-white)] overflow-hidden !-mt-6 sm:!mt-6">
+    <div className="border dark:!border-[#585857] rounded-lg long-shadow bg-white dark:!bg-[var(--main-white)] overflow-hidden">
       <div className="flex flex-wrap items-stretch">
         <Link
           href="?sort=latest"

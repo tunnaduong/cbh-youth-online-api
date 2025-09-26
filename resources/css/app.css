@@ -829,3 +829,12 @@ body {
 .animate-slide-in {
   animation: slideIn 0.5s forwards;
 }
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
