@@ -89,7 +89,7 @@ const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
     setIsSubmitting(true);
 
     // Use router.post with FormData
-    router.post(route("stories.store"), formData, {
+    router.post(route("api.stories.store"), formData, {
       onSuccess: (page) => {
         message.success("Tin đã được tạo thành công!");
         reset();
@@ -310,19 +310,20 @@ const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
             ]}
           />
         </div>
-
         {/* Duration Setting */}
-        <div>
-          <label className="block text-sm font-medium mb-2">Thời gian hiển thị (giây)</label>
-          <Input
-            type="number"
-            value={data.duration}
-            onChange={(e) => setData("duration", parseInt(e.target.value))}
-            min={1}
-            max={30}
-            className="shadow-none"
-          />
-        </div>
+        {mediaType !== "video" && mediaType !== "audio" && (
+          <div>
+            <label className="block text-sm font-medium mb-2">Thời gian hiển thị (giây)</label>
+            <Input
+              type="number"
+              value={data.duration}
+              onChange={(e) => setData("duration", parseInt(e.target.value))}
+              min={1}
+              max={30}
+              className="shadow-none"
+            />
+          </div>
+        )}
 
         {/* Preview */}
         {mediaType === "text" && data.content && (

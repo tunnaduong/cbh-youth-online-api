@@ -5,6 +5,7 @@ import { animated, useSpring, config } from "@react-spring/web";
 import { Drawer } from "antd";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { EffectCube } from "swiper/modules";
+import { router } from "@inertiajs/react";
 import { X, ChevronLeft, ChevronRight, VolumeX, Volume2 } from "lucide-react";
 
 // Import Swiper styles
@@ -12,6 +13,38 @@ import "swiper/css";
 import "swiper/css/effect-cube";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
+
+const formatTimeAgo = (dateString) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+
+  if (seconds < 60) {
+    return "Vừa xong";
+  }
+
+  let interval = seconds / 31536000;
+  if (interval > 1) {
+    return `${Math.floor(interval)} năm`;
+  }
+  interval = seconds / 2592000;
+  if (interval > 1) {
+    return `${Math.floor(interval)} tháng`;
+  }
+  interval = seconds / 86400;
+  if (interval > 1) {
+    return `${Math.floor(interval)} ngày`;
+  }
+  interval = seconds / 3600;
+  if (interval > 1) {
+    return `${Math.floor(interval)} giờ`;
+  }
+  interval = seconds / 60;
+  if (interval > 1) {
+    return `${Math.floor(interval)} phút`;
+  }
+  return `${Math.floor(seconds)} giây`;
+};
 
 const StoryProgress = ({ stories, currentStoryIndex, progress }) => {
   return (
@@ -35,7 +68,7 @@ const StoryProgress = ({ stories, currentStoryIndex, progress }) => {
   );
 };
 
-const UserHeader = ({ user, onClose, storyType, isMuted, onToggleMute }) => {
+const UserHeader = ({ user, onClose, storyType, isMuted, onToggleMute, createdAt }) => {
   return (
     <div className="absolute top-10 left-4 right-4 z-50 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -44,7 +77,12 @@ const UserHeader = ({ user, onClose, storyType, isMuted, onToggleMute }) => {
           alt={user.name}
           className="w-10 h-10 rounded-full border-2 border-white object-cover"
         />
-        <span className="text-white font-medium text-sm drop-shadow">{user.name}</span>
+        <div className="flex flex-col leading-tight">
+          <span className="text-white font-medium text-sm drop-shadow">{user.name}</span>
+          {createdAt && (
+            <span className="text-white/80 text-xs drop-shadow">{formatTimeAgo(createdAt)}</span>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2">
         {(storyType === "video" || storyType === "audio") && (
@@ -191,6 +229,23 @@ const StorySlide = ({
 
   const currentStory = user.stories[currentStoryIndex];
 
+  useEffect(() => {
+    if (currentStory) {
+      router.post(
+        `/api/stories/${currentStory.id}/view`,
+        {},
+        {
+          preserveScroll: true,
+          preserveState: true,
+          onError: (err) => {
+            console.error("Failed to mark story as viewed", err);
+          },
+          showProgress: false,
+        }
+      );
+    }
+  }, [currentStory]);
+
   const handleToggleMute = useCallback(() => {
     setIsMuted((prev) => !prev);
   }, []);
@@ -289,6 +344,7 @@ const StorySlide = ({
         storyType={currentStory?.type}
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
+        createdAt={currentStory?.created_at}
       />
 
       <StoryContent

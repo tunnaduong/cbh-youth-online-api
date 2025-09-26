@@ -90,17 +90,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/saved/{savedPost}', [SavedPostsController::class, 'destroy'])->name('saved.destroy');
 });
 
-// Story routes for authenticated users (must be before catch-all routes)
-Route::middleware('auth')->group(function () {
-    Route::get('/stories', [StoryController::class, 'index'])->name('stories.index');
-    Route::post('/stories', [StoryController::class, 'store'])->name('stories.store');
-    Route::get('/stories/{story}', [StoryController::class, 'show'])->name('stories.show');
-    Route::delete('/stories/{story}', [StoryController::class, 'destroy'])->name('stories.destroy');
-    Route::post('/stories/{story}/view', [StoryController::class, 'markAsViewed'])->name('stories.view');
-    Route::post('/stories/{story}/react', [StoryController::class, 'react'])->name('stories.react');
-    Route::delete('/stories/{story}/react', [StoryController::class, 'removeReaction'])->name('stories.react.remove');
-});
-
 // API routes for stories (keep for API usage)
 Route::middleware('auth')->prefix('api')->group(function () {
     Route::get('/stories', [StoryController::class, 'index'])->name('api.stories.index');

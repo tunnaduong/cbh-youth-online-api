@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { IoIosAdd } from "react-icons/io";
 import { router, usePage } from "@inertiajs/react";
 import CreateStoryModal from "./CreateStoryModal";
@@ -12,12 +12,38 @@ function StoriesSection() {
   const [selectedUserStories, setSelectedUserStories] = useState(null);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [storiesData, setStoriesData] = useState(stories);
-  const [viewerKey, setViewerKey] = useState(0);
+  const isInitialRender = useRef(true);
+
+  useEffect(() => {
+    // This effect should only run when the viewer is closed,
+    // not on initial render or when it's opened.
+    if (isInitialRender.current) {
+      isInitialRender.current = false;
+      return;
+    }
+
+    if (!viewerModalOpen) {
+      router.reload({
+        only: ["stories"],
+        onSuccess: (page) => {
+          setStoriesData(page.props.stories);
+        },
+        preserveState: true,
+        showProgress: false,
+      });
+
+      // đợi animation Drawer (300ms) rồi reset internal pointers
+      setTimeout(() => {
+        setSelectedUserStories(null);
+        setCurrentStoryIndex(0);
+      }, 320);
+    }
+  }, [viewerModalOpen]);
 
   const handleCreateStory = () => {
     if (!auth?.user) {
       message.error("Bạn cần đăng nhập để tạo tin");
-      router.visit("/login", { preserveScroll: true });
+      router.visit("/login", { preserveScroll: true, showProgress: true });
       return;
     }
     setCreateModalOpen(true);
@@ -42,7 +68,6 @@ function StoriesSection() {
 
     setSelectedUserStories(userStories);
     setCurrentStoryIndex(storyIndex);
-    setViewerKey((k) => k + 1); // => force remount StoryViewer
     setViewerModalOpen(true);
   };
 
@@ -54,6 +79,7 @@ function StoriesSection() {
         // Update the local stories data with the new data from server
         setStoriesData(page.props.stories);
       },
+      preserveState: true,
     });
   };
 
@@ -164,13 +190,20 @@ function StoriesSection() {
               >
                 <span className="break-words">{firstStory.text_content}</span>
               </div>
-            ) : (
+            ) : firstStory.type === "image" ? (
               <img
                 src={firstStory.media_url}
                 alt={userStories.name}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
+            ) : (
+              <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center">
+                <span className="text-4xl mb-2">{firstStory.type === "audio" ? "🎵" : "🎥"}</span>
+                <span className="text-white text-sm">
+                  {firstStory.type === "audio" ? "Tin âm thanh" : "Tin video"}
+                </span>
+              </div>
             )}
             <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
             <p className="absolute bottom-2 left-1 right-0 text-white text-xs sm:text-sm font-semibold px-1 line-clamp-2 drop-shadow">
@@ -189,14 +222,7 @@ function StoriesSection() {
 
       <Drawer
         open={viewerModalOpen}
-        onClose={() => {
-          setViewerModalOpen(false);
-          // đợi animation Drawer (300ms) rồi reset internal pointers
-          setTimeout(() => {
-            setSelectedUserStories(null);
-            setCurrentStoryIndex(0);
-          }, 320);
-        }}
+        onClose={() => setViewerModalOpen(false)}
         width="100%"
         height="100%"
         placement="bottom"
@@ -213,7 +239,6 @@ function StoriesSection() {
         rootStyle={!viewerModalOpen ? { display: "none" } : {}}
       >
         <StoryViewer
-          key={viewerKey}
           users={storiesData}
           isOpen={viewerModalOpen}
           onClose={() => setViewerModalOpen(false)}
