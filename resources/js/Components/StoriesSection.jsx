@@ -200,13 +200,17 @@ function StoriesSection() {
         width="100%"
         height="100%"
         placement="bottom"
-        className="story-viewer-drawer"
         styles={{
           body: { padding: 0, height: "100vh", overflow: "hidden" },
-          content: { background: "#000" },
+          content: { background: "transparent", opacity: undefined },
+          mask: { boxShadow: "none" },
         }}
+        mask={false}
+        transitionName=""
         destroyOnHidden={false}
         closeIcon={null}
+        rootClassName="story-viewer-drawer"
+        rootStyle={!viewerModalOpen ? { display: "none" } : {}}
       >
         <StoryViewer
           key={viewerKey}

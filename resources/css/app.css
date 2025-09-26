@@ -838,3 +838,7 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+.story-viewer-drawer .ant-drawer-content-wrapper {
+  box-shadow: none !important;
+}

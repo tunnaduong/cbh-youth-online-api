@@ -1,5 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useDrag } from "@use-gesture/react";
+import { animated, useSpring, config } from "@react-spring/web";
 import { Drawer } from "antd";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { EffectCube } from "swiper/modules";
@@ -253,21 +255,42 @@ export const StoryViewer = ({
   users,
   isOpen = false,
   onClose,
+  onOpacityChange,
   selectedUserIndex = 0,
   selectedStoryIndex = 0,
 }) => {
   const [currentUserIndex, setCurrentUserIndex] = useState(selectedUserIndex);
   const swiperRef = useRef(null);
+  const [{ y, opacity }, api] = useSpring(() => ({
+    y: 0,
+    opacity: 1,
+    config: config.gentle,
+    onChange: ({ value }) => {
+      if (onOpacityChange) {
+        onOpacityChange(value.opacity);
+      }
+    },
+  }));
 
-  // khi component mount / isOpen true -> di chuyển swiper đến selectedUserIndex
+  const handleClose = useCallback(() => {
+    api.start({
+      y: window.innerHeight,
+      opacity: 0,
+      immediate: false,
+      onResolve: onClose,
+    });
+  }, [api, onClose]);
+
+  // when component mount / isOpen true -> di chuyển swiper đến selectedUserIndex
   useEffect(() => {
     if (isOpen) {
+      api.start({ y: 0, opacity: 1, immediate: true });
       setCurrentUserIndex(selectedUserIndex);
       if (swiperRef.current && typeof swiperRef.current.slideTo === "function") {
         swiperRef.current.slideTo(selectedUserIndex, 0); // no animation
       }
     }
-  }, [isOpen, selectedUserIndex]);
+  }, [isOpen, selectedUserIndex, api]);
 
   const handleUserChange = useCallback(
     (direction) => {
@@ -284,18 +307,45 @@ export const StoryViewer = ({
           swiperRef.current.slidePrev();
         }
       } else if (direction === "next" && currentUserIndex === users.length - 1) {
-        onClose();
+        handleClose();
       }
     },
-    [currentUserIndex, users.length, onClose]
+    [currentUserIndex, users.length, handleClose]
   );
 
   const handleSlideChange = useCallback((swiper) => {
     setCurrentUserIndex(swiper.activeIndex);
   }, []);
 
+  const bind = useDrag(
+    ({ last, movement: [, my], velocity: [, vy], direction: [, dy] }) => {
+      const isDraggingDown = dy > 0;
+      const yPos = my > 0 ? my : 0;
+
+      if (last) {
+        if (yPos > window.innerHeight / 3 || (vy > 0.5 && isDraggingDown)) {
+          handleClose();
+        } else {
+          api.start({ y: 0, opacity: 1 }); // Spring back
+        }
+      } else {
+        const newOpacity = 1 - yPos / window.innerHeight;
+        api.start({ y: yPos, opacity: newOpacity, immediate: true });
+      }
+    },
+    {
+      axis: "y",
+      filterTaps: true,
+      bounds: { top: 0 },
+    }
+  );
+
   return (
-    <div className="w-full h-screen bg-black">
+    <animated.div
+      {...bind()}
+      style={{ y, touchAction: "pan-x", opacity }}
+      className="w-full h-screen bg-black fixed inset-0"
+    >
       <Swiper
         onSwiper={(swiper) => (swiperRef.current = swiper)}
         effect="cube"
@@ -316,13 +366,13 @@ export const StoryViewer = ({
             <StorySlide
               user={user}
               isActive={index === currentUserIndex}
-              onClose={onClose}
+              onClose={handleClose}
               onUserChange={handleUserChange}
               initialStoryIndex={index === selectedUserIndex ? selectedStoryIndex : 0}
             />
           </SwiperSlide>
         ))}
       </Swiper>
-    </div>
+    </animated.div>
   );
 };
