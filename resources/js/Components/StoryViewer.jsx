@@ -5,7 +5,7 @@ import { animated, useSpring, config } from "@react-spring/web";
 import { Drawer } from "antd";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { EffectCube } from "swiper/modules";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, VolumeX, Volume2 } from "lucide-react";
 
 // Import Swiper styles
 import "swiper/css";
@@ -35,26 +35,41 @@ const StoryProgress = ({ stories, currentStoryIndex, progress }) => {
   );
 };
 
-const UserHeader = ({ user, onClose }) => {
+const UserHeader = ({ user, onClose, storyType, isMuted, onToggleMute }) => {
   return (
-    <div className="absolute top-16 left-4 right-4 z-50 flex items-center justify-between">
+    <div className="absolute top-10 left-4 right-4 z-50 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <img
           src={`https://api.chuyenbienhoa.com/v1.0/users/${user.username}/avatar`}
           alt={user.name}
           className="w-10 h-10 rounded-full border-2 border-white object-cover"
         />
-        <span className="text-white font-medium text-sm">{user.name}</span>
+        <span className="text-white font-medium text-sm drop-shadow">{user.name}</span>
       </div>
-      <button onClick={onClose} className="text-white hover:text-white/80 transition-colors p-2">
-        <X size={24} />
-      </button>
+      <div className="flex items-center gap-2">
+        {(storyType === "video" || storyType === "audio") && (
+          <button
+            onClick={onToggleMute}
+            className="text-white hover:text-white/80 transition-colors p-2"
+          >
+            {isMuted ? (
+              <VolumeX size={24} className="drop-shadow" />
+            ) : (
+              <Volume2 size={24} className="drop-shadow" />
+            )}
+          </button>
+        )}
+        <button onClick={onClose} className="text-white hover:text-white/80 transition-colors p-2">
+          <X size={24} className="drop-shadow" />
+        </button>
+      </div>
     </div>
   );
 };
 
-const StoryContent = ({ story, isActive, onNext }) => {
+const StoryContent = ({ story, isActive, onNext, isMuted }) => {
   const videoRef = useRef(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (story.type === "video" && videoRef.current) {
@@ -64,7 +79,28 @@ const StoryContent = ({ story, isActive, onNext }) => {
         videoRef.current.pause();
       }
     }
+    if (story.type === "audio" && audioRef.current) {
+      if (isActive) {
+        audioRef.current.play();
+      } else {
+        audioRef.current.pause();
+      }
+    }
   }, [isActive, story.type]);
+
+  // Cleanup effect to stop all media when component unmounts
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+  }, []);
 
   if (story.type === "video") {
     return (
@@ -73,7 +109,7 @@ const StoryContent = ({ story, isActive, onNext }) => {
         src={story.media_url}
         className="w-full h-full object-cover"
         autoPlay={isActive}
-        muted
+        muted={isMuted}
         playsInline
         onEnded={onNext}
       />
@@ -116,6 +152,17 @@ const StoryContent = ({ story, isActive, onNext }) => {
         <div className="text-sm text-gray-600 dark:text-gray-400 text-center px-2">
           Tin âm thanh
         </div>
+        <audio
+          ref={audioRef}
+          src={story.media_url}
+          autoPlay={isActive}
+          muted={isMuted}
+          playsInline
+          onEnded={onNext}
+          onTimeUpdate={(e) => {
+            // This can be used for progress if needed in the future
+          }}
+        />
       </div>
     );
   }
@@ -124,17 +171,29 @@ const StoryContent = ({ story, isActive, onNext }) => {
     <img
       src={story.media_url || "/placeholder.svg"}
       alt="Story content"
-      className="h-full object-cover mx-auto"
+      className="h-full object-contain mx-auto"
     />
   );
 };
 
-const StorySlide = ({ user, isActive, onClose, onUserChange, initialStoryIndex = 0 }) => {
+const StorySlide = ({
+  user,
+  isActive,
+  isViewerOpen,
+  onClose,
+  onUserChange,
+  initialStoryIndex = 0,
+}) => {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex);
   const [progress, setProgress] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
   const progressIntervalRef = useRef();
 
   const currentStory = user.stories[currentStoryIndex];
+
+  const handleToggleMute = useCallback(() => {
+    setIsMuted((prev) => !prev);
+  }, []);
 
   const stopProgress = useCallback(() => {
     if (progressIntervalRef.current) {
@@ -216,15 +275,28 @@ const StorySlide = ({ user, isActive, onClose, onUserChange, initialStoryIndex =
 
   return (
     <div className="relative w-full h-full bg-black">
+      <div className="absolute inset-x-0 top-0 h-1/6 bg-gradient-to-b from-black/30 to-transparent pointer-events-none" />
+
       <StoryProgress
         stories={user.stories}
         currentStoryIndex={currentStoryIndex}
         progress={progress}
       />
 
-      <UserHeader user={user} onClose={onClose} />
+      <UserHeader
+        user={user}
+        onClose={onClose}
+        storyType={currentStory?.type}
+        isMuted={isMuted}
+        onToggleMute={handleToggleMute}
+      />
 
-      <StoryContent story={currentStory} isActive={isActive} onNext={handleNextStory} />
+      <StoryContent
+        story={currentStory}
+        isActive={isActive && isViewerOpen}
+        onNext={handleNextStory}
+        isMuted={isMuted}
+      />
 
       {/* Touch areas for navigation */}
       <div className="absolute inset-0 flex">
@@ -366,6 +438,7 @@ export const StoryViewer = ({
             <StorySlide
               user={user}
               isActive={index === currentUserIndex}
+              isViewerOpen={isOpen}
               onClose={handleClose}
               onUserChange={handleUserChange}
               initialStoryIndex={index === selectedUserIndex ? selectedStoryIndex : 0}
