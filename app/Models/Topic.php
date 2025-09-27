@@ -15,6 +15,10 @@ class Topic extends Model
 
     protected $table = 'cyo_topics';
 
+    // Keep auto-incrementing but use randomized values
+    public $incrementing = true;
+    protected $keyType = 'int';
+
     // Define which fields are mass assignable
     protected $fillable = [
         'subforum_id',
@@ -166,22 +170,69 @@ class Topic extends Model
                 ->toArray();
 
             return $query->where(function ($q) use ($userId, $followingIds) {
-                $q->where(function ($subQ) {
-                    // Public posts
-                    $subQ->where('privacy', 'public')->where('hidden', 0);
-                })
-                    // User's own posts (of any privacy/hidden status)
+                $q->where('privacy', 'public')
+                    // User's own posts (of any privacy)
                     ->orWhere('user_id', $userId)
                     // Followers-only posts from followed users
                     ->orWhere(function ($subQ) use ($followingIds) {
                         $subQ->where('privacy', 'followers')
-                            ->where('hidden', 0)
                             ->whereIn('user_id', $followingIds);
                     });
             });
         }
 
         // For guests, only public posts
-        return $query->where('privacy', 'public')->where('hidden', 0);
+        return $query->where('privacy', 'public');
+    }
+
+    /**
+     * Scope để chỉ lấy những bài viết có quyền xem public
+     */
+    public function scopePublicOnly($query)
+    {
+        return $query->where('privacy', 'public');
+    }
+
+    /**
+     * Scope để lấy bài viết private (chỉ tác giả mới thấy)
+     */
+    public function scopePrivateOnly($query)
+    {
+        return $query->where('privacy', 'private');
+    }
+
+    /**
+     * Scope để lấy bài viết followers (chỉ người follow mới thấy)
+     */
+    public function scopeFollowersOnly($query)
+    {
+        return $query->where('privacy', 'followers');
+    }
+
+    /**
+     * Boot method to automatically generate randomized IDs
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($topic) {
+            if (empty($topic->id)) {
+                $topic->id = static::generateRandomizedId();
+            }
+        });
+    }
+
+    /**
+     * Generate a unique randomized ID
+     */
+    public static function generateRandomizedId(): int
+    {
+        do {
+            // Generate a random number between 100000 and 999999999
+            $randomizedId = rand(100000, 999999999);
+        } while (static::where('id', $randomizedId)->exists());
+
+        return $randomizedId;
     }
 }

@@ -88,7 +88,7 @@ class StoryController extends Controller
         $rules = [
             'content' => 'nullable|string',
             'media_type' => 'required|in:image,video,audio,text',
-            'privacy' => 'required|in:public,followers',
+            'privacy' => 'required|in:public,followers,private',
             'duration' => 'nullable|integer|min:1|max:30',
             'expires_at' => 'nullable|date'
         ];

@@ -1,5 +1,6 @@
 import ForumSection from "@/Components/ForumSection";
 import ForumStats from "@/Components/ForumStats";
+import SEOContent from "@/Components/SEOContent";
 import StoriesSection from "@/Components/StoriesSection";
 import TopPosts from "@/Components/TopPosts";
 import HomeLayout from "@/Layouts/HomeLayout";
@@ -16,6 +17,7 @@ export default function Home({ mainCategories, latestPosts, stats, currentSort }
           <TopPosts latestPosts={latestPosts} currentSort={currentSort} />
           <ForumSection mainCategories={mainCategories} />
           <ForumStats stats={stats} />
+          <SEOContent />
         </div>
       </div>
     </HomeLayout>

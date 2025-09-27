@@ -74,12 +74,27 @@ class ProfileController extends Controller
 
     private function renderProfile($username, $tab = 'posts')
     {
+        // Find user (database collation is case-insensitive)
         $user = AuthAccount::with([
             'profile',
             'posts' => function ($query) {
                 $query->latest()->take(10);
             }
-        ])->where('username', $username)->firstOrFail();
+        ])->where('username', $username)->first();
+
+        // If user found but username doesn't match exactly, redirect to correct username
+        if ($user && $user->username !== $username) {
+            $redirectUrl = $tab === 'posts'
+                ? route('profile.show', ['username' => $user->username])
+                : route('profile.show.tab', ['username' => $user->username, 'tab' => $tab]);
+
+            return redirect($redirectUrl, 301); // 301 permanent redirect
+        }
+
+        // If still no user found, throw 404
+        if (!$user) {
+            abort(404);
+        }
 
         // Check if current user is following this profile
         $isFollowing = false;
@@ -133,7 +148,6 @@ class ProfileController extends Controller
     private function getUserPosts($user, $username)
     {
         $query = $user->posts()
-            ->where('anonymous', false)
             ->with('author.profile')
             ->withCount(['views', 'comments'])
             ->withSum('votes', 'vote_value')
@@ -145,21 +159,11 @@ class ProfileController extends Controller
             $isOwnProfile = $user->id === $userId;
 
             if ($isOwnProfile) {
-                // User can see all their own posts (including private ones)
-                $query->where(function ($q) {
-                    $q->where(function ($subQ) {
-                        // Public posts (privacy = public AND hidden = 0)
-                        $subQ->where('privacy', 'public')
-                            ->where('hidden', 0);
-                    })
-                        ->orWhere(function ($subQ) {
-                            // Followers posts (privacy = followers AND hidden = 0)
-                            $subQ->where('privacy', 'followers')
-                                ->where('hidden', 0);
-                        })
-                        ->orWhere('hidden', 1); // Private posts (hidden = 1)
-                });
+                // User can see all their own posts regardless of privacy or hidden status. No extra filters needed.
             } else {
+                // For other users, hide anonymous posts
+                $query->where('anonymous', false);
+
                 // Check if current user is following this profile
                 $isFollowing = \App\Models\Follower::where('follower_id', $userId)
                     ->where('followed_id', $user->id)
@@ -167,27 +171,18 @@ class ProfileController extends Controller
 
                 if ($isFollowing) {
                     $query->where(function ($q) {
-                        $q->where(function ($subQ) {
-                            // Public posts (privacy = public AND hidden = 0)
-                            $subQ->where('privacy', 'public')
-                                ->where('hidden', 0);
-                        })
-                            ->orWhere(function ($subQ) {
-                                // Followers posts (privacy = followers AND hidden = 0)
-                                $subQ->where('privacy', 'followers')
-                                    ->where('hidden', 0);
-                            });
+                        $q->where('privacy', 'public')
+                            ->orWhere('privacy', 'followers');
                     });
                 } else {
                     // Only public posts
-                    $query->where('privacy', 'public')
-                        ->where('hidden', 0);
+                    $query->where('privacy', 'public');
                 }
             }
         } else {
-            // For non-authenticated users, only show public posts
-            $query->where('privacy', 'public')
-                ->where('hidden', 0);
+            // For non-authenticated users, hide anonymous posts and only show public
+            $query->where('anonymous', false)
+                ->where('privacy', 'public');
         }
 
         return $query->get()->each(function ($post) {

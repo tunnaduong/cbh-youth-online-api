@@ -1,7 +1,7 @@
 import { Head, Link, router, usePage } from "@inertiajs/react";
 import DefaultLayout from "@/Layouts/DefaultLayout";
 import PostItem from "@/Components/PostItem";
-import { Button } from "antd";
+import { Button, message } from "antd";
 import { useState } from "react";
 import axios from "axios";
 import FollowButton from "./Partials/FollowButton";
@@ -20,6 +20,7 @@ export default function Show({ profile, activeTab }) {
   const handleFollow = async () => {
     // Check if user is authenticated
     if (!auth.user) {
+      message.error("Vui lòng đăng nhập để theo dõi");
       router.visit("/login?continue=" + encodeURIComponent(window.location.href));
       return;
     }
@@ -45,6 +46,7 @@ export default function Show({ profile, activeTab }) {
   const handleFollowUser = async (username, isUnfollow = false) => {
     // Check if user is authenticated
     if (!auth.user) {
+      message.error("Vui lòng đăng nhập để theo dõi");
       router.visit("/login?continue=" + encodeURIComponent(window.location.href));
       return;
     }

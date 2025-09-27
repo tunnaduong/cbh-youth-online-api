@@ -78,7 +78,7 @@ export default function Category({ category }) {
                       </span>
                     </span>
                   </div>
-                  {subforum.latest_topic && (
+                  {subforum.latest_public_topic ? (
                     <div
                       style={{ maxWidth: "calc(42%)" }}
                       className="flex-1 bg-[#E7FFE4] dark:!bg-[#2b2d2c] dark:!border-[#545454] text-[13px] p-2 px-2 rounded-md flex-col hidden sm:flex border-all"
@@ -87,40 +87,47 @@ export default function Category({ category }) {
                         <span className="whitespace-nowrap mr-1">Mới nhất:</span>
                         <Link
                           href={route("posts.show", {
-                            username: subforum.latest_topic?.user?.username,
+                            username: subforum.latest_public_topic?.user?.username,
                             id: generatePostSlug(
-                              subforum.latest_topic?.id,
-                              subforum.latest_topic?.title
+                              subforum.latest_public_topic?.id,
+                              subforum.latest_public_topic?.title
                             ),
                           })}
                           className="text-[#319528] hover:text-[#319528] hover:underline inline-block text-ellipsis whitespace-nowrap overflow-hidden"
                         >
-                          {subforum.latest_topic?.title}
+                          {subforum.latest_public_topic?.title}
                         </Link>
                       </div>
                       <div className="flex items-center mt-1 text-[#319528]">
-                        {subforum.latest_topic?.anonymous ? (
+                        {subforum.latest_public_topic?.anonymous ? (
                           <span className="hover:text-[#319528] truncate">Người dùng ẩn danh</span>
                         ) : (
                           <>
                             <Link
                               href={route("profile.show", {
-                                username: subforum.latest_topic?.user?.username,
+                                username: subforum.latest_public_topic?.user?.username,
                               })}
                               className="hover:text-[#319528] hover:underline truncate"
                             >
-                              {subforum.latest_topic?.user?.profile?.profile_name ||
-                                subforum.latest_topic?.user?.username}
+                              {subforum.latest_public_topic?.user?.profile?.profile_name ||
+                                subforum.latest_public_topic?.user?.username}
                             </Link>
-                            {subforum.latest_topic?.user?.profile?.verified == "1" && (
+                            {subforum.latest_public_topic?.user?.profile?.verified == "1" && (
                               <VerifiedBadge />
                             )}
                           </>
                         )}
                         <span className="text-black shrink-0 dark:!text-[#f3f4f6]">
-                          , {moment(subforum.latest_topic?.created_at).fromNow()}
+                          , {moment(subforum.latest_public_topic?.created_at).fromNow()}
                         </span>
                       </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{ maxWidth: "calc(42%)", minHeight: 61 }}
+                      className="flex-1 bg-[#E7FFE4] dark:!bg-[#2b2d2c] dark:!border-[#545454] text-[13px] p-2 px-2 rounded-md flex-col hidden sm:flex border-all"
+                    >
+                      <span className="text-sm text-gray-500">Không có bài viết mới nhất</span>
                     </div>
                   )}
                 </div>

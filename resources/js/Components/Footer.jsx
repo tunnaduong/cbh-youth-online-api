@@ -126,8 +126,8 @@ export default function Footer() {
               </li>
               <li>
                 Hotline:{" "}
-                <a href="tel:+84707006421" className="hover:text-[#319527]">
-                  (+84) 7070 064 21
+                <a href="tel:+84365520031" className="hover:text-[#319527]">
+                  (+84) 3655 200 31
                 </a>
               </li>
               <li>

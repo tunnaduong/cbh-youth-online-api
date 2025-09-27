@@ -20,8 +20,8 @@ const CreatePostModal = ({ open, onClose }) => {
     description: "",
     subforum_id: null,
     image_files: [],
-    visibility: 0, // 0: public, 1: private (for hidden field)
-    privacy: "public", // public, followers
+    visibility: 0, // 0: not hidden from feed, 1: hidden from feed
+    privacy: "public", // public, followers, private
     anonymous: false, // false: normal post, true: anonymous post
   });
 
@@ -135,15 +135,10 @@ const CreatePostModal = ({ open, onClose }) => {
 
   const handleVisibilityChange = (value) => {
     setSelectedVisibility(value);
-    if (value === "private") {
-      // Use hidden field for private posts
-      setData("visibility", 1);
-      setData("privacy", "public"); // Keep privacy as public for private posts
-    } else {
-      // Use privacy field for public and followers
-      setData("visibility", 0);
-      setData("privacy", value);
-    }
+    // Always set visibility to 0 (not hidden from feed)
+    setData("visibility", 0);
+    // Set privacy based on selection
+    setData("privacy", value);
   };
 
   const visibilityMenuItems = [

@@ -184,7 +184,9 @@ export default function PostItem({ post, single = false }) {
                   })}
                 >
                   {post.author.profile_name || post.author.profile.profile_name}
-                  {(post.author.verified || post.author?.profile?.verified) && <VerifiedBadge />}
+                  {(post.author.verified ||
+                    post.author?.profile?.verified === true ||
+                    post.author?.profile?.verified === "1") && <VerifiedBadge />}
                 </Link>
               </>
             )}

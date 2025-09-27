@@ -25,8 +25,8 @@ class ForumController extends Controller
             'subforums' => function ($query) {
                 $query->withCount(['topics', 'comments']);
             },
-            'subforums.latestTopic.user.profile'
-        ])->get();
+            'subforums.latestPublicTopic.user.profile'
+        ])->orderBy('arrange', 'asc')->get();
 
         // Handle sorting based on query parameter
         $sort = $request->get('sort', 'latest');
@@ -83,6 +83,52 @@ class ForumController extends Controller
 
     public function feed()
     {
+        $query = $this->buildFeedQuery();
+
+        // Paginate posts
+        $paginatedPosts = $query->paginate(10);
+
+        $posts = collect($paginatedPosts->items())->map(function ($post) {
+            return $this->formatPostData($post);
+        });
+
+        return Inertia::render('Feed/Index', [
+            'posts' => $posts,
+            'pagination' => [
+                'current_page' => $paginatedPosts->currentPage(),
+                'last_page' => $paginatedPosts->lastPage(),
+                'per_page' => $paginatedPosts->perPage(),
+                'total' => $paginatedPosts->total(),
+                'has_more_pages' => $paginatedPosts->hasMorePages(),
+            ]
+        ]);
+    }
+
+    public function feedApi()
+    {
+        $query = $this->buildFeedQuery();
+
+        // Paginate posts
+        $paginatedPosts = $query->paginate(10);
+
+        $posts = collect($paginatedPosts->items())->map(function ($post) {
+            return $this->formatPostData($post);
+        });
+
+        return response()->json([
+            'posts' => $posts,
+            'pagination' => [
+                'current_page' => $paginatedPosts->currentPage(),
+                'last_page' => $paginatedPosts->lastPage(),
+                'per_page' => $paginatedPosts->perPage(),
+                'total' => $paginatedPosts->total(),
+                'has_more_pages' => $paginatedPosts->hasMorePages(),
+            ]
+        ]);
+    }
+
+    private function buildFeedQuery()
+    {
         $query = Topic::with(['user.profile', 'comments', 'votes'])
             ->withCount(['comments as reply_count', 'views'])
             ->orderBy('created_at', 'desc')
@@ -98,65 +144,57 @@ class ForumController extends Controller
                 ->toArray();
 
             $query->where(function ($q) use ($userId, $followingIds) {
-                $q->where(function ($subQ) {
-                    // Public posts (privacy = public AND hidden = 0)
-                    $subQ->where('privacy', 'public')
-                        ->where('hidden', 0);
-                })
+                $q->where('privacy', 'public')
                     ->orWhere('user_id', $userId) // User's own posts (including private ones)
                     ->orWhere(function ($subQ) use ($followingIds) {
-                        // Followers posts (privacy = followers AND hidden = 0)
+                        // Followers posts
                         $subQ->where('privacy', 'followers')
-                            ->where('hidden', 0)
                             ->whereIn('user_id', $followingIds);
                     });
             });
         } else {
             // For non-authenticated users, only show public posts
-            $query->where('privacy', 'public')
-                ->where('hidden', 0);
+            $query->where('privacy', 'public');
         }
 
-        $posts = $query->get()
-            ->map(function ($post) {
-                return [
-                    'id' => $post->id,
-                    'title' => $post->title,
-                    'content' => $post->content_html,
-                    'image_urls' => $post->getImageUrls()->map(function ($content) {
-                        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
-                    })->all(),
-                    'author' => $post->anonymous ? [
-                        'id' => null,
-                        'username' => 'Ẩn danh',
-                        'email' => null,
-                        'profile_name' => 'Người dùng ẩn danh',
-                        'verified' => false,
-                    ] : [
-                        'id' => $post->user->id,
-                        'username' => $post->user->username,
-                        'email' => $post->user->email,
-                        'profile_name' => $post->user->profile->profile_name ?? null,
-                        'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
-                    ],
-                    'anonymous' => $post->anonymous,
-                    'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
-                    'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
-                    'view_count' => $post->views_count,
-                    'votes' => $post->votes->map(function ($vote) {
-                        return [
-                            'username' => $vote->user->username,
-                            'vote_value' => $vote->vote_value,
-                            'created_at' => $vote->created_at->toISOString(),
-                            'updated_at' => $vote->updated_at->toISOString(),
-                        ];
-                    }),
-                ];
-            });
+        return $query;
+    }
 
-        return Inertia::render('Feed/index', [
-            'posts' => $posts
-        ]);
+    private function formatPostData($post)
+    {
+        return [
+            'id' => $post->id,
+            'title' => $post->title,
+            'content' => $post->content_html,
+            'image_urls' => $post->getImageUrls()->map(function ($content) {
+                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+            })->all(),
+            'author' => $post->anonymous ? [
+                'id' => null,
+                'username' => 'Ẩn danh',
+                'email' => null,
+                'profile_name' => 'Người dùng ẩn danh',
+                'verified' => false,
+            ] : [
+                'id' => $post->user->id,
+                'username' => $post->user->username,
+                'email' => $post->user->email,
+                'profile_name' => $post->user->profile->profile_name ?? null,
+                'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
+            ],
+            'anonymous' => $post->anonymous,
+            'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
+            'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
+            'view_count' => $post->views_count,
+            'votes' => $post->votes->map(function ($vote) {
+                return [
+                    'username' => $vote->user->username,
+                    'vote_value' => $vote->vote_value,
+                    'created_at' => $vote->created_at->toISOString(),
+                    'updated_at' => $vote->updated_at->toISOString(),
+                ];
+            }),
+        ];
     }
 
     public static function updateMaxOnline()
@@ -193,7 +231,7 @@ class ForumController extends Controller
             'subforums' => function ($query) {
                 $query->withCount(['topics', 'comments'])
                     ->with([
-                        'latestTopic as topics' => function ($q) {
+                        'latestPublicTopic' => function ($q) {
                             $q->with(['user.profile']);
                         }
                     ]);
@@ -221,23 +259,16 @@ class ForumController extends Controller
                 ->toArray();
 
             $query->where(function ($q) use ($userId, $followingIds) {
-                $q->where(function ($subQ) {
-                    // Public posts (privacy = public AND hidden = 0)
-                    $subQ->where('privacy', 'public')
-                        ->where('hidden', 0);
-                })
+                $q->where('privacy', 'public')
                     ->orWhere('user_id', $userId) // User's own posts (including private ones)
                     ->orWhere(function ($subQ) use ($followingIds) {
-                        // Followers posts (privacy = followers AND hidden = 0)
                         $subQ->where('privacy', 'followers')
-                            ->where('hidden', 0)
                             ->whereIn('user_id', $followingIds);
                     });
             });
         } else {
             // For non-authenticated users, only show public posts
-            $query->where('privacy', 'public')
-                ->where('hidden', 0);
+            $query->where('privacy', 'public');
         }
 
         $topics = $query->get();
@@ -432,7 +463,6 @@ class ForumController extends Controller
                 'topics' => function ($query) {
                     // For non-authenticated users, only show public posts
                     $query->where('privacy', 'public')
-                        ->where('hidden', 0)
                         ->latest('created_at')
                         ->with(['user.profile']);
                 }
@@ -460,8 +490,8 @@ class ForumController extends Controller
                 // Giữ lại phần đếm số topic và comment
                 $query->withCount(['topics', 'comments']);
             },
-            // Sử dụng relationship 'latestTopic' đã được định nghĩa chuẩn
-            'subforums.latestTopic.user.profile'
+            // Sử dụng relationship 'latestPublicTopic' để chỉ hiển thị bài viết public
+            'subforums.latestPublicTopic.user.profile'
         ])
             ->orderBy('arrange', 'asc')
             ->get();
@@ -474,7 +504,7 @@ class ForumController extends Controller
                 'created_at' => $category->created_at,
                 'updated_at' => $category->updated_at,
                 'subforums' => $category->subforums->map(function ($subforum) {
-                    $latestPost = $subforum->latestTopic;
+                    $latestPost = $subforum->latestPublicTopic;
                     return [
                         'id' => $subforum->id,
                         'main_category_id' => $subforum->main_category_id,
@@ -516,23 +546,17 @@ class ForumController extends Controller
                         ->toArray();
 
                     $query->where(function ($q) use ($userId, $followingIds) {
-                        $q->where(function ($subQ) {
-                            // Public posts (privacy = public AND hidden = 0)
-                            $subQ->where('privacy', 'public')
-                                ->where('hidden', 0);
-                        })
+                        $q->where('privacy', 'public')
                             ->orWhere('user_id', $userId) // User's own posts (including private ones)
                             ->orWhere(function ($subQ) use ($followingIds) {
-                                // Followers posts (privacy = followers AND hidden = 0)
+                                // Followers posts
                                 $subQ->where('privacy', 'followers')
-                                    ->where('hidden', 0)
                                     ->whereIn('user_id', $followingIds);
                             });
                     });
                 } else {
                     // For non-authenticated users, only show public posts
-                    $query->where('privacy', 'public')
-                        ->where('hidden', 0);
+                    $query->where('privacy', 'public');
                 }
 
                 // Now get the latest topic from the filtered results
@@ -616,8 +640,8 @@ class ForumController extends Controller
             ->findOrFail($postId);
 
         // Check privacy settings
-        if ($post->hidden == 1) {
-            // Only the author can see private posts (hidden = 1)
+        if ($post->privacy === 'private') {
+            // Only the author can see private posts (privacy = private)
             if (!auth()->check() || $post->user_id !== auth()->id()) {
                 abort(403, 'Bạn không có quyền xem bài viết này');
             }
@@ -796,23 +820,16 @@ class ForumController extends Controller
                 ->toArray();
 
             $query->where(function ($q) use ($userId, $followingIds) {
-                $q->where(function ($subQ) {
-                    // Public posts (privacy = public AND hidden = 0)
-                    $subQ->where('privacy', 'public')
-                        ->where('hidden', 0);
-                })
+                $q->where('privacy', 'public')
                     ->orWhere('user_id', $userId) // User's own posts (including private ones)
                     ->orWhere(function ($subQ) use ($followingIds) {
-                        // Followers posts (privacy = followers AND hidden = 0)
                         $subQ->where('privacy', 'followers')
-                            ->where('hidden', 0)
                             ->whereIn('user_id', $followingIds);
                     });
             });
         } else {
             // For non-authenticated users, only show public posts
-            $query->where('privacy', 'public')
-                ->where('hidden', 0);
+            $query->where('privacy', 'public');
         }
 
         $topics = $query->get();
@@ -876,7 +893,6 @@ class ForumController extends Controller
     private function getLatestPosts()
     {
         $query = Topic::with('user.profile')
-            ->where('hidden', false)
             ->orderBy('created_at', 'desc')
             ->take(10);
 
@@ -889,8 +905,9 @@ class ForumController extends Controller
 
             $query->where(function ($q) use ($userId, $followingIds) {
                 $q->where('privacy', 'public')
-                    ->orWhere('user_id', $userId)
+                    ->orWhere('user_id', $userId) // User's own posts (including private ones)
                     ->orWhere(function ($subQ) use ($followingIds) {
+                        // Followers posts
                         $subQ->where('privacy', 'followers')
                             ->whereIn('user_id', $followingIds);
                     });
@@ -906,7 +923,6 @@ class ForumController extends Controller
     private function getMostViewedPosts()
     {
         $query = Topic::with('user.profile')
-            ->where('hidden', false)
             ->withCount('views')
             ->orderBy('views_count', 'desc')
             ->take(10);
@@ -920,8 +936,9 @@ class ForumController extends Controller
 
             $query->where(function ($q) use ($userId, $followingIds) {
                 $q->where('privacy', 'public')
-                    ->orWhere('user_id', $userId)
+                    ->orWhere('user_id', $userId) // User's own posts (including private ones)
                     ->orWhere(function ($subQ) use ($followingIds) {
+                        // Followers posts
                         $subQ->where('privacy', 'followers')
                             ->whereIn('user_id', $followingIds);
                     });
@@ -937,7 +954,6 @@ class ForumController extends Controller
     private function getMostEngagedPosts()
     {
         $query = Topic::with('user.profile')
-            ->where('hidden', false)
             ->withCount(['comments', 'votes'])
             ->orderByRaw('(comments_count + votes_count) DESC')
             ->take(10);
@@ -951,8 +967,9 @@ class ForumController extends Controller
 
             $query->where(function ($q) use ($userId, $followingIds) {
                 $q->where('privacy', 'public')
-                    ->orWhere('user_id', $userId)
+                    ->orWhere('user_id', $userId) // User's own posts (including private ones)
                     ->orWhere(function ($subQ) use ($followingIds) {
+                        // Followers posts
                         $subQ->where('privacy', 'followers')
                             ->whereIn('user_id', $followingIds);
                     });

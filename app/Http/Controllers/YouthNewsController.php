@@ -17,44 +17,87 @@ class YouthNewsController extends Controller
      */
     public function index()
     {
-        $youthNews = Topic::with(['user.profile', 'comments', 'votes'])
+        $query = $this->buildYouthNewsQuery();
+
+        // Paginate youth news
+        $paginatedNews = $query->paginate(10);
+
+        $youthNews = collect($paginatedNews->items())->map(function ($post) {
+            return $this->formatYouthNewsData($post);
+        });
+
+        return Inertia::render('YouthNews/Index', [
+            'youthNews' => $youthNews,
+            'pagination' => [
+                'current_page' => $paginatedNews->currentPage(),
+                'last_page' => $paginatedNews->lastPage(),
+                'per_page' => $paginatedNews->perPage(),
+                'total' => $paginatedNews->total(),
+                'has_more_pages' => $paginatedNews->hasMorePages(),
+            ]
+        ]);
+    }
+
+    public function youthNewsApi()
+    {
+        $query = $this->buildYouthNewsQuery();
+
+        // Paginate youth news
+        $paginatedNews = $query->paginate(10);
+
+        $youthNews = collect($paginatedNews->items())->map(function ($post) {
+            return $this->formatYouthNewsData($post);
+        });
+
+        return response()->json([
+            'youthNews' => $youthNews,
+            'pagination' => [
+                'current_page' => $paginatedNews->currentPage(),
+                'last_page' => $paginatedNews->lastPage(),
+                'per_page' => $paginatedNews->perPage(),
+                'total' => $paginatedNews->total(),
+                'has_more_pages' => $paginatedNews->hasMorePages(),
+            ]
+        ]);
+    }
+
+    private function buildYouthNewsQuery()
+    {
+        return Topic::with(['user.profile', 'comments', 'votes'])
             ->withCount(['comments as reply_count', 'views'])
             ->orderBy('created_at', 'desc')
             ->where('hidden', false)
-            ->where('subforum_id', 32)
-            ->get()
-            ->map(function ($post) {
-                return [
-                    'id' => $post->id,
-                    'title' => $post->title,
-                    'content' => $post->content_html,
-                    'image_urls' => $post->getImageUrls()->map(function ($content) {
-                        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
-                    })->all(),
-                    'author' => [
-                        'id' => $post->user->id,
-                        'username' => $post->user->username,
-                        'email' => $post->user->email,
-                        'profile_name' => $post->user->profile->profile_name ?? null,
-                        'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
-                    ],
-                    'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
-                    'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
-                    'view_count' => $post->views_count,
-                    'votes' => $post->votes->map(function ($vote) {
-                        return [
-                            'username' => $vote->user->username,
-                            'vote_value' => $vote->vote_value,
-                            'created_at' => $vote->created_at->toISOString(),
-                            'updated_at' => $vote->updated_at->toISOString(),
-                        ];
-                    }),
-                ];
-            });
+            ->where('subforum_id', 32);
+    }
 
-        return Inertia::render('YouthNews/Index', [
-            'youthNews' => $youthNews
-        ]);
+    private function formatYouthNewsData($post)
+    {
+        return [
+            'id' => $post->id,
+            'title' => $post->title,
+            'content' => $post->content_html,
+            'image_urls' => $post->getImageUrls()->map(function ($content) {
+                return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+            })->all(),
+            'author' => [
+                'id' => $post->user->id,
+                'username' => $post->user->username,
+                'email' => $post->user->email,
+                'profile_name' => $post->user->profile->profile_name ?? null,
+                'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
+            ],
+            'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
+            'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
+            'view_count' => $post->views_count,
+            'votes' => $post->votes->map(function ($vote) {
+                return [
+                    'username' => $vote->user->username,
+                    'vote_value' => $vote->vote_value,
+                    'created_at' => $vote->created_at->toISOString(),
+                    'updated_at' => $vote->updated_at->toISOString(),
+                ];
+            }),
+        ];
     }
 
     private function roundToNearestFive($count)
