@@ -26,6 +26,7 @@ class Topic extends Model
         'cdn_image_id',
         'hidden',
         'anonymous',
+        'privacy',
     ];
 
     protected $appends = ['content'];
@@ -154,5 +155,33 @@ class Topic extends Model
     public function getUrl()
     {
         return "/{$this->user->username}/posts/{$this->id}-" . $this->getSlug();
+    }
+
+    public function scopeVisibleToCurrentUser($query)
+    {
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            return $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where(function ($subQ) {
+                    // Public posts
+                    $subQ->where('privacy', 'public')->where('hidden', 0);
+                })
+                    // User's own posts (of any privacy/hidden status)
+                    ->orWhere('user_id', $userId)
+                    // Followers-only posts from followed users
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        $subQ->where('privacy', 'followers')
+                            ->where('hidden', 0)
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        }
+
+        // For guests, only public posts
+        return $query->where('privacy', 'public')->where('hidden', 0);
     }
 }

@@ -23,21 +23,10 @@ class ForumController extends Controller
     {
         $mainCategories = ForumCategory::with([
             'subforums' => function ($query) {
-                $query->withCount(['topics', 'comments'])
-                    ->with([
-                        'topics' => function ($query) {
-                            $query->select('cyo_topics.*')
-                                ->join(DB::raw('(SELECT subforum_id, MAX(created_at) as max_created_at FROM cyo_topics GROUP BY subforum_id) as latest'), function ($join) {
-                                    $join->on('cyo_topics.subforum_id', '=', 'latest.subforum_id')
-                                        ->on('cyo_topics.created_at', '=', 'latest.max_created_at');
-                                })
-                                ->with('user.profile');
-                        }
-                    ]);
-            }
-        ])
-            ->orderBy('arrange')
-            ->get();
+                $query->withCount(['topics', 'comments']);
+            },
+            'subforums.latestTopic.user.profile'
+        ])->get();
 
         // Handle sorting based on query parameter
         $sort = $request->get('sort', 'latest');
@@ -94,11 +83,41 @@ class ForumController extends Controller
 
     public function feed()
     {
-        $posts = Topic::with(['user.profile', 'comments', 'votes'])
+        $query = Topic::with(['user.profile', 'comments', 'votes'])
             ->withCount(['comments as reply_count', 'views'])
             ->orderBy('created_at', 'desc')
-            ->where('hidden', false)
-            ->get()
+            ->where('hidden', false);
+
+        // Filter by privacy based on authentication and following status
+        if (auth()->check()) {
+            $userId = auth()->id();
+
+            // Get list of user IDs that the current user is following
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where(function ($subQ) {
+                    // Public posts (privacy = public AND hidden = 0)
+                    $subQ->where('privacy', 'public')
+                        ->where('hidden', 0);
+                })
+                    ->orWhere('user_id', $userId) // User's own posts (including private ones)
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        // Followers posts (privacy = followers AND hidden = 0)
+                        $subQ->where('privacy', 'followers')
+                            ->where('hidden', 0)
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        } else {
+            // For non-authenticated users, only show public posts
+            $query->where('privacy', 'public')
+                ->where('hidden', 0);
+        }
+
+        $posts = $query->get()
             ->map(function ($post) {
                 return [
                     'id' => $post->id,
@@ -174,7 +193,7 @@ class ForumController extends Controller
             'subforums' => function ($query) {
                 $query->withCount(['topics', 'comments'])
                     ->with([
-                        'latestTopic' => function ($q) {
+                        'latestTopic as topics' => function ($q) {
                             $q->with(['user.profile']);
                         }
                     ]);
@@ -188,12 +207,40 @@ class ForumController extends Controller
 
     public function subforum(ForumCategory $category, ForumSubforum $subforum)
     {
-        $topics = $subforum->topics()
+        $query = $subforum->topics()
             ->with(['user.profile', 'comments'])
             ->withCount(['comments as reply_count', 'views'])
             ->orderBy('pinned', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->orderBy('created_at', 'desc');
+
+        // Apply privacy filtering
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where(function ($subQ) {
+                    // Public posts (privacy = public AND hidden = 0)
+                    $subQ->where('privacy', 'public')
+                        ->where('hidden', 0);
+                })
+                    ->orWhere('user_id', $userId) // User's own posts (including private ones)
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        // Followers posts (privacy = followers AND hidden = 0)
+                        $subQ->where('privacy', 'followers')
+                            ->where('hidden', 0)
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        } else {
+            // For non-authenticated users, only show public posts
+            $query->where('privacy', 'public')
+                ->where('hidden', 0);
+        }
+
+        $topics = $query->get();
 
         return Inertia::render('Forum/Subforum', [
             'category' => $category,
@@ -358,7 +405,9 @@ class ForumController extends Controller
             $subforums = ForumSubforum::with([
                 'mainCategory',
                 'topics' => function ($query) {
-                    $query->latest('created_at')->with(['user.profile']);
+                    $query->visibleToCurrentUser()
+                        ->latest('created_at')
+                        ->with(['user.profile']);
                 }
             ])
                 ->where('active', true)
@@ -381,7 +430,11 @@ class ForumController extends Controller
             $subforums = ForumSubforum::with([
                 'mainCategory',
                 'topics' => function ($query) {
-                    $query->latest('created_at')->with(['user.profile']);
+                    // For non-authenticated users, only show public posts
+                    $query->where('privacy', 'public')
+                        ->where('hidden', 0)
+                        ->latest('created_at')
+                        ->with(['user.profile']);
                 }
             ])
                 ->where('active', true)
@@ -404,19 +457,11 @@ class ForumController extends Controller
     {
         $categories = ForumMainCategory::with([
             'subforums' => function ($query) {
-                $query->withCount('topics')
-                    ->withCount([
-                        'topics as comment_count' => function ($query) {
-                            $query->leftJoin('cyo_topic_comments', 'cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
-                                ->selectRaw('IFNULL(count(cyo_topic_comments.id), 0)');
-                        }
-                    ])
-                    ->with([
-                        'topics' => function ($query) {
-                            $query->latest('created_at')->with(['user.profile'])->limit(1);
-                        }
-                    ]);
-            }
+                // Giữ lại phần đếm số topic và comment
+                $query->withCount(['topics', 'comments']);
+            },
+            // Sử dụng relationship 'latestTopic' đã được định nghĩa chuẩn
+            'subforums.latestTopic.user.profile'
         ])
             ->orderBy('arrange', 'asc')
             ->get();
@@ -463,6 +508,34 @@ class ForumController extends Controller
     {
         $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with([
             'topics' => function ($query) {
+                // Apply privacy filtering first, then find the latest visible topic
+                if (auth()->check()) {
+                    $userId = auth()->id();
+                    $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                        ->pluck('followed_id')
+                        ->toArray();
+
+                    $query->where(function ($q) use ($userId, $followingIds) {
+                        $q->where(function ($subQ) {
+                            // Public posts (privacy = public AND hidden = 0)
+                            $subQ->where('privacy', 'public')
+                                ->where('hidden', 0);
+                        })
+                            ->orWhere('user_id', $userId) // User's own posts (including private ones)
+                            ->orWhere(function ($subQ) use ($followingIds) {
+                                // Followers posts (privacy = followers AND hidden = 0)
+                                $subQ->where('privacy', 'followers')
+                                    ->where('hidden', 0)
+                                    ->whereIn('user_id', $followingIds);
+                            });
+                    });
+                } else {
+                    // For non-authenticated users, only show public posts
+                    $query->where('privacy', 'public')
+                        ->where('hidden', 0);
+                }
+
+                // Now get the latest topic from the filtered results
                 $query->latest('created_at');
             }
         ])->get();
@@ -542,6 +615,29 @@ class ForumController extends Controller
             ->withCount(['comments as reply_count', 'views'])
             ->findOrFail($postId);
 
+        // Check privacy settings
+        if ($post->hidden == 1) {
+            // Only the author can see private posts (hidden = 1)
+            if (!auth()->check() || $post->user_id !== auth()->id()) {
+                abort(403, 'Bạn không có quyền xem bài viết này');
+            }
+        } elseif ($post->privacy === 'followers') {
+            // Only followers can see followers-only posts
+            if (!auth()->check()) {
+                abort(403, 'Bạn cần đăng nhập để xem bài viết này');
+            }
+
+            if ($post->user_id !== auth()->id()) {
+                $isFollowing = \App\Models\Follower::where('follower_id', auth()->id())
+                    ->where('followed_id', $post->user_id)
+                    ->exists();
+
+                if (!$isFollowing) {
+                    abort(403, 'Bạn cần theo dõi tác giả để xem bài viết này');
+                }
+            }
+        }
+
         // Handle anonymous posts
         if ($post->anonymous) {
             // For anonymous posts, the username in URL should be "anonymous"
@@ -560,7 +656,7 @@ class ForumController extends Controller
         }
 
         // Get the correct slug
-        $titleSlug = str()->slug($post->title, '-', 'vi');
+        $titleSlug = str()->slug($post->title, '-');
         if (empty($titleSlug)) {
             $titleSlug = 'untitled';
         }
@@ -686,12 +782,40 @@ class ForumController extends Controller
 
     public function getSubforumPosts(ForumSubforum $subforum)
     {
-        $topics = $subforum->topics()
+        $query = $subforum->topics()
             ->with(['user.profile', 'comments'])
             ->withCount(['comments as reply_count', 'views'])
             ->orderBy('pinned', 'desc')
-            ->orderBy('updated_at', 'desc')
-            ->get();
+            ->orderBy('updated_at', 'desc');
+
+        // Apply privacy filtering
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where(function ($subQ) {
+                    // Public posts (privacy = public AND hidden = 0)
+                    $subQ->where('privacy', 'public')
+                        ->where('hidden', 0);
+                })
+                    ->orWhere('user_id', $userId) // User's own posts (including private ones)
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        // Followers posts (privacy = followers AND hidden = 0)
+                        $subQ->where('privacy', 'followers')
+                            ->where('hidden', 0)
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        } else {
+            // For non-authenticated users, only show public posts
+            $query->where('privacy', 'public')
+                ->where('hidden', 0);
+        }
+
+        $topics = $query->get();
 
         return response()->json([
             'subforum' => [
@@ -751,32 +875,92 @@ class ForumController extends Controller
     // Lấy tất cả bài viết mới nhất trong tất cả các danh mục
     private function getLatestPosts()
     {
-        return Topic::with('user.profile')
+        $query = Topic::with('user.profile')
             ->where('hidden', false)
             ->orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
+            ->take(10);
+
+        // Apply privacy filtering
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where('privacy', 'public')
+                    ->orWhere('user_id', $userId)
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        $subQ->where('privacy', 'followers')
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        } else {
+            $query->where('privacy', 'public');
+        }
+
+        return $query->get();
     }
 
     // Lấy các bài viết có lượt xem nhiều nhất
     private function getMostViewedPosts()
     {
-        return Topic::with('user.profile')
+        $query = Topic::with('user.profile')
             ->where('hidden', false)
             ->withCount('views')
             ->orderBy('views_count', 'desc')
-            ->take(10)
-            ->get();
+            ->take(10);
+
+        // Apply privacy filtering
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where('privacy', 'public')
+                    ->orWhere('user_id', $userId)
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        $subQ->where('privacy', 'followers')
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        } else {
+            $query->where('privacy', 'public');
+        }
+
+        return $query->get();
     }
 
     // Lấy các bài viết có lượt xem và lượt tương tác (bình luận, like) nhiều nhất
     private function getMostEngagedPosts()
     {
-        return Topic::with('user.profile')
+        $query = Topic::with('user.profile')
             ->where('hidden', false)
             ->withCount(['comments', 'votes'])
             ->orderByRaw('(comments_count + votes_count) DESC')
-            ->take(10)
-            ->get();
+            ->take(10);
+
+        // Apply privacy filtering
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where('privacy', 'public')
+                    ->orWhere('user_id', $userId)
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        $subQ->where('privacy', 'followers')
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        } else {
+            $query->where('privacy', 'public');
+        }
+
+        return $query->get();
     }
 }

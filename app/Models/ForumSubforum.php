@@ -51,10 +51,25 @@ class ForumSubforum extends Model
     return $this->topics()->whereNotNull('created_at')->latest('created_at')->first();
   }
 
+  public function latestVisibleTopic()
+  {
+    return $this->hasOne(Topic::class, 'subforum_id')
+      ->visibleToCurrentUser()
+      ->latestOfMany();
+  }
+
+  /**
+   * Mối quan hệ để lấy BÀI VIẾT MỚI NHẤT,
+   * sử dụng scope có sẵn để lọc theo quyền xem.
+   */
   public function latestTopic()
   {
-    return $this->hasOne(Topic::class, 'subforum_id')->latestOfMany();
+    return $this->hasOne(Topic::class, 'subforum_id')
+      ->ofMany(['created_at' => 'max'], function ($query) {
+        $query->visibleToCurrentUser();
+      });
   }
+
 
   public function getRouteKeyName()
   {

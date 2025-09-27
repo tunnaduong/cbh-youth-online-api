@@ -5,7 +5,7 @@ import { generatePostSlug } from "@/Utils/slugify";
 import VerifiedBadge from "@/Components/ui/Badges";
 
 export default function ForumSection({ mainCategories }) {
-  // console.log(mainCategories);
+  console.log(mainCategories);
   return (
     <div className="max-w-[775px] w-[100%]">
       {mainCategories.map((category) => (
@@ -43,7 +43,7 @@ export default function ForumSection({ mainCategories }) {
                     </span>
                   </div>
                   {/* Mới nhất */}
-                  {subforum.topics.length !== 0 && (
+                  {subforum.latest_topic && subforum.latest_topic.length !== 0 && (
                     <div
                       style={{ maxWidth: "calc(42%)" }}
                       className="flex-1 bg-[#E7FFE4] dark:!bg-[#2b2d2c] dark:!border-[#545454] text-[13px] p-2 px-2 rounded-md flex-col hidden sm:flex border-all"
@@ -52,37 +52,40 @@ export default function ForumSection({ mainCategories }) {
                         <span className="whitespace-nowrap mr-1">Mới nhất:</span>
                         <Link
                           href={route("posts.show", {
-                            username: subforum.topics[0]?.user?.username,
-                            id: generatePostSlug(subforum.topics[0]?.id, subforum.topics[0]?.title),
+                            username: subforum.latest_topic?.user?.username,
+                            id: generatePostSlug(
+                              subforum.latest_topic?.id,
+                              subforum.latest_topic?.title
+                            ),
                           })}
                           className="text-[#319528] hover:text-[#319528] hover:underline inline-block text-ellipsis whitespace-nowrap overflow-hidden"
                         >
-                          {subforum.topics[0]?.title}
+                          {subforum.latest_topic?.title}
                         </Link>
                       </div>
                       <div className="flex items-center mt-1 text-[#319528]">
-                        {subforum.topics[0]?.anonymous ? (
+                        {subforum.latest_topic?.anonymous ? (
                           <span className="hover:text-[#319528] truncate">Người dùng ẩn danh</span>
                         ) : (
                           <>
                             <Link
                               href={route("profile.show", {
-                                username: subforum.topics[0]?.user?.username,
+                                username: subforum.latest_topic?.user?.username,
                               })}
                               className="hover:text-[#319528] hover:underline truncate"
                             >
-                              {subforum.topics[0]?.user?.profile?.profile_name ||
-                                subforum.topics[0]?.user?.username}
+                              {subforum.latest_topic?.user?.profile?.profile_name ||
+                                subforum.latest_topic?.user?.username}
                             </Link>
-                            {subforum.topics[0]?.user?.profile?.verified == "1" && (
+                            {subforum.latest_topic?.user?.profile?.verified === "1" && (
                               <VerifiedBadge />
                             )}
                           </>
                         )}
                         <span className="text-black shrink-0 dark:!text-[#f3f4f6]">
                           ,{" "}
-                          {subforum.topics[0]?.created_at
-                            ? moment(subforum.topics[0].created_at).fromNow()
+                          {subforum.latest_topic?.created_at
+                            ? moment(subforum.latest_topic.created_at).fromNow()
                             : ""}
                         </span>
                       </div>

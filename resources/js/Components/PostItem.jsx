@@ -11,7 +11,7 @@ import { ReactPhotoCollage } from "react-photo-collage";
 import VerifiedBadge from "@/Components/ui/Badges";
 import getCollageSetting from "@/Utils/getCollageSetting";
 import { useState } from "react";
-import { Button } from "antd";
+import { Button, ConfigProvider } from "antd";
 
 export default function PostItem({ post, single = false }) {
   const [showFullContent, setShowFullContent] = useState(false);
@@ -86,12 +86,23 @@ export default function PostItem({ post, single = false }) {
                 post.votes_sum_vote_value ||
                 0}
             </span>
-            <Button
-              size="small"
-              className="w-8 px-2 text-gray-400 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0"
+            <ConfigProvider
+              theme={{
+                components: {
+                  Button: {
+                    colorPrimaryHover: "#df0909",
+                    colorPrimaryActive: "#df0909",
+                  },
+                },
+              }}
             >
-              <ArrowDownOutline height="26px" width="26px" color="currentColor" />
-            </Button>
+              <Button
+                size="small"
+                className="w-8 px-2 text-gray-400 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0 downvote-button"
+              >
+                <ArrowDownOutline height="26px" width="26px" color="currentColor" />
+              </Button>
+            </ConfigProvider>
             <Button
               size="small"
               className="border-0 bg-[#EAEAEA] dark:bg-neutral-500 rounded-lg w-[33.6px] h-[33.6px] md:mt-3 flex items-center justify-center"

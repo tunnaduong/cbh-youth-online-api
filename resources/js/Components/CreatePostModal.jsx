@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modal, Input, Button, Select, message, Switch } from "antd";
+import { Modal, Input, Button, Select, message, Switch, Dropdown } from "antd";
 import CustomInput from "./ui/Input";
 import CustomColorButton from "./ui/CustomColorButton";
 import { usePage, useForm } from "@inertiajs/react";
@@ -13,13 +13,15 @@ const CreatePostModal = ({ open, onClose }) => {
   const [selectedSubforum, setSelectedSubforum] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [selectedVisibility, setSelectedVisibility] = useState("public");
 
   const { data, setData, post, processing, errors, reset } = useForm({
     title: "",
     description: "",
     subforum_id: null,
     image_files: [],
-    visibility: 0, // 0: public, 1: private
+    visibility: 0, // 0: public, 1: private (for hidden field)
+    privacy: "public", // public, followers
     anonymous: false, // false: normal post, true: anonymous post
   });
 
@@ -131,6 +133,76 @@ const CreatePostModal = ({ open, onClose }) => {
     setData("subforum_id", value);
   };
 
+  const handleVisibilityChange = (value) => {
+    setSelectedVisibility(value);
+    if (value === "private") {
+      // Use hidden field for private posts
+      setData("visibility", 1);
+      setData("privacy", "public"); // Keep privacy as public for private posts
+    } else {
+      // Use privacy field for public and followers
+      setData("visibility", 0);
+      setData("privacy", value);
+    }
+  };
+
+  const visibilityMenuItems = [
+    {
+      key: "public",
+      label: (
+        <div className="flex items-center gap-2">
+          <IoEarth className="text-base" />
+          <span>Công khai</span>
+        </div>
+      ),
+    },
+    {
+      key: "followers",
+      label: (
+        <div className="flex items-center gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+          >
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="m22 21-2-2" />
+            <path d="m16 16 2 2" />
+          </svg>
+          <span>Chỉ người theo dõi</span>
+        </div>
+      ),
+    },
+    {
+      key: "private",
+      label: (
+        <div className="flex items-center gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+          >
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+            <circle cx="12" cy="16" r="1" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span>Chỉ mình tôi</span>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <>
       <Modal
@@ -157,11 +229,59 @@ const CreatePostModal = ({ open, onClose }) => {
                 {auth?.user?.profile?.profile_name}
                 {auth?.user?.profile?.verified && <VerifiedBadge />}
               </span>
-              <button className="flex items-center bg-gray-200 dark:bg-neutral-500 gap-x-0.5 rounded-md px-1.5 py-0.5 cursor-pointer w-max">
-                <IoEarth className="text-base mt-[1px]" />
-                <span className="text-sm font-semibold">Công khai</span>
-                <IoCaretDown className="text-[9px] mt-[1px]" />
-              </button>
+              <Dropdown
+                menu={{
+                  items: visibilityMenuItems,
+                  onClick: ({ key }) => handleVisibilityChange(key),
+                }}
+                trigger={["click"]}
+                placement="bottomLeft"
+              >
+                <button className="flex items-center bg-gray-200 dark:bg-neutral-500 gap-x-0.5 rounded-md px-1.5 py-0.5 cursor-pointer w-max hover:bg-gray-300 dark:hover:bg-neutral-400 transition-colors">
+                  {selectedVisibility === "public" ? (
+                    <IoEarth className="text-base mt-[1px]" />
+                  ) : selectedVisibility === "followers" ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-4 h-4 mt-[1px]"
+                    >
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="m22 21-2-2" />
+                      <path d="m16 16 2 2" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-4 h-4 mt-[1px]"
+                    >
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <circle cx="12" cy="16" r="1" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  )}
+                  <span className="text-sm font-semibold">
+                    {selectedVisibility === "public"
+                      ? "Công khai"
+                      : selectedVisibility === "followers"
+                      ? "Chỉ người theo dõi"
+                      : "Chỉ mình tôi"}
+                  </span>
+                  <IoCaretDown className="text-[9px] mt-[1px]" />
+                </button>
+              </Dropdown>
             </div>
           </div>
           <form onSubmit={handleSubmit} className="flex flex-col space-y-4">

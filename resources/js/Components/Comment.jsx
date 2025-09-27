@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link } from "@inertiajs/react";
-import { Button, ConfigProvider } from "antd";
+import { Link, usePage, router } from "@inertiajs/react";
+import { Button, ConfigProvider, message } from "antd";
 import {
   MessageCircle,
   Edit,
@@ -24,6 +24,7 @@ export default function Comment({
   isLast,
   parentConnectorHovered,
 }) {
+  const { auth } = usePage().props;
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
   const [isReplying, setIsReplying] = useState(false);
@@ -190,35 +191,70 @@ export default function Comment({
                 )}
 
                 {/* Vote buttons */}
-                <Button size="small" className="h-8 px-2 text-gray-500 rounded-full border-0">
+                <Button
+                  size="small"
+                  className="h-8 px-2 text-gray-500 rounded-full border-0"
+                  onClick={() => {
+                    if (!auth.user) {
+                      message.error("Bạn cần đăng nhập để thực hiện hành động này");
+                      router.visit(route("login"));
+                    }
+                  }}
+                >
                   <UpvoteIcon />
                 </Button>
                 <span className="text-xs font-medium text-gray-500 dark:!text-gray-400 min-w-[1rem] text-center">
                   {voteCount}
                 </span>
-                <Button
-                  size="small"
-                  className="h-8 px-2 text-gray-500 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0"
+                <ConfigProvider
+                  theme={{
+                    components: {
+                      Button: {
+                        colorPrimaryHover: "#df0909",
+                        colorPrimaryActive: "#df0909",
+                      },
+                    },
+                  }}
                 >
-                  <DownvoteIcon />
-                </Button>
+                  <Button
+                    size="small"
+                    className="h-8 px-2 text-gray-500 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0"
+                    onClick={() => {
+                      if (!auth.user) {
+                        message.error("Bạn cần đăng nhập để thực hiện hành động này");
+                        router.visit(route("login"));
+                      }
+                    }}
+                  >
+                    <DownvoteIcon />
+                  </Button>
+                </ConfigProvider>
 
                 {/* Action buttons */}
                 <Button
                   size="small"
                   className="h-8 px-2 text-xs text-gray-500 dark:!text-gray-400 hover:text-gray-700 border-0 rounded-full"
-                  onClick={() => setIsReplying(!isReplying)}
+                  onClick={() => {
+                    if (!auth.user) {
+                      message.error("Bạn cần đăng nhập để thực hiện hành động này");
+                      router.visit(route("login"));
+                    } else {
+                      setIsReplying(!isReplying);
+                    }
+                  }}
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">Trả lời</span>
                 </Button>
-                <Button
-                  size="small"
-                  className="h-8 px-2 text-xs text-gray-500 dark:!text-gray-400 hover:text-gray-700 border-0 rounded-full"
-                  onClick={() => setIsEditing(!isEditing)}
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
+                {auth.user && auth.user.id === comment.author.id && (
+                  <Button
+                    size="small"
+                    className="h-8 px-2 text-xs text-gray-500 dark:!text-gray-400 hover:text-gray-700 border-0 rounded-full"
+                    onClick={() => setIsEditing(!isEditing)}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                )}
                 <Button
                   size="small"
                   className="h-8 px-2 text-xs text-gray-500 dark:!text-gray-400 hover:text-gray-700 border-0 rounded-full"

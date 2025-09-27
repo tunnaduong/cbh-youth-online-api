@@ -42,11 +42,41 @@ class TopicsController extends Controller
     public function index(Request $request)
     {
         // Fetch topics from the database with pagination
-        $topics = Topic::withCount(['views', 'comments'])
+        $query = Topic::withCount(['views', 'comments'])
             ->where('hidden', 0)
             ->orderBy('created_at', 'desc')
-            ->with(['user', 'votes.user', 'cdnUserContent'])
-            ->paginate(10) // Paginate with 10 items per page
+            ->with(['user', 'votes.user', 'cdnUserContent']);
+
+        // Filter by privacy based on authentication and following status
+        if (auth()->check()) {
+            $userId = auth()->id();
+
+            // Get list of user IDs that the current user is following
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+                ->pluck('followed_id')
+                ->toArray();
+
+            $query->where(function ($q) use ($userId, $followingIds) {
+                $q->where(function ($subQ) {
+                    // Public posts (privacy = public AND hidden = 0)
+                    $subQ->where('privacy', 'public')
+                        ->where('hidden', 0);
+                })
+                    ->orWhere('user_id', $userId) // User's own posts (including private ones)
+                    ->orWhere(function ($subQ) use ($followingIds) {
+                        // Followers posts (privacy = followers AND hidden = 0)
+                        $subQ->where('privacy', 'followers')
+                            ->where('hidden', 0)
+                            ->whereIn('user_id', $followingIds);
+                    });
+            });
+        } else {
+            // For non-authenticated users, only show public posts
+            $query->where('privacy', 'public')
+                ->where('hidden', 0);
+        }
+
+        $topics = $query->paginate(10) // Paginate with 10 items per page
             ->through(function ($topic) use ($request) {
                 // Check if user is moderator/admin (you may need to adjust this logic based on your role system)
                 $isModerator = $request->user() && (
@@ -268,7 +298,8 @@ class TopicsController extends Controller
             'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
             'image_files' => 'nullable|array',
             'image_files.*' => 'file|image|max:10240', // 10MB max for each image
-            'visibility' => 'nullable|integer|in:0,1', // 0: public, 1: private
+            'visibility' => 'nullable|integer|in:0,1', // 0: public, 1: private (for hidden field)
+            'privacy' => 'nullable|string|in:public,followers', // public, followers
             'anonymous' => 'nullable|boolean', // Anonymous posting
         ]);
 
@@ -309,6 +340,7 @@ class TopicsController extends Controller
             'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
             'cdn_image_id' => $cdnImageId,
             'hidden' => $request->visibility,
+            'privacy' => $request->privacy ?? 'public', // Default to public if not provided
             'anonymous' => $request->boolean('anonymous', false), // Default to false if not provided
         ]);
 

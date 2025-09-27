@@ -34,7 +34,7 @@ class Subforum extends Model
 
     public function posts()
     {
-        return $this->hasMany(Post::class, 'subforum_id');
+        return $this->hasMany(Topic::class, 'subforum_id');
     }
 
     public function moderator()
@@ -44,7 +44,19 @@ class Subforum extends Model
 
     public function lastPost()
     {
-        return $this->belongsTo(Post::class, 'last_post_id');
+        return $this->belongsTo(Topic::class, 'last_post_id');
+    }
+
+    /**
+     * Mối quan hệ để lấy BÀI VIẾT MỚI NHẤT,
+     * sử dụng scope có sẵn để lọc theo quyền xem.
+     */
+    public function latestTopic()
+    {
+        return $this->hasOne(Topic::class, 'subforum_id')
+            ->ofMany(['created_at' => 'max'], function ($query) {
+                $query->visibleToCurrentUser();
+            });
     }
 
     // Scope để lấy các diễn đàn con đang hoạt động

@@ -316,27 +316,27 @@ export default function Show({ profile, activeTab }) {
               </div>
               <div className="flex flex-col items-center gap-y-1 !px-6">
                 <div className="flex flex-wrap justify-center gap-y-1 px-3">
-                  <Link href="/Admin" className="px-3">
+                  <Link href={`/${profile.username}`} className="px-3">
                     <span className="text-gray-500">Bài đã đăng: </span>
-                    <span className="font-bold">12</span>
+                    <span className="font-bold">{profile.stats.posts}</span>
                   </Link>
                   <div className="px-3">
                     <span className="text-gray-500">Điểm: </span>
-                    <span className="font-bold">145</span>
+                    <span className="font-bold">{profile.stats.points}</span>
                   </div>
                 </div>
                 <div className="flex flex-wrap justify-center gap-y-1">
-                  <Link href="/Admin/following" className="px-3">
+                  <Link href={`/${profile.username}/following`} className="px-3">
                     <span className="text-gray-500">Đang theo dõi: </span>
-                    <span className="font-bold">0</span>
+                    <span className="font-bold">{profile.stats.following}</span>
                   </Link>
-                  <Link href="/Admin/followers" className="px-3">
+                  <Link href={`/${profile.username}/followers`} className="px-3">
                     <span className="text-gray-500">Người theo dõi: </span>
-                    <span className="font-bold follower_count">1</span>
+                    <span className="font-bold">{profile.stats.followers}</span>
                   </Link>
                   <div className="px-3">
                     <span className="text-gray-500">Lượt like: </span>
-                    <span className="font-bold">5</span>
+                    <span className="font-bold">{profile.stats.likes}</span>
                   </div>
                 </div>
               </div>
