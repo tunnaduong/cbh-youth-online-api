@@ -35,6 +35,7 @@
     "moment": "^2.30.1",
     "patch-package": "^8.0.0",
     "popper.js": "^1.16.1",
+    "react-google-recaptcha": "^3.1.0",
     "react-icons": "^5.5.0",
     "react-ionicons": "^4.2.1",
     "react-photo-collage": "github:SiddharthDongre/react-photo-collage-new",

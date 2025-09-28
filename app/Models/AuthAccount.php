@@ -10,6 +10,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Notifications\CustomResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Notifications\VerifyEmail;
 
 // cyo_auth_accounts model
 class AuthAccount extends Authenticatable implements MustVerifyEmail
@@ -21,6 +22,11 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     protected $table = 'cyo_auth_accounts';
     protected $fillable = ['username', 'password', 'email', 'last_activity', 'role'];
     protected $hidden = ['password'];
+
+    public function sendEmailVerificationNotification()
+    {
+        $this->notify(new VerifyEmail);
+    }
 
     /**
      * Scope a query to only include users of a given role.

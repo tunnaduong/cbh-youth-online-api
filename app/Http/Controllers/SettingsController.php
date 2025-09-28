@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class SettingsController extends Controller
 {
@@ -86,5 +87,49 @@ class SettingsController extends Controller
         }
 
         return redirect()->back()->with('success', 'Hồ sơ đã được cập nhật thành công!');
+    }
+
+    public function deleteAccount(Request $request)
+    {
+        \Log::info('Delete account request received', [
+            'user_id' => Auth::id(),
+            'request_data' => $request->all()
+        ]);
+
+        $user = Auth::user();
+
+        try {
+            $validated = $request->validate([
+                'password' => 'required|string',
+                'confirm_text' => 'required|string|in:XÓA TÀI KHOẢN',
+            ]);
+
+            \Log::info('Validation passed', ['validated' => $validated]);
+
+            // Verify password
+            if (!Hash::check($validated['password'], $user->password)) {
+                \Log::warning('Password verification failed');
+                return redirect()->back()->withErrors(['password' => 'Mật khẩu không chính xác.']);
+            }
+
+            \Log::info('Password verified, proceeding with account deletion');
+
+            // Delete user and related data
+            $user->delete();
+
+            // Logout user
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            \Log::info('Account deleted successfully');
+            return redirect()->route('login')->with('success', 'Tài khoản đã được xóa thành công.');
+        } catch (\Exception $e) {
+            \Log::error('Error deleting account', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return redirect()->back()->withErrors(['error' => 'Có lỗi xảy ra khi xóa tài khoản.']);
+        }
     }
 }

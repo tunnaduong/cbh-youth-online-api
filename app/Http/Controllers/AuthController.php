@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\VerifyEmail;
+use App\Notifications\VerifyEmail;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
 use Illuminate\Support\Str;
@@ -81,19 +81,11 @@ class AuthController extends Controller
             'profile_name' => $request->name,
         ]);
 
-        $verificationCode = AuthEmailVerificationCode::create([
-            'user_id' => $account->id,
-            'verification_code' => Str::random(60), // Generate token
-            'created_at' => now(),
-            'expires_at' => now()->addMinutes(30), // Set expiry time for 30 minutes
-        ]);
-
-
         // Optionally generate a token if using Sanctum/Passport
         $token = $account->createToken('authToken')->plainTextToken;
 
         // Send the verification email
-        Mail::to($account->email)->send(new VerifyEmail($account, $verificationCode->verification_code));
+        $account->notify(new VerifyEmail);
 
         // Retrieve the user by username or email
         $user = AuthAccount::where('username', $request->username)

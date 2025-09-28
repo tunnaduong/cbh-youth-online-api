@@ -254,7 +254,7 @@ export default function Navbar({ activeNav }) {
                       auth.profile.oauth_profile_picture
                         ? auth.profile.oauth_profile_picture
                         : !auth.profile.profile_picture
-                        ? "/assets/images/placeholder-user.jpg"
+                        ? "/images/placeholder-user.jpg"
                         : `https://api.chuyenbienhoa.com/v1.0/users/${auth.user.username}/avatar`
                     }
                   />
