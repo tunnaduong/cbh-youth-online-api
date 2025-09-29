@@ -8,7 +8,7 @@ import EmptyCommentsState from "@/Components/EmptyCommentsState";
 import { moment } from "@/Utils/momentConfig";
 import PostItem from "@/Components/PostItem";
 
-export default function Show({ post }) {
+export default function Show({ post, ogImage }) {
   const { auth } = usePage().props;
   const [comments, setComments] = useState(post.comments || []);
 
@@ -155,7 +155,10 @@ export default function Show({ post }) {
 
   return (
     <HomeLayout activeNav="home" activeBar={null}>
-      <Head title={post.title} />
+      <Head title={post.title}>
+        <meta property="og:image" content={ogImage} />
+        <meta name="twitter:image" content={ogImage} />
+      </Head>
       <div className="px-1 xl:min-h-screen pt-4">
         <PostItem post={post} single={true} />
         <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full mb-4">

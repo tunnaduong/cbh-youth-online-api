@@ -770,14 +770,19 @@ class ForumController extends Controller
             ];
         });
 
+        // Get the first image URL for og:image
+        $imageUrls = $post->getImageUrls()->map(function ($content) {
+            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        })->all();
+
+        $ogImage = !empty($imageUrls) ? $imageUrls[0] : asset('images/cyo_thumbnail.png');
+
         return Inertia::render('Posts/Show', [
             'post' => [
                 'id' => $post->id,
                 'title' => $post->title,
                 'content' => $post->content_html,
-                'image_urls' => $post->getImageUrls()->map(function ($content) {
-                    return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
-                })->all(),
+                'image_urls' => $imageUrls,
                 'votes' => $post->votes->map(function ($vote) {
                     return [
                         'username' => $vote->user->username, // Assuming votes relation includes the user
@@ -800,7 +805,8 @@ class ForumController extends Controller
                 ],
                 'anonymous' => $post->anonymous,
                 'comments' => $formattedComments,
-            ]
+            ],
+            'ogImage' => $ogImage
         ]);
     }
 
