@@ -9,7 +9,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 export default function Register() {
   const { data, setData, post, processing, errors, reset } = useForm({
     username: "",
-    fullname: "",
+    profile_name: "",
     email: "",
     password: "",
     password_confirmation: "",
@@ -67,12 +67,12 @@ export default function Register() {
                 <Input
                   placeholder="Họ và tên"
                   prefix={<IdcardOutlined />}
-                  name="fullname"
-                  value={data.fullname}
-                  onChange={(e) => setData("fullname", e.target.value)}
-                  status={errors.fullname ? "error" : ""}
+                  name="profile_name"
+                  value={data.profile_name}
+                  onChange={(e) => setData("profile_name", e.target.value)}
+                  status={errors.profile_name ? "error" : ""}
                 />
-                <InputError message={errors.fullname} className="mt-2" />
+                <InputError message={errors.profile_name} className="mt-2" />
               </div>
 
               <div className="space-y-2">

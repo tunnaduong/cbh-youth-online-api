@@ -16,10 +16,10 @@ export default function Footer() {
               <Link href="/help">Trợ giúp</Link>
             </li>
             <li>
-              <Link href="/">Điều khoản &amp; Quy định</Link>
+              <Link href={route("policy.terms")}>Điều khoản &amp; Quy định</Link>
             </li>
             <li>
-              <Link href="/">Chính sách quyền riêng tư</Link>
+              <Link href={route("policy.privacy")}>Chính sách quyền riêng tư</Link>
             </li>
           </ul>
         </div>
@@ -99,17 +99,17 @@ export default function Footer() {
             <h3 className="font-bold text-[16px]">Chính sách</h3>
             <ul className="list-none mt-3 flex flex-col gap-2">
               <li>
-                <Link href="/Admin/posts/213054" className="hover:text-[#319527]">
+                <Link href={route("policy.forum-rules")} className="hover:text-[#319527]">
                   Nội quy diễn đàn
                 </Link>
               </li>
               <li>
-                <Link href="/" className="hover:text-[#319527]">
+                <Link href={route("policy.privacy")} className="hover:text-[#319527]">
                   Chính sách bảo mật
                 </Link>
               </li>
               <li>
-                <Link href="/" className="hover:text-[#319527]">
+                <Link href={route("policy.terms")} className="hover:text-[#319527]">
                   Điều khoản sử dụng
                 </Link>
               </li>
@@ -120,8 +120,8 @@ export default function Footer() {
             <ul className="list-none mt-3 flex flex-col gap-2">
               <li>
                 Email:{" "}
-                <a href="mailto:cbhyouthonline@gmail.com" className="hover:text-[#319527]">
-                  cbhyouthonline@gmail.com
+                <a href="mailto:hotro@chuyenbienhoa.com" className="hover:text-[#319527]">
+                  hotro@chuyenbienhoa.com
                 </a>
               </li>
               <li>
@@ -146,7 +146,7 @@ export default function Footer() {
         <div className="flex flex-wrap -mx-4 text-[12px] py-4">
           <div className="w-full px-4 text-center">
             <p>
-              © {new Date().getFullYear()}{" "}
+              © 2020-{new Date().getFullYear()}{" "}
               <a href="https://fatties.vercel.app">
                 Công ty Cổ phần Giải pháp Giáo dục Fatties Software
               </a>{" "}

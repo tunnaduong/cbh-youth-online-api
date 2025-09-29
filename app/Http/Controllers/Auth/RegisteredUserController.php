@@ -5,20 +5,16 @@ namespace App\Http\Controllers\Auth;
 use App\Models\User;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Mail\VerifyEmail;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Auth\Events\Registered;
 use App\Providers\RouteServiceProvider;
-use App\Models\AuthEmailVerificationCode;
 
 class RegisteredUserController extends Controller
 {
@@ -39,7 +35,7 @@ class RegisteredUserController extends Controller
     {
         $request->validate([
             'username' => 'required|string|max:255|unique:' . AuthAccount::class . ',username',
-            'fullname' => 'required|string|max:255',
+            'profile_name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'recaptcha' => [
@@ -74,9 +70,9 @@ class RegisteredUserController extends Controller
         ]);
 
         UserProfile::create([
-            'auth_account_id' => $account->id, // Assuming 'user_id' is a foreign key in cyo_user_profiles
-            'profile_username' => $account->username, // Or other default values
-            'profile_name' => $request->name,
+            'auth_account_id' => $account->id,
+            'profile_username' => $account->username,
+            'profile_name' => $request->profile_name,
         ]);
 
         event(new Registered($account));

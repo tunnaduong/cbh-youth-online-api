@@ -17,7 +17,6 @@ use App\Http\Controllers\StoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ForumCategoryController;
 use App\Http\Controllers\Admin\ForumSubforumController;
-use App\Mail\VerifyEmail;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,10 +30,6 @@ use App\Mail\VerifyEmail;
 */
 
 Route::get('/', [ForumController::class, 'index'])->name('home');
-
-Route::get('/test/mail', function () {
-    return new VerifyEmail(Auth::user(), '123456');
-});
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
@@ -189,6 +184,44 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::delete('/settings/delete-account', [SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
+});
+
+// Policy routes
+Route::prefix('chinh-sach')->group(function () {
+    // Forum rules route
+    Route::get('/noi-quy-dien-dan', function () {
+        $topic = \App\Models\Topic::where('subforum_id', 10)
+            ->where('user_id', 45)
+            ->where('title', 'Quy định và hướng dẫn sử dụng diễn đàn CBH Youth Online')
+            ->first();
+
+        if (!$topic) {
+            abort(404, 'Bài viết không tồn tại');
+        }
+
+        // Get the username for the redirect
+        $username = $topic->user->username;
+        $titleSlug = str()->slug($topic->title, '-');
+        if (empty($titleSlug)) {
+            $titleSlug = 'untitled';
+        }
+        $correctSlug = $topic->id . '-' . $titleSlug;
+
+        return redirect()->route('posts.show', [
+            'username' => $username,
+            'id' => $correctSlug
+        ]);
+    })->name('policy.forum-rules');
+
+    // Privacy policy route
+    Route::get('/chinh-sach-bao-mat', function () {
+        return Inertia::render('Policies/Privacy');
+    })->name('policy.privacy');
+
+    // Terms of service route
+    Route::get('/dieu-khoan-su-dung', function () {
+        return Inertia::render('Policies/Terms');
+    })->name('policy.terms');
 });
 
 Route::get('/{username}', [ProfileController::class, 'show'])->name('profile.show');

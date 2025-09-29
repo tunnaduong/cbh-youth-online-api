@@ -11,6 +11,7 @@ import { TopUsersProvider } from "./Contexts/TopUsersContext";
 import { ConfigProvider, theme as antdTheme } from "antd";
 import { useState, useEffect } from "react";
 import LoadingScreen from "./Components/LoadingScreen";
+import BottomCTA from "./Components/BottomCTA";
 import viVN from "antd/locale/vi_VN";
 
 // Initialize Lucide icons when the DOM is loaded
@@ -29,8 +30,20 @@ createInertiaApp({
     }
     return appName; // Default title for home or pages without a specific title
   },
-  resolve: (name) =>
-    resolvePageComponent(`./Pages/${name}.jsx`, import.meta.glob("./Pages/**/*.jsx")),
+  resolve: (name) => {
+    const page = resolvePageComponent(`./Pages/${name}.jsx`, import.meta.glob("./Pages/**/*.jsx"));
+    page.then((module) => {
+      module.default.layout =
+        module.default.layout ||
+        ((page) => (
+          <>
+            {page}
+            <BottomCTA />
+          </>
+        ));
+    });
+    return page;
+  },
   setup({ el, App, props }) {
     const root = createRoot(el);
 

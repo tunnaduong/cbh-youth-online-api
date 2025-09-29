@@ -32,9 +32,9 @@ use App\Http\Controllers\ChatController;
 Route::prefix('v1.0')->group(function () {
     Route::post('/upload', [FileUploadController::class, 'upload']);
     Route::get('users/{username}/avatar', [UserController::class, 'getAvatar']);
-    Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset'])->name('password.reset');
+    Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset']);
 
-    Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify'])->name('verification.verify');
+    Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify']);
 
     Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
 
@@ -105,7 +105,7 @@ Route::prefix('v1.0')->group(function () {
         Route::delete('/topics/{id}/votes', [TopicsController::class, 'destroyTopicVote']);
         Route::delete('/user/saved-topics/{id}', [TopicsController::class, 'destroySavedTopic']);
         Route::put('/users/{username}/profile', [UserController::class, 'updateProfile']);
-        Route::post('/password/change', [PasswordResetController::class, 'changePassword'])->name('password.change');
+        Route::post('/password/change', [PasswordResetController::class, 'changePassword']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote']);
         Route::post('/comments/{id}/votes', [TopicsController::class, 'voteOnComment']);

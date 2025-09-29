@@ -28,6 +28,7 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
           className={`px-4 text-sm flex items-center hover:bg-gray-50 tab-button dark:hover:bg-neutral-500 ${
             currentSort === "latest" ? "tab-button-active" : ""
           }`}
+          preserveScroll
         >
           <span className="py-2">Bài mới</span>
         </Link>
@@ -36,6 +37,7 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
           className={`hidden sm:flex px-4 text-sm items-center bor-left hover:bg-gray-50 tab-button dark:border-[#585857] dark:hover:bg-neutral-500 ${
             currentSort === "most_viewed" ? "tab-button-active" : ""
           }`}
+          preserveScroll
         >
           <span className="py-2">Chủ đề xem nhiều</span>
         </Link>
@@ -44,6 +46,7 @@ export default function TopPosts({ latestPosts, currentSort = "latest" }) {
           className={`px-4 text-sm hidden sm:flex items-center bor-right bor-left hover:bg-gray-50 tab-button dark:border-[#585857] dark:hover:bg-neutral-500 ${
             currentSort === "most_engaged" ? "tab-button-active" : ""
           }`}
+          preserveScroll
         >
           <span className="py-2">Tương tác nhiều</span>
         </Link>
