@@ -12,6 +12,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/logo.png" type="image/png" sizes="32x32" />
+    <meta property="og:image" content="{{ asset('images/cyo_thumbnail.png') }}" />
+    <meta name="twitter:image" content="{{ asset('images/cyo_thumbnail.png') }}" />
+    <meta name="twitter:card" content="summary_large_image" />
 
     <!-- Scripts -->
     @routes
