@@ -1,5 +1,6 @@
 import React from "react";
 import DefaultLayout from "@/Layouts/DefaultLayout";
+import { Link } from "@inertiajs/react";
 
 export default function Terms() {
   return (
@@ -81,9 +82,9 @@ export default function Terms() {
 
             <p>
               Việc thu thập và sử dụng dữ liệu cá nhân của bạn được quy định tại{" "}
-              <a href={route("policy.privacy")} className="text-[#319527] hover:underline">
+              <Link href={route("policy.privacy")} className="text-[#319527] hover:underline">
                 Chính sách bảo mật
-              </a>
+              </Link>
               .
             </p>
 

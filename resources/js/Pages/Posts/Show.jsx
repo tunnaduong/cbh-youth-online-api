@@ -1,18 +1,22 @@
 import HomeLayout from "@/Layouts/HomeLayout";
 import { Head, Link } from "@inertiajs/react";
-import { useState } from "react";
-import { usePage } from "@inertiajs/react";
+import { useState, useEffect } from "react";
+import { usePage, router } from "@inertiajs/react";
 import { CommentInput } from "@/Components/CommentInput";
 import Comment from "@/Components/Comment";
 import EmptyCommentsState from "@/Components/EmptyCommentsState";
 import { moment } from "@/Utils/momentConfig";
 import PostItem from "@/Components/PostItem";
+import { message } from "antd";
 
-export default function Show({ post, ogImage }) {
+export default function Show({ post, ogImage, comments: initialComments }) {
   const { auth } = usePage().props;
-  const [comments, setComments] = useState(post.comments || []);
+  const [comments, setComments] = useState(initialComments || []);
 
-  console.log(post);
+  // Sync local state when server props update (e.g., after reload)
+  useEffect(() => {
+    setComments(initialComments || []);
+  }, [initialComments]);
 
   // Helper function to get time display
   const getTimeDisplay = (comment) => {
@@ -21,20 +25,27 @@ export default function Show({ post, ogImage }) {
       const commentTime = new Date(comment.created_at);
       const diffInMinutes = Math.floor((now - commentTime) / (1000 * 60));
 
-      if (diffInMinutes < 1) return "Just now";
-      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-      if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-      return `${Math.floor(diffInMinutes / 1440)}d ago`;
+      if (diffInMinutes < 1) return "Vừa xong";
+      if (diffInMinutes < 60) return `${diffInMinutes} phút trước`;
+      if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} giờ trước`;
+      return `${Math.floor(diffInMinutes / 1440)} ngày trước`;
     }
-    return "Unknown time";
+    return "Không rõ thời gian";
   };
 
   // Handle comment editing
   const handleEditComment = (commentId, newContent) => {
+    // Store original content for rollback
+    const originalComments = [...comments];
+
+    // Optimistically update comment in UI
     const updateCommentInTree = (comments) => {
       return comments.map((comment) => {
         if (comment.id === commentId) {
-          return { ...comment, content: newContent };
+          return {
+            ...comment,
+            content: newContent,
+          };
         }
         if (comment.replies) {
           return {
@@ -47,31 +58,57 @@ export default function Show({ post, ogImage }) {
     };
 
     setComments(updateCommentInTree(comments));
-    // Here you would typically make an API call to save the changes
-    console.log(`Editing comment ${commentId} with content: ${newContent}`);
+    message.success("Bình luận đã được cập nhật thành công");
+
+    router.put(
+      route("comments.update", commentId),
+      {
+        comment: newContent,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          // Comment was successfully updated, no need to do anything
+        },
+        onError: (errors) => {
+          // Rollback to original state on error
+          setComments(originalComments);
+          if (errors.comment) {
+            message.error(errors.comment);
+          } else {
+            message.error("Có lỗi xảy ra khi sửa bình luận");
+          }
+        },
+      }
+    );
   };
 
   // Handle adding replies
   const handleReplyToComment = (parentId, content) => {
+    // Optimistically add reply to UI
     const newReply = {
-      id: Date.now().toString(), // Simple ID generation
+      id: Date.now().toString(),
       content: content,
       author: {
         username: auth.user.username,
-        profile_name: auth.user.name || auth.user.username,
+        profile_name: auth.profile.profile_name || auth.user.username,
       },
-      created_at: moment(new Date().toISOString()).fromNow(),
+      created_at: "vài giây trước",
       votes: [],
       replies: [],
+      isPending: true,
     };
 
-    const addReplyToComment = (comments, level = 1) => {
+    let level2ParentId = null;
+
+    const addReplyToComment = (comments, level = 1, parentLevel2Id = null) => {
       return comments.map((comment) => {
         // Found the target comment
         if (comment.id === parentId) {
-          // If this is level 3, add as sibling instead of child
           if (level >= 3) {
-            return comment; // Don't add here, will be handled by parent
+            // Store level 2 parent ID when target is at level 3 or deeper
+            level2ParentId = parentLevel2Id;
+            return comment;
           }
 
           // Normal case: add as child
@@ -108,6 +145,7 @@ export default function Show({ post, ogImage }) {
               ...comment,
               replies: comment.replies.map((reply) => {
                 if (reply.replies && reply.replies.some((r) => r.id === parentId)) {
+                  level2ParentId = reply.id; // Store level 2 parent ID
                   return {
                     ...reply,
                     replies: [...reply.replies, newReply], // Add as sibling
@@ -121,7 +159,11 @@ export default function Show({ post, ogImage }) {
           // Continue searching deeper
           return {
             ...comment,
-            replies: addReplyToComment(comment.replies, level + 1),
+            replies: addReplyToComment(
+              comment.replies,
+              level + 1,
+              level === 1 ? comment.id : parentLevel2Id
+            ),
           };
         }
 
@@ -130,27 +172,119 @@ export default function Show({ post, ogImage }) {
     };
 
     const updatedComments = addReplyToComment(comments);
-    console.log("Updated comments after reply:", updatedComments);
     setComments(updatedComments);
-    // Here you would typically make an API call to save the reply
-    console.log(`Replying to comment ${parentId} with content: ${content}`);
+    message.success("Đã trả lời bình luận thành công");
+
+    router.post(
+      route("comments.store"),
+      {
+        comment: content,
+        replying_to: level2ParentId || parentId, // Use level 2 parent ID if available
+        topic_id: post.id,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          // Refresh only comments from server to replace pending items
+          router.reload({ only: ["comments"], preserveScroll: true, preserveState: true });
+        },
+        onError: (errors) => {
+          // Remove the optimistic reply on error
+          setComments(comments);
+          if (errors.comment) {
+            message.error(errors.comment);
+          } else {
+            message.error("Có lỗi xảy ra khi trả lời bình luận");
+          }
+        },
+      }
+    );
   };
 
   const handleSubmitComment = (content) => {
-    const newComment = {
-      id: Date.now().toString(), // Simple ID generation
+    // Optimistically add comment to UI
+    const tempComment = {
+      id: Date.now().toString(),
       content: content,
       author: {
         username: auth.user.username,
-        profile_name: auth.user.name || auth.user.username,
+        profile_name: auth.profile.profile_name || auth.user.username,
       },
-      created_at: moment(new Date().toISOString()).fromNow(),
+      created_at: "vài giây trước",
       votes: [],
       replies: [],
+      isPending: true,
     };
 
-    setComments([newComment, ...comments]);
-    // TODO: Make an API call to save the comment
+    setComments([tempComment, ...comments]);
+    message.success("Bình luận đã được đăng thành công");
+
+    router.post(
+      route("comments.store"),
+      {
+        comment: content,
+        topic_id: post.id,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          // Refresh only comments from server to replace pending items
+          router.reload({ only: ["comments"], preserveScroll: true, preserveState: true });
+        },
+        onError: (errors) => {
+          // Remove the optimistic comment on error
+          setComments(comments.filter((c) => c.id !== tempComment.id));
+          if (errors.comment) {
+            message.error(errors.comment);
+          } else {
+            message.error("Có lỗi xảy ra khi đăng bình luận");
+          }
+        },
+      }
+    );
+  };
+
+  const handleDeleteComment = (commentId) => {
+    // Store original comments for rollback
+    const originalComments = [...comments];
+
+    // Optimistically remove comment from UI
+    const removeCommentFromTree = (comments) => {
+      return comments
+        .filter((comment) => comment.id !== commentId)
+        .map((comment) => {
+          if (comment.replies) {
+            return {
+              ...comment,
+              replies: removeCommentFromTree(comment.replies),
+            };
+          }
+          return comment;
+        });
+    };
+
+    setComments(removeCommentFromTree(comments));
+    message.success("Bình luận đã được xóa thành công");
+
+    router.delete(
+      route("comments.destroy", commentId),
+      {},
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          // Comment was successfully deleted, no need to do anything
+        },
+        onError: (errors) => {
+          // Rollback to original state on error
+          setComments(originalComments);
+          if (errors.comment) {
+            message.error(errors.comment);
+          } else {
+            message.error("Có lỗi xảy ra khi xóa bình luận");
+          }
+        },
+      }
+    );
   };
 
   return (
@@ -166,7 +300,7 @@ export default function Show({ post, ogImage }) {
             <div className="flex flex-col space-y-1.5 p-6 text-xl -mb-4 font-semibold max-w-sm overflow-hidden whitespace-nowrap overflow-ellipsis">
               Bình luận
             </div>
-            <div className="p-6 pt-2 pb-0">
+            <div className="p-6 pt-2 pb-0 relative">
               {!auth?.user ? (
                 <div className="text-base">
                   <Link
@@ -181,7 +315,7 @@ export default function Show({ post, ogImage }) {
                 <CommentInput onSubmit={handleSubmitComment} />
               )}
               <div className="pb-6 pt-2">
-                {comments.length === 0 ? (
+                {!Array.isArray(comments) || comments.length === 0 ? (
                   <EmptyCommentsState />
                 ) : (
                   comments.map((comment) => (
@@ -191,6 +325,7 @@ export default function Show({ post, ogImage }) {
                         level={0}
                         onEdit={handleEditComment}
                         onReply={handleReplyToComment}
+                        onDelete={handleDeleteComment}
                         userAvatar={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
                         getTimeDisplay={getTimeDisplay}
                         parentConnectorHovered={false}
@@ -199,6 +334,7 @@ export default function Show({ post, ogImage }) {
                   ))
                 )}
               </div>
+              <div className="absolute bottom-0 left-0 w-full h-6 bg-white"></div>
             </div>
           </div>
         </div>

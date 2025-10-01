@@ -1,4 +1,4 @@
-import { Link } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import {
   ArrowUpOutline,
   ArrowDownOutline,
@@ -10,16 +10,58 @@ import { generatePostSlug } from "@/Utils/slugify";
 import { ReactPhotoCollage } from "react-photo-collage";
 import VerifiedBadge from "@/Components/ui/Badges";
 import getCollageSetting from "@/Utils/getCollageSetting";
-import { useState } from "react";
-import { Button, ConfigProvider } from "antd";
+import { useState, useEffect } from "react";
+import { Button, ConfigProvider, message } from "antd";
 
 export default function PostItem({ post, single = false }) {
+  const { auth } = usePage().props;
   const [showFullContent, setShowFullContent] = useState(false);
+  const [voteCount, setVoteCount] = useState(
+    post.votes?.reduce((acc, vote) => acc + vote.vote_value, 0) || post.votes_sum_vote_value || 0
+  );
+  const [userVote, setUserVote] = useState(null);
   const maxLength = 300; // Số ký tự tối đa trước khi truncate
+
+  useEffect(() => {
+    if (auth.user && post.votes) {
+      const vote = post.votes.find((v) => v.username === auth.user.username);
+      setUserVote(vote ? vote.vote_value : null);
+    }
+  }, [auth.user, post.votes]);
 
   const toggleShowFullContent = (e) => {
     e.preventDefault();
     setShowFullContent(!showFullContent);
+  };
+
+  const handleVote = (voteValue) => {
+    if (!auth?.user) {
+      router.visit(route("login") + "?continue=" + encodeURIComponent(window.location.href));
+      message.error("Bạn cần đăng nhập để thực hiện hành động này");
+      return;
+    }
+
+    // Optimistically update UI
+    const newVoteCount = voteCount + voteValue - (userVote || 0);
+    setVoteCount(newVoteCount);
+    setUserVote(voteValue);
+
+    router.post(
+      route("topics.vote", post.id),
+      { vote_value: voteValue },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          // Vote was successful, no need to do anything
+        },
+        onError: (errors) => {
+          // Rollback optimistic update
+          setVoteCount(voteCount);
+          setUserVote(userVote);
+          message.error("Có lỗi xảy ra khi vote");
+        },
+      }
+    );
   };
 
   const truncateHtml = (html, maxLength) => {
@@ -78,13 +120,25 @@ export default function PostItem({ post, single = false }) {
       <div className="post-container-post post-container mb-4 shadow-lg rounded-xl !p-6 bg-white flex flex-col-reverse md:flex-row">
         <div className="min-w-[72px]">
           <div className="sticky-reaction-bar items-center md:!mt-1 mt-3 gap-x-3 flex md:!flex-col flex-row md:ml-[-20px] text-[13px] font-semibold text-gray-400">
-            <Button size="small" className="w-8 px-2 text-gray-400 rounded-full border-0">
+            <Button
+              size="small"
+              className={`w-8 px-2 rounded-full border-0 ${
+                userVote === 1 ? "text-green-600" : "text-gray-400"
+              }`}
+              onClick={() => handleVote(userVote === 1 ? 0 : 1)}
+            >
               <ArrowUpOutline height="26px" width="26px" color="currentColor" />
             </Button>
-            <span className="select-none text-lg vote-count">
-              {post.votes?.reduce((acc, vote) => acc + vote.vote_value, 0) ||
-                post.votes_sum_vote_value ||
-                0}
+            <span
+              className={`select-none text-lg vote-count  ${
+                userVote === 1
+                  ? "text-primary-500"
+                  : userVote === -1
+                  ? "text-red-600"
+                  : "text-gray-500 dark:!text-gray-400"
+              }`}
+            >
+              {voteCount}
             </span>
             <ConfigProvider
               theme={{
@@ -98,7 +152,9 @@ export default function PostItem({ post, single = false }) {
             >
               <Button
                 size="small"
-                className="w-8 px-2 text-gray-400 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0 downvote-button"
+                className={`w-8 px-2 text-gray-400 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0
+                downvote-button ${userVote === -1 ? "text-red-600" : "text-gray-400"}`}
+                onClick={() => handleVote(userVote === -1 ? 0 : -1)}
               >
                 <ArrowDownOutline height="26px" width="26px" color="currentColor" />
               </Button>
@@ -148,7 +204,7 @@ export default function PostItem({ post, single = false }) {
             </div>
           )}
           <hr className="!my-5 border-t-2" />
-          <div className="flex-row flex-wrap flex text-[13px] items-center">
+          <div className="flex-row flex text-[13px] items-center">
             {post.anonymous ? (
               <>
                 <span className="relative flex shrink-0 overflow-hidden rounded-full w-8 h-8">
@@ -178,20 +234,26 @@ export default function PostItem({ post, single = false }) {
                 </Link>
                 <span className="text-gray-500 hidden md:block ml-2">Đăng bởi</span>
                 <Link
-                  className="flex flex-row items-center ml-2 md:ml-1 text-[#319527] hover:text-[#319527] font-bold hover:underline"
+                  className="flex flex-row items-center ml-2 md:ml-1 text-[#319527] hover:text-[#319527] font-bold hover:underline inline-verified truncate"
                   href={route("profile.show", {
                     username: post.author.username,
                   })}
                 >
-                  {post.author?.profile_name || post.author.profile?.profile_name}
+                  <span className="inline-verified__text truncate">
+                    {post.author?.profile_name || post.author.profile?.profile_name}
+                  </span>
                   {(post.author.verified ||
                     post.author?.profile?.verified === true ||
-                    post.author?.profile?.verified === "1") && <VerifiedBadge />}
+                    post.author?.profile?.verified === "1") && (
+                    <VerifiedBadge className="inline-verified__badge" />
+                  )}
                 </Link>
               </>
             )}
             <span className="mb-2 ml-0.5 text-sm text-gray-500">.</span>
-            <span className="ml-0.5 text-gray-500">{post.created_at_human || post.created_at}</span>
+            <span className="ml-0.5 text-gray-500 shrink-0">
+              {post.created_at_human || post.created_at}
+            </span>
             <div className="flex-1 flex-row-reverse items-center text-gray-500 hidden md:flex">
               <span>{(post.view_count || post.views_count) ?? 0}</span>
               <EyeOutline height="20px" width="20px" color={"#9ca3af"} className="ml-2 mr-1" />

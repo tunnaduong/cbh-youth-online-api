@@ -31,7 +31,7 @@ export default function Index({ savedTopics }) {
     <HomeLayout activeNav="home" activeBar="saved">
       <Head title="Đã lưu" />
 
-      <div className="px-1 xl:min-h-screen pt-4 md:max-w-[775px] mx-auto">
+      <div className="px-3 xl:min-h-screen py-4 md:max-w-[775px] mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Đã lưu</h1>
 
         {filteredTopics.length === 0 ? (

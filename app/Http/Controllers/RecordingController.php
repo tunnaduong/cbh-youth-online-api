@@ -19,8 +19,14 @@ class RecordingController extends Controller
             'author.profile',
             'cdnAudio',
             'cdnPreview',
-            'views'
-        ])->latest()->get();
+        ])
+            ->withCount('views')
+            ->latest()
+            ->get()
+            ->map(function ($recording) {
+                $recording->created_at_human = $recording->created_at->diffForHumans();
+                return $recording;
+            });
 
         return Inertia::render('Recordings/Index', [
             'recordings' => $recordings

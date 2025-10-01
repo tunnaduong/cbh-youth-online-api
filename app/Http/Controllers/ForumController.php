@@ -337,20 +337,6 @@ class ForumController extends Controller
             ->with('success', 'Chủ đề đã được tạo thành công.');
     }
 
-    public function showTopic(Topic $topic)
-    {
-        $topic->load(['user', 'subforum']);
-        $replies = $topic->replies()
-            ->with('user')
-            ->orderBy('created_at')
-            ->paginate(20);
-
-        return Inertia::render('Posts/Show', [
-            'topic' => $topic,
-            'replies' => $replies
-        ]);
-    }
-
     public function editTopic(Topic $topic)
     {
         $this->authorize('update', $topic);
@@ -806,7 +792,8 @@ class ForumController extends Controller
                 'anonymous' => $post->anonymous,
                 'comments' => $formattedComments,
             ],
-            'ogImage' => $ogImage
+            'ogImage' => $ogImage,
+            'comments' => $formattedComments
         ]);
     }
 

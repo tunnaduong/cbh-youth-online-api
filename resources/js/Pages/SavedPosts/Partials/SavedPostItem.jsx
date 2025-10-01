@@ -66,11 +66,13 @@ export default function SavedPostItem({ post, onUnsave }) {
               />
               <Link
                 href={route("profile.show", { username: post.author.username })}
-                className="text-[#319527] hover:underline flex items-center gap-1"
+                className="text-[#319527] hover:underline inline-verified truncate"
               >
-                {post.author.profile_name || post.author.profile?.profile_name}
+                <span className="inline-verified__text truncate">
+                  {post.author.profile_name || post.author.profile?.profile_name}
+                </span>
                 {(post.author.verified == "1" || post.author?.profile?.verified == "1") && (
-                  <VerifiedBadge />
+                  <VerifiedBadge className="inline-verified__badge" />
                 )}
               </Link>
             </div>

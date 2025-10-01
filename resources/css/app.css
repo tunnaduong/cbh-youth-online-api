@@ -842,3 +842,23 @@ body {
 .story-viewer-drawer .ant-drawer-content-wrapper {
   box-shadow: none !important;
 }
+
+/* CSS "ultimate" */
+.inline-verified {
+  /* inline container that aligns text + svg perfectly */
+  display: inline-flex;
+  align-items: center; /* vertical center the badge with text */
+  vertical-align: middle; /* when used inside text flow */
+  white-space: nowrap; /* keep name + badge on one line */
+}
+
+/* Text part (so you can style separately) */
+.inline-verified__text {
+  display: inline-block;
+}
+
+/* SVG badge sizing & sharpness */
+.inline-verified__badge {
+  display: inline-block;
+  flex: 0 0 auto;
+}

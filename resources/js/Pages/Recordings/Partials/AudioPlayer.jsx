@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { PlayCircle, PauseCircle, Volume2, VolumeX } from "lucide-react";
 import { Button } from "antd";
 import { Link } from "@inertiajs/react";
+import { generatePostSlug } from "@/Utils/slugify";
 
 export default function AudioPlayer({ src, title, className, thumbnail, content, id }) {
   const audioRef = useRef(null);
@@ -120,7 +121,7 @@ export default function AudioPlayer({ src, title, className, thumbnail, content,
                       {content.replace(/<[^>]*>/g, "").substring(0, 75)}
                       <Link
                         className="inline text-primary-500"
-                        href={route("recordings.show", { id: id })}
+                        href={route("recordings.show", { id: generatePostSlug(id, title) })}
                       >
                         ...Xem thêm
                       </Link>
@@ -137,7 +138,7 @@ export default function AudioPlayer({ src, title, className, thumbnail, content,
             <div className="flex gap-x-3">
               {/* Progress Bar */}
               <div className="flex-1 flex items-center gap-x-3">
-                <div className="flex text-sm text-gray-500 gap-x-1">
+                <div className="flex text-sm text-gray-500 gap-x-1 min-w-[100px] tabular-nums">
                   <span>{formatTime(currentTime)}</span>
                   <span>/</span>
                   <span>{formatTime(duration)}</span>

@@ -37,13 +37,13 @@ export default function BottomCTA() {
             </p>
             <div className="flex gap-2 sm:!gap-10">
               <Link
-                href="/login"
+                href={`${route("login")}?continue=${encodeURIComponent(window.location.href)}`}
                 className="mt-3 px-4 py-2 bg-gray-500 !text-white rounded-lg zoom-btn"
               >
                 Đã có tài khoản?
               </Link>
               <Link
-                href="/register"
+                href={`${route("register")}?continue=${encodeURIComponent(window.location.href)}`}
                 className="mt-3 px-4 py-2 bg-[#319528] !text-white rounded-lg zoom-btn"
               >
                 Tham gia ngay

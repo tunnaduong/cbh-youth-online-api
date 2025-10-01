@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, usePage, router } from "@inertiajs/react";
-import { Button, ConfigProvider, message } from "antd";
+import { Button, ConfigProvider, Input, message } from "antd";
 import {
   MessageCircle,
   Edit,
@@ -30,8 +30,10 @@ export default function Comment({
   const [isReplying, setIsReplying] = useState(false);
   const [isConnectorHovered, setIsConnectorHovered] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [localVotes, setLocalVotes] = useState(comment.votes || []);
 
   const handleSaveEdit = () => {
+    if (comment.isPending) return;
     if (onEdit) {
       onEdit(comment.id, editContent);
     }
@@ -44,6 +46,7 @@ export default function Comment({
   };
 
   const handleSubmitReply = (content) => {
+    if (comment.isPending) return;
     if (onReply) {
       onReply(comment.id, content);
     }
@@ -54,9 +57,67 @@ export default function Comment({
     setIsReplying(false);
   };
 
-  const voteCount = comment.votes
-    ? comment.votes.reduce((acc, vote) => acc + vote.vote_value, 0)
-    : 0;
+  const handleVote = async (voteValue) => {
+    if (comment.isPending) return;
+    if (!auth.user) {
+      message.error("Bạn cần đăng nhập để thực hiện hành động này");
+      router.visit(route("login") + "?continue=" + encodeURIComponent(window.location.href));
+      return;
+    }
+
+    const username = auth.user.username;
+    const existingVote = localVotes.find((vote) => vote.username === username);
+
+    // Optimistically update the UI
+    let newVotes = [...localVotes];
+
+    if (existingVote) {
+      if (existingVote.vote_value === voteValue) {
+        // User is undoing their vote
+        newVotes = localVotes.filter((vote) => vote.username !== username);
+      } else {
+        // User is changing their vote
+        newVotes = localVotes.map((vote) =>
+          vote.username === username ? { ...vote, vote_value: voteValue } : vote
+        );
+      }
+    } else {
+      // User is voting for the first time
+      newVotes = [...localVotes, { username, vote_value: voteValue }];
+    }
+
+    setLocalVotes(newVotes);
+
+    // Send the vote to the backend
+    try {
+      router.post(
+        route("comments.vote", { comment: comment.id }),
+        { vote_value: voteValue },
+        {
+          preserveScroll: true,
+          preserveState: true,
+          onError: (errors) => {
+            // Revert optimistic update on error
+            setLocalVotes(localVotes);
+            message.error("Có lỗi xảy ra khi vote bình luận");
+            console.error("Error voting on comment:", errors);
+          },
+        }
+      );
+    } catch (error) {
+      // Revert optimistic update on error
+      setLocalVotes(localVotes);
+      console.error("Error voting on comment:", error);
+    }
+  };
+
+  const voteCount = localVotes ? localVotes.reduce((acc, vote) => acc + vote.vote_value, 0) : 0;
+
+  const userVote = auth.user
+    ? localVotes.find((vote) => vote.username === auth.user.username)
+    : null;
+
+  const userVoteValue = userVote ? userVote.vote_value : 0;
 
   const CollapseIcon = () => <ChevronDown className="w-4 h-4" />;
 
@@ -96,7 +157,7 @@ export default function Comment({
       {isLast && (
         <div
           className="absolute bg-background"
-          style={{ left: "-12px", top: "21px", height: "100vh", width: "1px" }}
+          style={{ left: "-12px", top: "21px", height: "100%", width: "1px" }}
         />
       )}
 
@@ -141,10 +202,10 @@ export default function Comment({
             {/* Comment text or edit form */}
             {isEditing ? (
               <div className="space-y-2 mb-3">
-                <textarea
+                <Input.TextArea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full min-h-[60px] p-2 text-sm border border-gray-300 dark:!border-gray-600 dark:!bg-[#3C3C3C] rounded-md resize-y focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full min-h-[60px] p-2 text-sm"
                   placeholder="Sửa bình luận của bạn..."
                 />
                 <div className="flex gap-2">
@@ -176,7 +237,7 @@ export default function Comment({
             )}
 
             {/* Actions */}
-            {!isCollapsed && (
+            {!isCollapsed && !comment.isPending && (
               <div className="flex items-center gap-1 relative" style={{ marginLeft: "-10px" }}>
                 {comment.replies?.length > 0 && (
                   <div
@@ -193,17 +254,24 @@ export default function Comment({
                 {/* Vote buttons */}
                 <Button
                   size="small"
-                  className="h-8 px-2 text-gray-500 rounded-full border-0"
-                  onClick={() => {
-                    if (!auth.user) {
-                      message.error("Bạn cần đăng nhập để thực hiện hành động này");
-                      router.visit(route("login"));
-                    }
-                  }}
+                  className={`h-8 px-2 rounded-full border-0 ${
+                    userVoteValue === 1
+                      ? "text-primary-500"
+                      : "text-gray-500 hover:!text-primary-500"
+                  }`}
+                  onClick={() => handleVote(1)}
                 >
                   <UpvoteIcon />
                 </Button>
-                <span className="text-xs font-medium text-gray-500 dark:!text-gray-400 min-w-[1rem] text-center">
+                <span
+                  className={`text-xs font-medium min-w-[1rem] text-center ${
+                    userVoteValue === 1
+                      ? "text-primary-500"
+                      : userVoteValue === -1
+                      ? "text-red-600"
+                      : "text-gray-500 dark:!text-gray-400"
+                  }`}
+                >
                   {voteCount}
                 </span>
                 <ConfigProvider
@@ -218,13 +286,13 @@ export default function Comment({
                 >
                   <Button
                     size="small"
-                    className="h-8 px-2 text-gray-500 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0"
-                    onClick={() => {
-                      if (!auth.user) {
-                        message.error("Bạn cần đăng nhập để thực hiện hành động này");
-                        router.visit(route("login"));
-                      }
-                    }}
+                    className={`h-8 px-2 text-gray-500 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full
+                    border-0 ${
+                      userVoteValue === -1
+                        ? "text-red-600 dark:!text-red-400"
+                        : "text-gray-500 hover:!text-red-500"
+                    }`}
+                    onClick={() => handleVote(-1)}
                   >
                     <DownvoteIcon />
                   </Button>
@@ -237,7 +305,9 @@ export default function Comment({
                   onClick={() => {
                     if (!auth.user) {
                       message.error("Bạn cần đăng nhập để thực hiện hành động này");
-                      router.visit(route("login"));
+                      router.visit(
+                        route("login") + "?continue=" + encodeURIComponent(window.location.href)
+                      );
                     } else {
                       setIsReplying(!isReplying);
                     }
@@ -265,7 +335,7 @@ export default function Comment({
             )}
 
             {/* Reply Input */}
-            {isReplying && !isCollapsed && (
+            {isReplying && !isCollapsed && !comment.isPending && (
               <div className="mt-4">
                 <CommentInput
                   placeholder="Nhập trả lời của bạn..."
@@ -274,6 +344,11 @@ export default function Comment({
                   onCancel={handleCancelReply}
                 />
               </div>
+            )}
+
+            {/* Pending state helper text */}
+            {comment.isPending && !isCollapsed && (
+              <div className="text-sm text-gray-400 mt-2">Đang viết...</div>
             )}
           </div>
         </div>
