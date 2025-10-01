@@ -110,14 +110,14 @@ export default function RightSidebar() {
                 <Link href="/contact" className="w-fit hover:text-gray-700 dark:hover:text-white">
                   Liên hệ
                 </Link>
-                <Link
+                <a
                   href="https://stats.uptimerobot.com/i7pA9rBmTC/798634874"
                   className="w-fit hover:text-gray-700 dark:hover:text-white"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   Trạng thái
-                </Link>
+                </a>
                 <Link href="/ads" className="w-fit hover:text-gray-700 dark:hover:text-white">
                   Quảng cáo
                 </Link>
@@ -129,10 +129,16 @@ export default function RightSidebar() {
                 <Link href="/careers" className="w-fit hover:text-gray-700 dark:hover:text-white">
                   Việc làm
                 </Link>
-                <Link href="/terms" className="w-fit hover:text-gray-700 dark:hover:text-white">
+                <Link
+                  href={route("policy.terms")}
+                  className="w-fit hover:text-gray-700 dark:hover:text-white"
+                >
                   Điều khoản
                 </Link>
-                <Link href="/privacy" className="w-fit hover:text-gray-700 dark:hover:text-white">
+                <Link
+                  href={route("policy.privacy")}
+                  className="w-fit hover:text-gray-700 dark:hover:text-white"
+                >
                   Quyền riêng tư
                 </Link>
               </div>
