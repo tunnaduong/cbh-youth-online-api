@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, usePage, router } from "@inertiajs/react";
-import { Button, ConfigProvider, Input, message } from "antd";
+import { Button, ConfigProvider, Input, message, Dropdown, Modal } from "antd";
 import {
   MessageCircle,
   Edit,
@@ -19,6 +19,7 @@ export default function Comment({
   level = 0,
   onEdit,
   onReply,
+  onDelete,
   userAvatar,
   getTimeDisplay,
   isLast,
@@ -126,6 +127,37 @@ export default function Comment({
   const UpvoteIcon = () => <IoArrowUpSharp size={16} />;
   const DownvoteIcon = () => <IoArrowDownSharp size={16} />;
 
+  const canDelete = !!auth.user && auth.user.id === comment.author.id && !comment.isPending;
+
+  const confirmDelete = () => {
+    if (!auth.user) {
+      message.error("Bạn cần đăng nhập để thực hiện hành động này");
+      router.visit(route("login") + "?continue=" + encodeURIComponent(window.location.href));
+      return;
+    }
+    if (!canDelete) return;
+
+    Modal.confirm({
+      title: "Xác nhận xóa bình luận",
+      content: "Bạn có chắc chắn muốn xóa bình luận này không?",
+      okText: "Xóa",
+      cancelText: "Hủy",
+      okType: "danger",
+      onOk: () => {
+        if (onDelete) onDelete(comment.id);
+      },
+    });
+  };
+
+  const menuItems = [
+    {
+      key: "delete",
+      label: "Xóa bình luận",
+      danger: true,
+      onClick: confirmDelete,
+    },
+  ];
+
   return (
     <div className="relative">
       {/* Connector lines for nested comments */}
@@ -196,6 +228,9 @@ export default function Comment({
               <span className="text-gray-400">•</span>
               <span className="text-gray-500 dark:!text-gray-400 text-sm">
                 {comment.created_at}
+                {comment.updated_at && comment.updated_at !== comment.created_at && (
+                  <span className="ml-1">(đã chỉnh sửa)</span>
+                )}
               </span>
             </div>
 
@@ -325,12 +360,16 @@ export default function Comment({
                     <Edit className="w-4 h-4" />
                   </Button>
                 )}
-                <Button
-                  size="small"
-                  className="h-8 px-2 text-xs text-gray-500 dark:!text-gray-400 hover:text-gray-700 border-0 rounded-full"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
+                {canDelete && (
+                  <Dropdown menu={{ items: menuItems }} trigger={["click"]} placement="bottomLeft">
+                    <Button
+                      size="small"
+                      className="h-8 px-2 text-xs text-gray-500 dark:!text-gray-400 hover:text-gray-700 border-0 rounded-full"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </Dropdown>
+                )}
               </div>
             )}
 
@@ -365,6 +404,7 @@ export default function Comment({
               level={level + 1}
               onEdit={onEdit}
               onReply={onReply}
+              onDelete={onDelete}
               userAvatar={userAvatar}
               getTimeDisplay={getTimeDisplay}
               isLast={index === comment.replies.length - 1}

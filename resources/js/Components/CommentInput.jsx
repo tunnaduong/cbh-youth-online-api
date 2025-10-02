@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Button } from "antd";
+import { Button, Popover } from "antd";
 import { LuImage, LuType, LuArrowUp } from "react-icons/lu";
 import { RiEmojiStickerLine } from "react-icons/ri";
 import { usePage } from "@inertiajs/react";
+import data from "@emoji-mart/data";
+import Picker from "@emoji-mart/react";
 
 export function CommentInput({ placeholder = "Nhập bình luận của bạn...", onSubmit, onCancel }) {
   const [comment, setComment] = useState("");
   const [isFocused, setIsFocused] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const wrapperRef = useRef(null);
+  const textareaRef = useRef(null);
   const { auth } = usePage().props;
 
   const handleSubmit = () => {
@@ -32,9 +36,35 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
     }
   };
 
+  const insertEmojiAtCursor = (emojiNative) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setComment((prev) => prev + emojiNative);
+      return;
+    }
+
+    const start = textarea.selectionStart ?? comment.length;
+    const end = textarea.selectionEnd ?? comment.length;
+    const before = comment.substring(0, start);
+    const after = comment.substring(end);
+    const next = before + emojiNative + after;
+    setComment(next);
+
+    // Restore cursor after emoji
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const cursor = start + emojiNative.length;
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  };
+
   useEffect(() => {
     function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target) &&
+        !document.querySelector(".ant-popover")?.contains(event.target)
+      ) {
         setIsFocused(false);
       }
     }
@@ -64,6 +94,7 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
               onChange={(e) => setComment(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onKeyDown={handleKeyDown}
+              ref={textareaRef}
               placeholder={placeholder}
               rows={1}
               className="
@@ -94,9 +125,37 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
         >
           {/* Left side controls */}
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-muted">
-              <RiEmojiStickerLine className="h-5 w-5 text-muted-foreground" />
-            </Button>
+            <Popover
+              open={showEmoji}
+              onOpenChange={(open) => setShowEmoji(open)}
+              trigger={["click"]}
+              placement="topLeft"
+              content={
+                <div>
+                  <Picker
+                    data={data}
+                    onEmojiSelect={(emoji) => {
+                      insertEmojiAtCursor(emoji.native);
+                    }}
+                    previewPosition="none"
+                    searchPosition="none"
+                    navPosition="top"
+                    locale="vi"
+                    skinTonePosition="none"
+                  />
+                </div>
+              }
+              styles={{ body: { padding: 0 } }}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 rounded-full hover:bg-muted"
+                onClick={() => setShowEmoji(!showEmoji)}
+              >
+                <RiEmojiStickerLine className="h-5 w-5 text-muted-foreground" />
+              </Button>
+            </Popover>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-muted">
               <LuImage className="h-4 w-4 text-muted-foreground" />
             </Button>

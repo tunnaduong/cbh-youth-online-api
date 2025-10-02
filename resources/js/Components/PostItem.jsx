@@ -13,55 +13,70 @@ import getCollageSetting from "@/Utils/getCollageSetting";
 import { useState, useEffect } from "react";
 import { Button, ConfigProvider, message } from "antd";
 
-export default function PostItem({ post, single = false }) {
+export default function PostItem({ post, single = false, onVote }) {
   const { auth } = usePage().props;
   const [showFullContent, setShowFullContent] = useState(false);
-  const [voteCount, setVoteCount] = useState(
-    post.votes?.reduce((acc, vote) => acc + vote.vote_value, 0) || post.votes_sum_vote_value || 0
-  );
-  const [userVote, setUserVote] = useState(null);
+  const [isSaved, setIsSaved] = useState(!!post.is_saved);
   const maxLength = 300; // Số ký tự tối đa trước khi truncate
+  const myVote = post.votes?.find((v) => v.username === auth?.user?.username)?.vote_value || 0;
+  const votesCount =
+    post?.votes?.reduce((sum, v) => sum + v.vote_value, 0) || post.votes_sum_vote_value;
 
   useEffect(() => {
-    if (auth.user && post.votes) {
-      const vote = post.votes.find((v) => v.username === auth.user.username);
-      setUserVote(vote ? vote.vote_value : null);
-    }
-  }, [auth.user, post.votes]);
+    setIsSaved(!!post.is_saved);
+  }, [post.is_saved]);
 
   const toggleShowFullContent = (e) => {
     e.preventDefault();
     setShowFullContent(!showFullContent);
   };
 
-  const handleVote = (voteValue) => {
+  const savePost = (topicId) =>
+    new Promise((resolve, reject) => {
+      router.post(
+        route("saved.store"),
+        { topic_id: topicId },
+        {
+          preserveScroll: true,
+          showProgress: false,
+          onSuccess: () => resolve(),
+          onError: (err) => reject(err),
+        }
+      );
+    });
+
+  const unsavePost = (topicId) =>
+    new Promise((resolve, reject) => {
+      router.delete(route("saved.destroy", { savedPost: topicId }), {
+        preserveScroll: true,
+        showProgress: false,
+        onSuccess: () => resolve(),
+        onError: (err) => reject(err),
+      });
+    });
+
+  const handleSavePost = async () => {
     if (!auth?.user) {
       router.visit(route("login") + "?continue=" + encodeURIComponent(window.location.href));
       message.error("Bạn cần đăng nhập để thực hiện hành động này");
       return;
     }
 
-    // Optimistically update UI
-    const newVoteCount = voteCount + voteValue - (userVote || 0);
-    setVoteCount(newVoteCount);
-    setUserVote(voteValue);
+    const newSavedStatus = !isSaved;
+    setIsSaved(newSavedStatus);
 
-    router.post(
-      route("topics.vote", post.id),
-      { vote_value: voteValue },
-      {
-        preserveScroll: true,
-        onSuccess: () => {
-          // Vote was successful, no need to do anything
-        },
-        onError: (errors) => {
-          // Rollback optimistic update
-          setVoteCount(voteCount);
-          setUserVote(userVote);
-          message.error("Có lỗi xảy ra khi vote");
-        },
+    try {
+      if (newSavedStatus) {
+        await savePost(post.id);
+        message.success("Đã lưu bài viết");
+      } else {
+        await unsavePost(post.id);
       }
-    );
+    } catch (error) {
+      // Revert UI if API call fails
+      setIsSaved(!newSavedStatus);
+      message.error("Có lỗi xảy ra khi lưu/bỏ lưu");
+    }
   };
 
   const truncateHtml = (html, maxLength) => {
@@ -123,22 +138,18 @@ export default function PostItem({ post, single = false }) {
             <Button
               size="small"
               className={`w-8 px-2 rounded-full border-0 ${
-                userVote === 1 ? "text-green-600" : "text-gray-400"
+                myVote === 1 ? "text-primary-500" : "text-gray-400"
               }`}
-              onClick={() => handleVote(userVote === 1 ? 0 : 1)}
+              onClick={() => onVote(post.id, myVote === 1 ? 0 : 1)}
             >
               <ArrowUpOutline height="26px" width="26px" color="currentColor" />
             </Button>
             <span
-              className={`select-none text-lg vote-count  ${
-                userVote === 1
-                  ? "text-primary-500"
-                  : userVote === -1
-                  ? "text-red-600"
-                  : "text-gray-500 dark:!text-gray-400"
+              className={`select-none text-lg vote-count ${
+                myVote === 1 ? "text-primary-500" : myVote === -1 ? "text-red-600" : "text-gray-400"
               }`}
             >
-              {voteCount}
+              {votesCount}
             </span>
             <ConfigProvider
               theme={{
@@ -152,18 +163,24 @@ export default function PostItem({ post, single = false }) {
             >
               <Button
                 size="small"
-                className={`w-8 px-2 text-gray-400 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0
-                downvote-button ${userVote === -1 ? "text-red-600" : "text-gray-400"}`}
-                onClick={() => handleVote(userVote === -1 ? 0 : -1)}
+                className={`w-8 px-2 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full border-0
+                downvote-button ${myVote === -1 ? "text-red-600" : "text-gray-400"}`}
+                onClick={() => onVote(post.id, myVote === -1 ? 0 : -1)}
               >
                 <ArrowDownOutline height="26px" width="26px" color="currentColor" />
               </Button>
             </ConfigProvider>
             <Button
               size="small"
-              className="border-0 bg-[#EAEAEA] dark:bg-neutral-500 rounded-lg w-[33.6px] h-[33.6px] md:mt-3 flex items-center justify-center"
+              onClick={handleSavePost}
+              aria-label={isSaved ? "Bỏ lưu bài viết" : "Lưu bài viết"}
+              className={`border-0 rounded-lg w-[33.6px] h-[33.6px] md:mt-3 flex items-center justify-center ${
+                isSaved
+                  ? "bg-green-100 hover:!bg-green-200 text-green-600"
+                  : "bg-[#EAEAEA] dark:bg-neutral-500 hover:!bg-[#e1e2e4]"
+              }`}
             >
-              <Bookmark height="20px" width="20px" color={"#9ca3af"} />
+              <Bookmark height="20px" width="20px" color={isSaved ? "#16a34a" : "#9ca3af"} />
             </Button>
             <div className="flex-1"></div>
             <div className="flex-1 flex md:hidden flex-row-reverse items-center text-gray-500">

@@ -11,228 +11,240 @@ use Illuminate\Support\Str;
 
 class Topic extends Model
 {
-    use HasFactory;
+  use HasFactory;
 
-    protected $table = 'cyo_topics';
+  protected $table = 'cyo_topics';
 
-    // Keep auto-incrementing but use randomized values
-    public $incrementing = true;
-    protected $keyType = 'int';
+  // Keep auto-incrementing but use randomized values
+  public $incrementing = true;
+  protected $keyType = 'int';
 
-    // Define which fields are mass assignable
-    protected $fillable = [
-        'subforum_id',
-        'user_id',
-        'title',
-        'description',
-        'content_html',
-        'pinned',
-        'cdn_image_id',
-        'hidden',
-        'anonymous',
-        'privacy',
-    ];
+  // Define which fields are mass assignable
+  protected $fillable = [
+    'subforum_id',
+    'user_id',
+    'title',
+    'description',
+    'content_html',
+    'pinned',
+    'cdn_image_id',
+    'hidden',
+    'anonymous',
+    'privacy',
+  ];
 
-    protected $appends = ['content'];
+  protected $appends = ['content'];
 
-    // Define the relationship: A topic belongs to a user
-    public function user()
-    {
-        return $this->belongsTo(AuthAccount::class, 'user_id');
+  // Define the relationship: A topic belongs to a user
+  public function user()
+  {
+    return $this->belongsTo(AuthAccount::class, 'user_id');
+  }
+
+  public function author()
+  {
+    return $this->belongsTo(AuthAccount::class, 'user_id'); // Adjust 'user_id' if necessary
+  }
+
+  public function views()
+  {
+    return $this->hasMany(TopicView::class, 'topic_id'); // Adjust 'topic_id' if necessary
+  }
+
+  public function votes()
+  {
+    return $this->hasMany(TopicVote::class, 'topic_id');
+  }
+
+  public function comments()
+  {
+    return $this->hasMany(TopicComment::class, 'topic_id'); // Adjust 'topic_id' if necessary
+  }
+
+  public function isPinned()
+  {
+    return $this->pinned;
+  }
+
+  public function subforum()
+  {
+    return $this->belongsTo(ForumSubforum::class, 'subforum_id');
+  }
+
+  public function isSavedByUser($userId)
+  {
+    return $this->savedTopics()->where('user_id', $userId)->exists();
+  }
+
+  public function savedTopics()
+  {
+    // Adjust the relationship to match your database structure
+    return $this->belongsToMany(AuthAccount::class, 'cyo_user_saved_topics', 'topic_id', 'user_id');
+    // Make sure to specify the local key and foreign key if they differ from default naming conventions
+  }
+
+  // Define the relationship with UserContent for multiple images
+  public function cdnUserContent()
+  {
+    if (empty($this->cdn_image_id)) {
+      return $this->hasOne(UserContent::class, 'id', 'cdn_image_id');
     }
 
-    public function author()
-    {
-        return $this->belongsTo(AuthAccount::class, 'user_id'); // Adjust 'user_id' if necessary
+    $imageIds = array_filter(explode(',', $this->cdn_image_id));
+    return $this->hasOne(UserContent::class, 'id', 'cdn_image_id')
+      ->whereIn('id', $imageIds);
+  }
+
+  // Helper method to get image URLs
+  public function getImageUrls()
+  {
+    if (empty($this->cdn_image_id)) {
+      return collect([]);
     }
 
-    public function views()
-    {
-        return $this->hasMany(TopicView::class, 'topic_id'); // Adjust 'topic_id' if necessary
+    $imageIds = array_filter(explode(',', $this->cdn_image_id));
+    return UserContent::whereIn('id', $imageIds)
+      ->orderByRaw("FIELD(id, " . implode(',', $imageIds) . ")")
+      ->get();
+  }
+
+  public function getImageUrlsAttribute()
+  {
+    return $this->getImageUrls()->map(function ($content) {
+      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+    })->all();
+  }
+
+  public function getContentAttribute()
+  {
+    return $this->content_html;
+  }
+
+  // khi query withCount('comments'), Laravel sẽ gắn vào thuộc tính comments_count
+  public function getCommentsCountAttribute($value)
+  {
+    return $this->roundToNearestFive($value) . "+";
+  }
+
+  public function getCreatedAtHumanAttribute($value)
+  {
+    return $this->created_at
+      ? $this->created_at->diffForHumans()
+      : null;
+  }
+
+  private function roundToNearestFive($count)
+  {
+    if ($count <= 5) {
+      // Nếu <= 5 thì thêm số 0 phía trước
+      return str_pad($count, 2, '0', STR_PAD_LEFT);
+    } else {
+      // Làm tròn xuống bội số của 5 và pad 2 chữ số
+      return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
+    }
+  }
+
+  /**
+   * Get the URL slug for the topic
+   */
+  public function getSlug()
+  {
+    $slug = Str::slug($this->title, '-', 'vi');
+    return empty($slug) ? 'untitled' : $slug;
+  }
+
+  /**
+   * Get the URL for the topic
+   */
+  public function getUrl()
+  {
+    return "/{$this->user->username}/posts/{$this->id}-" . $this->getSlug();
+  }
+
+  public function scopeVisibleToCurrentUser($query)
+  {
+    if (auth()->check()) {
+      $userId = auth()->id();
+      $followingIds = \App\Models\Follower::where('follower_id', $userId)
+        ->pluck('followed_id')
+        ->toArray();
+
+      return $query->where(function ($q) use ($userId, $followingIds) {
+        $q->where('privacy', 'public')
+          // User's own posts (of any privacy)
+          ->orWhere('user_id', $userId)
+          // Followers-only posts from followed users
+          ->orWhere(function ($subQ) use ($followingIds) {
+            $subQ->where('privacy', 'followers')
+              ->whereIn('user_id', $followingIds);
+          });
+      });
     }
 
-    public function votes()
-    {
-        return $this->hasMany(TopicVote::class, 'topic_id');
-    }
+    // For guests, only public posts
+    return $query->where('privacy', 'public');
+  }
 
-    public function comments()
-    {
-        return $this->hasMany(TopicComment::class, 'topic_id'); // Adjust 'topic_id' if necessary
-    }
+  /**
+   * Scope để chỉ lấy những bài viết có quyền xem public
+   */
+  public function scopePublicOnly($query)
+  {
+    return $query->where('privacy', 'public');
+  }
 
-    public function isPinned()
-    {
-        return $this->pinned;
-    }
+  /**
+   * Scope để lấy bài viết private (chỉ tác giả mới thấy)
+   */
+  public function scopePrivateOnly($query)
+  {
+    return $query->where('privacy', 'private');
+  }
 
-    public function subforum()
-    {
-        return $this->belongsTo(ForumSubforum::class, 'subforum_id');
-    }
+  /**
+   * Scope để lấy bài viết followers (chỉ người follow mới thấy)
+   */
+  public function scopeFollowersOnly($query)
+  {
+    return $query->where('privacy', 'followers');
+  }
 
-    public function isSavedByUser($userId)
-    {
-        return $this->savedTopics()->where('user_id', $userId)->exists();
-    }
+  /**
+   * Boot method to automatically generate randomized IDs
+   */
+  protected static function boot()
+  {
+    parent::boot();
 
-    public function savedTopics()
-    {
-        // Adjust the relationship to match your database structure
-        return $this->belongsToMany(AuthAccount::class, 'cyo_user_saved_topics', 'topic_id', 'user_id');
-        // Make sure to specify the local key and foreign key if they differ from default naming conventions
-    }
+    static::creating(function ($topic) {
+      if (empty($topic->id)) {
+        $topic->id = static::generateRandomizedId();
+      }
+    });
+  }
 
-    // Define the relationship with UserContent for multiple images
-    public function cdnUserContent()
-    {
-        if (empty($this->cdn_image_id)) {
-            return $this->hasOne(UserContent::class, 'id', 'cdn_image_id');
-        }
+  /**
+   * Generate a unique randomized ID
+   */
+  public static function generateRandomizedId(): int
+  {
+    do {
+      // Generate a random number between 100000 and 999999999
+      $randomizedId = rand(100000, 999999999);
+    } while (static::where('id', $randomizedId)->exists());
 
-        $imageIds = array_filter(explode(',', $this->cdn_image_id));
-        return $this->hasOne(UserContent::class, 'id', 'cdn_image_id')
-            ->whereIn('id', $imageIds);
-    }
+    return $randomizedId;
+  }
 
-    // Helper method to get image URLs
-    public function getImageUrls()
-    {
-        if (empty($this->cdn_image_id)) {
-            return collect([]);
-        }
-
-        $imageIds = array_filter(explode(',', $this->cdn_image_id));
-        return UserContent::whereIn('id', $imageIds)
-            ->orderByRaw("FIELD(id, " . implode(',', $imageIds) . ")")
-            ->get();
-    }
-
-    public function getImageUrlsAttribute()
-    {
-        return $this->getImageUrls()->map(function ($content) {
-            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
-        })->all();
-    }
-
-    public function getContentAttribute()
-    {
-        return $this->content_html;
-    }
-
-    // khi query withCount('comments'), Laravel sẽ gắn vào thuộc tính comments_count
-    public function getCommentsCountAttribute($value)
-    {
-        return $this->roundToNearestFive($value) . "+";
-    }
-
-    public function getCreatedAtHumanAttribute($value)
-    {
-        return $this->created_at
-            ? $this->created_at->diffForHumans()
-            : null;
-    }
-
-    private function roundToNearestFive($count)
-    {
-        if ($count <= 5) {
-            // Nếu <= 5 thì thêm số 0 phía trước
-            return str_pad($count, 2, '0', STR_PAD_LEFT);
-        } else {
-            // Làm tròn xuống bội số của 5 và pad 2 chữ số
-            return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
-        }
-    }
-
-    /**
-     * Get the URL slug for the topic
-     */
-    public function getSlug()
-    {
-        $slug = Str::slug($this->title, '-', 'vi');
-        return empty($slug) ? 'untitled' : $slug;
-    }
-
-    /**
-     * Get the URL for the topic
-     */
-    public function getUrl()
-    {
-        return "/{$this->user->username}/posts/{$this->id}-" . $this->getSlug();
-    }
-
-    public function scopeVisibleToCurrentUser($query)
-    {
-        if (auth()->check()) {
-            $userId = auth()->id();
-            $followingIds = \App\Models\Follower::where('follower_id', $userId)
-                ->pluck('followed_id')
-                ->toArray();
-
-            return $query->where(function ($q) use ($userId, $followingIds) {
-                $q->where('privacy', 'public')
-                    // User's own posts (of any privacy)
-                    ->orWhere('user_id', $userId)
-                    // Followers-only posts from followed users
-                    ->orWhere(function ($subQ) use ($followingIds) {
-                        $subQ->where('privacy', 'followers')
-                            ->whereIn('user_id', $followingIds);
-                    });
-            });
-        }
-
-        // For guests, only public posts
-        return $query->where('privacy', 'public');
-    }
-
-    /**
-     * Scope để chỉ lấy những bài viết có quyền xem public
-     */
-    public function scopePublicOnly($query)
-    {
-        return $query->where('privacy', 'public');
-    }
-
-    /**
-     * Scope để lấy bài viết private (chỉ tác giả mới thấy)
-     */
-    public function scopePrivateOnly($query)
-    {
-        return $query->where('privacy', 'private');
-    }
-
-    /**
-     * Scope để lấy bài viết followers (chỉ người follow mới thấy)
-     */
-    public function scopeFollowersOnly($query)
-    {
-        return $query->where('privacy', 'followers');
-    }
-
-    /**
-     * Boot method to automatically generate randomized IDs
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($topic) {
-            if (empty($topic->id)) {
-                $topic->id = static::generateRandomizedId();
-            }
-        });
-    }
-
-    /**
-     * Generate a unique randomized ID
-     */
-    public static function generateRandomizedId(): int
-    {
-        do {
-            // Generate a random number between 100000 and 999999999
-            $randomizedId = rand(100000, 999999999);
-        } while (static::where('id', $randomizedId)->exists());
-
-        return $randomizedId;
-    }
+  public function getVotesFormattedAttribute()
+  {
+    return $this->votes->map(function ($vote) {
+      return [
+        'username' => $vote->user->username,
+        'vote_value' => $vote->vote_value,
+        'created_at' => $vote->created_at,
+        'updated_at' => $vote->updated_at,
+      ];
+    });
+  }
 }

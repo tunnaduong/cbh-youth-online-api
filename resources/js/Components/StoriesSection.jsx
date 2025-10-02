@@ -129,7 +129,7 @@ function StoriesSection() {
   }
 
   return (
-    <div className="w-full mx-auto mt-4 flex gap-2 overflow-x-auto flex-nowrap scrollbar-hide">
+    <div className="w-full mx-auto mt-4 flex gap-2 overflow-x-auto flex-nowrap">
       {/* Create Story Button */}
       <CreateStoryButton />
 

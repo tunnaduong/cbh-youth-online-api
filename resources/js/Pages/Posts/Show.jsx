@@ -5,13 +5,13 @@ import { usePage, router } from "@inertiajs/react";
 import { CommentInput } from "@/Components/CommentInput";
 import Comment from "@/Components/Comment";
 import EmptyCommentsState from "@/Components/EmptyCommentsState";
-import { moment } from "@/Utils/momentConfig";
 import PostItem from "@/Components/PostItem";
 import { message } from "antd";
 
 export default function Show({ post, ogImage, comments: initialComments }) {
   const { auth } = usePage().props;
   const [comments, setComments] = useState(initialComments || []);
+  const [currentPost, setCurrentPost] = useState(post);
 
   // Sync local state when server props update (e.g., after reload)
   useEffect(() => {
@@ -287,6 +287,44 @@ export default function Show({ post, ogImage, comments: initialComments }) {
     );
   };
 
+  const handleVote = (postId, value) => {
+    if (!auth?.user) {
+      router.visit(route("login") + "?continue=" + encodeURIComponent(window.location.href));
+      message.error("Bạn cần đăng nhập để thực hiện hành động này");
+      return;
+    }
+
+    setCurrentPost((prev) => {
+      // Kiểm tra user đã vote chưa
+      let existingVote = prev.votes.find((v) => v.username === auth.user.username);
+      let newVotes;
+
+      if (existingVote) {
+        if (existingVote.vote_value === value) {
+          // Ấn lại -> bỏ vote
+          newVotes = prev.votes.filter((v) => v.username !== auth.user.username);
+        } else {
+          // Đổi hướng vote
+          newVotes = prev.votes.map((v) =>
+            v.username === auth.user.username ? { ...v, vote_value: value } : v
+          );
+        }
+      } else {
+        // Thêm vote mới
+        newVotes = [...prev.votes, { username: auth.user.username, vote_value: value }];
+      }
+
+      return { ...prev, votes: newVotes };
+    });
+
+    // Gọi backend để sync
+    router.post(
+      route("topics.vote", postId),
+      { vote_value: value },
+      { showProgress: false, preserveScroll: true }
+    );
+  };
+
   return (
     <HomeLayout activeNav="home" activeBar={null}>
       <Head title={post.title}>
@@ -294,7 +332,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
         <meta name="twitter:image" content={ogImage} />
       </Head>
       <div className="px-1 xl:min-h-screen pt-4">
-        <PostItem post={post} single={true} />
+        <PostItem post={currentPost} single={true} onVote={handleVote} />
         <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full mb-4">
           <div className="shadow !mb-4 long-shadow h-min rounded-lg bg-white post-comment-container overflow-clip">
             <div className="flex flex-col space-y-1.5 p-6 text-xl -mb-4 font-semibold max-w-sm overflow-hidden whitespace-nowrap overflow-ellipsis">

@@ -16,6 +16,7 @@ export default function Show({ profile, activeTab }) {
   const [loading, setLoading] = useState(false);
   const [followingList, setFollowingList] = useState(profile.following);
   const [followersList, setFollowersList] = useState(profile.followers);
+  const [posts, setPosts] = useState(profile.posts);
 
   const handleFollow = async () => {
     // Check if user is authenticated
@@ -125,13 +126,40 @@ export default function Show({ profile, activeTab }) {
     }
   };
 
+  const handleVote = (postId, value) => {
+    // value: 1 (up), -1 (down), 0 (bỏ vote)
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              votes_sum_vote_value: post.votes_sum_vote_value + value,
+            }
+          : post
+      )
+    );
+
+    // Gọi backend
+    router.post(
+      route("topics.vote", postId),
+      { vote_value: value },
+      {
+        showProgress: false,
+        preserveScroll: true,
+        onError: () => {
+          // rollback nếu fail (đơn giản nhất: refetch hoặc bỏ qua)
+        },
+      }
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "posts":
         return (
           <>
             {profile.posts.map((post) => (
-              <PostItem key={post.id} post={post} />
+              <PostItem key={post.id} post={post} single={false} onVote={handleVote} />
             ))}
           </>
         );

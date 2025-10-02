@@ -22,15 +22,21 @@ export default function SavedPostItem({ post, onUnsave }) {
         })}
         className="shrink-0"
       >
-        <img
-          src={
-            post.image_urls[0]?.file_path
-              ? "https://api.chuyenbienhoa.com/storage/" + post.image_urls[0].file_path
-              : "https://api.chuyenbienhoa.com/v1.0/users/" + post.author.username + "/avatar"
-          }
-          alt={post.title}
-          className="w-36 h-36 object-cover rounded-lg"
-        />
+        {post.anonymous ? (
+          <div className="w-36 h-36 bg-[#e9f1e9] dark:bg-[#1d281b] dark:!border-gray-500 flex items-center justify-center rounded-lg border">
+            <span class="text-7xl font-bold text-white dark:text-gray-300">?</span>
+          </div>
+        ) : (
+          <img
+            src={
+              post.image_urls[0]?.file_path
+                ? "https://api.chuyenbienhoa.com/storage/" + post.image_urls[0].file_path
+                : "https://api.chuyenbienhoa.com/v1.0/users/" + post.author.username + "/avatar"
+            }
+            alt={post.title}
+            className="w-36 h-36 object-cover rounded-lg"
+          />
+        )}
       </Link>
 
       <div className="flex-1 min-w-0">
