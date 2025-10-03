@@ -6,12 +6,26 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
+/**
+ * Mailable class for sending a password reset email.
+ */
 class ResetPasswordMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $token; // Token for the password reset
-    public $email; // Email of the user
+    /**
+     * The password reset token.
+     *
+     * @var string
+     */
+    public $token;
+
+    /**
+     * The user's email address.
+     *
+     * @var string
+     */
+    public $email;
 
     /**
      * Create a new message instance.

@@ -18,13 +18,27 @@ use App\Models\StoryReaction;
 use App\Models\Story;
 use App\Models\Follow;
 
+/**
+ * Handles user activity-related actions.
+ */
 class ActivityController extends Controller
 {
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
     public function __construct()
     {
         $this->middleware('auth:sanctum');
     }
 
+    /**
+     * Get all activities for the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getActivities(Request $request)
     {
         try {
@@ -391,6 +405,12 @@ class ActivityController extends Controller
         }
     }
 
+    /**
+     * Get the posts liked by the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getLikedPosts(Request $request)
     {
         if (!Auth::check()) {
@@ -431,6 +451,12 @@ class ActivityController extends Controller
         return response()->json($likedPosts);
     }
 
+    /**
+     * Get the posts commented on by the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getCommentedPosts(Request $request)
     {
         if (!Auth::check()) {
@@ -471,6 +497,12 @@ class ActivityController extends Controller
         return response()->json($comments);
     }
 
+    /**
+     * Get the posts created by the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getCreatedPosts(Request $request)
     {
         if (!Auth::check()) {
@@ -506,6 +538,12 @@ class ActivityController extends Controller
         return response()->json($posts);
     }
 
+    /**
+     * Get the online status of a user.
+     *
+     * @param  string  $username
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getOnlineStatus($username)
     {
         $user = AuthAccount::where('username', $username)->firstOrFail();
@@ -520,6 +558,11 @@ class ActivityController extends Controller
         ]);
     }
 
+    /**
+     * Update the last activity timestamp for the authenticated user.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function updateLastActivity()
     {
         if (!Auth::check()) {

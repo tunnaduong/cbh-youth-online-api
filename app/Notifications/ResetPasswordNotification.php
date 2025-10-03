@@ -7,12 +7,20 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
+/**
+ * A standard notification class for password resets.
+ *
+ * This class serves as a template and is not actively used in the password reset flow.
+ * The `CustomResetPasswordNotification` is used instead.
+ */
 class ResetPasswordNotification extends Notification
 {
     use Queueable;
 
     /**
      * Create a new notification instance.
+     *
+     * @return void
      */
     public function __construct()
     {
@@ -22,6 +30,7 @@ class ResetPasswordNotification extends Notification
     /**
      * Get the notification's delivery channels.
      *
+     * @param  mixed  $notifiable
      * @return array<int, string>
      */
     public function via(object $notifiable): array
@@ -31,6 +40,9 @@ class ResetPasswordNotification extends Notification
 
     /**
      * Get the mail representation of the notification.
+     *
+     * @param  mixed  $notifiable
+     * @return \Illuminate\Notifications\Messages\MailMessage
      */
     public function toMail(object $notifiable): MailMessage
     {
@@ -43,6 +55,7 @@ class ResetPasswordNotification extends Notification
     /**
      * Get the array representation of the notification.
      *
+     * @param  mixed  $notifiable
      * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array

@@ -12,6 +12,9 @@ use Inertia\Inertia;
 use Inertia\Response;
 use App\Models\AuthAccount;
 
+/**
+ * Handles user profile management, including viewing, editing, and deleting profiles.
+ */
 class ProfileController extends Controller
 {
   /**
@@ -62,16 +65,36 @@ class ProfileController extends Controller
     return Redirect::to('/');
   }
 
+  /**
+   * Display the public profile of a user.
+   *
+   * @param  string  $username
+   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
+   */
   public function show($username)
   {
     return $this->renderProfile($username, 'posts');
   }
 
+  /**
+   * Display a specific tab of a user's public profile.
+   *
+   * @param  string  $username
+   * @param  string  $tab
+   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
+   */
   public function showWithTab($username, $tab)
   {
     return $this->renderProfile($username, $tab);
   }
 
+  /**
+   * Render the user's profile page with the specified active tab.
+   *
+   * @param  string  $username
+   * @param  string  $tab
+   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
+   */
   private function renderProfile($username, $tab = 'posts')
   {
     // Find user (database collation is case-insensitive)
@@ -145,6 +168,13 @@ class ProfileController extends Controller
     ]);
   }
 
+  /**
+   * Get the posts for a specific user, applying privacy filters.
+   *
+   * @param  \App\Models\AuthAccount  $user
+   * @param  string  $username
+   * @return \Illuminate\Database\Eloquent\Collection
+   */
   private function getUserPosts($user, $username)
   {
     $query = $user->posts()

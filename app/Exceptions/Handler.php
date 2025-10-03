@@ -10,6 +10,12 @@ use Throwable;
 use Inertia\Inertia;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+/**
+ * The main exception handler for the application.
+ *
+ * This class is responsible for logging exceptions and rendering them back to the user.
+ * It includes custom logic for handling API exceptions and rendering Inertia error pages.
+ */
 class Handler extends ExceptionHandler
 {
     /**
@@ -23,6 +29,13 @@ class Handler extends ExceptionHandler
         'password_confirmation',
     ];
 
+    /**
+     * Convert a validation exception into a JSON response.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Illuminate\Validation\ValidationException  $exception
+     * @return \Illuminate\Http\JsonResponse
+     */
     protected function invalidJson($request, \Illuminate\Validation\ValidationException $exception): JsonResponse
     {
         return response()->json([
@@ -31,6 +44,15 @@ class Handler extends ExceptionHandler
         ], $exception->status);
     }
 
+    /**
+     * Render an exception into an HTTP response.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Throwable  $exception
+     * @return \Symfony\Component\HttpFoundation\Response
+     *
+     * @throws \Throwable
+     */
     public function render($request, Throwable $exception)
     {
         // If the request is for an API route
@@ -61,6 +83,8 @@ class Handler extends ExceptionHandler
 
     /**
      * Register the exception handling callbacks for the application.
+     *
+     * @return void
      */
     public function register(): void
     {

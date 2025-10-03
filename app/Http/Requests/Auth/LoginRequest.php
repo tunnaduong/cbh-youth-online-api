@@ -11,10 +11,18 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Handles the form request for user authentication.
+ *
+ * This class includes validation rules, custom credential handling to allow
+ * login with either email or username, and rate limiting to prevent brute-force attacks.
+ */
 class LoginRequest extends FormRequest
 {
   /**
    * Determine if the user is authorized to make this request.
+   *
+   * @return bool
    */
   public function authorize(): bool
   {
@@ -34,9 +42,16 @@ class LoginRequest extends FormRequest
     ];
   }
 
+  /**
+   * Get the authentication credentials from the request.
+   * This method allows for logging in with either a username or an email address.
+   *
+   * @return array
+   */
   protected function credentials(): array
   {
-    $login = $this->input('email'); // vẫn lấy từ field "email" trong form
+    // The form field is named 'email' but can accept a username.
+    $login = $this->input('email');
 
     $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
@@ -50,6 +65,7 @@ class LoginRequest extends FormRequest
   /**
    * Attempt to authenticate the request's credentials.
    *
+   * @return void
    * @throws \Illuminate\Validation\ValidationException
    */
   public function authenticate(): void
@@ -57,10 +73,10 @@ class LoginRequest extends FormRequest
     $this->ensureIsNotRateLimited();
 
     $credentials = $this->credentials();
-    $loginField  = array_key_first($credentials); // email hoặc username
+    $loginField  = array_key_first($credentials); // email or username
     $loginValue  = $credentials[$loginField];
 
-    // Tìm user theo email hoặc username
+    // Find user by email or username
     $user = \App\Models\User::where($loginField, $loginValue)->first();
 
     if (!$user) {
@@ -78,7 +94,7 @@ class LoginRequest extends FormRequest
       ]);
     }
 
-    // Nếu đúng thì login
+    // If credentials are correct, attempt to log in
     if (!Auth::attempt($credentials, $this->boolean('remember'))) {
       RateLimiter::hit($this->throttleKey());
       throw ValidationException::withMessages([
@@ -94,6 +110,7 @@ class LoginRequest extends FormRequest
   /**
    * Ensure the login request is not rate limited.
    *
+   * @return void
    * @throws \Illuminate\Validation\ValidationException
    */
   public function ensureIsNotRateLimited(): void
@@ -116,6 +133,8 @@ class LoginRequest extends FormRequest
 
   /**
    * Get the rate limiting throttle key for the request.
+   *
+   * @return string
    */
   public function throttleKey(): string
   {

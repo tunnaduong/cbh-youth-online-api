@@ -6,22 +6,51 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+/**
+ * Represents a chat conversation.
+ *
+ * @property int $id
+ * @property string $type Can be 'private' or 'group'.
+ * @property string|null $name The name of the conversation, used for group chats.
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Message[] $messages
+ * @property-read \App\Models\Message|null $latestMessage
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\AuthAccount[] $participants
+ */
 class Conversation extends Model
 {
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
     protected $table = 'cyo_conversations';
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'type',
         'name',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
     /**
-     * Get all messages in the conversation
+     * Get all messages in the conversation.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function messages(): HasMany
     {
@@ -29,7 +58,9 @@ class Conversation extends Model
     }
 
     /**
-     * Get the latest message in the conversation
+     * Get the latest message in the conversation.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
     public function latestMessage()
     {
@@ -37,7 +68,9 @@ class Conversation extends Model
     }
 
     /**
-     * Get all participants in the conversation
+     * The participants that belong to the conversation.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function participants(): BelongsToMany
     {
@@ -47,7 +80,10 @@ class Conversation extends Model
     }
 
     /**
-     * Check if a user is a participant in the conversation
+     * Check if a user is a participant in the conversation.
+     *
+     * @param  int  $userId
+     * @return bool
      */
     public function hasParticipant($userId): bool
     {
@@ -55,7 +91,10 @@ class Conversation extends Model
     }
 
     /**
-     * Get unread messages count for a user
+     * Get the number of unread messages for a user.
+     *
+     * @param  int  $userId
+     * @return int
      */
     public function unreadMessagesCount($userId): int
     {

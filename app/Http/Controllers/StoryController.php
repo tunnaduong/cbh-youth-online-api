@@ -13,12 +13,18 @@ use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use Inertia\Inertia;
 
+/**
+ * Handles the logic for creating, viewing, and interacting with user stories.
+ */
 class StoryController extends Controller
 {
     /**
-     * Get all active stories
-     * For authenticated users: shows public and followers stories
-     * For non-authenticated users: shows only public stories
+     * Get all active stories, grouped by user.
+     * For authenticated users, it shows public and followers' stories.
+     * For non-authenticated users, it shows only public stories.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
     {
@@ -80,7 +86,10 @@ class StoryController extends Controller
     }
 
     /**
-     * Store a new story
+     * Store a newly created story in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
@@ -152,7 +161,11 @@ class StoryController extends Controller
     }
 
     /**
-     * Get a specific story
+     * Display the specified story.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Story  $story
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function show(Request $request, Story $story)
     {
@@ -180,7 +193,11 @@ class StoryController extends Controller
     }
 
     /**
-     * Delete a story
+     * Remove the specified story from storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Story  $story
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function destroy(Request $request, Story $story)
     {
@@ -213,7 +230,11 @@ class StoryController extends Controller
     }
 
     /**
-     * Mark a story as viewed
+     * Mark a story as viewed by the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Story  $story
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function markAsViewed(Request $request, Story $story)
     {
@@ -245,7 +266,11 @@ class StoryController extends Controller
     }
 
     /**
-     * React to a story
+     * Add or update a reaction to a story.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Story  $story
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function react(Request $request, Story $story)
     {
@@ -294,7 +319,11 @@ class StoryController extends Controller
     }
 
     /**
-     * Remove a reaction from a story
+     * Remove a reaction from a story.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Story  $story
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
     public function removeReaction(Request $request, Story $story)
     {

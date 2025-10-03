@@ -8,8 +8,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
+/**
+ * Handles the management of a user's saved posts.
+ */
 class SavedPostsController extends Controller
 {
+    /**
+     * Display a listing of the user's saved posts.
+     *
+     * @return \Inertia\Response
+     */
     public function index()
     {
         $userId = Auth::id();
@@ -51,6 +59,12 @@ class SavedPostsController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created saved post in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -76,6 +90,12 @@ class SavedPostsController extends Controller
         return back()->with('success', 'Topic saved successfully.');
     }
 
+    /**
+     * Remove the specified saved post from storage.
+     *
+     * @param  int  $savedPost The ID of the topic to remove.
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function destroy($savedPost)
     {
         $userId = Auth::id();

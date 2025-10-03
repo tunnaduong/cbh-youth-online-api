@@ -10,15 +10,26 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Handles the creation and management of user reports.
+ */
 class UserReportController extends Controller
 {
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
     public function __construct()
     {
         $this->middleware('auth:sanctum');
     }
 
     /**
-     * Display a listing of the resource.
+     * Display a listing of the user reports (Admin only).
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
     {
@@ -48,7 +59,9 @@ class UserReportController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Show the form for creating a new user report.
+     *
+     * @return void
      */
     public function create()
     {
@@ -56,7 +69,10 @@ class UserReportController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Store a newly created user report in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
@@ -104,7 +120,10 @@ class UserReportController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Display the specified user report.
+     *
+     * @param  \App\Models\UserReport  $userReport
+     * @return void
      */
     public function show(UserReport $userReport)
     {
@@ -112,7 +131,10 @@ class UserReportController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Show the form for editing the specified user report.
+     *
+     * @param  \App\Models\UserReport  $userReport
+     * @return void
      */
     public function edit(UserReport $userReport)
     {
@@ -120,7 +142,11 @@ class UserReportController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the specified user report in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\UserReport  $userReport
+     * @return void
      */
     public function update(Request $request, UserReport $userReport)
     {
@@ -128,7 +154,10 @@ class UserReportController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove the specified user report from storage.
+     *
+     * @param  \App\Models\UserReport  $userReport
+     * @return void
      */
     public function destroy(UserReport $userReport)
     {
@@ -136,7 +165,11 @@ class UserReportController extends Controller
     }
 
     /**
-     * Review a report (admin only)
+     * Review a user report (Admin only).
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\UserReport  $report
+     * @return \Illuminate\Http\JsonResponse
      */
     public function review(Request $request, UserReport $report)
     {
@@ -193,7 +226,9 @@ class UserReportController extends Controller
     }
 
     /**
-     * Get report statistics (admin only)
+     * Get user report statistics (Admin only).
+     *
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getStats()
     {

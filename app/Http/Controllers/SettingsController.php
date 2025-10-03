@@ -10,8 +10,16 @@ use App\Models\UserProfile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
+/**
+ * Handles user settings, including profile information and account deletion.
+ */
 class SettingsController extends Controller
 {
+    /**
+     * Display the user settings page.
+     *
+     * @return \Inertia\Response
+     */
     public function index()
     {
         $user = Auth::user();
@@ -22,6 +30,12 @@ class SettingsController extends Controller
         ]);
     }
 
+    /**
+     * Update the user's profile and notification settings.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function update(Request $request)
     {
         $user = Auth::user();
@@ -89,6 +103,12 @@ class SettingsController extends Controller
         return redirect()->back()->with('success', 'Hồ sơ đã được cập nhật thành công!');
     }
 
+    /**
+     * Delete the user's account.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function deleteAccount(Request $request)
     {
         \Log::info('Delete account request received', [

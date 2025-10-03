@@ -1,66 +1,103 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Chuyen Bien Hoa Youth Online
 
 <p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+  <img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo">
 </p>
 
-## About Laravel
+<p align="center">
+  A comprehensive social and community platform built with the Laravel framework.
+</p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## About This Project
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Chuyen Bien Hoa Youth Online is a feature-rich web application designed to foster a vibrant online community. It combines a traditional forum system with modern social media features like user profiles, activity feeds, real-time chat, and stories. The platform also includes a detailed administrative backend for managing users, content, and school-related activities such as class schedules and student violations.
 
-## Learning Laravel
+This project is built on the Laravel framework, leveraging its powerful features for routing, ORM, and authentication, with a modern frontend powered by Inertia.js.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Key Features
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+- **User Authentication:** Secure user registration, login, password reset, and email verification.
+- **User Profiles:** Customizable user profiles with avatars, bios, follower/following stats, and activity points.
+- **Forum System:** Multi-level forums with main categories and subforums for organized discussions.
+- **Topics & Comments:** Users can create topics, post comments, and engage in nested reply threads.
+- **Voting System:** Upvote and downvote functionality for both topics and comments.
+- **Real-time Chat:** Private and group chat functionality with message read receipts and file sharing.
+- **Stories:** Ephemeral, 24-hour stories similar to Instagram or Facebook, with reactions and viewer tracking.
+- **Activity Feed:** A personalized feed showing the latest posts from followed users.
+- **Search:** Robust search functionality to find users and posts.
+- **Admin Panel:** A comprehensive dashboard for administrators to manage users, forum content, school classes, schedules, student violations, and user reports.
+- **Notification System:** In-app and email notifications for various events.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Getting Started
 
-## Laravel Sponsors
+Follow these instructions to get a local copy of the project up and running for development and testing purposes.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Prerequisites
 
-### Premium Partners
+- PHP >= 8.1
+- Composer
+- Node.js & npm
+- A database server (e.g., MySQL, PostgreSQL)
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+### Installation
 
-## Contributing
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/your-repository.git
+    cd your-repository
+    ```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+2.  **Install PHP dependencies:**
+    ```bash
+    composer install
+    ```
 
-## Code of Conduct
+3.  **Install JavaScript dependencies:**
+    ```bash
+    npm install
+    ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+4.  **Create your environment file:**
+    Copy the example environment file and generate your application key.
+    ```bash
+    cp .env.example .env
+    php artisan key:generate
+    ```
 
-## Security Vulnerabilities
+5.  **Configure your environment (`.env`):**
+    Open the `.env` file and update the database credentials (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`) and any other necessary configuration, such as mail settings.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+6.  **Run database migrations:**
+    ```bash
+    php artisan migrate
+    ```
+
+7.  **Compile frontend assets:**
+    To build the assets for development and watch for changes:
+    ```bash
+    npm run dev
+    ```
+    For production, run:
+    ```bash
+    npm run build
+    ```
+
+8.  **Serve the application:**
+    ```bash
+    php artisan serve
+    ```
+    The application will be available at `http://localhost:8000` by default.
+
+## Usage
+
+Once the application is running, you can register a new account or log in with an existing one. The main features are accessible through the navigation bar.
+
+- **Admin Access:** To access the admin panel, a user must have their `role` set to `admin` in the `cyo_auth_accounts` table. The admin panel is available at the `/admin` prefix.
+
+- **API:** The application exposes a versioned RESTful API under the `/api/v1.0/` prefix. Refer to the `routes/api.php` file for a full list of available endpoints.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).

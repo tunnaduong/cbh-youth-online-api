@@ -9,8 +9,16 @@ use App\Models\AuthAccount;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+/**
+ * Handles the administration of forum subforums.
+ */
 class ForumSubforumController extends Controller
 {
+    /**
+     * Display a listing of the forum subforums.
+     *
+     * @return \Inertia\Response
+     */
     public function index()
     {
         $subforums = ForumSubforum::with(['mainCategory', 'moderator'])
@@ -27,6 +35,12 @@ class ForumSubforumController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created forum subforum in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -45,6 +59,13 @@ class ForumSubforumController extends Controller
             ->with('success', 'Diễn đàn con đã được tạo thành công.');
     }
 
+    /**
+     * Update the specified forum subforum in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\ForumSubforum  $subforum
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function update(Request $request, ForumSubforum $subforum)
     {
         $validated = $request->validate([
@@ -63,6 +84,12 @@ class ForumSubforumController extends Controller
             ->with('success', 'Diễn đàn con đã được cập nhật thành công.');
     }
 
+    /**
+     * Remove the specified forum subforum from storage.
+     *
+     * @param  \App\Models\ForumSubforum  $subforum
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function destroy(ForumSubforum $subforum)
     {
         $subforum->delete();

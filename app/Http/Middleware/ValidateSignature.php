@@ -4,6 +4,9 @@ namespace App\Http\Middleware;
 
 use Illuminate\Routing\Middleware\ValidateSignature as Middleware;
 
+/**
+ * Middleware to validate signed URLs.
+ */
 class ValidateSignature extends Middleware
 {
     /**

@@ -13,10 +13,15 @@ use App\Events\MessageRead;
 use App\Events\MessageDeleted;
 use Carbon\Carbon;
 
+/**
+ * Handles all chat-related functionalities, including conversations and messages.
+ */
 class ChatController extends Controller
 {
     /**
-     * Get all conversations for the authenticated user
+     * Get all conversations for the authenticated user.
+     *
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getConversations()
     {
@@ -61,7 +66,10 @@ class ChatController extends Controller
     }
 
     /**
-     * Get messages for a specific conversation
+     * Get messages for a specific conversation.
+     *
+     * @param  int  $conversationId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getMessages($conversationId)
     {
@@ -140,7 +148,10 @@ class ChatController extends Controller
     }
 
     /**
-     * Create a new private conversation
+     * Create a new private conversation.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function createPrivateConversation(Request $request)
     {
@@ -170,7 +181,11 @@ class ChatController extends Controller
     }
 
     /**
-     * Send a message
+     * Send a message to a conversation.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $conversationId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function sendMessage(Request $request, $conversationId)
     {
@@ -235,7 +250,11 @@ class ChatController extends Controller
     }
 
     /**
-     * Mark messages as read
+     * Mark messages in a conversation as read.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $conversationId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function markAsRead(Request $request, $conversationId)
     {
@@ -264,7 +283,10 @@ class ChatController extends Controller
     }
 
     /**
-     * Delete a message
+     * Delete a message.
+     *
+     * @param  int  $messageId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function deleteMessage($messageId)
     {
@@ -284,7 +306,11 @@ class ChatController extends Controller
     }
 
     /**
-     * Edit a message
+     * Edit a message.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $messageId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function editMessage(Request $request, $messageId)
     {
@@ -311,7 +337,10 @@ class ChatController extends Controller
     }
 
     /**
-     * Create a new group conversation
+     * Create a new group conversation.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function createGroupConversation(Request $request)
     {
@@ -353,7 +382,11 @@ class ChatController extends Controller
     }
 
     /**
-     * Update group conversation details
+     * Update group conversation details.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $conversationId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function updateGroupConversation(Request $request, $conversationId)
     {
@@ -385,7 +418,11 @@ class ChatController extends Controller
     }
 
     /**
-     * Add participants to a group conversation
+     * Add participants to a group conversation.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $conversationId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function addGroupParticipants(Request $request, $conversationId)
     {
@@ -426,7 +463,11 @@ class ChatController extends Controller
     }
 
     /**
-     * Remove a participant from a group conversation
+     * Remove a participant from a group conversation.
+     *
+     * @param  int  $conversationId
+     * @param  int  $userId
+     * @return \Illuminate\Http\JsonResponse
      */
     public function removeGroupParticipant($conversationId, $userId)
     {
@@ -450,7 +491,10 @@ class ChatController extends Controller
     }
 
     /**
-     * Search for a user by username to start a new conversation
+     * Search for a user by username to start a new conversation.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function searchUserForChat(Request $request)
     {

@@ -12,17 +12,59 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Notifications\VerifyEmail;
 
-// cyo_auth_accounts model
+/**
+ * Represents a user account in the system.
+ *
+ * This model is responsible for user authentication, profile relationships,
+ * and tracking user activity like posts, followers, and points.
+ *
+ * @property int $id
+ * @property string $username
+ * @property string $email
+ * @property string $password
+ * @property string|null $role
+ * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property \Illuminate\Support\Carbon|null $last_activity
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\UserProfile|null $profile
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Topic[] $posts
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Follower[] $followers
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Follower[] $following
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TopicVote[] $likes
+ */
 class AuthAccount extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens;
     use HasFactory;
     use Notifiable;
 
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
     protected $table = 'cyo_auth_accounts';
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = ['username', 'password', 'email', 'last_activity', 'role'];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
     protected $hidden = ['password'];
 
+    /**
+     * Send the email verification notification.
+     *
+     * @return void
+     */
     public function sendEmailVerificationNotification()
     {
         $this->notify(new VerifyEmail);
@@ -61,31 +103,61 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
         return $this->role === $role;
     }
 
+    /**
+     * Get the profile associated with the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
     public function profile()
     {
         return $this->hasOne(UserProfile::class, 'auth_account_id', 'id');
     }
 
+    /**
+     * Get the posts for the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function posts()
     {
         return $this->hasMany(Topic::class, 'user_id'); // Adjust 'Post' and 'user_id' as per your database schema
     }
 
+    /**
+     * Get the followers of the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function followers()
     {
         return $this->hasMany(Follower::class, 'followed_id'); // Adjust 'followed_id' as per your schema
     }
 
+    /**
+     * Get the users that this user is following.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function following()
     {
         return $this->hasMany(Follower::class, 'follower_id'); // Adjust 'follower_id' as per your schema
     }
 
+    /**
+     * Get the likes made by the user.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function likes()
     {
         return $this->hasMany(TopicVote::class, 'user_id'); // Adjust 'user_id' as per your schema
     }
 
+    /**
+     * Calculate the user's activity points.
+     *
+     * @return int
+     */
     public function points()
     {
         // Calculate total points based on posts, likes, and comments
@@ -123,7 +195,11 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
         $this->notify(new CustomResetPasswordNotification($token));
     }
 
-    // Optionally, add a method to handle email verification
+    /**
+     * Mark the user's email as verified.
+     *
+     * @return void
+     */
     public function markEmailAsVerified()
     {
         $this->email_verified_at = now(); // Set the verification timestamp

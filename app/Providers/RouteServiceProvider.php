@@ -8,6 +8,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 
+/**
+ * The application's route service provider.
+ *
+ * This provider is responsible for configuring the application's routes,
+ * including rate limiting and loading the route files.
+ */
 class RouteServiceProvider extends ServiceProvider
 {
   /**
@@ -21,6 +27,8 @@ class RouteServiceProvider extends ServiceProvider
 
   /**
    * Define your route model bindings, pattern filters, and other route configuration.
+   *
+   * @return void
    */
   public function boot(): void
   {

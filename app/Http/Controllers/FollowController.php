@@ -6,9 +6,18 @@ use App\Models\Follower;
 use App\Models\AuthAccount;
 use Illuminate\Http\Request;
 
+/**
+ * Handles follow and unfollow actions between users.
+ */
 class FollowController extends Controller
 {
-    // Follow a user
+    /**
+     * Follow a user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  string  $username
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function follow(Request $request, $username)
     {
         $followerId = auth()->id(); // Get the authenticated user's ID
@@ -38,7 +47,13 @@ class FollowController extends Controller
         ], 200);
     }
 
-    // Unfollow a user
+    /**
+     * Unfollow a user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  string  $username
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function unfollow(Request $request, $username)
     {
         $followerId = auth()->id(); // Get the authenticated user's ID

@@ -6,12 +6,39 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Represents a single message within a conversation.
+ *
+ * @property int $id
+ * @property int $conversation_id
+ * @property int $user_id
+ * @property string|null $content
+ * @property string $type
+ * @property string|null $file_url
+ * @property bool $is_edited
+ * @property \Illuminate\Support\Carbon|null $read_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \App\Models\Conversation $conversation
+ * @property-read \App\Models\AuthAccount $user
+ */
 class Message extends Model
 {
     use SoftDeletes;
 
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
     protected $table = 'cyo_messages';
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'conversation_id',
         'user_id',
@@ -22,6 +49,11 @@ class Message extends Model
         'read_at',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'is_edited' => 'boolean',
         'created_at' => 'datetime',
@@ -31,7 +63,9 @@ class Message extends Model
     ];
 
     /**
-     * Get the conversation this message belongs to
+     * Get the conversation this message belongs to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function conversation(): BelongsTo
     {
@@ -39,7 +73,9 @@ class Message extends Model
     }
 
     /**
-     * Get the user who sent this message
+     * Get the user who sent this message.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function user(): BelongsTo
     {
@@ -47,7 +83,9 @@ class Message extends Model
     }
 
     /**
-     * Mark the message as read
+     * Mark the message as read.
+     *
+     * @return void
      */
     public function markAsRead()
     {
@@ -57,7 +95,9 @@ class Message extends Model
     }
 
     /**
-     * Check if the message is read
+     * Check if the message has been read.
+     *
+     * @return bool
      */
     public function isRead(): bool
     {
@@ -65,7 +105,10 @@ class Message extends Model
     }
 
     /**
-     * Edit the message content
+     * Edit the message content.
+     *
+     * @param  string  $newContent
+     * @return void
      */
     public function edit(string $newContent)
     {

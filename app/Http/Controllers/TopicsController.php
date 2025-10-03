@@ -20,10 +20,16 @@ use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
 
+/**
+ * Handles all API-related actions for topics, including creation, retrieval, voting, and commenting.
+ */
 class TopicsController extends Controller
 {
     /**
-     * Convert markdown to HTML using CommonMark
+     * Convert markdown to HTML using CommonMark.
+     *
+     * @param  string  $markdown
+     * @return string
      */
     private function convertMarkdownToHtml($markdown)
     {
@@ -38,7 +44,13 @@ class TopicsController extends Controller
 
         return $converter->convert($markdown)->getContent();
     }
-    // GET /topics – Get list of topics
+
+    /**
+     * Get a paginated list of topics.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function index(Request $request)
     {
         // Fetch topics from the database with pagination
@@ -133,6 +145,12 @@ class TopicsController extends Controller
         return response()->json($topics);
     }
 
+    /**
+     * Round a number down to the nearest multiple of five.
+     *
+     * @param  int  $count
+     * @return string
+     */
     private function roundToNearestFive($count)
     {
         if ($count <= 5) {
@@ -144,6 +162,13 @@ class TopicsController extends Controller
         }
     }
 
+    /**
+     * Display the specified topic.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function show(Request $request, $id)
     {
         // Find the topic with related data or return a 404 error if not found
@@ -283,7 +308,12 @@ class TopicsController extends Controller
         return response()->json(['topic' => $topicData, 'comments' => $formattedComments]);
     }
 
-    // POST /topics – Create a new topic
+    /**
+     * Store a newly created topic in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function store(Request $request)
     {
         // Debug: Log the incoming request data
@@ -394,14 +424,25 @@ class TopicsController extends Controller
         return back()->with('success', 'Bài viết đã được tạo thành công!');
     }
 
-    // Get views for a topic
+    /**
+     * Get the views for a specific topic.
+     *
+     * @param  int  $topicId
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getViews($topicId)
     {
         $views = TopicView::where('topic_id', $topicId)->get();
         return response()->json($views);
     }
 
-    // Register a view for a topic
+    /**
+     * Register a view for a specific topic.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $topicId
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function registerView(Request $request, $topicId)
     {
         // Check if the topic exists
@@ -419,14 +460,25 @@ class TopicsController extends Controller
 
 
 
-    // Get votes for a topic
+    /**
+     * Get the votes for a specific topic.
+     *
+     * @param  int  $topicId
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getVotes($topicId)
     {
         $votes = TopicVote::where('topic_id', $topicId)->get();
         return response()->json($votes);
     }
 
-    // Register a vote for a topic
+    /**
+     * Register a vote for a specific topic.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $topicId
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function registerVote(Request $request, $topicId)
     {
         $request->validate([
@@ -466,7 +518,13 @@ class TopicsController extends Controller
         return redirect()->back()->with('success', 'Đã vote bài viết thành công');
     }
 
-    // Get comments for a topic
+    /**
+     * Get the comments for a specific topic.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $topicId
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Support\Collection
+     */
     public function getComments(Request $request, $topicId)
     {
         $comments = TopicComment::with(['user', 'user.profile'])
@@ -495,6 +553,13 @@ class TopicsController extends Controller
         return $comments;
     }
 
+    /**
+     * Get the replies for a specific comment.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $commentId
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
     public function getReplies(Request $request, $commentId)
     {
         $comment = TopicComment::findOrFail($commentId);
@@ -510,7 +575,12 @@ class TopicsController extends Controller
     }
 
 
-    // Add a comment to a topic
+    /**
+     * Add a comment to a topic.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function addComment(Request $request)
     {
         $request->validate([
@@ -551,7 +621,13 @@ class TopicsController extends Controller
         ]);
     }
 
-    // Vote on a comment
+    /**
+     * Register a vote on a specific comment.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $commentId
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function voteOnComment(Request $request, $commentId)
     {
         $request->validate([
@@ -584,7 +660,13 @@ class TopicsController extends Controller
         return redirect()->back()->with('success', 'Đã vote bình luận thành công');
     }
 
-    // Method to get votes for a specific comment
+    /**
+     * Get the votes for a specific comment.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|array
+     */
     public function getVotesForComment(Request $request, $id)
     {
         // Use findOrFail to retrieve the comment by its ID
@@ -606,7 +688,11 @@ class TopicsController extends Controller
         return $data;
     }
 
-    // Get saved topics for the authenticated user
+    /**
+     * Get the saved topics for the authenticated user.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getSavedTopics()
     {
         $userId = Auth::id();
@@ -652,6 +738,12 @@ class TopicsController extends Controller
         return response()->json($mappedTopics);
     }
 
+    /**
+     * Save a topic for the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function saveTopicForUser(Request $request)
     {
         $request->validate([
@@ -680,6 +772,12 @@ class TopicsController extends Controller
         return response()->json(['message' => 'Topic saved successfully.']);
     }
 
+    /**
+     * Remove the specified topic from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroyTopic($id)
     {
         $topic = Topic::findOrFail($id);
@@ -688,6 +786,12 @@ class TopicsController extends Controller
         return response()->json(['message' => 'Topic deleted successfully.'], Response::HTTP_OK);
     }
 
+    /**
+     * Remove the specified topic vote from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroyTopicVote($id)
     {
         $vote = TopicVote::findOrFail($id);
@@ -696,6 +800,13 @@ class TopicsController extends Controller
         return response()->json(['message' => 'Vote deleted successfully.'], Response::HTTP_OK);
     }
 
+    /**
+     * Remove the specified saved topic from storage for the authenticated user.
+     *
+     * @param  int  $topicId
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroySavedTopic($topicId, Request $request)
     {
         // Optionally, validate the user is authenticated
@@ -716,6 +827,13 @@ class TopicsController extends Controller
         return response()->json(['message' => 'Saved topic deleted successfully'], 200);
     }
 
+    /**
+     * Remove the specified comment from storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyComment(Request $request, $id)
     {
         $comment = TopicComment::findOrFail($id);
@@ -737,6 +855,13 @@ class TopicsController extends Controller
         return redirect()->back()->with('success', 'Bình luận đã được xóa thành công');
     }
 
+    /**
+     * Remove the specified comment vote from storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyCommentVote(Request $request, $id)
     {
         $vote = TopicCommentVote::findOrFail($id);
@@ -749,6 +874,13 @@ class TopicsController extends Controller
         return redirect()->back()->with('success', 'Đã xóa vote bình luận thành công');
     }
 
+    /**
+     * Update the specified comment in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateComment(Request $request, $id)
     {
         $request->validate([
