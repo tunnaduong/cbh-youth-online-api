@@ -29,37 +29,49 @@ use App\Http\Controllers\Admin\ForumSubforumController;
 |
 */
 
+// --- Main Application Routes ---
+
+// Home page
 Route::get('/', [ForumController::class, 'index'])->name('home');
 
+// Dashboard (requires authentication and email verification)
 Route::get('/dashboard', function () {
   return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+// Standard authenticated user routes (profile management)
 Route::middleware('auth')->group(function () {
   Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
   Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
   Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// --- Feed and User Content Routes ---
+
+// Personalized feed
 Route::get('/feed', [ForumController::class, 'feed'])->name('feed');
 Route::get('/api/feed', [ForumController::class, 'feedApi'])->name('feed.api');
 
+// User avatar
 Route::get('users/{username}/avatar', [UserController::class, 'getAvatar'])->name('user.avatar');
 
-// Follow/Unfollow routes
+// Follow/Unfollow routes (requires authentication)
 Route::middleware('auth')->group(function () {
   Route::post('/users/{username}/follow', [FollowController::class, 'follow'])->name('user.follow');
   Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow'])->name('user.unfollow');
 });
 
-// Public Forum Routes
+// --- Forum, Topic, and Comment Routes ---
+
+// Publicly accessible forum routes
 Route::prefix('forum')->group(function () {
   Route::get('/', [ForumController::class, 'index'])->name('forum.index');
   Route::get('/{category}/{subforum}', [ForumController::class, 'subforum'])->name('forum.subforum');
   Route::get('/{category}', [ForumController::class, 'category'])->name('forum.category');
 
-  // Topic Routes (requires authentication)
+  // Authenticated forum actions (topics, replies, comments, votes)
   Route::middleware(['auth'])->group(function () {
+    // Topic Routes
     Route::get('/topic/create/{subforum}', [ForumController::class, 'createTopic'])->name('forum.topic.create');
     Route::post('/topic/store', [ForumController::class, 'storeTopic'])->name('forum.topic.store');
     Route::get('/topic/{topic}', [ForumController::class, 'showTopic'])->name('forum.topic.show');
@@ -83,6 +95,8 @@ Route::prefix('forum')->group(function () {
   });
 });
 
+// --- Other Feature Routes ---
+
 // Recordings Routes
 Route::get('/recordings', [RecordingController::class, 'index'])->name('recordings.index');
 Route::get('/recordings/create', [RecordingController::class, 'create'])->name('recordings.create');
@@ -94,14 +108,14 @@ Route::delete('/recordings/{recording}', [RecordingController::class, 'destroy']
 Route::get('/youth-news', [YouthNewsController::class, 'index'])->name('youth-news.index');
 Route::get('/api/youth-news', [YouthNewsController::class, 'youthNewsApi'])->name('youth-news.api');
 
-// Saved Posts Routes (require authentication)
+// Saved Posts Routes (requires authentication)
 Route::middleware('auth')->group(function () {
   Route::get('/saved', [SavedPostsController::class, 'index'])->name('saved.index');
   Route::post('/saved', [SavedPostsController::class, 'store'])->name('saved.store');
   Route::delete('/saved/{savedPost}', [SavedPostsController::class, 'destroy'])->name('saved.destroy');
 });
 
-// API routes for stories (keep for API usage)
+// API-like routes for stories (prefixed with /api but defined in web.php)
 Route::middleware('auth')->prefix('api')->group(function () {
   Route::get('/stories', [StoryController::class, 'index'])->name('api.stories.index');
   Route::post('/stories', [StoryController::class, 'store'])->name('api.stories.store');
@@ -112,22 +126,24 @@ Route::middleware('auth')->prefix('api')->group(function () {
   Route::delete('/stories/{story}/react', [StoryController::class, 'removeReaction'])->name('api.stories.react.remove');
 });
 
-// Topic creation route for authenticated users
+// Topic creation from outside the main /forum prefix
 Route::middleware('auth')->group(function () {
   Route::post('/topics', [TopicsController::class, 'store'])->name('topics.store');
 });
 
-// User Posts and Profile Routes
+// --- Dynamic User and Post Routes ---
+
+// User Posts
 Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])
   ->where('id', '[0-9]+(?:-[a-z0-9-]+)?')
   ->name('posts.show');
 
-// Admin Routes với InertiaJS
+// --- Admin Routes ---
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
   // Dashboard
   Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-  // Quản lý người dùng
+  // User Management
   Route::get('/users', [AdminController::class, 'usersIndex'])->name('users.index');
   Route::get('/users/create', [AdminController::class, 'createUser'])->name('users.create');
   Route::post('/users', [AdminController::class, 'storeUser'])->name('users.store');
@@ -135,15 +151,15 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::put('/users/{id}', [AdminController::class, 'updateUser'])->name('users.update');
   Route::delete('/users/{id}', [AdminController::class, 'destroyUser'])->name('users.destroy');
 
-  // Quản lý danh mục diễn đàn
+  // Forum Category Management
   Route::resource('categories', ForumCategoryController::class, ['as' => 'admin'])
     ->except(['show']);
 
-  // Quản lý diễn đàn con
+  // Subforum Management
   Route::resource('subforums', ForumSubforumController::class, ['as' => 'admin'])
     ->except(['show']);
 
-  // Quản lý bài viết
+  // Post Management
   Route::get('/posts', [AdminController::class, 'postsIndex'])->name('posts.index');
   Route::get('/posts/create', [AdminController::class, 'createPost'])->name('posts.create');
   Route::post('/posts', [AdminController::class, 'storePost'])->name('posts.store');
@@ -153,7 +169,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::put('/posts/{id}/pin', [AdminController::class, 'togglePinPost'])->name('posts.pin');
   Route::put('/posts/{id}/lock', [AdminController::class, 'toggleLockPost'])->name('posts.lock');
 
-  // Quản lý lớp học
+  // Class Management
   Route::get('/classes', [AdminController::class, 'classesIndex'])->name('classes.index');
   Route::get('/classes/create', [AdminController::class, 'createClass'])->name('classes.create');
   Route::post('/classes', [AdminController::class, 'storeClass'])->name('classes.store');
@@ -161,7 +177,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::put('/classes/{id}', [AdminController::class, 'updateClass'])->name('classes.update');
   Route::delete('/classes/{id}', [AdminController::class, 'destroyClass'])->name('classes.destroy');
 
-  // Quản lý thời khóa biểu
+  // Schedule Management
   Route::get('/schedules', [AdminController::class, 'schedulesIndex'])->name('schedules.index');
   Route::get('/schedules/create', [AdminController::class, 'createSchedule'])->name('schedules.create');
   Route::post('/schedules', [AdminController::class, 'storeSchedule'])->name('schedules.store');
@@ -169,7 +185,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::put('/schedules/{id}', [AdminController::class, 'updateSchedule'])->name('schedules.update');
   Route::delete('/schedules/{id}', [AdminController::class, 'destroySchedule'])->name('schedules.destroy');
 
-  // Quản lý vi phạm học sinh
+  // Student Violation Management
   Route::get('/violations', [AdminController::class, 'violationsIndex'])->name('violations.index');
   Route::get('/violations/create', [AdminController::class, 'createViolation'])->name('violations.create');
   Route::post('/violations', [AdminController::class, 'storeViolation'])->name('violations.store');
@@ -177,7 +193,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::put('/violations/{id}', [AdminController::class, 'updateViolation'])->name('violations.update');
   Route::delete('/violations/{id}', [AdminController::class, 'destroyViolation'])->name('violations.destroy');
 
-  // Quản lý báo cáo xung kích
+  // Monitor Report Management
   Route::get('/monitor-reports', [AdminController::class, 'monitorReportsIndex'])->name('monitor-reports.index');
   Route::get('/monitor-reports/create', [AdminController::class, 'createMonitorReport'])->name('monitor-reports.create');
   Route::post('/monitor-reports', [AdminController::class, 'storeMonitorReport'])->name('monitor-reports.store');
@@ -186,7 +202,10 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport'])->name('monitor-reports.destroy');
 });
 
+// Include authentication routes
 require __DIR__ . '/auth.php';
+
+// --- General Authenticated Routes ---
 
 // Settings routes
 Route::middleware('auth')->group(function () {
@@ -195,9 +214,9 @@ Route::middleware('auth')->group(function () {
   Route::delete('/settings/delete-account', [SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
 });
 
-// Policy routes
+// --- Static Policy and Info Routes ---
 Route::prefix('chinh-sach')->group(function () {
-  // Forum rules route
+  // Forum rules route (redirects to a topic)
   Route::get('/noi-quy-dien-dan', function () {
     $topic = \App\Models\Topic::where('subforum_id', 10)
       ->where('user_id', 45)
@@ -233,10 +252,13 @@ Route::prefix('chinh-sach')->group(function () {
   })->name('policy.terms');
 });
 
+// --- Fallback Routes ---
+
+// User profile routes (should be near the end)
 Route::get('/{username}', [ProfileController::class, 'show'])->name('profile.show');
 Route::get('/{username}/{tab}', [ProfileController::class, 'showWithTab'])->name('profile.show.tab')->where('tab', 'posts|followers|following');
 
-// Add this at the end of your routes file
+// Fallback route for 404 errors
 Route::fallback(function () {
   return Inertia::render('Errors/404');
 });

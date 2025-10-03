@@ -4,6 +4,9 @@ namespace App\Http\Middleware;
 
 use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance as Middleware;
 
+/**
+ * Middleware to prevent requests during application maintenance.
+ */
 class PreventRequestsDuringMaintenance extends Middleware
 {
     /**

@@ -5,10 +5,19 @@ namespace App\Notifications;
 use Illuminate\Auth\Notifications\VerifyEmail as BaseVerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
 
+/**
+ * Custom notification for email verification.
+ *
+ * This class extends the default VerifyEmail notification to provide a custom
+ * email message and subject.
+ */
 class VerifyEmail extends BaseVerifyEmail
 {
     /**
      * Build the mail representation of the notification.
+     *
+     * @param  string  $url The verification URL.
+     * @return \Illuminate\Notifications\Messages\MailMessage
      */
     protected function buildMailMessage($url)
     {

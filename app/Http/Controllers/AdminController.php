@@ -20,25 +20,49 @@ use App\Models\Subforum;
 use App\Models\Post;
 use App\Models\AuthAccount;
 
+/**
+ * Handles administrative tasks for the application.
+ */
 class AdminController extends Controller
 {
     // User Management
+    /**
+     * Display the user management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function index()
     {
         return $this->usersIndex();
     }
 
+    /**
+     * Get a paginated list of users.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listUsers()
     {
         $users = User::paginate(10);
         return response()->json(['users' => $users], 200);
     }
 
+    /**
+     * Show the form for creating a new user.
+     *
+     * @return \Inertia\Response
+     */
     public function create()
     {
         return Inertia::render('Admin/Users/Create');
     }
 
+    /**
+     * Store a newly created user in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -69,6 +93,12 @@ class AdminController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'Người dùng đã được tạo thành công');
     }
 
+    /**
+     * Show the form for editing the specified user.
+     *
+     * @param  int  $id
+     * @return \Inertia\Response
+     */
     public function edit($id)
     {
         $user = User::findOrFail($id);
@@ -77,6 +107,13 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified user in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
@@ -108,6 +145,12 @@ class AdminController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'Người dùng đã được cập nhật thành công');
     }
 
+    /**
+     * Remove the specified user from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroy($id)
     {
         $user = User::findOrFail($id);
@@ -121,6 +164,11 @@ class AdminController extends Controller
     }
 
     // Topic Management
+    /**
+     * Display the topic management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function topicsIndex()
     {
         $topics = Topic::with('category', 'author')->paginate(10);
@@ -129,12 +177,22 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Get a paginated list of topics.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listTopics()
     {
         $topics = Topic::with('category', 'author')->paginate(10);
         return response()->json(['topics' => $topics], 200);
     }
 
+    /**
+     * Show the form for creating a new topic.
+     *
+     * @return \Inertia\Response
+     */
     public function createTopic()
     {
         $categories = ForumMainCategory::all();
@@ -143,6 +201,12 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created topic in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeTopic(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -168,6 +232,12 @@ class AdminController extends Controller
         return redirect()->route('admin.topics.index')->with('success', 'Chủ đề đã được tạo thành công');
     }
 
+    /**
+     * Show the form for editing the specified topic.
+     *
+     * @param  int  $id
+     * @return \Inertia\Response
+     */
     public function editTopic($id)
     {
         $topic = Topic::findOrFail($id);
@@ -179,6 +249,11 @@ class AdminController extends Controller
     }
 
     // Forum Main Category Management
+    /**
+     * Display the forum main category management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function categoriesIndex()
     {
         $categories = ForumMainCategory::withCount('topics')->paginate(10);
@@ -187,11 +262,22 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Show the form for creating a new forum main category.
+     *
+     * @return \Inertia\Response
+     */
     public function createCategory()
     {
         return Inertia::render('Admin/Categories/Create');
     }
 
+    /**
+     * Store a newly created forum main category in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeCategory(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -216,6 +302,13 @@ class AdminController extends Controller
             ->with('success', 'Danh mục chính đã được tạo thành công');
     }
 
+    /**
+     * Update the specified forum main category in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function updateMainCategory(Request $request, $id)
     {
         $category = ForumMainCategory::findOrFail($id);
@@ -233,6 +326,12 @@ class AdminController extends Controller
         return response()->json(['message' => 'Main category updated successfully', 'category' => $category], 200);
     }
 
+    /**
+     * Remove the specified forum main category from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function deleteMainCategory($id)
     {
         $category = ForumMainCategory::findOrFail($id);
@@ -242,6 +341,12 @@ class AdminController extends Controller
 
     // Forum Subforum Management (Legacy methods removed to fix duplication)
 
+    /**
+     * Remove the specified subforum from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function deleteSubforum($id)
     {
         $subforum = ForumSubforum::findOrFail($id);
@@ -250,12 +355,23 @@ class AdminController extends Controller
     }
 
     // Schedule Management
+    /**
+     * Get a paginated list of schedules.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listSchedules()
     {
         $schedules = Schedule::with('class')->paginate(10);
         return response()->json(['schedules' => $schedules], 200);
     }
 
+    /**
+     * Create a new schedule.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function createSchedule(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -274,6 +390,12 @@ class AdminController extends Controller
         return response()->json(['message' => 'Schedule created successfully', 'schedule' => $schedule], 201);
     }
 
+    /**
+     * Remove the specified schedule from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function deleteSchedule($id)
     {
         $schedule = Schedule::findOrFail($id);
@@ -282,6 +404,11 @@ class AdminController extends Controller
     }
 
     // Student Violation Management
+    /**
+     * Display the student violation management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function violationsIndex()
     {
         $violations = StudentViolation::with(['student', 'reporter'])
@@ -300,6 +427,11 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Get a paginated list of student violations.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listViolations()
     {
         $violations = StudentViolation::with(['student', 'reporter'])
@@ -310,6 +442,12 @@ class AdminController extends Controller
         return response()->json(['violations' => $violations], 200);
     }
 
+    /**
+     * Create a new student violation record.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function createViolation(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -328,6 +466,12 @@ class AdminController extends Controller
         return response()->json(['message' => 'Violation record created successfully', 'violation' => $violation], 201);
     }
 
+    /**
+     * Remove the specified student violation from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function deleteViolation($id)
     {
         $violation = StudentViolation::findOrFail($id);
@@ -335,6 +479,12 @@ class AdminController extends Controller
         return response()->json(['message' => 'Violation record deleted successfully'], 200);
     }
 
+    /**
+     * Store a newly created student violation in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeViolation(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -362,6 +512,13 @@ class AdminController extends Controller
             ->with('success', 'Thêm vi phạm thành công');
     }
 
+    /**
+     * Update the specified student violation in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateViolation(Request $request, $id)
     {
         $violation = StudentViolation::findOrFail($id);
@@ -392,6 +549,11 @@ class AdminController extends Controller
     }
 
     // Monitor Reports Management
+    /**
+     * Get a paginated list of monitor reports.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listMonitorReports()
     {
         $reports = MonitorReport::with(['monitor', 'class', 'violation'])
@@ -400,6 +562,11 @@ class AdminController extends Controller
         return response()->json(['reports' => $reports], 200);
     }
 
+    /**
+     * Display the monitor report management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function monitorReportsIndex()
     {
         $reports = MonitorReport::with(['monitor', 'class', 'violation'])
@@ -416,6 +583,12 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created monitor report in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeMonitorReport(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -447,6 +620,13 @@ class AdminController extends Controller
             ->with('success', 'Tạo báo cáo xung kích thành công');
     }
 
+    /**
+     * Update the specified monitor report in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateMonitorReport(Request $request, $id)
     {
         $report = MonitorReport::findOrFail($id);
@@ -481,6 +661,11 @@ class AdminController extends Controller
     }
 
 
+    /**
+     * Show the form for creating a new class.
+     *
+     * @return \Inertia\Response
+     */
     public function createClass()
     {
         $teachers = User::where('role', 'teacher')->get();
@@ -489,6 +674,12 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created class in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeClass(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -518,6 +709,11 @@ class AdminController extends Controller
     }
 
     // Quản lý thời khóa biểu
+    /**
+     * Display the schedule management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function schedulesIndex()
     {
         $schedules = Schedule::with(['class', 'teacher'])
@@ -535,6 +731,12 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created schedule in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeSchedule(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -568,6 +770,13 @@ class AdminController extends Controller
     }
 
     // Các phương thức cập nhật
+    /**
+     * Update the specified class in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateClass(Request $request, $id)
     {
         $class = SchoolClass::findOrFail($id);
@@ -598,6 +807,13 @@ class AdminController extends Controller
             ->with('success', 'Cập nhật lớp học thành công');
     }
 
+    /**
+     * Update the specified schedule in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateSchedule(Request $request, $id)
     {
         $schedule = Schedule::findOrFail($id);
@@ -633,6 +849,12 @@ class AdminController extends Controller
     }
 
     // Các phương thức xóa
+    /**
+     * Remove the specified class from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyClass($id)
     {
         $class = SchoolClass::findOrFail($id);
@@ -646,6 +868,12 @@ class AdminController extends Controller
             ->with('success', 'Xóa lớp học thành công');
     }
 
+    /**
+     * Remove the specified schedule from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroySchedule($id)
     {
         $schedule = Schedule::findOrFail($id);
@@ -659,6 +887,12 @@ class AdminController extends Controller
             ->with('success', 'Xóa thời khóa biểu thành công');
     }
 
+    /**
+     * Remove the specified student violation from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyViolation($id)
     {
         $violation = StudentViolation::findOrFail($id);
@@ -672,6 +906,12 @@ class AdminController extends Controller
             ->with('success', 'Xóa vi phạm thành công');
     }
 
+    /**
+     * Remove the specified monitor report from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyMonitorReport($id)
     {
         $report = MonitorReport::findOrFail($id);
@@ -686,6 +926,11 @@ class AdminController extends Controller
     }
 
     // Forum Category Management
+    /**
+     * Display the forum category management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function forumCategoriesIndex()
     {
         $categories = ForumCategory::withCount('subforums')
@@ -698,6 +943,11 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Get a paginated list of forum categories.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listForumCategories()
     {
         $categories = ForumCategory::withCount('subforums')
@@ -708,11 +958,22 @@ class AdminController extends Controller
         return response()->json(['categories' => $categories], 200);
     }
 
+    /**
+     * Show the form for creating a new forum category.
+     *
+     * @return \Inertia\Response
+     */
     public function createForumCategory()
     {
         return Inertia::render('Admin/Forum/Categories/Create');
     }
 
+    /**
+     * Store a newly created forum category in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeForumCategory(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -740,6 +1001,12 @@ class AdminController extends Controller
             ->with('success', 'Tạo danh mục thành công');
     }
 
+    /**
+     * Show the form for editing the specified forum category.
+     *
+     * @param  int  $id
+     * @return \Inertia\Response
+     */
     public function editForumCategory($id)
     {
         $category = ForumCategory::findOrFail($id);
@@ -748,6 +1015,13 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified forum category in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateForumCategory(Request $request, $id)
     {
         $category = ForumCategory::findOrFail($id);
@@ -777,6 +1051,12 @@ class AdminController extends Controller
             ->with('success', 'Cập nhật danh mục thành công');
     }
 
+    /**
+     * Remove the specified forum category from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyForumCategory($id)
     {
         $category = ForumCategory::findOrFail($id);
@@ -791,6 +1071,11 @@ class AdminController extends Controller
     }
 
     // User Management
+    /**
+     * Display the user management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function usersIndex()
     {
         $users = User::paginate(10);
@@ -799,11 +1084,22 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Show the form for creating a new user.
+     *
+     * @return \Inertia\Response
+     */
     public function createUser()
     {
         return Inertia::render('Admin/Users/Create');
     }
 
+    /**
+     * Store a newly created user in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeUser(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -835,6 +1131,12 @@ class AdminController extends Controller
             ->with('success', 'Tạo người dùng thành công');
     }
 
+    /**
+     * Show the form for editing the specified user.
+     *
+     * @param  int  $id
+     * @return \Inertia\Response
+     */
     public function editUser($id)
     {
         $user = User::findOrFail($id);
@@ -843,6 +1145,13 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified user in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateUser(Request $request, $id)
     {
         $user = User::findOrFail($id);
@@ -876,6 +1185,12 @@ class AdminController extends Controller
             ->with('success', 'Cập nhật người dùng thành công');
     }
 
+    /**
+     * Remove the specified user from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyUser($id)
     {
         $user = User::findOrFail($id);
@@ -889,6 +1204,11 @@ class AdminController extends Controller
             ->with('success', 'Xóa người dùng thành công');
     }
 
+    /**
+     * Get user statistics.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function userStats()
     {
         $stats = [
@@ -904,6 +1224,11 @@ class AdminController extends Controller
     }
 
     // Class Management
+    /**
+     * Display the class management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function classesIndex()
     {
         $classes = SchoolClass::with('mainTeacher')
@@ -915,6 +1240,11 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Get a paginated list of classes.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listClasses()
     {
         $classes = SchoolClass::with('mainTeacher')
@@ -926,6 +1256,11 @@ class AdminController extends Controller
     }
 
     // Subforum Management
+    /**
+     * Display the subforum management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function subforumsIndex()
     {
         $subforums = ForumSubforum::with(['mainCategory', 'moderator'])
@@ -943,6 +1278,11 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Get a paginated list of subforums.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listSubforums()
     {
         $subforums = ForumSubforum::with(['mainCategory', 'moderator'])
@@ -953,6 +1293,11 @@ class AdminController extends Controller
         return response()->json(['subforums' => $subforums], 200);
     }
 
+    /**
+     * Show the form for creating a new subforum.
+     *
+     * @return \Inertia\Response
+     */
     public function createSubforum()
     {
         $categories = ForumCategory::active()->ordered()->get();
@@ -964,6 +1309,12 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created subforum in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storeSubforum(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -993,6 +1344,12 @@ class AdminController extends Controller
             ->with('success', 'Tạo diễn đàn con thành công');
     }
 
+    /**
+     * Show the form for editing the specified subforum.
+     *
+     * @param  int  $id
+     * @return \Inertia\Response
+     */
     public function editSubforum($id)
     {
         $subforum = ForumSubforum::findOrFail($id);
@@ -1006,6 +1363,13 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified subforum in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updateSubforum(Request $request, $id)
     {
         $subforum = ForumSubforum::findOrFail($id);
@@ -1037,6 +1401,12 @@ class AdminController extends Controller
             ->with('success', 'Cập nhật diễn đàn con thành công');
     }
 
+    /**
+     * Remove the specified subforum from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroySubforum($id)
     {
         $subforum = ForumSubforum::findOrFail($id);
@@ -1051,6 +1421,11 @@ class AdminController extends Controller
     }
 
     // Post Management
+    /**
+     * Display the post management index page.
+     *
+     * @return \Inertia\Response
+     */
     public function postsIndex()
     {
         $topics = Topic::with(['author', 'subforum'])
@@ -1064,6 +1439,11 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Get a paginated list of posts.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function listPosts()
     {
         $topics = Topic::with(['author', 'subforum'])
@@ -1075,6 +1455,11 @@ class AdminController extends Controller
         return response()->json(['posts' => $topics], 200);
     }
 
+    /**
+     * Show the form for creating a new post.
+     *
+     * @return \Inertia\Response
+     */
     public function createPost()
     {
         $subforums = ForumSubforum::active()->ordered()->get();
@@ -1083,6 +1468,12 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Store a newly created post in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function storePost(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1112,6 +1503,12 @@ class AdminController extends Controller
             ->with('success', 'Tạo bài viết thành công');
     }
 
+    /**
+     * Show the form for editing the specified post.
+     *
+     * @param  int  $id
+     * @return \Inertia\Response
+     */
     public function editPost($id)
     {
         $topic = Topic::findOrFail($id);
@@ -1123,6 +1520,13 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Update the specified post in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function updatePost(Request $request, $id)
     {
         $topic = Topic::findOrFail($id);
@@ -1152,6 +1556,12 @@ class AdminController extends Controller
             ->with('success', 'Cập nhật bài viết thành công');
     }
 
+    /**
+     * Remove the specified post from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function destroyPost($id)
     {
         $topic = Topic::findOrFail($id);
@@ -1165,6 +1575,12 @@ class AdminController extends Controller
             ->with('success', 'Xóa bài viết thành công');
     }
 
+    /**
+     * Toggle the pinned status of a post.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function togglePinPost($id)
     {
         $topic = Topic::findOrFail($id);
@@ -1176,6 +1592,12 @@ class AdminController extends Controller
         ]);
     }
 
+    /**
+     * Toggle the locked status of a post.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function toggleLockPost($id)
     {
         $topic = Topic::findOrFail($id);

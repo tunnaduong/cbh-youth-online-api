@@ -7,6 +7,9 @@ use App\Models\ForumMainCategory;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
+/**
+ * Handle Inertia requests and share default data with all views.
+ */
 class HandleInertiaRequests extends Middleware
 {
     /**
@@ -18,6 +21,9 @@ class HandleInertiaRequests extends Middleware
 
     /**
      * Determine the current asset version.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return string|null
      */
     public function version(Request $request): string|null
     {
@@ -27,6 +33,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Define the props that are shared by default.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return array<string, mixed>
      */
     public function share(Request $request): array
@@ -51,7 +58,10 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Get stories data for Inertia using StoryController
+     * Get stories data for Inertia using the StoryController.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return mixed
      */
     private function getStories(Request $request)
     {

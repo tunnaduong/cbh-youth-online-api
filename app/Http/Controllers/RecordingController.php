@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Recording;
 
+/**
+ * Handles the display and management of audio recordings.
+ */
 class RecordingController extends Controller
 {
     /**

@@ -9,17 +9,66 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
 
+/**
+ * Represents a topic or post in the forum.
+ *
+ * @property int $id
+ * @property int|null $subforum_id
+ * @property int $user_id
+ * @property string $title
+ * @property string $description The raw markdown content.
+ * @property string|null $content_html The rendered HTML content.
+ * @property bool $pinned
+ * @property string|null $cdn_image_id Comma-separated string of UserContent IDs.
+ * @property bool $hidden
+ * @property bool $anonymous
+ * @property string $privacy
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\AuthAccount $user
+ * @property-read \App\Models\AuthAccount $author
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TopicView[] $views
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TopicVote[] $votes
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TopicComment[] $comments
+ * @property-read \App\Models\ForumSubforum|null $subforum
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\AuthAccount[] $savedTopics
+ * @property-read \App\Models\UserContent|null $cdnUserContent
+ * @property-read array $image_urls
+ * @property-read string|null $content
+ * @property-read string $comments_count
+ * @property-read string|null $created_at_human
+ * @property-read array $votes_formatted
+ */
 class Topic extends Model
 {
   use HasFactory;
 
+  /**
+   * The table associated with the model.
+   *
+   * @var string
+   */
   protected $table = 'cyo_topics';
 
-  // Keep auto-incrementing but use randomized values
+  /**
+   * Indicates if the IDs are auto-incrementing.
+   *
+   * @var bool
+   */
   public $incrementing = true;
+
+  /**
+   * The "type" of the primary key ID.
+   *
+   * @var string
+   */
   protected $keyType = 'int';
 
-  // Define which fields are mass assignable
+  /**
+   * The attributes that are mass assignable.
+   *
+   * @var array<int, string>
+   */
   protected $fillable = [
     'subforum_id',
     'user_id',
@@ -33,49 +82,99 @@ class Topic extends Model
     'privacy',
   ];
 
+  /**
+   * The accessors to append to the model's array form.
+   *
+   * @var array<int, string>
+   */
   protected $appends = ['content'];
 
-  // Define the relationship: A topic belongs to a user
+  /**
+   * Get the user that owns the topic.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
   public function user()
   {
     return $this->belongsTo(AuthAccount::class, 'user_id');
   }
 
+  /**
+   * Get the author of the topic (alias for user).
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
   public function author()
   {
     return $this->belongsTo(AuthAccount::class, 'user_id'); // Adjust 'user_id' if necessary
   }
 
+  /**
+   * Get the views for the topic.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\HasMany
+   */
   public function views()
   {
     return $this->hasMany(TopicView::class, 'topic_id'); // Adjust 'topic_id' if necessary
   }
 
+  /**
+   * Get the votes for the topic.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\HasMany
+   */
   public function votes()
   {
     return $this->hasMany(TopicVote::class, 'topic_id');
   }
 
+  /**
+   * Get the comments for the topic.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\HasMany
+   */
   public function comments()
   {
     return $this->hasMany(TopicComment::class, 'topic_id'); // Adjust 'topic_id' if necessary
   }
 
+  /**
+   * Check if the topic is pinned.
+   *
+   * @return bool
+   */
   public function isPinned()
   {
     return $this->pinned;
   }
 
+  /**
+   * Get the subforum that the topic belongs to.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
   public function subforum()
   {
     return $this->belongsTo(ForumSubforum::class, 'subforum_id');
   }
 
+  /**
+   * Check if the topic is saved by a specific user.
+   *
+   * @param  int  $userId
+   * @return bool
+   */
   public function isSavedByUser($userId)
   {
     return $this->savedTopics()->where('user_id', $userId)->exists();
   }
 
+  /**
+   * The users that have saved the topic.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+   */
   public function savedTopics()
   {
     // Adjust the relationship to match your database structure
@@ -83,7 +182,11 @@ class Topic extends Model
     // Make sure to specify the local key and foreign key if they differ from default naming conventions
   }
 
-  // Define the relationship with UserContent for multiple images
+  /**
+   * Get the user content (images) associated with the topic.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\HasOne
+   */
   public function cdnUserContent()
   {
     if (empty($this->cdn_image_id)) {
@@ -95,7 +198,11 @@ class Topic extends Model
       ->whereIn('id', $imageIds);
   }
 
-  // Helper method to get image URLs
+  /**
+   * Helper method to get an ordered collection of image models.
+   *
+   * @return \Illuminate\Database\Eloquent\Collection
+   */
   public function getImageUrls()
   {
     if (empty($this->cdn_image_id)) {
@@ -108,6 +215,11 @@ class Topic extends Model
       ->get();
   }
 
+  /**
+   * Get the image URLs for the topic.
+   *
+   * @return array
+   */
   public function getImageUrlsAttribute()
   {
     return $this->getImageUrls()->map(function ($content) {
@@ -115,17 +227,33 @@ class Topic extends Model
     })->all();
   }
 
+  /**
+   * Get the HTML content of the topic.
+   *
+   * @return string|null
+   */
   public function getContentAttribute()
   {
     return $this->content_html;
   }
 
-  // khi query withCount('comments'), Laravel sẽ gắn vào thuộc tính comments_count
+  /**
+   * Get the formatted comment count.
+   *
+   * @param  int  $value
+   * @return string
+   */
   public function getCommentsCountAttribute($value)
   {
     return $this->roundToNearestFive($value) . "+";
   }
 
+  /**
+   * Get the created_at timestamp in a human-readable format.
+   *
+   * @param  mixed  $value
+   * @return string|null
+   */
   public function getCreatedAtHumanAttribute($value)
   {
     return $this->created_at
@@ -133,19 +261,27 @@ class Topic extends Model
       : null;
   }
 
+  /**
+   * Round a number down to the nearest multiple of five for display.
+   *
+   * @param  int  $count
+   * @return string
+   */
   private function roundToNearestFive($count)
   {
     if ($count <= 5) {
-      // Nếu <= 5 thì thêm số 0 phía trước
+      // If <= 5, pad with a leading zero
       return str_pad($count, 2, '0', STR_PAD_LEFT);
     } else {
-      // Làm tròn xuống bội số của 5 và pad 2 chữ số
+      // Round down to the nearest multiple of 5 and pad to 2 digits
       return str_pad(floor($count / 5) * 5, 2, '0', STR_PAD_LEFT);
     }
   }
 
   /**
-   * Get the URL slug for the topic
+   * Get the URL slug for the topic.
+   *
+   * @return string
    */
   public function getSlug()
   {
@@ -154,13 +290,21 @@ class Topic extends Model
   }
 
   /**
-   * Get the URL for the topic
+   * Get the full URL for the topic.
+   *
+   * @return string
    */
   public function getUrl()
   {
     return "/{$this->user->username}/posts/{$this->id}-" . $this->getSlug();
   }
 
+  /**
+   * Scope a query to only include topics visible to the current user.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
   public function scopeVisibleToCurrentUser($query)
   {
     if (auth()->check()) {
@@ -186,7 +330,10 @@ class Topic extends Model
   }
 
   /**
-   * Scope để chỉ lấy những bài viết có quyền xem public
+   * Scope a query to only include public topics.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
    */
   public function scopePublicOnly($query)
   {
@@ -194,7 +341,10 @@ class Topic extends Model
   }
 
   /**
-   * Scope để lấy bài viết private (chỉ tác giả mới thấy)
+   * Scope a query to only include private topics.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
    */
   public function scopePrivateOnly($query)
   {
@@ -202,7 +352,10 @@ class Topic extends Model
   }
 
   /**
-   * Scope để lấy bài viết followers (chỉ người follow mới thấy)
+   * Scope a query to only include followers-only topics.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
    */
   public function scopeFollowersOnly($query)
   {
@@ -210,7 +363,9 @@ class Topic extends Model
   }
 
   /**
-   * Boot method to automatically generate randomized IDs
+   * The "booted" method of the model.
+   *
+   * @return void
    */
   protected static function boot()
   {
@@ -224,7 +379,9 @@ class Topic extends Model
   }
 
   /**
-   * Generate a unique randomized ID
+   * Generate a unique randomized ID for the model.
+   *
+   * @return int
    */
   public static function generateRandomizedId(): int
   {
@@ -236,6 +393,11 @@ class Topic extends Model
     return $randomizedId;
   }
 
+  /**
+   * Get the formatted votes for the topic.
+   *
+   * @return \Illuminate\Support\Collection
+   */
   public function getVotesFormattedAttribute()
   {
     return $this->votes->map(function ($vote) {

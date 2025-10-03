@@ -5,6 +5,12 @@ namespace App\Notifications;
 use Illuminate\Auth\Notifications\ResetPassword as ResetPasswordNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 
+/**
+ * A custom notification for password resets.
+ *
+ * This class extends the default ResetPasswordNotification to customize the content
+ * and URL of the password reset email.
+ */
 class CustomResetPasswordNotification extends ResetPasswordNotification
 {
     /**

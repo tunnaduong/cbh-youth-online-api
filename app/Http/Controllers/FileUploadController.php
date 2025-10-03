@@ -10,8 +10,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * Handles the uploading, showing, and deleting of user-generated content.
+ */
 class FileUploadController extends Controller
 {
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function show($id)
     {
         // Fetch the user content based on the provided ID
@@ -27,7 +36,12 @@ class FileUploadController extends Controller
     }
 
 
-    // Method to handle file upload
+    /**
+     * Handle the upload of a file.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function upload(Request $request)
     {
         // Validate the file input
@@ -96,6 +110,12 @@ class FileUploadController extends Controller
         return response()->json(['message' => 'Upload ảnh thành công!', 'id' => $userContent->id, 'path' => Storage::url($path)], 201);
     }
 
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function destroy($id)
     {
         $content = UserContent::findOrFail($id);

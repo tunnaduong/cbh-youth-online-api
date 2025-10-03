@@ -8,6 +8,9 @@ use App\Models\Topic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Handles the retrieval and display of youth news articles.
+ */
 class YouthNewsController extends Controller
 {
     /**
@@ -38,6 +41,11 @@ class YouthNewsController extends Controller
         ]);
     }
 
+    /**
+     * Get a paginated list of youth news for API consumption.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function youthNewsApi()
     {
         $query = $this->buildYouthNewsQuery();
@@ -61,6 +69,11 @@ class YouthNewsController extends Controller
         ]);
     }
 
+    /**
+     * Build the base query for fetching youth news.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
     private function buildYouthNewsQuery()
     {
         return Topic::with(['user.profile', 'comments', 'votes'])
@@ -70,6 +83,12 @@ class YouthNewsController extends Controller
             ->where('subforum_id', 32);
     }
 
+    /**
+     * Format the raw post data for a consistent response.
+     *
+     * @param  \App\Models\Topic  $post
+     * @return array
+     */
     private function formatYouthNewsData($post)
     {
         return [
@@ -100,6 +119,12 @@ class YouthNewsController extends Controller
         ];
     }
 
+    /**
+     * Round a number down to the nearest multiple of five for display purposes.
+     *
+     * @param  int  $count
+     * @return string
+     */
     private function roundToNearestFive($count)
     {
         if ($count <= 5) {

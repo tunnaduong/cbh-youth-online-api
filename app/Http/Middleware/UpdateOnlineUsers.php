@@ -7,19 +7,29 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * Middleware to update the online status of users and guests.
+ */
 class UpdateOnlineUsers
 {
+  /**
+   * Handle an incoming request.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+   * @return \Symfony\Component\HttpFoundation\Response
+   */
   public function handle(Request $request, Closure $next)
   {
-    $userId = Auth::id(); // null nếu chưa login
+    $userId = Auth::id(); // null if not logged in
     $sessionId = session()->getId();
     $ip = $request->ip();
     $now = now();
 
-    // Xác định identifier: user_id nếu login, session_id nếu guest
+    // Determine identifier: user_id if logged in, session_id if guest
     $identifier = $userId ?? $sessionId;
 
-    // Cập nhật hoặc insert bản ghi online user
+    // Update or insert the online user record
     DB::table('cyo_online_users')->updateOrInsert(
       [
         'user_id' => $userId,
@@ -32,12 +42,12 @@ class UpdateOnlineUsers
       ]
     );
 
-    // Xóa bản ghi cũ hơn 5 phút
+    // Delete records older than 5 minutes
     DB::table('cyo_online_users')
       ->where('last_activity', '<', $now->subMinutes(5))
       ->delete();
 
-    // Xóa các bản ghi guest trùng IP nhưng khác session_id (tránh spam khi reload/hot reload)
+    // Delete duplicate guest records from the same IP but different session_id (prevents spam on reload/hot reload)
     if (!$userId) {
       DB::table('cyo_online_users')
         ->whereNull('user_id')
@@ -46,7 +56,7 @@ class UpdateOnlineUsers
         ->delete();
     }
 
-    // Cập nhật max online
+    // Update max online users
     \App\Http\Controllers\ForumController::updateMaxOnline();
 
     return $next($request);

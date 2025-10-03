@@ -5,6 +5,12 @@ namespace App\Providers;
 // use Illuminate\Support\Facades\Gate;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
+/**
+ * The application's authentication service provider.
+ *
+ * This provider is responsible for registering the application's policies
+ * and any other authentication or authorization services.
+ */
 class AuthServiceProvider extends ServiceProvider
 {
     /**
@@ -18,6 +24,8 @@ class AuthServiceProvider extends ServiceProvider
 
     /**
      * Register any authentication / authorization services.
+     *
+     * @return void
      */
     public function boot(): void
     {

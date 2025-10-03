@@ -7,8 +7,18 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Handles the changing of a user's password.
+ */
 class PasswordResetController extends Controller
 {
+    /**
+     * Change the password for the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     * @throws \Illuminate\Validation\ValidationException
+     */
     public function changePassword(Request $request)
     {
         // Validate the incoming request data

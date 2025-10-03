@@ -12,10 +12,16 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Handles search functionality across different content types like users and posts.
+ */
 class SearchController extends Controller
 {
     /**
-     * Search across all content types
+     * Search across all content types based on a query.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function search(Request $request)
     {
@@ -54,7 +60,11 @@ class SearchController extends Controller
     }
 
     /**
-     * Search for users
+     * Search for users by username, profile name, or bio.
+     *
+     * @param  string  $query
+     * @param  int  $limit
+     * @return \Illuminate\Support\Collection
      */
     private function searchUsers($query, $limit)
     {
@@ -79,7 +89,11 @@ class SearchController extends Controller
     }
 
     /**
-     * Search for posts
+     * Search for posts by title or description.
+     *
+     * @param  string  $query
+     * @param  int  $limit
+     * @return \Illuminate\Support\Collection
      */
     private function searchPosts($query, $limit)
     {

@@ -9,6 +9,29 @@ use App\Models\UserContent;
 use App\Models\RecordingView;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Represents an audio recording.
+ *
+ * @property int $id
+ * @property string $title
+ * @property string|null $description
+ * @property string|null $content_html
+ * @property int|null $cdn_audio_id
+ * @property int|null $cdn_preview_id
+ * @property string|null $audio_length
+ * @property int $user_id
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\AuthAccount $author
+ * @property-read \App\Models\UserContent|null $cdnAudio
+ * @property-read \App\Models\UserContent|null $cdnPreview
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\RecordingView[] $views
+ * @property-read string|null $audio_url
+ * @property-read string|null $preview_image_url
+ * @property-read int $view_count
+ * @property-read string|null $created_at_human
+ * @property-read string|null $content
+ */
 class Recording extends Model
 {
     use HasFactory;
@@ -37,6 +60,8 @@ class Recording extends Model
 
     /**
      * Get the user that owns the recording.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function author()
     {
@@ -45,6 +70,8 @@ class Recording extends Model
 
     /**
      * Get the audio file for this recording.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function cdnAudio()
     {
@@ -53,6 +80,8 @@ class Recording extends Model
 
     /**
      * Get the preview image for this recording.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function cdnPreview()
     {
@@ -61,6 +90,8 @@ class Recording extends Model
 
     /**
      * Get the views for this recording.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function views()
     {
@@ -80,6 +111,8 @@ class Recording extends Model
 
     /**
      * Get the audio URL for this recording.
+     *
+     * @return string|null
      */
     public function getAudioUrlAttribute()
     {
@@ -91,6 +124,8 @@ class Recording extends Model
 
     /**
      * Get the preview image URL for this recording.
+     *
+     * @return string|null
      */
     public function getPreviewImageUrlAttribute()
     {
@@ -102,6 +137,8 @@ class Recording extends Model
 
     /**
      * Get the view count for this recording.
+     *
+     * @return int
      */
     public function getViewCountAttribute()
     {
@@ -110,6 +147,8 @@ class Recording extends Model
 
     /**
      * Get human-readable created date.
+     *
+     * @return string|null
      */
     public function getCreatedAtHumanAttribute()
     {
@@ -118,6 +157,8 @@ class Recording extends Model
 
     /**
      * Get the content attribute (HTML version if available, otherwise description).
+     *
+     * @return string|null
      */
     public function getContentAttribute()
     {

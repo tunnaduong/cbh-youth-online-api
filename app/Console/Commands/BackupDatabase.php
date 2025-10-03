@@ -6,6 +6,9 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+/**
+ * A console command to create a backup of the database.
+ */
 class BackupDatabase extends Command
 {
     /**
@@ -24,6 +27,8 @@ class BackupDatabase extends Command
 
     /**
      * Execute the console command.
+     *
+     * @return void
      */
     public function handle()
     {
@@ -80,7 +85,11 @@ class BackupDatabase extends Command
     }
 
     /**
-     * Format bytes to human readable format
+     * Format bytes to a human-readable format.
+     *
+     * @param  int  $size
+     * @param  int  $precision
+     * @return string
      */
     private function formatBytes($size, $precision = 2)
     {
@@ -94,7 +103,10 @@ class BackupDatabase extends Command
     }
 
     /**
-     * Show recent backup files
+     * Show recent backup files in the specified directory.
+     *
+     * @param  string  $backupDir
+     * @return void
      */
     private function showRecentBackups($backupDir)
     {

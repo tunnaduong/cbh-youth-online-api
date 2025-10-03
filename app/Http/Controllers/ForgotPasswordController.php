@@ -8,10 +8,16 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * Handles the logic for password reset requests.
+ */
 class ForgotPasswordController extends Controller
 {
     /**
      * Send a password reset link to the user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function sendResetLinkResponse(Request $request)
     {
@@ -48,6 +54,9 @@ class ForgotPasswordController extends Controller
 
     /**
      * Reset the user's password.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function reset(Request $request)
     {

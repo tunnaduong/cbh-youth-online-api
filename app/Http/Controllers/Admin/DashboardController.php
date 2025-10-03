@@ -8,8 +8,16 @@ use App\Models\Topic;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
+/**
+ * Handles the display of the admin dashboard.
+ */
 class DashboardController extends Controller
 {
+    /**
+     * Display the admin dashboard with key statistics.
+     *
+     * @return \Inertia\Response
+     */
     public function index()
     {
         $stats = [

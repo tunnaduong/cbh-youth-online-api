@@ -4,6 +4,9 @@ namespace App\Http\Middleware;
 
 use Illuminate\Foundation\Http\Middleware\TrimStrings as Middleware;
 
+/**
+ * Middleware to trim whitespace from all string inputs on the request.
+ */
 class TrimStrings extends Middleware
 {
     /**

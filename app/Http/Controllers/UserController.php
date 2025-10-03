@@ -14,9 +14,17 @@ use Intervention\Image\Facades\Image;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
+/**
+ * Handles user-related actions such as retrieving profiles, avatars, and activity status.
+ */
 class UserController extends Controller
 {
-    // Get user avatar
+    /**
+     * Get the avatar for a specific user.
+     *
+     * @param  string  $username
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
     public function getAvatar($username)
     {
         try {
@@ -64,7 +72,13 @@ class UserController extends Controller
         }
     }
 
-    // Update user avatar
+    /**
+     * Update the avatar for a specific user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  string  $username
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function updateAvatar(Request $request, $username)
     {
         // Validate the incoming request
@@ -138,7 +152,12 @@ class UserController extends Controller
         }
     }
 
-    // Get user profile by username
+    /**
+     * Get the profile for a specific user.
+     *
+     * @param  string  $username
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getProfile($username)
     {
         // Find the user by username
@@ -286,7 +305,13 @@ class UserController extends Controller
         ]);
     }
 
-    // Update user profile by username (only for the logged-in user)
+    /**
+     * Update the profile for the authenticated user.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  string  $username
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function updateProfile(Request $request, $username)
     {
         // Get the authenticated user
@@ -313,7 +338,12 @@ class UserController extends Controller
         return response()->json(['message' => 'Cập nhật trang cá nhân thành công.', 'request' => $validatedData]);
     }
 
-    // Get user online status
+    /**
+     * Get the online status of a specific user.
+     *
+     * @param  string  $username
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getOnlineStatus($username)
     {
         // Find the user by username
@@ -329,7 +359,11 @@ class UserController extends Controller
         return response()->json(['is_online' => $isOnline, 'last_activity' => $user->last_activity]);
     }
 
-    // Get top 8 active users
+    /**
+     * Get the top 8 most active users based on points.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getTop8ActiveUsers()
     {
         try {
@@ -358,7 +392,11 @@ class UserController extends Controller
         }
     }
 
-    // Update user last activity
+    /**
+     * Update the last activity timestamp for the authenticated user.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function updateLastActivity()
     {
         // Get the authenticated user

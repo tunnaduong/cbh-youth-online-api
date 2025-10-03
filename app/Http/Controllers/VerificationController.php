@@ -7,8 +7,17 @@ use App\Models\AuthEmailVerificationCode;
 use App\Models\AuthAccount;
 use Illuminate\Http\Request;
 
+/**
+ * Handles the email verification process.
+ */
 class VerificationController extends Controller
 {
+    /**
+     * Verify the user's email address.
+     *
+     * @param  string  $verificationCode
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function verify($verificationCode)
     {
         $verification = AuthEmailVerificationCode::where('verification_code', $verificationCode)

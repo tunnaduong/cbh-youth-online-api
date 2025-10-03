@@ -8,13 +8,45 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Represents a user's story.
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property string|null $content
+ * @property string $media_type
+ * @property string|null $media_url
+ * @property string|null $background_color
+ * @property string|null $font_style
+ * @property array|null $text_position
+ * @property string $privacy
+ * @property \Illuminate\Support\Carbon|null $expires_at
+ * @property int|null $duration
+ * @property bool $pinned
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \App\Models\AuthAccount $user
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\StoryViewer[] $viewers
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\StoryReaction[] $reactions
+ */
 class Story extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
     protected $table = 'cyo_stories';
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'user_id',
         'content',
@@ -29,6 +61,11 @@ class Story extends Model
         'pinned'
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'text_position' => 'array',
         'expires_at' => 'datetime',
@@ -36,12 +73,19 @@ class Story extends Model
         'pinned' => 'boolean'
     ];
 
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
     protected $hidden = [
         'deleted_at'
     ];
 
     /**
-     * Get the user that owns the story
+     * Get the user that owns the story.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function user(): BelongsTo
     {
@@ -49,7 +93,9 @@ class Story extends Model
     }
 
     /**
-     * Get the viewers for the story
+     * Get the viewers for the story.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function viewers(): HasMany
     {
@@ -57,7 +103,9 @@ class Story extends Model
     }
 
     /**
-     * Get the reactions for the story
+     * Get the reactions for the story.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function reactions(): HasMany
     {
@@ -65,7 +113,9 @@ class Story extends Model
     }
 
     /**
-     * Check if story has expired
+     * Check if the story has expired.
+     *
+     * @return bool
      */
     public function hasExpired(): bool
     {
@@ -73,7 +123,10 @@ class Story extends Model
     }
 
     /**
-     * Scope a query to only include active stories
+     * Scope a query to only include active (non-expired) stories.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeActive($query)
     {
@@ -84,7 +137,10 @@ class Story extends Model
     }
 
     /**
-     * Scope a query to only include pinned stories
+     * Scope a query to only include pinned stories.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopePinned($query)
     {

@@ -19,8 +19,17 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use App\Models\UserSavedTopic;
 
+/**
+ * Handles the display and interaction with the main forum, categories, subforums, and topics.
+ */
 class ForumController extends Controller
 {
+  /**
+   * Display the main forum index page.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Inertia\Response
+   */
   public function index(Request $request)
   {
     $mainCategories = ForumCategory::with([
@@ -83,6 +92,11 @@ class ForumController extends Controller
     ]);
   }
 
+  /**
+   * Display the user's personalized feed.
+   *
+   * @return \Inertia\Response
+   */
   public function feed()
   {
     $query = $this->buildFeedQuery();
@@ -106,6 +120,11 @@ class ForumController extends Controller
     ]);
   }
 
+  /**
+   * Get the user's personalized feed as a JSON response.
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
   public function feedApi()
   {
     $query = $this->buildFeedQuery();
@@ -207,6 +226,11 @@ class ForumController extends Controller
     ];
   }
 
+  /**
+   * Update the maximum number of online users.
+   *
+   * @return void
+   */
   public static function updateMaxOnline()
   {
     $onlineUsers = DB::table('cyo_online_users')
@@ -235,6 +259,12 @@ class ForumController extends Controller
     }
   }
 
+  /**
+   * Display a specific forum category and its subforums.
+   *
+   * @param  \App\Models\ForumCategory  $category
+   * @return \Inertia\Response
+   */
   public function category(ForumCategory $category)
   {
     $category->load([
@@ -253,6 +283,13 @@ class ForumController extends Controller
     ]);
   }
 
+  /**
+   * Display a specific subforum and its topics.
+   *
+   * @param  \App\Models\ForumCategory  $category
+   * @param  \App\Models\ForumSubforum  $subforum
+   * @return \Inertia\Response
+   */
   public function subforum(ForumCategory $category, ForumSubforum $subforum)
   {
     $query = $subforum->topics()
@@ -323,6 +360,12 @@ class ForumController extends Controller
     ]);
   }
 
+  /**
+   * Show the form for creating a new topic in a subforum.
+   *
+   * @param  \App\Models\ForumSubforum  $subforum
+   * @return \Inertia\Response
+   */
   public function createTopic(ForumSubforum $subforum)
   {
     return Inertia::render('Posts/Create', [
@@ -330,6 +373,12 @@ class ForumController extends Controller
     ]);
   }
 
+  /**
+   * Store a newly created topic in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\RedirectResponse
+   */
   public function storeTopic(Request $request)
   {
     $validated = $request->validate([
@@ -347,6 +396,12 @@ class ForumController extends Controller
       ->with('success', 'Chủ đề đã được tạo thành công.');
   }
 
+  /**
+   * Show the form for editing the specified topic.
+   *
+   * @param  \App\Models\Topic  $topic
+   * @return \Inertia\Response
+   */
   public function editTopic(Topic $topic)
   {
     $this->authorize('update', $topic);
@@ -356,6 +411,13 @@ class ForumController extends Controller
     ]);
   }
 
+  /**
+   * Update the specified topic in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  \App\Models\Topic  $topic
+   * @return \Illuminate\Http\RedirectResponse
+   */
   public function updateTopic(Request $request, Topic $topic)
   {
     $this->authorize('update', $topic);
@@ -371,6 +433,12 @@ class ForumController extends Controller
       ->with('success', 'Chủ đề đã được cập nhật thành công.');
   }
 
+  /**
+   * Remove the specified topic from storage.
+   *
+   * @param  \App\Models\Topic  $topic
+   * @return \Illuminate\Http\RedirectResponse
+   */
   public function destroyTopic(Topic $topic)
   {
     $this->authorize('delete', $topic);
@@ -423,6 +491,12 @@ class ForumController extends Controller
   //         ->with('success', 'Trả lời đã được xóa thành công.');
   // }
 
+  /**
+   * Get subforums based on the user's role.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
   public function getSubforumsByRole(Request $request)
   {
     if (auth()->check()) {
@@ -479,6 +553,11 @@ class ForumController extends Controller
     return response()->json($transformedSubforums);
   }
 
+  /**
+   * Get all forum categories with their subforums.
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
   public function getCategories()
   {
     $categories = ForumMainCategory::with([
@@ -530,6 +609,12 @@ class ForumController extends Controller
     return response()->json($categories);
   }
 
+  /**
+   * Get the subforums of a specific main category.
+   *
+   * @param  \App\Models\ForumMainCategory  $mainCategory
+   * @return \Illuminate\Support\Collection
+   */
   public function getSubforums(ForumMainCategory $mainCategory)
   {
     $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with([
@@ -589,6 +674,12 @@ class ForumController extends Controller
     });
   }
 
+  /**
+   * Store a newly created main category in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
   public function storeCategory(Request $request)
   {
     $request->validate([
@@ -600,6 +691,13 @@ class ForumController extends Controller
     return response()->json($category);
   }
 
+  /**
+   * Store a newly created subforum in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  \App\Models\ForumMainCategory  $mainCategory
+   * @return \Illuminate\Http\JsonResponse
+   */
   public function storeSubforum(Request $request, ForumMainCategory $mainCategory)
   {
     $request->validate([
@@ -612,11 +710,23 @@ class ForumController extends Controller
     return response()->json($subforum);
   }
 
+  /**
+   * Get all pinned topics.
+   *
+   * @return \Illuminate\Database\Eloquent\Collection
+   */
   public function getPinnedTopics()
   {
     return Topic::where('pinned', true)->get();
   }
 
+  /**
+   * Pin or unpin a topic.
+   *
+   * @param  \App\Models\Topic  $topic
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
   public function pinTopic(Topic $topic, Request $request)
   {
     $topic->pinned = $request->input('pinned', false);
@@ -625,6 +735,13 @@ class ForumController extends Controller
     return response()->json($topic);
   }
 
+  /**
+   * Display the specified topic.
+   *
+   * @param  string  $username
+   * @param  string  $id
+   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
+   */
   public function show($username, $id)
   {
     // Extract the numeric ID from the slug format (e.g., "123-my-post-title" -> "123")
@@ -818,6 +935,12 @@ class ForumController extends Controller
     ]);
   }
 
+  /**
+   * Get all posts for a specific subforum.
+   *
+   * @param  \App\Models\ForumSubforum  $subforum
+   * @return \Illuminate\Http\JsonResponse
+   */
   public function getSubforumPosts(ForumSubforum $subforum)
   {
     $query = $subforum->topics()
