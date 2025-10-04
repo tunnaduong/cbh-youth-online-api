@@ -26,4 +26,5 @@ export default defineConfig({
       host: process.env.VITE_HMR_HOST || "localhost",
     },
   },
+  base: process.env.ASSET_URL || "https://chuyenbienhoa.com/",
 });
