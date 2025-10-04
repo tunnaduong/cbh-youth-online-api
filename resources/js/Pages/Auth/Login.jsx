@@ -13,6 +13,7 @@ export default function Login() {
   });
 
   const { props } = usePage();
+  const error = props.flash?.error;
 
   useEffect(() => {
     return () => {
@@ -122,10 +123,11 @@ export default function Login() {
               </div>
             </form>
           </div>
+          {error && <div className="text-red-500 text-center mb-3">{error}</div>}
           <div className="flex items-center p-6 pt-0">
             <div className="w-full space-y-2">
               <div className="flex justify-center space-x-4">
-                <Link
+                <a
                   href={route("social.redirect", "facebook")}
                   className="inline-flex dark:!border-neutral-500 dark:bg-[#2c2c2c] items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm hover:bg-[#eeeeee] hover:text-accent-foreground w-10 h-10"
                 >
@@ -145,8 +147,8 @@ export default function Login() {
                     ></path>
                   </svg>
                   <span className="sr-only">Facebook</span>
-                </Link>
-                <Link
+                </a>
+                <a
                   href={route("social.redirect", "google")}
                   className="inline-flex dark:!border-neutral-500 dark:bg-[#2c2c2c] items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input shadow-sm hover:bg-[#eeeeee] hover:text-accent-foreground w-10 h-10"
                 >
@@ -169,7 +171,7 @@ export default function Login() {
                     ></path>
                   </svg>
                   <span className="sr-only">Google</span>
-                </Link>
+                </a>
               </div>
             </div>
           </div>

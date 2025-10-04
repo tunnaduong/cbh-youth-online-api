@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ForumCategoryController;
 use App\Http\Controllers\Admin\ForumSubforumController;
 use App\Http\Controllers\Auth\SocialAuthController;
+use App\Http\Controllers\HelpCenterController;
 
 /*
 |--------------------------------------------------------------------------
@@ -132,6 +133,16 @@ Route::middleware('auth')->group(function () {
   Route::post('/topics', [TopicsController::class, 'store'])->name('topics.store');
 });
 
+// --- Socialite Authentication Routes ---
+Route::get('/login/{provider}', [SocialAuthController::class, 'redirectToProvider'])->name('social.redirect');
+Route::get('/login/{provider}/callback', [SocialAuthController::class, 'handleProviderCallback'])->name('social.callback');
+
+// --- Help Center Routes ---
+Route::get('/help', [HelpCenterController::class, 'index'])->name('help.index');
+Route::get('/help/search', [HelpCenterController::class, 'search'])->name('help.search');
+Route::get('/help/{id}', [HelpCenterController::class, 'show'])->name('help.show');
+
+
 // --- Dynamic User and Post Routes ---
 
 // User Posts
@@ -202,11 +213,6 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::put('/monitor-reports/{id}', [AdminController::class, 'updateMonitorReport'])->name('monitor-reports.update');
   Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport'])->name('monitor-reports.destroy');
 });
-
-// --- Socialite Authentication Routes ---
-Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirectToProvider'])->name('social.redirect');
-Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'handleProviderCallback'])->name('social.callback');
-
 
 // Include authentication routes
 require __DIR__ . '/auth.php';

@@ -2,6 +2,7 @@ import Footer from "@/Components/Footer";
 import LeftSidebar from "@/Components/LeftSidebar";
 import Navbar from "@/Components/Navbar";
 import RightSidebar from "@/Components/RightSidebar";
+import BottomCTA from "@/Components/BottomCTA";
 
 export default function HomeLayout({ children, type = "default", activeNav, activeBar }) {
   return (
@@ -21,6 +22,7 @@ export default function HomeLayout({ children, type = "default", activeNav, acti
           </>
         )}
       </div>
+      <BottomCTA type={type} />
     </div>
   );
 }

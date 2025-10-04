@@ -2,18 +2,12 @@ import { useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { IoCloseCircle } from "react-icons/io5";
 
-export default function BottomCTA() {
+export default function BottomCTA({ type }) {
   const [isVisible, setIsVisible] = useState(true);
-  const { props, url } = usePage();
+  const { props } = usePage();
   const user = props.auth?.user;
 
-  const isOnAuthPage =
-    url.startsWith("/login") ||
-    url.startsWith("/register") ||
-    url.startsWith("/forgot-password") ||
-    url.startsWith("/reset-password");
-
-  if (user || !isVisible || isOnAuthPage) {
+  if (user || !isVisible || type === "404") {
     return null;
   }
 

@@ -10,23 +10,10 @@ import {
   Chatbubbles,
 } from "react-ionicons";
 
-export default function LeftSidebar({ activeBar = "forum" }) {
-  const { auth } = usePage().props;
-  const iconColor = "#CACACA";
-  const activeIconColor = "#319527";
-  const iconSize = "18px";
-
-  const handleSavedClick = (e) => {
-    if (!auth?.user) {
-      e.preventDefault();
-      message.error("Vui lòng đăng nhập để xem các bài viết đã lưu của bạn.");
-      router.visit("/login?continue=" + encodeURIComponent("/saved"), {
-        preserveScroll: true,
-      });
-    }
-  };
-
-  const items = [
+export default function LeftSidebar({
+  activeBar = "forum",
+  type = "default",
+  items = [
     {
       key: "forum",
       href: "/",
@@ -61,7 +48,7 @@ export default function LeftSidebar({ activeBar = "forum" }) {
     // help and feedback later
     {
       key: "help",
-      href: "/help",
+      href: route("help.index"),
       label: "Trợ giúp",
       Icon: HelpCircle,
     },
@@ -72,7 +59,22 @@ export default function LeftSidebar({ activeBar = "forum" }) {
       Icon: Chatbubbles,
       isExternal: true,
     },
-  ];
+  ],
+}) {
+  const { auth } = usePage().props;
+  const iconColor = "#CACACA";
+  const activeIconColor = "#319527";
+  const iconSize = "18px";
+
+  const handleSavedClick = (e) => {
+    if (!auth?.user) {
+      e.preventDefault();
+      message.error("Vui lòng đăng nhập để xem các bài viết đã lưu của bạn.");
+      router.visit("/login?continue=" + encodeURIComponent("/saved"), {
+        preserveScroll: true,
+      });
+    }
+  };
 
   const baseLinkClass =
     "mb-3 text-base font-semibold flex items-center w-full text-left rounded-xl p-2.5";
@@ -96,7 +98,7 @@ export default function LeftSidebar({ activeBar = "forum" }) {
           MENU
         </p>
 
-        {items.slice(0, 5).map((it) => {
+        {(type === "default" ? items.slice(0, 5) : items).map((it) => {
           const isActive = activeBar === it.key;
           const LinkComp = it.isExternal ? "a" : Link;
           const props = it.isExternal
@@ -127,50 +129,54 @@ export default function LeftSidebar({ activeBar = "forum" }) {
           );
         })}
 
-        <hr className="my-3 dark:border-neutral-600" />
+        {type === "default" && (
+          <>
+            <hr className="my-3 dark:border-neutral-600" />
 
-        {/* Help */}
-        {items
-          .filter((it) => it.key === "help")
-          .map((it) => {
-            const isActive = activeBar === it.key;
-            return (
-              <Link
-                key={it.key}
-                href={it.href}
-                className={`${baseLinkClass} ${isActive ? activeLinkClass : inactiveLinkClass}`}
-              >
-                <div className={isActive ? activeIconWrapper : inactiveIconWrapper}>
-                  <it.Icon
-                    color={isActive ? activeIconColor : iconColor}
-                    height={iconSize}
-                    width={iconSize}
-                  />
-                </div>
-                <div className={isActive ? "text-[#319527]" : "text-[#6B6B6B] dark:text-[#CACACA]"}>
-                  {it.label}
-                </div>
-              </Link>
-            );
-          })}
+            {items
+              .filter((it) => it.key === "help")
+              .map((it) => {
+                const isActive = activeBar === it.key;
+                return (
+                  <Link
+                    key={it.key}
+                    href={it.href}
+                    className={`${baseLinkClass} ${isActive ? activeLinkClass : inactiveLinkClass}`}
+                  >
+                    <div className={isActive ? activeIconWrapper : inactiveIconWrapper}>
+                      <it.Icon
+                        color={isActive ? activeIconColor : iconColor}
+                        height={iconSize}
+                        width={iconSize}
+                      />
+                    </div>
+                    <div
+                      className={isActive ? "text-[#319527]" : "text-[#6B6B6B] dark:text-[#CACACA]"}
+                    >
+                      {it.label}
+                    </div>
+                  </Link>
+                );
+              })}
 
-        {/* Feedback (external link) */}
-        {items
-          .filter((it) => it.key === "feedback")
-          .map((it) => (
-            <a
-              key={it.key}
-              href={it.href}
-              className={`${baseLinkClass} ${inactiveLinkClass}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <div className={inactiveIconWrapper}>
-                <it.Icon color={iconColor} height={iconSize} width={iconSize} />
-              </div>
-              <div className="text-[#6B6B6B] dark:text-[#CACACA]">{it.label}</div>
-            </a>
-          ))}
+            {items
+              .filter((it) => it.key === "feedback")
+              .map((it) => (
+                <a
+                  key={it.key}
+                  href={it.href}
+                  className={`${baseLinkClass} ${inactiveLinkClass}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <div className={inactiveIconWrapper}>
+                    <it.Icon color={iconColor} height={iconSize} width={iconSize} />
+                  </div>
+                  <div className="text-[#6B6B6B] dark:text-[#CACACA]">{it.label}</div>
+                </a>
+              ))}
+          </>
+        )}
       </div>
     </>
   );
