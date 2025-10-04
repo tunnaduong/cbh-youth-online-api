@@ -18,7 +18,7 @@ return new class extends Migration {
       $table->text('description')->nullable();
       $table->unsignedBigInteger('admin_id'); // Admin who applied the deduction
       $table->boolean('is_active')->default(true); // Can be reversed
-      $table->timestamp('expires_at')->nullable(); // Optional expiration
+      $table->datetime('expires_at')->nullable(); // Optional expiration
       $table->timestamps();
 
       $table->foreign('user_id')->references('id')->on('cyo_auth_accounts')->onDelete('cascade');
