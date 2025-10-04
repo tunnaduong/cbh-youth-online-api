@@ -137,10 +137,13 @@ Route::middleware('auth')->group(function () {
 Route::get('/login/{provider}', [SocialAuthController::class, 'redirectToProvider'])->name('social.redirect');
 Route::get('/login/{provider}/callback', [SocialAuthController::class, 'handleProviderCallback'])->name('social.callback');
 
-// --- Help Center Routes ---
+// --- Help Center & Static Page Routes ---
 Route::get('/help', [HelpCenterController::class, 'index'])->name('help.index');
-Route::get('/help/search', [HelpCenterController::class, 'search'])->name('help.search');
-Route::get('/help/{id}', [HelpCenterController::class, 'show'])->name('help.show');
+Route::get('/help/{category}/{article}', [HelpCenterController::class, 'show'])->name('help.show');
+Route::get('/about', [HelpCenterController::class, 'about'])->name('about');
+Route::get('/jobs', [HelpCenterController::class, 'jobs'])->name('jobs');
+Route::get('/ads', [HelpCenterController::class, 'ads'])->name('ads');
+Route::get('/contact', [HelpCenterController::class, 'contact'])->name('contact');
 
 
 // --- Dynamic User and Post Routes ---
