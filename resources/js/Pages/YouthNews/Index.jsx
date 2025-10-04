@@ -4,7 +4,7 @@ import PostItem from "@/Components/PostItem";
 import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import Lottie from "lottie-react";
-import refresh from "@/assets/refresh.json";
+import refresh from "@/Assets/refresh.json";
 import { message } from "antd";
 
 export default function Index({ youthNews: initialYouthNews, pagination: initialPagination }) {
