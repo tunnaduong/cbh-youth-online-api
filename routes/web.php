@@ -237,29 +237,30 @@ Route::middleware('auth')->group(function () {
   Route::delete('/settings/delete-account', [SettingsController::class, 'deleteAccount'])->name('settings.delete-account');
 });
 
+// Helper function for topic redirects
+function redirectToTopic($subforumId, $userId, $title)
+{
+  $topic = \App\Models\Topic::where('subforum_id', $subforumId)
+    ->where('user_id', $userId)
+    ->where('title', $title)
+    ->first();
+
+  if (!$topic) {
+    abort(404, 'Bài viết không tồn tại');
+  }
+
+  $username = $topic->user->username;
+  $titleSlug = str()->slug($topic->title, '-') ?: 'untitled';
+  $correctSlug = $topic->id . '-' . $titleSlug;
+
+  return redirect()->route('posts.show', [
+    'username' => $username,
+    'id' => $correctSlug
+  ]);
+}
+
 // --- Static Policy and Info Routes ---
 Route::prefix('chinh-sach')->group(function () {
-  // Helper function for topic redirects
-  function redirectToTopic($subforumId, $userId, $title)
-  {
-    $topic = \App\Models\Topic::where('subforum_id', $subforumId)
-      ->where('user_id', $userId)
-      ->where('title', $title)
-      ->first();
-
-    if (!$topic) {
-      abort(404, 'Bài viết không tồn tại');
-    }
-
-    $username = $topic->user->username;
-    $titleSlug = str()->slug($topic->title, '-') ?: 'untitled';
-    $correctSlug = $topic->id . '-' . $titleSlug;
-
-    return redirect()->route('posts.show', [
-      'username' => $username,
-      'id' => $correctSlug
-    ]);
-  };
 
   // Forum rules route (redirects to a topic)
   Route::get('/noi-quy-dien-dan', function () {
