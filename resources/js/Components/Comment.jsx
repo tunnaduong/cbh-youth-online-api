@@ -323,9 +323,7 @@ export default function Comment({
                     size="small"
                     className={`h-8 px-2 text-gray-500 hover:!text-red-500 hover:!bg-red-50 dark:hover:!bg-[rgba(69,10,10,0.2)] rounded-full
                     border-0 ${
-                      userVoteValue === -1
-                        ? "text-red-600 dark:!text-red-400"
-                        : "text-gray-500 hover:!text-red-500"
+                      userVoteValue === -1 ? "text-red-600" : "text-gray-500 hover:!text-red-500"
                     }`}
                     onClick={() => handleVote(-1)}
                   >

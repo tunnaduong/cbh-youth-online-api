@@ -64,7 +64,7 @@ export default function RightSidebar() {
                 Xếp hạng thành viên
               </span>
               {/* Assuming this is an internal link, if external keep as <a> */}
-              <Link href="/Admin/posts/213101">
+              <Link href={route("guide.points")}>
                 {" "}
                 {/* Changed to Link */}
                 <HelpCircleOutline color="#888888" height={iconSize} width={iconSize} />
@@ -146,7 +146,7 @@ export default function RightSidebar() {
                 <Link href="/about" className="w-fit hover:text-gray-700 dark:hover:text-white">
                   Giới thiệu
                 </Link>
-                <Link href="/careers" className="w-fit hover:text-gray-700 dark:hover:text-white">
+                <Link href="/jobs" className="w-fit hover:text-gray-700 dark:hover:text-white">
                   Việc làm
                 </Link>
                 <Link

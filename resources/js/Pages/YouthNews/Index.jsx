@@ -1,12 +1,14 @@
 import HomeLayout from "@/Layouts/HomeLayout";
-import { Head } from "@inertiajs/react";
+import { Head, router, usePage } from "@inertiajs/react";
 import PostItem from "@/Components/PostItem";
 import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import Lottie from "lottie-react";
 import refresh from "@/assets/refresh.json";
+import { message } from "antd";
 
 export default function Index({ youthNews: initialYouthNews, pagination: initialPagination }) {
+  const { auth } = usePage().props;
   const [youthNews, setYouthNews] = useState(initialYouthNews || []);
   const [pagination, setPagination] = useState(initialPagination || {});
   const [loading, setLoading] = useState(false);
@@ -84,6 +86,52 @@ export default function Index({ youthNews: initialYouthNews, pagination: initial
     };
   }, [loadMoreYouthNews, loading, pagination.has_more_pages]);
 
+  // Handle voting
+  const handleVote = (postId, value) => {
+    if (!auth?.user) {
+      router.visit(route("login") + "?continue=" + encodeURIComponent(window.location.href));
+      message.error("Bạn cần đăng nhập để thực hiện hành động này");
+      return;
+    }
+    // value: 1 (up), -1 (down), 0 (remove)
+    setYouthNews((prev) =>
+      prev.map((p) => {
+        if (p.id !== postId) return p;
+
+        const myVote = p.votes.find((v) => v.username === auth?.user?.username);
+        let newVotes;
+
+        if (value === 0) {
+          // remove vote
+          newVotes = p.votes.filter((v) => v.username !== auth?.user?.username);
+        } else if (!myVote) {
+          // new vote
+          newVotes = [...p.votes, { username: auth?.user?.username, vote_value: value }];
+        } else {
+          // update existing vote
+          newVotes = p.votes.map((v) =>
+            v.username === auth?.user?.username ? { ...v, vote_value: value } : v
+          );
+        }
+
+        return { ...p, votes: newVotes };
+      })
+    );
+
+    // Gọi backend
+    router.post(
+      route("topics.vote", postId),
+      { vote_value: value },
+      {
+        showProgress: false,
+        preserveScroll: true,
+        onError: () => {
+          // rollback nếu fail (đơn giản nhất: refetch hoặc bỏ qua)
+        },
+      }
+    );
+  };
+
   return (
     <HomeLayout activeNav="home" activeBar="news">
       <Head title="Tin tức Đoàn" />
@@ -95,7 +143,7 @@ export default function Index({ youthNews: initialYouthNews, pagination: initial
 
         <div className="space-y-6">
           {youthNews.map((post) => (
-            <PostItem key={post.id} post={post} />
+            <PostItem key={post.id} post={post} single={false} onVote={handleVote} />
           ))}
         </div>
 

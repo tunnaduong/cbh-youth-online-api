@@ -77,6 +77,7 @@ class Topic extends Model
     'content_html',
     'pinned',
     'cdn_image_id',
+    'cdn_document_id',
     'hidden',
     'anonymous',
     'privacy',
@@ -87,7 +88,7 @@ class Topic extends Model
    *
    * @var array<int, string>
    */
-  protected $appends = ['content'];
+  protected $appends = ['content', 'document_urls'];
 
   /**
    * Get the user that owns the topic.
@@ -223,6 +224,35 @@ class Topic extends Model
   public function getImageUrlsAttribute()
   {
     return $this->getImageUrls()->map(function ($content) {
+      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+    })->all();
+  }
+
+  /**
+   * Helper method to get an ordered collection of document models.
+   *
+   * @return \Illuminate\Database\Eloquent\Collection
+   */
+  public function getDocuments()
+  {
+    if (empty($this->cdn_document_id)) {
+      return collect([]);
+    }
+
+    $documentIds = array_filter(explode(',', $this->cdn_document_id));
+    return UserContent::whereIn('id', $documentIds)
+      ->orderByRaw("FIELD(id, " . implode(',', $documentIds) . ")")
+      ->get();
+  }
+
+  /**
+   * Get the document URLs for the topic.
+   *
+   * @return array
+   */
+  public function getDocumentUrlsAttribute()
+  {
+    return $this->getDocuments()->map(function ($content) {
       return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
     })->all();
   }

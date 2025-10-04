@@ -11,7 +11,7 @@ import { ReactPhotoCollage } from "react-photo-collage";
 import VerifiedBadge from "@/Components/ui/Badges";
 import getCollageSetting from "@/Utils/getCollageSetting";
 import { useState, useEffect } from "react";
-import { Button, ConfigProvider, message } from "antd";
+import { Button, ConfigProvider, message, Tooltip } from "antd";
 
 export default function PostItem({ post, single = false, onVote }) {
   const { auth } = usePage().props;
@@ -20,7 +20,7 @@ export default function PostItem({ post, single = false, onVote }) {
   const maxLength = 300; // Số ký tự tối đa trước khi truncate
   const myVote = post.votes?.find((v) => v.username === auth?.user?.username)?.vote_value || 0;
   const votesCount =
-    post?.votes?.reduce((sum, v) => sum + v.vote_value, 0) || post.votes_sum_vote_value;
+    post?.votes?.reduce((sum, v) => sum + v.vote_value, 0) || post.votes_sum_vote_value || 0;
 
   useEffect(() => {
     setIsSaved(!!post.is_saved);
@@ -174,10 +174,8 @@ export default function PostItem({ post, single = false, onVote }) {
               size="small"
               onClick={handleSavePost}
               aria-label={isSaved ? "Bỏ lưu bài viết" : "Lưu bài viết"}
-              className={`border-0 rounded-lg w-[33.6px] h-[33.6px] md:mt-3 flex items-center justify-center ${
-                isSaved
-                  ? "bg-green-100 hover:!bg-green-200 text-green-600"
-                  : "bg-[#EAEAEA] dark:bg-neutral-500 hover:!bg-[#e1e2e4]"
+              className={`border-0 rounded-lg w-[33.6px] h-[33.6px] md:mt-3 flex items-center justify-center dark:bg-neutral-500 dark:hover:!bg-neutral-600 ${
+                isSaved ? "bg-green-100 hover:!bg-green-200" : "bg-[#EAEAEA] hover:!bg-[#e1e2e4]"
               }`}
             >
               <Bookmark height="20px" width="20px" color={isSaved ? "#16a34a" : "#9ca3af"} />
@@ -218,6 +216,51 @@ export default function PostItem({ post, single = false, onVote }) {
           {post.image_urls.length != 0 && (
             <div className="square-wrapper mt-3 rounded overflow-hidden">
               <ReactPhotoCollage {...setting} />
+            </div>
+          )}
+          {post.document_urls && post.document_urls.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {post.document_urls.map((doc, index) => {
+                const fileName = doc.split("/").pop();
+                const fileExt = fileName.split(".").pop().toLowerCase();
+                const iconColor =
+                  fileExt === "pdf"
+                    ? "text-red-500"
+                    : fileExt === "doc" || fileExt === "docx"
+                    ? "text-blue-500"
+                    : "text-gray-500";
+
+                return (
+                  <Tooltip key={index} title={fileName.slice(25)}>
+                    <a
+                      href={doc}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center p-2 bg-gray-100 dark:bg-neutral-700 rounded-lg hover:bg-gray-200 dark:hover:bg-neutral-600 transition-colors"
+                      style={{ height: "150px", width: "150px" }}
+                    >
+                      <div className="flex flex-col items-center justify-center w-full">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`h-12 w-12 mb-2 ${iconColor}`}
+                        >
+                          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <span className="text-xs text-center line-clamp-2 w-full px-2">
+                          {fileName.slice(25)}
+                        </span>
+                      </div>
+                    </a>
+                  </Tooltip>
+                );
+              })}
             </div>
           )}
           <hr className="!my-5 border-t-2" />
