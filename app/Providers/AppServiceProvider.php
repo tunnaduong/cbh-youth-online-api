@@ -19,7 +19,17 @@ class AppServiceProvider extends ServiceProvider
    */
   public function register(): void
   {
-    //
+    // Đảm bảo Doctrine DBAL nhận diện 'timestamp'
+    $this->app->resolving('db', function ($db) {
+      try {
+        $platform = $db->connection()->getDoctrineSchemaManager()->getDatabasePlatform();
+        if ($platform instanceof AbstractPlatform) {
+          $platform->registerDoctrineTypeMapping('timestamp', 'datetime');
+        }
+      } catch (\Throwable $e) {
+        // Bỏ qua nếu kết nối DB chưa sẵn sàng
+      }
+    });
   }
 
   /**
