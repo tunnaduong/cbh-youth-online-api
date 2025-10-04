@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Doctrine\DBAL\Types\Type;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -27,7 +29,16 @@ class AppServiceProvider extends ServiceProvider
    */
   public function boot(): void
   {
-    //
+    // Chỉ chạy khi Doctrine DBAL tồn tại
+    if (class_exists(Type::class)) {
+      $platform = DB::connection()->getDoctrineSchemaManager()->getDatabasePlatform();
+
+      // Map lại kiểu dữ liệu để tránh lỗi khi introspect MySQL
+      $platform->registerDoctrineTypeMapping('timestamp', 'datetime');
+      $platform->registerDoctrineTypeMapping('bit', 'boolean');
+      $platform->registerDoctrineTypeMapping('enum', 'string');
+    }
+    // Force HTTPS in production
     if (config('app.env') != 'local') {
       URL::forceScheme('https');
       URL::forceRootUrl(config('app.url'));
