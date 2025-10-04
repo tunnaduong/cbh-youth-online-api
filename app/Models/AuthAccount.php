@@ -51,7 +51,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
      *
      * @var array<int, string>
      */
-    protected $fillable = ['username', 'password', 'email', 'last_activity', 'role'];
+    protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token'];
 
     /**
      * The attributes that should be hidden for serialization.
