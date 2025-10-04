@@ -200,7 +200,14 @@ class TopicsController extends Controller
       return [
         'id' => $comment->id,
         'content' => $comment->comment,
-        'author' => [
+        'is_anonymous' => $comment->is_anonymous,
+        'author' => $comment->is_anonymous ? [
+          'id' => null,
+          'username' => 'Người dùng ẩn danh',
+          'email' => null,
+          'profile_name' => 'Người dùng ẩn danh',
+          'verified' => false,
+        ] : [
           'id' => $comment->user->id,
           'username' => $comment->user->username,
           'email' => $comment->user->email,
@@ -217,7 +224,14 @@ class TopicsController extends Controller
           return [
             'id' => $reply->id,
             'content' => $reply->comment,
-            'author' => [
+            'is_anonymous' => $reply->is_anonymous,
+            'author' => $reply->is_anonymous ? [
+              'id' => null,
+              'username' => 'Người dùng ẩn danh',
+              'email' => null,
+              'profile_name' => 'Người dùng ẩn danh',
+              'verified' => false,
+            ] : [
               'id' => $reply->user->id,
               'username' => $reply->user->username,
               'email' => $reply->user->email,
@@ -234,7 +248,14 @@ class TopicsController extends Controller
               return [
                 'id' => $subReply->id,
                 'content' => $subReply->comment,
-                'author' => [
+                'is_anonymous' => $subReply->is_anonymous,
+                'author' => $subReply->is_anonymous ? [
+                  'id' => null,
+                  'username' => 'Người dùng ẩn danh',
+                  'email' => null,
+                  'profile_name' => 'Người dùng ẩn danh',
+                  'verified' => false,
+                ] : [
                   'id' => $subReply->user->id,
                   'username' => $subReply->user->username,
                   'email' => $subReply->user->email,
@@ -273,6 +294,9 @@ class TopicsController extends Controller
       })->all(),
       'document_urls' => $topic->getDocuments()->map(function ($content) {
         return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+      })->all(),
+      'document_sizes' => $topic->getDocuments()->map(function ($content) {
+        return $content->file_size;
       })->all(),
       'author' => $topic->anonymous && !$isModerator ? [
         'id' => null,
@@ -433,6 +457,9 @@ class TopicsController extends Controller
         'document_urls' => $topic->getDocuments()->map(function ($content) {
           return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
         })->all(),
+        'document_sizes' => $topic->getDocuments()->map(function ($content) {
+          return $content->file_size;
+        })->all(),
         'author' => $topic->anonymous ? [
           'id' => null,
           'username' => 'Ẩn danh',
@@ -475,7 +502,7 @@ class TopicsController extends Controller
    *
    * @param  \Illuminate\Http\Request  $request
    * @param  int  $topicId
-   * @return \Illuminate\Http\JsonResponse
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
    */
   public function registerView(Request $request, $topicId)
   {
@@ -483,13 +510,19 @@ class TopicsController extends Controller
     $topic = Topic::findOrFail($topicId);
     $userId = auth()->check() ? auth()->id() : null;
 
-    // Register the view
+    // Register the view (allow multiple views)
     TopicView::create([
       'topic_id' => $topic->id,
       'user_id' => $userId,
     ]);
 
-    return response()->json(['message' => 'View registered successfully'], 201);
+    // For API requests (mobile app), return JSON
+    if ($request->expectsJson()) {
+      return response()->json(['message' => 'View registered successfully'], 201);
+    }
+
+    // For web requests (Inertia), return a redirect or success response
+    return back()->with('success', 'View tracked successfully');
   }
 
 
@@ -569,9 +602,15 @@ class TopicsController extends Controller
           'id' => $comment->id,
           'topic_id' => $comment->topic_id,
           'comment' => $comment->comment,
+          'is_anonymous' => $comment->is_anonymous,
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
-          'author' => [
+          'author' => $comment->is_anonymous ? [
+            'id' => null,
+            'username' => 'Người dùng ẩn danh',
+            'email' => null,
+            'profile_name' => 'Người dùng ẩn danh',
+          ] : [
             'id' => $comment->user->id,
             'username' => $comment->user->username,
             'email' => $comment->user->email,
@@ -621,6 +660,7 @@ class TopicsController extends Controller
       'comment' => 'required|string',
       'replying_to' => 'nullable|exists:cyo_topic_comments,id',
       'topic_id' => 'required|exists:cyo_topics,id',
+      'is_anonymous' => 'nullable|boolean',
     ]);
 
     $comment = TopicComment::create([
@@ -628,6 +668,7 @@ class TopicsController extends Controller
       'topic_id' => $request->topic_id,
       'user_id' => auth()->id(),
       'comment' => $request->comment,
+      'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
     // Load the comment's author profile details
@@ -636,7 +677,12 @@ class TopicsController extends Controller
     $commentData = [
       'id' => $comment->id,
       'content' => $comment->comment,
-      'author' => [
+      'is_anonymous' => $comment->is_anonymous,
+      'author' => $comment->is_anonymous ? [
+        'id' => null,
+        'username' => 'Người dùng ẩn danh',
+        'profile_name' => 'Người dùng ẩn danh',
+      ] : [
         'id' => $author->id,
         'username' => $author->username,
         'profile_name' => $author->profile->profile_name ?? null,

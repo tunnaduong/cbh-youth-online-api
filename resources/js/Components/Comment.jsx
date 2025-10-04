@@ -46,10 +46,10 @@ export default function Comment({
     setIsEditing(false);
   };
 
-  const handleSubmitReply = (content) => {
+  const handleSubmitReply = (content, isAnonymous = false) => {
     if (comment.isPending) return;
     if (onReply) {
-      onReply(comment.id, content);
+      onReply(comment.id, content, isAnonymous);
     }
     setIsReplying(false);
   };
@@ -205,6 +205,10 @@ export default function Comment({
               >
                 <ExpandIcon />
               </div>
+            ) : comment.is_anonymous ? (
+              <div className="w-10 h-10 rounded-full bg-[#e9f1e9] dark:bg-[#1d281b] flex items-center justify-center border border-gray-200">
+                <span className="text-2xl text-white font-medium">?</span>
+              </div>
             ) : (
               <Link href={route("profile.show", { username: comment.author.username })}>
                 <img
@@ -220,11 +224,17 @@ export default function Comment({
           <div className="flex-1 min-w-0" style={{ paddingTop: "8px" }}>
             {/* Header */}
             <div className="flex items-center gap-2 mb-2">
-              <Link href={route("profile.show", { username: comment.author.username })}>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline">
-                  {comment.author.profile_name}
+              {comment.is_anonymous ? (
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Người dùng ẩn danh
                 </span>
-              </Link>
+              ) : (
+                <Link href={route("profile.show", { username: comment.author.username })}>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:underline">
+                    {comment.author.profile_name}
+                  </span>
+                </Link>
+              )}
               <span className="text-gray-400">•</span>
               <span className="text-gray-500 dark:!text-gray-400 text-sm">
                 {comment.created_at}

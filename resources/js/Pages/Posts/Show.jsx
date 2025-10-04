@@ -13,6 +13,8 @@ export default function Show({ post, ogImage, comments: initialComments }) {
   const [comments, setComments] = useState(initialComments || []);
   const [currentPost, setCurrentPost] = useState(post);
 
+  console.log(initialComments, post);
+
   // Sync local state when server props update (e.g., after reload)
   useEffect(() => {
     setComments(initialComments || []);
@@ -84,15 +86,21 @@ export default function Show({ post, ogImage, comments: initialComments }) {
   };
 
   // Handle adding replies
-  const handleReplyToComment = (parentId, content) => {
+  const handleReplyToComment = (parentId, content, isAnonymous = false) => {
     // Optimistically add reply to UI
     const newReply = {
       id: Date.now().toString(),
       content: content,
-      author: {
-        username: auth.user.username,
-        profile_name: auth.profile.profile_name || auth.user.username,
-      },
+      is_anonymous: isAnonymous,
+      author: isAnonymous
+        ? {
+            username: "Người dùng ẩn danh",
+            profile_name: "Người dùng ẩn danh",
+          }
+        : {
+            username: auth.user.username,
+            profile_name: auth.profile.profile_name || auth.user.username,
+          },
       created_at: "vài giây trước",
       votes: [],
       replies: [],
@@ -181,6 +189,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
         comment: content,
         replying_to: level2ParentId || parentId, // Use level 2 parent ID if available
         topic_id: post.id,
+        is_anonymous: isAnonymous,
       },
       {
         preserveScroll: true,
@@ -201,15 +210,21 @@ export default function Show({ post, ogImage, comments: initialComments }) {
     );
   };
 
-  const handleSubmitComment = (content) => {
+  const handleSubmitComment = (content, isAnonymous = false) => {
     // Optimistically add comment to UI
     const tempComment = {
       id: Date.now().toString(),
       content: content,
-      author: {
-        username: auth.user.username,
-        profile_name: auth.profile.profile_name || auth.user.username,
-      },
+      is_anonymous: isAnonymous,
+      author: isAnonymous
+        ? {
+            username: "Người dùng ẩn danh",
+            profile_name: "Người dùng ẩn danh",
+          }
+        : {
+            username: auth.user.username,
+            profile_name: auth.profile.profile_name || auth.user.username,
+          },
       created_at: "vài giây trước",
       votes: [],
       replies: [],
@@ -224,6 +239,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
       {
         comment: content,
         topic_id: post.id,
+        is_anonymous: isAnonymous,
       },
       {
         preserveScroll: true,

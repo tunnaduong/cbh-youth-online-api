@@ -12,6 +12,7 @@ import VerifiedBadge from "@/Components/ui/Badges";
 import getCollageSetting from "@/Utils/getCollageSetting";
 import { useState, useEffect } from "react";
 import { Button, ConfigProvider, message, Tooltip } from "antd";
+import { useViewTracking } from "@/Hooks/useViewTracking";
 
 export default function PostItem({ post, single = false, onVote }) {
   const { auth } = usePage().props;
@@ -21,6 +22,17 @@ export default function PostItem({ post, single = false, onVote }) {
   const myVote = post.votes?.find((v) => v.username === auth?.user?.username)?.vote_value || 0;
   const votesCount =
     post?.votes?.reduce((sum, v) => sum + v.vote_value, 0) || post.votes_sum_vote_value || 0;
+
+  // Sử dụng hook để theo dõi lượt xem
+  const {
+    ref: viewTrackingRef,
+    isViewed,
+    viewCount,
+  } = useViewTracking(post.id, {
+    threshold: 0.3, // 30% của bài viết phải visible
+    delay: 0, // Không delay
+    cooldown: 0, // Không cooldown
+  });
 
   useEffect(() => {
     setIsSaved(!!post.is_saved);
@@ -132,7 +144,10 @@ export default function PostItem({ post, single = false, onVote }) {
 
   return (
     <div className="px-1.5 md:px-0 md:max-w-[775px] mx-auto w-full" key={post.id}>
-      <div className="post-container-post post-container mb-4 shadow-lg rounded-xl !p-6 bg-white flex flex-col-reverse md:flex-row">
+      <div
+        ref={viewTrackingRef}
+        className="post-container-post post-container mb-4 shadow-lg rounded-xl !p-6 bg-white flex flex-col-reverse md:flex-row"
+      >
         <div className="min-w-[72px]">
           <div className="sticky-reaction-bar items-center md:!mt-1 mt-3 gap-x-3 flex md:!flex-col flex-row md:ml-[-20px] text-[13px] font-semibold text-gray-400">
             <Button
@@ -213,15 +228,12 @@ export default function PostItem({ post, single = false, onVote }) {
               }
             }}
           />
-          {post.image_urls.length != 0 && (
-            <div className="square-wrapper mt-3 rounded overflow-hidden">
-              <ReactPhotoCollage {...setting} />
-            </div>
-          )}
+
           {post.document_urls && post.document_urls.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-3">
               {post.document_urls.map((doc, index) => {
                 const fileName = doc.split("/").pop();
+                const fileNameWithoutExt = fileName.split(".").slice(0, -1).join(".");
                 const fileExt = fileName.split(".").pop().toLowerCase();
                 const iconColor =
                   fileExt === "pdf"
@@ -230,8 +242,14 @@ export default function PostItem({ post, single = false, onVote }) {
                     ? "text-blue-500"
                     : "text-gray-500";
 
+                // Get file size from post.document_sizes if available
+                const fileSize =
+                  post.document_sizes && post.document_sizes[index]
+                    ? (post.document_sizes[index] / (1024 * 1024)).toFixed(2) + " MB"
+                    : fileExt.toUpperCase();
+
                 return (
-                  <Tooltip key={index} title={fileName.slice(25)}>
+                  <Tooltip key={index} title={fileName}>
                     <a
                       href={doc}
                       target="_blank"
@@ -253,14 +271,24 @@ export default function PostItem({ post, single = false, onVote }) {
                           <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                           <polyline points="14 2 14 8 20 8" />
                         </svg>
-                        <span className="text-xs text-center line-clamp-2 w-full px-2">
-                          {fileName.slice(25)}
+                        <span className="text-xs text-center line-clamp-2 w-full px-2 mb-1">
+                          {fileNameWithoutExt.slice(25)}
+                        </span>
+                        <span className="text-xs text-gray-500 text-center">{fileSize}</span>
+                        <span className="text-xs text-gray-500 text-center">
+                          {fileExt.toUpperCase()}
                         </span>
                       </div>
                     </a>
                   </Tooltip>
                 );
               })}
+            </div>
+          )}
+
+          {post.image_urls.length != 0 && (
+            <div className="square-wrapper mt-3 rounded overflow-hidden">
+              <ReactPhotoCollage {...setting} />
             </div>
           )}
           <hr className="!my-5 border-t-2" />

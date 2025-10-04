@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useContext } from "react";
-import { Button, Popover } from "antd";
-import { LuImage, LuType, LuArrowUp } from "react-icons/lu";
+import { Button, Popover, Dropdown } from "antd";
+import { LuImage, LuType, LuArrowUp, LuChevronDown } from "react-icons/lu";
 import { RiEmojiStickerLine } from "react-icons/ri";
 import { usePage } from "@inertiajs/react";
 import data from "@emoji-mart/data";
@@ -11,6 +11,7 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
   const [comment, setComment] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const wrapperRef = useRef(null);
   const textareaRef = useRef(null);
   const { auth } = usePage().props;
@@ -18,16 +19,47 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
 
   const handleSubmit = () => {
     if (comment.trim()) {
-      onSubmit?.(comment.trim());
+      onSubmit?.(comment.trim(), isAnonymous);
       setComment("");
+      setIsAnonymous(false);
     }
   };
 
   const handleCancel = () => {
     setComment("");
     setIsFocused(false);
+    setIsAnonymous(false);
     onCancel?.();
   };
+
+  const identityMenuItems = [
+    {
+      key: "public",
+      label: (
+        <div className="flex items-center gap-2">
+          <img
+            src={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
+            alt="Avatar của bạn"
+            className="w-6 h-6 rounded-full"
+          />
+          <span>{auth?.user?.profile?.profile_name || auth?.user?.username}</span>
+        </div>
+      ),
+      onClick: () => setIsAnonymous(false),
+    },
+    {
+      key: "anonymous",
+      label: (
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-[#e9f1e9] dark:bg-[#1d281b] flex items-center justify-center">
+            <span className="text-xs text-white">?</span>
+          </div>
+          <span>Ẩn danh</span>
+        </div>
+      ),
+      onClick: () => setIsAnonymous(true),
+    },
+  ];
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -85,11 +117,31 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
       `}
       >
         <div className={`flex gap-3 p-4 pb-0 ${!isFocused ? "pb-3" : ""}`}>
-          <img
-            src={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
-            alt="Avatar của bạn"
-            className="w-8 h-8 rounded-full flex-shrink-0"
-          />
+          <div className="relative">
+            {isAnonymous ? (
+              <div className="w-8 h-8 rounded-full bg-[#e9f1e9] dark:bg-[#1d281b] flex items-center justify-center flex-shrink-0">
+                <span className="text-xs text-white font-medium">?</span>
+              </div>
+            ) : (
+              <img
+                src={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
+                alt="Avatar của bạn"
+                className="w-8 h-8 rounded-full flex-shrink-0"
+              />
+            )}
+            <Dropdown
+              menu={{ items: identityMenuItems }}
+              trigger={["click"]}
+              placement="bottomLeft"
+            >
+              <Button
+                size="small"
+                className="absolute bottom-1 -right-1 w-4 h-4 p-0 rounded-full !bg-white border border-gray-300 hover:bg-gray-50 flex items-center justify-center"
+              >
+                <LuChevronDown className="w-3 h-3 text-gray-600" />
+              </Button>
+            </Dropdown>
+          </div>
           <div className="flex-1">
             <textarea
               value={comment}

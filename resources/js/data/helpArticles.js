@@ -310,12 +310,11 @@ export const helpArticles = [
         slug: "cach-su-dung-he-thong-diem-thuong-qua-tuong-tac",
         content: `
           <p>Hệ thống điểm thưởng khuyến khích tương tác tích cực bằng cách trao điểm cho các hành động như đăng bài, bình luận hoặc nhận thích. Điểm này ảnh hưởng đến cấp độ và xếp hạng của bạn trên diễn đàn, mở khóa các tính năng đặc biệt như huy hiệu hoặc quyền mod.</p>
-
           <h3>Kiếm điểm qua tương tác</h3>
-          <p>Bạn nhận điểm khi đăng bài viết mới (5-10 điểm tùy chất lượng), bình luận hữu ích (2-5 điểm), hoặc khi bài viết của bạn nhận thích/upvote (1 điểm mỗi lượt). Điểm được cộng tự động và hiển thị trong thông báo, ví dụ "Bạn nhận 5 điểm từ like của @User". Theo dõi và tham gia thảo luận thường xuyên giúp tích lũy điểm nhanh.</p>
+          <p>Bạn nhận điểm khi đăng bài viết mới (10 điểm), bình luận trên bài viết (2 điểm), hoặc khi bài viết của bạn nhận vote (5 điểm mỗi lượt). Điểm được cộng tự động và hiển thị trên thanh bên phải của trang chủ hoặc trang cá nhân. Theo dõi và tham gia thảo luận thường xuyên giúp tích lũy điểm nhanh.</p>
 
           <h3>Xem điểm và xếp hạng</h3>
-          <p>Trên trang hồ sơ, phần "Điểm thưởng" hiển thị tổng điểm, cấp độ hiện tại (như "Thành viên mới", "Thành viên tích cực") và bảng xếp hạng. Nhấp "Xem chi tiết" để thấy lịch sử kiếm điểm, với bộ lọc theo ngày/tháng.</p>
+          <p>Trên trang hồ sơ, phần "Điểm" hiển thị tổng điểm và cấp độ hiện tại (như "Thành viên mới", "Thành viên tích cực"). Nhấp "Xem chi tiết" để thấy lịch sử kiếm điểm, với bộ lọc theo ngày/tháng.</p>
 
           <h3>Lợi ích của điểm thưởng</h3>
           <p>Điểm cao mở khóa huy hiệu hiển thị bên tên bạn, tăng độ tin cậy. Ở cấp cao, bạn có thể ghim bài viết hoặc tham gia mod chuyên mục. Điểm cũng dùng để tham gia sự kiện như cuộc thi trên diễn đàn.</p>

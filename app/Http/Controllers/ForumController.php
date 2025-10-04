@@ -200,6 +200,9 @@ class ForumController extends Controller
       'document_urls' => $post->getDocuments()->map(function ($content) {
         return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
       })->all(),
+      'document_sizes' => $post->getDocuments()->map(function ($content) {
+        return $content->file_size;
+      })->all(),
       'author' => $post->anonymous ? [
         'id' => null,
         'username' => 'Ẩn danh',
@@ -832,6 +835,7 @@ class ForumController extends Controller
       return [
         'id' => $comment->id,
         'content' => $comment->comment,
+        'is_anonymous' => $comment->is_anonymous,
         'author' => [
           'id' => $comment->user->id,
           'username' => $comment->user->username,
@@ -850,6 +854,7 @@ class ForumController extends Controller
           return [
             'id' => $reply->id,
             'content' => $reply->comment,
+            'is_anonymous' => $reply->is_anonymous,
             'author' => [
               'id' => $reply->user->id,
               'username' => $reply->user->username,
@@ -868,6 +873,7 @@ class ForumController extends Controller
               return [
                 'id' => $subReply->id,
                 'content' => $subReply->comment,
+                'is_anonymous' => $subReply->is_anonymous,
                 'author' => [
                   'id' => $subReply->user->id,
                   'username' => $subReply->user->username,
@@ -911,6 +917,9 @@ class ForumController extends Controller
         'image_urls' => $imageUrls,
         'document_urls' => $post->getDocuments()->map(function ($content) {
           return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        })->all(),
+        'document_sizes' => $post->getDocuments()->map(function ($content) {
+          return $content->file_size;
         })->all(),
         'votes' => $post->votes->map(function ($vote) {
           return [

@@ -95,6 +95,9 @@ Route::prefix('forum')->group(function () {
     Route::post('/topics/{topic}/vote', [TopicsController::class, 'registerVote'])->name('topics.vote');
     Route::post('/comments/{comment}/vote', [TopicsController::class, 'voteOnComment'])->name('comments.vote');
   });
+
+  // View tracking Routes (public - không cần auth)
+  Route::post('/topics/{topic}/view', [TopicsController::class, 'registerView'])->name('topics.view');
 });
 
 // --- Other Feature Routes ---
@@ -109,6 +112,11 @@ Route::delete('/recordings/{recording}', [RecordingController::class, 'destroy']
 // Youth News Routes
 Route::get('/youth-news', [YouthNewsController::class, 'index'])->name('youth-news.index');
 Route::get('/api/youth-news', [YouthNewsController::class, 'youthNewsApi'])->name('youth-news.api');
+
+// View Tracking Test Route (for development)
+Route::get('/view-tracking-test', function () {
+  return Inertia::render('ViewTrackingTest');
+})->name('view-tracking.test');
 
 // Saved Posts Routes (requires authentication)
 Route::middleware('auth')->group(function () {

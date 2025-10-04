@@ -483,7 +483,12 @@ const CreatePostModal = ({ open, onClose }) => {
                         <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
                         <polyline points="14 2 14 8 20 8" />
                       </svg>
-                      <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                        <span className="text-xs text-gray-500">
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={() => removeDocument(index)}
