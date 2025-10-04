@@ -4,39 +4,34 @@ namespace App\Providers;
 
 use Doctrine\DBAL\Types\Type;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * The main service provider for the application.
+ * Service provider to register Doctrine DBAL type mappings.
+ * This provider runs early to ensure type mappings are available
+ * before any database introspection occurs.
  */
-class AppServiceProvider extends ServiceProvider
+class DoctrineTypeMappingServiceProvider extends ServiceProvider
 {
   /**
-   * Register any application services.
+   * Register services.
    *
    * @return void
    */
   public function register(): void
   {
-    //
+    // Register type mappings as early as possible
+    $this->registerDoctrineTypeMappings();
   }
 
   /**
-   * Bootstrap any application services.
+   * Bootstrap services.
    *
    * @return void
    */
   public function boot(): void
   {
-    // Register Doctrine DBAL type mappings
-    $this->registerDoctrineTypeMappings();
-
-    // Force HTTPS in production
-    if (config('app.env') != 'local') {
-      URL::forceScheme('https');
-      URL::forceRootUrl(config('app.url'));
-    }
+    //
   }
 
   /**
@@ -52,6 +47,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     try {
+      // Get the default connection
       $connection = DB::connection();
       $platform = $connection->getDoctrineConnection()->getDatabasePlatform();
 
@@ -63,6 +59,13 @@ class AppServiceProvider extends ServiceProvider
       $platform->registerDoctrineTypeMapping('longtext', 'text');
       $platform->registerDoctrineTypeMapping('mediumtext', 'text');
       $platform->registerDoctrineTypeMapping('tinytext', 'text');
+      $platform->registerDoctrineTypeMapping('varchar', 'string');
+      $platform->registerDoctrineTypeMapping('char', 'string');
+      $platform->registerDoctrineTypeMapping('text', 'text');
+      $platform->registerDoctrineTypeMapping('blob', 'blob');
+      $platform->registerDoctrineTypeMapping('longblob', 'blob');
+      $platform->registerDoctrineTypeMapping('mediumblob', 'blob');
+      $platform->registerDoctrineTypeMapping('tinyblob', 'blob');
     } catch (\Exception $e) {
       // Log the error but don't break the application
       \Log::warning('Failed to register Doctrine type mappings: ' . $e->getMessage());
