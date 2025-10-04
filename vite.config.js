@@ -25,6 +25,7 @@ export default defineConfig({
     hmr: {
       host: process.env.VITE_HMR_HOST || "localhost",
     },
+    https: process.env.NODE_ENV === "production" ? true : false,
   },
-  base: process.env.ASSET_URL || "https://chuyenbienhoa.com/",
+  base: process.env.ASSET_URL || "/",
 });
