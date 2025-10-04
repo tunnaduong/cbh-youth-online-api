@@ -238,25 +238,27 @@ Route::middleware('auth')->group(function () {
 });
 
 // Helper function for topic redirects
-function redirectToTopic($subforumId, $userId, $title)
-{
-  $topic = \App\Models\Topic::where('subforum_id', $subforumId)
-    ->where('user_id', $userId)
-    ->where('title', $title)
-    ->first();
+if (!function_exists('redirectToTopic')) {
+  function redirectToTopic($subforumId, $userId, $title)
+  {
+    $topic = \App\Models\Topic::where('subforum_id', $subforumId)
+      ->where('user_id', $userId)
+      ->where('title', $title)
+      ->first();
 
-  if (!$topic) {
-    abort(404, 'Bài viết không tồn tại');
+    if (!$topic) {
+      abort(404, 'Bài viết không tồn tại');
+    }
+
+    $username = $topic->user->username;
+    $titleSlug = str()->slug($topic->title, '-') ?: 'untitled';
+    $correctSlug = $topic->id . '-' . $titleSlug;
+
+    return redirect()->route('posts.show', [
+      'username' => $username,
+      'id' => $correctSlug
+    ]);
   }
-
-  $username = $topic->user->username;
-  $titleSlug = str()->slug($topic->title, '-') ?: 'untitled';
-  $correctSlug = $topic->id . '-' . $titleSlug;
-
-  return redirect()->route('posts.show', [
-    'username' => $username,
-    'id' => $correctSlug
-  ]);
 }
 
 // --- Static Policy and Info Routes ---
