@@ -231,29 +231,31 @@ Route::middleware('auth')->group(function () {
 
 // --- Static Policy and Info Routes ---
 Route::prefix('chinh-sach')->group(function () {
-  // Forum rules route (redirects to a topic)
-  Route::get('/noi-quy-dien-dan', function () {
-    $topic = \App\Models\Topic::where('subforum_id', 10)
-      ->where('user_id', 45)
-      ->where('title', 'Quy định và hướng dẫn sử dụng diễn đàn CBH Youth Online')
+  // Helper function for topic redirects
+  function redirectToTopic($subforumId, $userId, $title)
+  {
+    $topic = \App\Models\Topic::where('subforum_id', $subforumId)
+      ->where('user_id', $userId)
+      ->where('title', $title)
       ->first();
 
     if (!$topic) {
       abort(404, 'Bài viết không tồn tại');
     }
 
-    // Get the username for the redirect
     $username = $topic->user->username;
-    $titleSlug = str()->slug($topic->title, '-');
-    if (empty($titleSlug)) {
-      $titleSlug = 'untitled';
-    }
+    $titleSlug = str()->slug($topic->title, '-') ?: 'untitled';
     $correctSlug = $topic->id . '-' . $titleSlug;
 
     return redirect()->route('posts.show', [
       'username' => $username,
       'id' => $correctSlug
     ]);
+  };
+
+  // Forum rules route (redirects to a topic)
+  Route::get('/noi-quy-dien-dan', function () {
+    return redirectToTopic(10, 45, 'Quy định và hướng dẫn sử dụng diễn đàn CBH Youth Online');
   })->name('policy.forum-rules');
 
   // Privacy policy route
@@ -266,6 +268,18 @@ Route::prefix('chinh-sach')->group(function () {
     return Inertia::render('Policies/Terms');
   })->name('policy.terms');
 });
+
+// Markdown guide route (redirects to a topic)
+Route::get('/huong-dan/cach-su-dung-markdown', function () {
+  return redirectToTopic(10, 45, 'Hướng dẫn sử dụng cú pháp Markdown trên diễn đàn CBH Youth Online');
+})->name('guide.markdown');
+
+// Points and ranking guide route (redirects to a topic)
+Route::get('/huong-dan/cach-tinh-diem-xep-hang-thanh-vien', function () {
+  return redirectToTopic(10, 45, 'Cách Tính Điểm Xếp Hạng Thành Viên Trên CBH Youth Online');
+})->name('guide.points');
+
+
 
 // --- Fallback Routes ---
 

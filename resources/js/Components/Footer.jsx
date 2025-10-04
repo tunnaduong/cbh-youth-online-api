@@ -148,7 +148,7 @@ export default function Footer() {
             <p>
               © 2020-{new Date().getFullYear()}{" "}
               <a href="https://fatties.vercel.app">
-                Công ty Cổ phần Giải pháp Giáo dục Fatties Software
+                Công ty TNHH Giải pháp Giáo dục Fatties Software
               </a>{" "}
               - Được phát triển bởi học sinh, dành cho học sinh.
             </p>

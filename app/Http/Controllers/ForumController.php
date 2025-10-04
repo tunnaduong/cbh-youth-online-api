@@ -197,6 +197,9 @@ class ForumController extends Controller
       'image_urls' => $post->getImageUrls()->map(function ($content) {
         return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
       })->all(),
+      'document_urls' => $post->getDocuments()->map(function ($content) {
+        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+      })->all(),
       'author' => $post->anonymous ? [
         'id' => null,
         'username' => 'Ẩn danh',
@@ -906,6 +909,9 @@ class ForumController extends Controller
         'title' => $post->title,
         'content' => $post->content_html,
         'image_urls' => $imageUrls,
+        'document_urls' => $post->getDocuments()->map(function ($content) {
+          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        })->all(),
         'votes' => $post->votes->map(function ($vote) {
           return [
             'username' => $vote->user->username, // Assuming votes relation includes the user

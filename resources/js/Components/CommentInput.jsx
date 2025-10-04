@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useContext } from "react";
 import { Button, Popover } from "antd";
 import { LuImage, LuType, LuArrowUp } from "react-icons/lu";
 import { RiEmojiStickerLine } from "react-icons/ri";
 import { usePage } from "@inertiajs/react";
 import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
+import { useTheme } from "@/Contexts/themeContext";
 
 export function CommentInput({ placeholder = "Nhập bình luận của bạn...", onSubmit, onCancel }) {
   const [comment, setComment] = useState("");
@@ -13,6 +14,7 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
   const wrapperRef = useRef(null);
   const textareaRef = useRef(null);
   const { auth } = usePage().props;
+  const { theme } = useTheme();
 
   const handleSubmit = () => {
     if (comment.trim()) {
@@ -142,6 +144,7 @@ export function CommentInput({ placeholder = "Nhập bình luận của bạn...
                     navPosition="top"
                     locale="vi"
                     skinTonePosition="none"
+                    theme={theme}
                   />
                 </div>
               }

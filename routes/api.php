@@ -17,6 +17,7 @@ use App\Http\Controllers\UserReportController;
 use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\UserPointDeductionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -221,5 +222,20 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/monitor-reports', [AdminController::class, 'storeMonitorReport']);
     Route::put('/monitor-reports/{id}', [AdminController::class, 'updateMonitorReport']);
     Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport']);
+
+    // Point Deduction Management
+    Route::get('/point-deductions', [UserPointDeductionController::class, 'index']);
+    Route::post('/point-deductions', [UserPointDeductionController::class, 'store']);
+    Route::get('/point-deductions/{id}', [UserPointDeductionController::class, 'show']);
+    Route::put('/point-deductions/{id}', [UserPointDeductionController::class, 'update']);
+    Route::delete('/point-deductions/{id}', [UserPointDeductionController::class, 'destroy']);
+    Route::post('/point-deductions/{id}/reverse', [UserPointDeductionController::class, 'reverse']);
+    Route::get('/point-deductions/stats', [UserPointDeductionController::class, 'getStats']);
   });
+});
+
+// Point deduction routes for users
+Route::middleware('auth:sanctum')->group(function () {
+  Route::get('/user/{userId}/point-deductions', [UserPointDeductionController::class, 'getUserDeductions']);
+  Route::get('/user/{userId}/point-deductions/total', [UserPointDeductionController::class, 'getUserTotalDeductions']);
 });

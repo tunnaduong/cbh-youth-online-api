@@ -1,4 +1,5 @@
 import { FaRegCommentAlt } from "react-icons/fa";
+import { useMemo } from "react";
 
 const funMessages = [
   "Chưa có ai để lại lời nhắn… Hãy là người đầu tiên nhé!",
@@ -34,8 +35,10 @@ const funMessages = [
 ];
 
 export default function EmptyCommentsState() {
-  // Get a random fun message
-  const randomMessage = funMessages[Math.floor(Math.random() * funMessages.length)];
+  // Get a random fun message - memoized to prevent re-randomization on re-renders
+  const randomMessage = useMemo(() => {
+    return funMessages[Math.floor(Math.random() * funMessages.length)];
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center py-12 px-6 text-center">

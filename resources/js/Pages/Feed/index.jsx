@@ -15,6 +15,8 @@ export default function Feed({ posts: initialPosts, pagination: initialPaginatio
   const [error, setError] = useState(null);
   const sentinelRef = useRef(null);
 
+  console.log(initialPosts);
+
   // Load more posts function
   const loadMorePosts = useCallback(async () => {
     if (loading || !pagination.has_more_pages) return;

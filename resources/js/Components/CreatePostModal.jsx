@@ -5,7 +5,7 @@ import CustomColorButton from "./ui/CustomColorButton";
 import { usePage, useForm } from "@inertiajs/react";
 import VerifiedBadge from "./ui/Badges";
 import { IoEarth, IoCaretDown } from "react-icons/io5";
-import { FaMarkdown } from "react-icons/fa";
+import { FaExternalLinkAlt, FaMarkdown } from "react-icons/fa";
 import { FaFileLines } from "react-icons/fa6";
 
 const CreatePostModal = ({ open, onClose }) => {
@@ -13,6 +13,7 @@ const CreatePostModal = ({ open, onClose }) => {
   const [selectedSubforum, setSelectedSubforum] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [documentFiles, setDocumentFiles] = useState([]);
   const [selectedVisibility, setSelectedVisibility] = useState("public");
 
   const { data, setData, post, processing, errors, reset } = useForm({
@@ -20,6 +21,7 @@ const CreatePostModal = ({ open, onClose }) => {
     description: "",
     subforum_id: null,
     image_files: [],
+    document_files: [],
     visibility: 0, // 0: not hidden from feed, 1: hidden from feed
     privacy: "public", // public, followers, private
     anonymous: false, // false: normal post, true: anonymous post
@@ -119,6 +121,43 @@ const CreatePostModal = ({ open, onClose }) => {
     });
   };
 
+  const handleDocumentChange = (e) => {
+    const files = Array.from(e.target.files);
+
+    if (files.length === 0) return;
+
+    // Validate all files
+    for (const file of files) {
+      console.log("File type:", file.type, "File name:", file.name);
+
+      const validTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "application/vnd.ms-office", // For older Office files
+        "application/octet-stream", // Sometimes used for .doc files
+      ];
+
+      if (!validTypes.includes(file.type)) {
+        message.error(
+          `File type không được hỗ trợ: ${file.type}. Vui lòng chọn file PDF, DOCX hoặc TXT`
+        );
+        return;
+      }
+
+      if (file.size > 25 * 1024 * 1024) {
+        message.error("Kích thước file không được vượt quá 25MB");
+        return;
+      }
+    }
+
+    // Add new files to existing ones
+    const newFiles = [...documentFiles, ...files];
+    setDocumentFiles(newFiles);
+    setData("document_files", newFiles);
+  };
+
   const removeImage = (index) => {
     const newFiles = imageFiles.filter((_, i) => i !== index);
     const newPreviews = imagePreviews.filter((_, i) => i !== index);
@@ -126,6 +165,12 @@ const CreatePostModal = ({ open, onClose }) => {
     setImageFiles(newFiles);
     setImagePreviews(newPreviews);
     setData("image_files", newFiles);
+  };
+
+  const removeDocument = (index) => {
+    const newFiles = documentFiles.filter((_, i) => i !== index);
+    setDocumentFiles(newFiles);
+    setData("document_files", newFiles);
   };
 
   const handleSubforumChange = (value) => {
@@ -153,6 +198,7 @@ const CreatePostModal = ({ open, onClose }) => {
     },
     {
       key: "followers",
+      disabled: data.anonymous,
       label: (
         <div className="flex items-center gap-2">
           <svg
@@ -214,15 +260,27 @@ const CreatePostModal = ({ open, onClose }) => {
           </div>
           <hr className="absolute right-0 left-0 w-full" />
           <div className="flex flex-row items-center py-3">
-            <img
-              src={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
-              alt={auth?.user?.username}
-              className="border w-11 h-11 rounded-full"
-            />
+            {data.anonymous ? (
+              <div className="w-11 h-11 rounded-full bg-[#e9f1e9] dark:bg-[#1d281b] flex items-center justify-center text-[27px] font-semibold text-white">
+                ?
+              </div>
+            ) : (
+              <img
+                src={`https://api.chuyenbienhoa.com/v1.0/users/${auth?.user?.username}/avatar`}
+                alt={auth?.user?.username}
+                className="border w-11 h-11 rounded-full"
+              />
+            )}
             <div className="flex flex-col ml-2">
               <span className="text-base font-semibold mb-0.5 flex items-center">
-                {auth?.user?.profile?.profile_name}
-                {auth?.user?.profile?.verified && <VerifiedBadge />}
+                {data.anonymous ? (
+                  "Người dùng ẩn danh"
+                ) : (
+                  <>
+                    {auth?.user?.profile?.profile_name}
+                    {auth?.user?.profile?.verified == "1" && <VerifiedBadge />}
+                  </>
+                )}
               </span>
               <Dropdown
                 menu={{
@@ -305,7 +363,7 @@ const CreatePostModal = ({ open, onClose }) => {
               </div>
               <div className="px-3 flex items-center gap-x-2 mt-3">
                 <a
-                  href="/Admin/posts/213057"
+                  href={route("guide.markdown")}
                   className="-mt-1.5 text-xs font-bold border-right pr-2 flex items-center"
                   target="_blank"
                 >
@@ -313,12 +371,24 @@ const CreatePostModal = ({ open, onClose }) => {
                   Hỗ trợ Markdown
                 </a>
                 <a
-                  href="/Admin/posts/213054"
-                  className="-mt-1.5 text-xs font-bold flex items-center"
+                  href={route("policy.forum-rules")}
+                  className="-mt-1.5 text-xs font-bold flex items-center border-right pr-2"
                   target="_blank"
                 >
                   <FaFileLines className="mr-1" />
                   Quy tắc
+                </a>
+                <a
+                  onClick={(e) => {
+                    e.preventDefault();
+                    message.loading("Tính năng này ad đang phát triển ^^");
+                  }}
+                  href="/publish/post"
+                  className="-mt-1.5 text-xs font-bold flex items-center"
+                  target="_blank"
+                >
+                  <FaExternalLinkAlt className="mr-1" />
+                  Nâng cao
                 </a>
               </div>
             </div>
@@ -391,44 +461,121 @@ const CreatePostModal = ({ open, onClose }) => {
                 ))}
               </div>
             )}
-            <div className="flex flex-row items-center rounded-lg border dark:!border-neutral-500 bg-gray-50 dark:bg-neutral-700 p-3 shadow-sm">
-              <p className="text-sm font-medium flex-1">
-                Thêm ảnh vào bài viết của bạn
-                {imageFiles.length > 0 && (
-                  <span className="ml-2 text-primary-500 font-semibold">
-                    ({imageFiles.length} ảnh đã chọn)
-                  </span>
-                )}
-              </p>
-              <input
-                id="fileInput"
-                accept="image/*"
-                type="file"
-                multiple
-                onChange={handleImageChange}
-                style={{ display: "none" }}
-              />
-              <div className="flex gap-1">
-                <Button
-                  size="small"
-                  className="h-8 px-2 rounded-full border-0"
-                  onClick={() => document.getElementById("fileInput").click()}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-image h-4 w-4 text-emerald-500"
+
+            {documentFiles.length > 0 && (
+              <div className="flex flex-col gap-2 mt-2">
+                {documentFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 bg-gray-100 dark:bg-neutral-600 rounded-md"
                   >
-                    <rect width={18} height={18} x={3} y={3} rx={2} ry={2}></rect>
-                    <circle cx={9} cy={9} r={2} />
-                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                  </svg>
-                </Button>
+                    <div className="flex items-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4 mr-2 text-blue-500"
+                      >
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                    </div>
+                    <button
+                      onClick={() => removeDocument(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-row items-center rounded-lg border dark:!border-neutral-500 bg-gray-50 dark:bg-neutral-700 p-3 shadow-sm">
+                <p className="text-sm font-medium flex-1">
+                  Thêm vào bài viết của bạn
+                  {(imageFiles.length > 0 || documentFiles.length > 0) && (
+                    <span className="ml-2 text-primary-500 font-semibold">
+                      ({imageFiles.length + documentFiles.length} đã chọn)
+                    </span>
+                  )}
+                </p>
+                <input
+                  id="fileInput"
+                  accept="image/*"
+                  type="file"
+                  multiple
+                  onChange={handleImageChange}
+                  style={{ display: "none" }}
+                />
+                <input
+                  id="documentInput"
+                  accept=".pdf,.doc,.docx,.txt"
+                  type="file"
+                  multiple
+                  onChange={handleDocumentChange}
+                  style={{ display: "none" }}
+                />
+                <div className="flex gap-1">
+                  <Button
+                    size="small"
+                    className="h-8 px-2 rounded-full border-0"
+                    onClick={() => document.getElementById("fileInput").click()}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="lucide lucide-image h-4 w-4 text-emerald-500"
+                    >
+                      <rect width={18} height={18} x={3} y={3} rx={2} ry={2}></rect>
+                      <circle cx={9} cy={9} r={2} />
+                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                    </svg>
+                  </Button>
+                  <Button
+                    size="small"
+                    className="h-8 px-2 rounded-full border-0"
+                    onClick={() => document.getElementById("documentInput").click()}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4 text-blue-500"
+                    >
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                  </Button>
+                </div>
               </div>
             </div>
             <CustomColorButton
