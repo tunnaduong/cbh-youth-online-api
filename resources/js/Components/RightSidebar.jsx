@@ -1,16 +1,21 @@
 import { Link, usePage, router } from "@inertiajs/react";
-import { AddOutline, HelpCircleOutline } from "react-ionicons";
+import { AddOutline, HelpCircleOutline, Mic } from "react-ionicons";
 import { Skeleton, message } from "antd";
 import { useTopUsers } from "../Contexts/TopUsersContext";
 import CustomColorButton from "./ui/CustomColorButton";
 import { useState } from "react";
 import CreatePostModal from "./CreatePostModal";
+import UploadRecordingModal from "./UploadRecordingModal";
 
 export default function RightSidebar() {
   const iconSize = "20px";
   const { is_logged_in } = usePage().props;
   const { topUsers, loading, error } = useTopUsers();
   const [open, setOpen] = useState(false);
+
+  // Get current URL to determine if we're on recordings page
+  const currentUrl = usePage().url;
+  const isRecordingsPage = currentUrl.startsWith("/recordings");
 
   const handleCreatePost = () => {
     if (!is_logged_in) {
@@ -19,13 +24,19 @@ export default function RightSidebar() {
         preserveScroll: true,
       });
     } else {
+      isRecordingsPage && message.loading("Cái này ad đang làm nha ^^");
       setOpen(true);
     }
   };
 
   return (
     <>
-      <CreatePostModal open={open} onClose={() => setOpen(false)} />
+      {isRecordingsPage ? (
+        <UploadRecordingModal open={open} onClose={() => setOpen(false)} />
+      ) : (
+        <CreatePostModal open={open} onClose={() => setOpen(false)} />
+      )}
+
       {/* Right side bar */}
       <div className="w-full max-w-[775px] xl:w-[340px] mx-auto !pb-6 xl:p-6" id="right-sidebar">
         <div className="sticky top-[calc(69px+24px)]">
@@ -35,8 +46,17 @@ export default function RightSidebar() {
             className="text-base text-white font-semibold py-[19px] mb-1.5 hidden xl:flex"
             onClick={handleCreatePost}
           >
-            <AddOutline color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
-            Tạo cuộc thảo luận
+            {isRecordingsPage ? (
+              <div className="flex items-center gap-x-2">
+                <Mic color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
+                Đăng ghi âm mới
+              </div>
+            ) : (
+              <div className="flex items-center gap-x-2">
+                <AddOutline color="#FFFFFF" height={iconSize} width={iconSize} cssClasses="-mr-1" />
+                Tạo cuộc thảo luận
+              </div>
+            )}
           </CustomColorButton>
           <div className="bg-white dark:!bg-[var(--main-white)] text-sm p-3 xl:mt-4 rounded-xl long-shadow [@media(max-width:800px)]:mx-2.5">
             <div className="flex flex-row items-center justify-between">
@@ -157,8 +177,6 @@ export default function RightSidebar() {
           </div>
         </div>
       </div>
-
-      {/* Bottom bar for smaller screens - applying similar changes */}
     </>
   );
 }

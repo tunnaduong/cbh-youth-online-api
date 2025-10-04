@@ -372,7 +372,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
                   ))
                 )}
               </div>
-              <div className="absolute bottom-0 left-0 w-full h-6 bg-white"></div>
+              <div className="absolute bottom-0 left-0 w-full h-6 bg-white dark:bg-[#3c3c3c]"></div>
             </div>
           </div>
         </div>

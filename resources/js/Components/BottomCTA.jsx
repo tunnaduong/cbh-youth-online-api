@@ -7,7 +7,11 @@ export default function BottomCTA() {
   const { props, url } = usePage();
   const user = props.auth?.user;
 
-  const isOnAuthPage = url.startsWith("/login") || url.startsWith("/register");
+  const isOnAuthPage =
+    url.startsWith("/login") ||
+    url.startsWith("/register") ||
+    url.startsWith("/forgot-password") ||
+    url.startsWith("/reset-password");
 
   if (user || !isVisible || isOnAuthPage) {
     return null;

@@ -46,7 +46,7 @@ export default function Login() {
     <>
       <Head title="Đăng nhập" />
 
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-neutral-800 px-4">
+      <div className="min-h-screen flex items-center justify-center auth-background bg-[#eaf3ef] dark:bg-neutral-800 px-4">
         <div className="rounded-xl border bg-card text-card-foreground shadow w-full bg-white dark:!bg-neutral-700 dark:!border-neutral-500 max-w-md">
           <div className="flex flex-col p-6 -mb-5 space-y-4 text-center">
             <div className="flex justify-center">

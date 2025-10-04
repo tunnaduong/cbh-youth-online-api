@@ -862,3 +862,13 @@ body {
   display: inline-block;
   flex: 0 0 auto;
 }
+
+.auth-background {
+  background-image: url(/images/auth_bg.jpg);
+  background-size: cover;
+}
+
+.dark .auth-background {
+  background-image: url(/images/auth_bg_dark.jpg);
+  background-size: cover;
+}

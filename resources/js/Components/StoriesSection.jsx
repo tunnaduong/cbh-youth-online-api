@@ -108,14 +108,14 @@ function StoriesSection() {
   if (!storiesData || storiesData.length === 0) {
     return (
       <>
-        <div className="mx-auto mt-4 flex gap-2 md:scale-100 scale-75 origin-top-left md:w-auto w-[135%] md:overflow-visible overflow-x-auto">
+        <div className="w-full mx-auto mt-4 flex gap-2 overflow-x-auto flex-nowrap">
           {/* Create Story Button */}
           <CreateStoryButton />
-          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-          <div className="w-[115px] h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse xs:block hidden"></div>
+          <div className="w-[90px] h-[160px] sm:w-[115px] sm:h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse flex-shrink-0"></div>
+          <div className="w-[90px] h-[160px] sm:w-[115px] sm:h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse flex-shrink-0"></div>
+          <div className="w-[90px] h-[160px] sm:w-[115px] sm:h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse flex-shrink-0"></div>
+          <div className="w-[90px] h-[160px] sm:w-[115px] sm:h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse flex-shrink-0"></div>
+          <div className="w-[90px] h-[160px] sm:w-[115px] sm:h-[195px] bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse flex-shrink-0 xs:block hidden"></div>
         </div>
 
         {/* Create Story Modal */}

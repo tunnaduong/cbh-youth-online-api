@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import InputError from "@/Components/InputError";
 import { Head, Link, useForm } from "@inertiajs/react";
 import CustomColorButton from "@/Components/ui/CustomColorButton";
-import { Input, message } from "antd";
+import { Input, message, Checkbox } from "antd";
 import { LockOutlined, UserOutlined, MailOutlined, IdcardOutlined } from "@ant-design/icons";
 import ReCAPTCHA from "react-google-recaptcha";
 
@@ -14,6 +14,7 @@ export default function Register() {
     password: "",
     password_confirmation: "",
     recaptcha: "",
+    agree_terms: "",
   });
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function Register() {
     <>
       <Head title="Đăng ký" />
 
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-neutral-800 px-4">
+      <div className="min-h-screen flex items-center justify-center auth-background bg-[#eaf3ef] dark:bg-neutral-800 px-4">
         <div className="rounded-xl border bg-card text-card-foreground shadow w-full bg-white dark:!bg-neutral-700 dark:!border-neutral-500 max-w-md">
           <div className="flex flex-col p-6 -mb-5 space-y-4 text-center">
             <div className="flex justify-center">
@@ -112,6 +113,34 @@ export default function Register() {
                   status={errors.password_confirmation ? "error" : ""}
                 />
                 <InputError message={errors.password_confirmation} className="mt-2" />
+              </div>
+
+              <div className="mt-3">
+                <label className="flex items-start">
+                  <Checkbox
+                    name="agree_terms"
+                    checked={data.agree_terms}
+                    onChange={(e) => setData("agree_terms", e.target.checked)}
+                    required
+                  />
+                  <span className="text-sm ml-2 dark:text-white">
+                    Tôi đã đọc và đồng ý với{" "}
+                    <Link
+                      href={route("policy.terms")}
+                      className="!text-primary-500 hover:underline"
+                    >
+                      Điều khoản sử dụng
+                    </Link>{" "}
+                    và{" "}
+                    <Link
+                      href={route("policy.privacy")}
+                      className="!text-primary-500 hover:underline"
+                    >
+                      Chính sách quyền riêng tư
+                    </Link>
+                  </span>
+                </label>
+                <InputError message={errors.agree_terms} />
               </div>
 
               <div className="flex justify-center">
