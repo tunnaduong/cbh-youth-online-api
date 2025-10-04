@@ -1,5 +1,5 @@
 import Lottie from "lottie-react";
-import splash from "@/assets/splash.json";
+import splash from "@/Assets/splash.json";
 
 export default function LoadingScreen({ isLoading, children }) {
   if (isLoading) {
