@@ -90,6 +90,7 @@ const CreateStoryModal = ({ open, onClose, onStoryCreated }) => {
 
     // Use router.post with FormData
     router.post(route("api.stories.store"), formData, {
+      showProgress: false,
       onSuccess: (page) => {
         message.success("Tin đã được tạo thành công!");
         reset();

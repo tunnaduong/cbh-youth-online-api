@@ -263,8 +263,8 @@ class ForumController extends Controller
         return [
           'username' => $vote->user->username,
           'vote_value' => $vote->vote_value,
-          'created_at' => $vote->created_at->toISOString(),
-          'updated_at' => $vote->updated_at->toISOString(),
+          'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
+          'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
         ];
       }),
     ];
@@ -967,8 +967,8 @@ class ForumController extends Controller
           return [
             'username' => $vote->user->username, // Assuming votes relation includes the user
             'vote_value' => $vote->vote_value,
-            'created_at' => $vote->created_at->toISOString(),
-            'updated_at' => $vote->updated_at->toISOString(),
+            'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
+            'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
           ];
         }),
         'reply_count' => $this->roundToNearestFive($post->reply_count) . "+",

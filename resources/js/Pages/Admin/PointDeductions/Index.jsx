@@ -61,6 +61,7 @@ export default function PointDeductionsIndex({ auth, deductions, users }) {
 
   const handleUpdate = () => {
     router.put(`/api/admin/point-deductions/${selectedDeduction.id}`, formData, {
+      showProgress: false,
       onSuccess: () => {
         setShowEditModal(false);
         setSelectedDeduction(null);
@@ -72,6 +73,7 @@ export default function PointDeductionsIndex({ auth, deductions, users }) {
   const handleDelete = (id) => {
     if (confirm("Are you sure you want to delete this deduction?")) {
       router.delete(`/api/admin/point-deductions/${id}`, {
+        showProgress: false,
         onSuccess: () => router.reload(),
       });
     }
@@ -83,6 +85,7 @@ export default function PointDeductionsIndex({ auth, deductions, users }) {
         `/api/admin/point-deductions/${id}/reverse`,
         {},
         {
+          showProgress: false,
           onSuccess: () => router.reload(),
         }
       );

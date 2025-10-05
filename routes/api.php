@@ -109,14 +109,14 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
 
     // Topics & Content
-    Route::post('/topics', [TopicsController::class, 'store'])->defaults('showProgress', false);
-    Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote'])->defaults('showProgress', false);
+    Route::post('/topics', [TopicsController::class, 'store']);
+    Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote']);
     Route::get('/user/saved-topics', [TopicsController::class, 'getSavedTopics']);
-    Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser'])->defaults('showProgress', false);
-    Route::delete('/user/saved-topics/{id}', [TopicsController::class, 'destroySavedTopic'])->defaults('showProgress', false);
-    Route::delete('/user-content/{id}', [FileUploadController::class, 'destroy'])->defaults('showProgress', false);
-    Route::delete('/topics/{id}', [TopicsController::class, 'destroyTopic'])->defaults('showProgress', false);
-    Route::delete('/topics/{id}/votes', [TopicsController::class, 'destroyTopicVote'])->defaults('showProgress', false);
+    Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
+    Route::delete('/user/saved-topics/{id}', [TopicsController::class, 'destroySavedTopic']);
+    Route::delete('/user-content/{id}', [FileUploadController::class, 'destroy']);
+    Route::delete('/topics/{id}', [TopicsController::class, 'destroyTopic']);
+    Route::delete('/topics/{id}/votes', [TopicsController::class, 'destroyTopicVote']);
 
 
     // Comments

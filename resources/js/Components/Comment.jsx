@@ -97,6 +97,7 @@ export default function Comment({
         {
           preserveScroll: true,
           preserveState: true,
+          showProgress: false,
           onError: (errors) => {
             // Revert optimistic update on error
             setLocalVotes(localVotes);

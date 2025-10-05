@@ -69,6 +69,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
       },
       {
         preserveScroll: true,
+        showProgress: false,
         onSuccess: () => {
           // Comment was successfully updated, no need to do anything
         },
@@ -193,6 +194,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
       },
       {
         preserveScroll: true,
+        showProgress: false,
         onSuccess: () => {
           // Refresh only comments from server to replace pending items
           router.reload({ only: ["comments"], preserveScroll: true, preserveState: true });
@@ -243,6 +245,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
       },
       {
         preserveScroll: true,
+        showProgress: false,
         onSuccess: () => {
           // Refresh only comments from server to replace pending items
           router.reload({ only: ["comments"], preserveScroll: true, preserveState: true });
@@ -287,6 +290,7 @@ export default function Show({ post, ogImage, comments: initialComments }) {
       {},
       {
         preserveScroll: true,
+        showProgress: false,
         onSuccess: () => {
           // Comment was successfully deleted, no need to do anything
         },
