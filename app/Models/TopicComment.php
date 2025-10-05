@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Services\PointsService;
 
 /**
  * Represents a comment on a topic.
@@ -82,5 +83,25 @@ class TopicComment extends Model
   public function replies()
   {
     return $this->hasMany(TopicComment::class, 'replying_to')->with(['user.profile', 'votes.user'])->orderBy('created_at', 'asc'); // Recursive
+  }
+
+  /**
+   * The "booted" method of the model.
+   *
+   * @return void
+   */
+  protected static function boot()
+  {
+    parent::boot();
+
+    // Update points when a comment is created
+    static::created(function ($comment) {
+      PointsService::onCommentCreated($comment->user_id);
+    });
+
+    // Update points when a comment is deleted
+    static::deleted(function ($comment) {
+      PointsService::onCommentCreated($comment->user_id);
+    });
   }
 }

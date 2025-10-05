@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use App\Models\ForumCategory;
 use App\Models\ForumSubforum;
 use App\Models\ForumMainCategory;
+use App\Services\StatsCacheService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -36,7 +37,9 @@ class ForumController extends Controller
       'subforums' => function ($query) {
         $query->withCount(['topics', 'comments']);
       },
-      'subforums.latestPublicTopic.user.profile'
+      'subforums.latestPublicTopic' => function ($query) {
+        $query->with(['user.profile']);
+      }
     ])->orderBy('arrange', 'asc')->get();
 
     // Handle sorting based on query parameter
@@ -56,12 +59,21 @@ class ForumController extends Controller
         break;
     }
 
-    $userCount = AuthAccount::count();
-    $postCount = Topic::count();
-    $commentCount = TopicComment::count();
+    // Sử dụng cached stats thay vì query trực tiếp
+    $forumStats = StatsCacheService::getForumStats();
 
-    $record = DB::table('cyo_online_record')->first();
+    $userCount = $forumStats['total_users'];
+    $postCount = $forumStats['total_topics'];
+    $commentCount = $forumStats['total_comments'];
 
+    // Lấy online record với recorded_at
+    $onlineRecord = DB::table('cyo_online_record')->first();
+    $record = (object) [
+      'max_online' => $forumStats['max_online'],
+      'recorded_at' => $onlineRecord ? $onlineRecord->recorded_at : now()
+    ];
+
+    // Lấy online users thực tế (không cache để có data real-time)
     $onlineUsers = DB::table('cyo_online_users')
       ->where('last_activity', '>=', now()->subMinutes(5))
       ->get();
@@ -75,7 +87,15 @@ class ForumController extends Controller
 
     $visitors = $stats;
 
-    $latestUser = AuthAccount::orderBy('created_at', 'desc')->with('profile')->first();
+    // Sử dụng cached latest user
+    $latestUser = StatsCacheService::getLatestUser();
+
+    // Debug: Log stats data
+    \Log::info('Forum Stats Debug', [
+      'visitors' => $visitors,
+      'online_users_count' => $onlineUsers->count(),
+      'online_users_data' => $onlineUsers->toArray()
+    ]);
 
     return Inertia::render('Home', [
       'latestPosts' => $latestPosts,
@@ -150,7 +170,21 @@ class ForumController extends Controller
 
   private function buildFeedQuery()
   {
-    $query = Topic::with(['user.profile', 'comments', 'votes'])
+    $query = Topic::with([
+      'user.profile',
+      'comments' => function ($query) {
+        $query->select('id', 'topic_id', 'user_id', 'comment', 'created_at')
+          ->with('user:id,username')
+          ->latest()
+          ->limit(5); // Chỉ load 5 comment gần nhất
+      },
+      'votes' => function ($query) {
+        $query->select('id', 'topic_id', 'user_id', 'vote_value', 'created_at')
+          ->with('user:id,username')
+          ->latest()
+          ->limit(10); // Chỉ load 10 vote gần nhất
+      }
+    ])
       ->withCount(['comments as reply_count', 'views'])
       ->orderBy('created_at', 'desc')
       ->where('hidden', false);
@@ -185,9 +219,13 @@ class ForumController extends Controller
   {
     $isSaved = false;
     if (Auth::check()) {
-      $isSaved = UserSavedTopic::where('user_id', Auth::id())
-        ->where('topic_id', $post->id)
-        ->exists();
+      // Cache saved topics check để tránh N+1 query
+      $savedTopics = cache()->remember('user_saved_topics_' . Auth::id(), 300, function () {
+        return UserSavedTopic::where('user_id', Auth::id())
+          ->pluck('topic_id')
+          ->toArray();
+      });
+      $isSaved = in_array($post->id, $savedTopics);
     }
 
     return [
@@ -239,13 +277,17 @@ class ForumController extends Controller
    */
   public static function updateMaxOnline()
   {
-    $onlineUsers = DB::table('cyo_online_users')
-      ->where('last_activity', '>=', now()->subMinutes(5))
-      ->get();
+    // Cache online users count để tránh query liên tục
+    $total = cache()->remember('online_users_count', 60, function () {
+      return DB::table('cyo_online_users')
+        ->where('last_activity', '>=', now()->subMinutes(5))
+        ->count();
+    });
 
-    $total = $onlineUsers->count();
-
-    $record = DB::table('cyo_online_record')->first();
+    // Cache online record để tránh query mỗi lần
+    $record = cache()->remember('online_record', 300, function () {
+      return DB::table('cyo_online_record')->first();
+    });
 
     if (!$record || $total > $record->max_online) {
       if ($record) {
@@ -793,7 +835,7 @@ class ForumController extends Controller
     } else {
       // For regular posts, verify the username matches the author
       $user = AuthAccount::where('username', $username)->firstOrFail();
-      if ($post->user_id !== $user->id) {
+      if ($post->user_id != $user->id) {
         abort(404);
       }
     }
@@ -1044,7 +1086,7 @@ class ForumController extends Controller
   // Lấy tất cả bài viết mới nhất trong tất cả các danh mục
   private function getLatestPosts()
   {
-    $query = Topic::with('user.profile')
+    $query = Topic::with(['user.profile'])
       ->where('hidden', false)
       ->orderBy('created_at', 'desc')
       ->take(10);
@@ -1075,7 +1117,7 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem nhiều nhất
   private function getMostViewedPosts()
   {
-    $query = Topic::with('user.profile')
+    $query = Topic::with(['user.profile'])
       ->where('hidden', false)
       ->withCount('views')
       ->orderBy('views_count', 'desc')
@@ -1107,7 +1149,7 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem và lượt tương tác (bình luận, like) nhiều nhất
   private function getMostEngagedPosts()
   {
-    $query = Topic::with('user.profile')
+    $query = Topic::with(['user.profile'])
       ->where('hidden', false)
       ->withCount(['comments', 'votes'])
       ->orderByRaw('(comments_count + votes_count) DESC')

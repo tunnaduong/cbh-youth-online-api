@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use App\Services\PointsService;
 
 /**
  * Represents a user point deduction record.
@@ -143,5 +144,30 @@ class UserPointDeduction extends Model
     return self::active()
       ->forUser($userId)
       ->sum('points_deducted');
+  }
+
+  /**
+   * The "booted" method of the model.
+   *
+   * @return void
+   */
+  protected static function boot()
+  {
+    parent::boot();
+
+    // Update points when a deduction is created
+    static::created(function ($deduction) {
+      PointsService::onPointDeduction($deduction->user_id);
+    });
+
+    // Update points when a deduction is updated
+    static::updated(function ($deduction) {
+      PointsService::onPointDeduction($deduction->user_id);
+    });
+
+    // Update points when a deduction is deleted
+    static::deleted(function ($deduction) {
+      PointsService::onPointDeduction($deduction->user_id);
+    });
   }
 }

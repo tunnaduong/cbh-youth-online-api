@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, Input, Button, Select, message, Switch, Dropdown } from "antd";
 import CustomInput from "./ui/Input";
 import CustomColorButton from "./ui/CustomColorButton";
@@ -9,12 +9,32 @@ import { FaExternalLinkAlt, FaMarkdown } from "react-icons/fa";
 import { FaFileLines } from "react-icons/fa6";
 
 const CreatePostModal = ({ open, onClose }) => {
-  const { forum_data, auth } = usePage().props;
+  const { auth } = usePage().props;
   const [selectedSubforum, setSelectedSubforum] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [documentFiles, setDocumentFiles] = useState([]);
   const [selectedVisibility, setSelectedVisibility] = useState("public");
+  const [forumData, setForumData] = useState({ main_categories: [] });
+  const [loading, setLoading] = useState(false);
+
+  // Fetch forum data when modal opens
+  useEffect(() => {
+    if (open && auth?.user) {
+      setLoading(true);
+      fetch("/api/forum-data")
+        .then((response) => response.json())
+        .then((data) => {
+          setForumData(data);
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching forum data:", error);
+          message.error("Không thể tải dữ liệu diễn đàn");
+          setLoading(false);
+        });
+    }
+  }, [open, auth?.user]);
 
   const { data, setData, post, processing, errors, reset } = useForm({
     title: "",
@@ -396,7 +416,8 @@ const CreatePostModal = ({ open, onClose }) => {
               value={selectedSubforum}
               onChange={handleSubforumChange}
               style={{ width: "100%" }}
-              options={forum_data.main_categories.map((category) => ({
+              loading={loading}
+              options={forumData.main_categories.map((category) => ({
                 label: <span>{category.name}</span>,
                 title: category.name,
                 options: category.sub_forums.map((subforum) => ({
@@ -404,7 +425,7 @@ const CreatePostModal = ({ open, onClose }) => {
                   value: subforum.id,
                 })),
               }))}
-              placeholder="Chọn chuyên mục phù hợp"
+              placeholder={loading ? "Đang tải..." : "Chọn chuyên mục phù hợp"}
               className="shadow-sm"
             />
             {errors.subforum_id && <div className="text-red-500 text-sm">{errors.subforum_id}</div>}

@@ -44,14 +44,6 @@ class HandleInertiaRequests extends Middleware
         'user' => $request->user(),
         'profile' => $request->user() ? $request->user()->profile : null,
       ],
-      'forum_data' => [
-        'main_categories' => $request->user()?->role == 'admin' ?
-          ForumMainCategory::with('subForums')->orderBy('arrange', 'asc')->get() :
-          ForumMainCategory::with('subForums')
-            ->where('role_restriction', '!=', 'admin')
-            ->orderBy('arrange', 'asc')
-            ->get(),
-      ],
       'stories' => $this->getStories($request),
       'is_logged_in' => $request->user() ? true : false,
       'flash' => [

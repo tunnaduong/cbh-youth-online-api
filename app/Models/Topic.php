@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Str;
+use App\Services\PointsService;
 
 /**
  * Represents a topic or post in the forum.
@@ -212,7 +213,8 @@ class Topic extends Model
 
     $imageIds = array_filter(explode(',', $this->cdn_image_id));
     return UserContent::whereIn('id', $imageIds)
-      ->orderByRaw("FIELD(id, " . implode(',', $imageIds) . ")")
+      ->orderByRaw("CASE id " . implode(' ', array_map(function ($id, $index) {
+        return "WHEN {$id} THEN {$index}"; }, $imageIds, array_keys($imageIds))) . " END")
       ->get();
   }
 
@@ -241,7 +243,8 @@ class Topic extends Model
 
     $documentIds = array_filter(explode(',', $this->cdn_document_id));
     return UserContent::whereIn('id', $documentIds)
-      ->orderByRaw("FIELD(id, " . implode(',', $documentIds) . ")")
+      ->orderByRaw("CASE id " . implode(' ', array_map(function ($id, $index) {
+        return "WHEN {$id} THEN {$index}"; }, $documentIds, array_keys($documentIds))) . " END")
       ->get();
   }
 
@@ -405,6 +408,16 @@ class Topic extends Model
       if (empty($topic->id)) {
         $topic->id = static::generateRandomizedId();
       }
+    });
+
+    // Update user points when a topic is created
+    static::created(function ($topic) {
+      PointsService::onPostCreated($topic->user_id);
+    });
+
+    // Update user points when a topic is deleted
+    static::deleted(function ($topic) {
+      PointsService::onPostCreated($topic->user_id);
     });
   }
 

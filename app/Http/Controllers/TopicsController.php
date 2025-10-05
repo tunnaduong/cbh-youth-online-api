@@ -54,7 +54,22 @@ class TopicsController extends Controller
   public function index(Request $request)
   {
     // Fetch topics from the database with pagination
-    $query = Topic::withCount(['views', 'comments'])
+    $query = Topic::select([
+      'id',
+      'subforum_id',
+      'user_id',
+      'title',
+      'created_at',
+      'updated_at',
+      'privacy',
+      'hidden',
+      'pinned',
+      'anonymous',
+      'cdn_image_id',
+      'cdn_document_id',
+      'deleted_at'
+    ])
+      ->withCount(['views', 'comments'])
       ->where('hidden', 0)
       ->orderBy('created_at', 'desc')
       ->with(['user', 'votes.user', 'cdnUserContent']);

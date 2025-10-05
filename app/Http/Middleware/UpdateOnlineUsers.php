@@ -26,8 +26,12 @@ class UpdateOnlineUsers
     $ip = $request->ip();
     $now = now();
 
-    // Determine identifier: user_id if logged in, session_id if guest
-    $identifier = $userId ?? $sessionId;
+    // Chỉ chạy cleanup mỗi 30 giây để giảm tải database
+    $lastCleanup = cache()->get('last_online_cleanup', 0);
+    if (now()->timestamp - $lastCleanup > 30) {
+      $this->performCleanup($now, $userId, $ip, $sessionId);
+      cache()->put('last_online_cleanup', now()->timestamp, 60);
+    }
 
     // Update or insert the online user record
     DB::table('cyo_online_users')->updateOrInsert(
@@ -42,12 +46,24 @@ class UpdateOnlineUsers
       ]
     );
 
+    // Chỉ update max online mỗi 2 phút
+    $lastMaxUpdate = cache()->get('last_max_online_update', 0);
+    if (now()->timestamp - $lastMaxUpdate > 120) {
+      \App\Http\Controllers\ForumController::updateMaxOnline();
+      cache()->put('last_max_online_update', now()->timestamp, 300);
+    }
+
+    return $next($request);
+  }
+
+  private function performCleanup($now, $userId, $ip, $sessionId)
+  {
     // Delete records older than 5 minutes
     DB::table('cyo_online_users')
       ->where('last_activity', '<', $now->subMinutes(5))
       ->delete();
 
-    // Delete duplicate guest records from the same IP but different session_id (prevents spam on reload/hot reload)
+    // Delete duplicate guest records from the same IP but different session_id
     if (!$userId) {
       DB::table('cyo_online_users')
         ->whereNull('user_id')
@@ -55,10 +71,5 @@ class UpdateOnlineUsers
         ->where('session_id', '<>', $sessionId)
         ->delete();
     }
-
-    // Update max online users
-    \App\Http\Controllers\ForumController::updateMaxOnline();
-
-    return $next($request);
   }
 }

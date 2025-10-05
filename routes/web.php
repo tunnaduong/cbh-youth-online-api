@@ -36,6 +36,34 @@ use App\Http\Controllers\HelpCenterController;
 // Home page
 Route::get('/', [ForumController::class, 'index'])->name('home');
 
+// Forum data API route
+Route::get('/api/forum-data', function () {
+  $user = auth()->user();
+
+  $mainCategories = $user && $user->role == 'admin' ?
+    \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
+      ->with([
+        'subForums' => function ($query) {
+          $query->select('id', 'name', 'main_category_id');
+        }
+      ])
+      ->orderBy('arrange', 'asc')
+      ->get() :
+    \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
+      ->with([
+        'subForums' => function ($query) {
+          $query->select('id', 'name', 'main_category_id');
+        }
+      ])
+      ->where('role_restriction', '!=', 'admin')
+      ->orderBy('arrange', 'asc')
+      ->get();
+
+  return response()->json([
+    'main_categories' => $mainCategories
+  ]);
+})->name('api.forum-data');
+
 // Dashboard (requires authentication and email verification)
 Route::get('/dashboard', function () {
   return Inertia::render('Dashboard');
@@ -136,6 +164,8 @@ Route::middleware('auth')->prefix('api')->group(function () {
   Route::delete('/stories/{story}/react', [StoryController::class, 'removeReaction'])->name('api.stories.react.remove');
 });
 
+
+
 // Topic creation from outside the main /forum prefix
 Route::middleware('auth')->group(function () {
   Route::post('/topics', [TopicsController::class, 'store'])->name('topics.store');
@@ -156,7 +186,7 @@ Route::get('/contact', [HelpCenterController::class, 'contact'])->name('contact'
 
 // --- Dynamic User and Post Routes ---
 
-// User Posts
+// User Posts (must be before /{username} route)
 Route::get('/{username}/posts/{id}', [ForumController::class, 'show'])
   ->where('id', '[0-9]+(?:-[a-z0-9-]+)?')
   ->name('posts.show');
@@ -294,7 +324,7 @@ Route::get('/huong-dan/cach-tinh-diem-xep-hang-thanh-vien', function () {
 
 // --- Fallback Routes ---
 
-// User profile routes (should be near the end)
+// User profile routes (should be near the end, after posts route)
 Route::get('/{username}', [ProfileController::class, 'show'])->name('profile.show');
 Route::get('/{username}/{tab}', [ProfileController::class, 'showWithTab'])->name('profile.show.tab')->where('tab', 'posts|followers|following');
 

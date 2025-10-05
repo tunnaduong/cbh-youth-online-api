@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Topic;
 use App\Models\Follower;
 use App\Models\UserPointDeduction;
+use App\Services\PointsService;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -52,7 +53,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
    *
    * @var array<int, string>
    */
-  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token'];
+  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token', 'cached_points'];
 
   /**
    * The attributes that should be hidden for serialization.
@@ -157,6 +158,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   /**
    * Calculate the user's activity points.
    *
+   * @deprecated Use cached_points attribute instead for better performance
    * @return int
    */
   public function points()
@@ -188,6 +190,26 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
 
     // Ensure points don't go below 0
     return max(0, $finalPoints);
+  }
+
+  /**
+   * Get the user's cached points (recommended for performance)
+   *
+   * @return int
+   */
+  public function getCachedPoints()
+  {
+    return $this->cached_points ?? 0;
+  }
+
+  /**
+   * Update the user's cached points
+   *
+   * @return bool
+   */
+  public function updateCachedPoints()
+  {
+    return PointsService::updateUserPoints($this->id);
   }
 
   /**

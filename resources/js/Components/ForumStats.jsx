@@ -51,12 +51,16 @@ const ForumStats = ({ stats }) => {
       <div className="mt-6">
         <p className="text-gray-600 dark:!text-gray-50">
           Chúng ta cùng chào mừng thành viên mới nhất đã tham gia diễn đàn:
-          <Link
-            href={"/" + stats.latestUser.username}
-            className="hover:underline font-bold text-green-600 ml-1"
-          >
-            {stats.latestUser.profile.profile_name || stats.latestUser.username}
-          </Link>
+          {stats.latestUser ? (
+            <Link
+              href={"/" + stats.latestUser.username}
+              className="hover:underline font-bold text-green-600 ml-1"
+            >
+              {stats.latestUser.profile?.profile_name || stats.latestUser.username}
+            </Link>
+          ) : (
+            <span className="font-bold text-green-600 ml-1">Chưa có thành viên</span>
+          )}
         </p>
         <p className="text-gray-600 my-2 dark:!text-gray-50">
           Tổng cộng có

@@ -239,3 +239,16 @@ Route::middleware('auth:sanctum')->group(function () {
   Route::get('/user/{userId}/point-deductions', [UserPointDeductionController::class, 'getUserDeductions']);
   Route::get('/user/{userId}/point-deductions/total', [UserPointDeductionController::class, 'getUserTotalDeductions']);
 });
+
+// Points management routes
+Route::prefix('points')->group(function () {
+  // Public routes
+  Route::get('/top-users', [App\Http\Controllers\PointsController::class, 'getTopUsers']);
+  Route::get('/top-users/{limit}', [App\Http\Controllers\PointsController::class, 'getTopUsers']);
+
+  // Admin routes
+  Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+    Route::post('/refresh-all', [App\Http\Controllers\PointsController::class, 'refreshAll']);
+    Route::post('/refresh-user/{userId}', [App\Http\Controllers\PointsController::class, 'refreshUser']);
+  });
+});
