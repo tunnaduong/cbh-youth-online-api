@@ -22,7 +22,7 @@ class ProfileController extends Controller
    */
   public function edit(Request $request): Response
   {
-    return Inertia::render('Profile/Edit', [
+    return response()->json([
       'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
       'status' => session('status'),
     ]);
@@ -127,7 +127,7 @@ class ProfileController extends Controller
         ->exists();
     }
 
-    return Inertia::render('Profile/Show', [
+    return response()->json([
       'profile' => [
         'username' => $user->username,
         'profile_name' => $user->profile->profile_name ?? null,

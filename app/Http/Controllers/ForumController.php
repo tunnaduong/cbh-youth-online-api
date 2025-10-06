@@ -29,18 +29,38 @@ class ForumController extends Controller
    * Display the main forum index page.
    *
    * @param  \Illuminate\Http\Request  $request
-   * @return \Inertia\Response
+   * @return \Illuminate\Http\JsonResponse
    */
   public function index(Request $request)
   {
     $mainCategories = ForumCategory::with([
       'subforums' => function ($query) {
         $query->withCount(['topics', 'comments']);
-      },
-      'subforums.latestPublicTopic' => function ($query) {
-        $query->with(['user.profile']);
       }
     ])->orderBy('arrange', 'asc')->get();
+
+    // Get all subforum IDs
+    $subforumIds = $mainCategories->pluck('subforums')->flatten()->pluck('id')->toArray();
+
+    // Load latest public topic for all subforums in one query (không filter hidden)
+    $latestTopics = Topic::select(['id', 'subforum_id', 'title', 'created_at', 'user_id', 'anonymous'])
+      ->with(['user:id,username', 'user.profile:id,auth_account_id,profile_name'])
+      ->whereIn('subforum_id', $subforumIds)
+      ->where('privacy', 'public')
+      ->orderBy('subforum_id')
+      ->orderBy('created_at', 'desc')
+      ->get()
+      ->groupBy('subforum_id')
+      ->map(function ($topics) {
+        return $topics->first();
+      });
+
+    // Assign latest topics to subforums
+    foreach ($mainCategories as $category) {
+      foreach ($category->subforums as $subforum) {
+        $subforum->latest_public_topic = $latestTopics->get($subforum->id);
+      }
+    }
 
     // Handle sorting based on query parameter
     $sort = $request->get('sort', 'latest');
@@ -90,16 +110,9 @@ class ForumController extends Controller
     // Sử dụng cached latest user
     $latestUser = StatsCacheService::getLatestUser();
 
-    // Debug: Log stats data
-    \Log::info('Forum Stats Debug', [
-      'visitors' => $visitors,
-      'online_users_count' => $onlineUsers->count(),
-      'online_users_data' => $onlineUsers->toArray()
-    ]);
-
-    return Inertia::render('Home', [
-      'latestPosts' => $latestPosts,
-      'mainCategories' => $mainCategories,
+    return response()->json([
+      'latestPosts' => $this->formatLatestPosts($latestPosts),
+      'mainCategories' => $this->formatMainCategories($mainCategories),
       'currentSort' => $sort,
       'stats' => [
         'userCount' => $userCount,
@@ -115,7 +128,7 @@ class ForumController extends Controller
   /**
    * Display the user's personalized feed.
    *
-   * @return \Inertia\Response
+   * @return \Illuminate\Http\JsonResponse
    */
   public function feed()
   {
@@ -128,7 +141,7 @@ class ForumController extends Controller
       return $this->formatPostData($post);
     });
 
-    return Inertia::render('Feed/Index', [
+    return response()->json([
       'posts' => $posts,
       'pagination' => [
         'current_page' => $paginatedPosts->currentPage(),
@@ -277,12 +290,10 @@ class ForumController extends Controller
    */
   public static function updateMaxOnline()
   {
-    // Cache online users count để tránh query liên tục
-    $total = cache()->remember('online_users_count', 60, function () {
-      return DB::table('cyo_online_users')
-        ->where('last_activity', '>=', now()->subMinutes(5))
-        ->count();
-    });
+    // Lấy online users count real-time
+    $total = DB::table('cyo_online_users')
+      ->where('last_activity', '>=', now()->subMinutes(5))
+      ->count();
 
     // Cache online record để tránh query mỗi lần
     $record = cache()->remember('online_record', 300, function () {
@@ -311,7 +322,7 @@ class ForumController extends Controller
    * Display a specific forum category and its subforums.
    *
    * @param  \App\Models\ForumCategory  $category
-   * @return \Inertia\Response
+   * @return \Illuminate\Http\JsonResponse
    */
   public function category(ForumCategory $category)
   {
@@ -326,7 +337,7 @@ class ForumController extends Controller
       }
     ]);
 
-    return Inertia::render('Forum/Category', [
+    return response()->json([
       'category' => $category
     ]);
   }
@@ -336,7 +347,7 @@ class ForumController extends Controller
    *
    * @param  \App\Models\ForumCategory  $category
    * @param  \App\Models\ForumSubforum  $subforum
-   * @return \Inertia\Response
+   * @return \Illuminate\Http\JsonResponse
    */
   public function subforum(ForumCategory $category, ForumSubforum $subforum)
   {
@@ -368,7 +379,7 @@ class ForumController extends Controller
 
     $topics = $query->get();
 
-    return Inertia::render('Forum/Subforum', [
+    return response()->json([
       'category' => $category,
       'subforum' => $subforum,
       'topics' => $topics->map(function ($topic) {
@@ -412,11 +423,11 @@ class ForumController extends Controller
    * Show the form for creating a new topic in a subforum.
    *
    * @param  \App\Models\ForumSubforum  $subforum
-   * @return \Inertia\Response
+   * @return \Illuminate\Http\JsonResponse
    */
   public function createTopic(ForumSubforum $subforum)
   {
-    return Inertia::render('Posts/Create', [
+    return response()->json([
       'subforum' => $subforum
     ]);
   }
@@ -448,13 +459,13 @@ class ForumController extends Controller
    * Show the form for editing the specified topic.
    *
    * @param  \App\Models\Topic  $topic
-   * @return \Inertia\Response
+   * @return \Illuminate\Http\JsonResponse
    */
   public function editTopic(Topic $topic)
   {
     $this->authorize('update', $topic);
 
-    return Inertia::render('Posts/Edit', [
+    return response()->json([
       'topic' => $topic
     ]);
   }
@@ -788,7 +799,7 @@ class ForumController extends Controller
    *
    * @param  string  $username
    * @param  string  $id
-   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
    */
   public function show($username, $id)
   {
@@ -951,7 +962,7 @@ class ForumController extends Controller
         ->exists();
     }
 
-    return Inertia::render('Posts/Show', [
+    return response()->json([
       'post' => [
         'id' => $post->id,
         'title' => $post->title,
@@ -1086,7 +1097,8 @@ class ForumController extends Controller
   // Lấy tất cả bài viết mới nhất trong tất cả các danh mục
   private function getLatestPosts()
   {
-    $query = Topic::with(['user.profile'])
+    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
+      ->with(['user.profile'])
       ->where('hidden', false)
       ->orderBy('created_at', 'desc')
       ->take(10);
@@ -1117,7 +1129,8 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem nhiều nhất
   private function getMostViewedPosts()
   {
-    $query = Topic::with(['user.profile'])
+    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
+      ->with(['user.profile'])
       ->where('hidden', false)
       ->withCount('views')
       ->orderBy('views_count', 'desc')
@@ -1149,7 +1162,8 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem và lượt tương tác (bình luận, like) nhiều nhất
   private function getMostEngagedPosts()
   {
-    $query = Topic::with(['user.profile'])
+    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
+      ->with(['user.profile'])
       ->where('hidden', false)
       ->withCount(['comments', 'votes'])
       ->orderByRaw('(comments_count + votes_count) DESC')
@@ -1176,5 +1190,59 @@ class ForumController extends Controller
     }
 
     return $query->get();
+  }
+
+  /**
+   * Format latest posts to only include title, created_at, and author name
+   *
+   * @param \Illuminate\Database\Eloquent\Collection $posts
+   * @return \Illuminate\Support\Collection
+   */
+  private function formatLatestPosts($posts)
+  {
+    return $posts->map(function ($post) {
+      return [
+        'id' => $post->id,
+        'title' => $post->title,
+        'created_at' => $post->created_at,
+        'anonymous' => (bool) $post->anonymous,
+        'author_name' => $post->anonymous
+          ? 'Người dùng ẩn danh'
+          : ($post->user->profile->profile_name ?? $post->user->username),
+        'username' => $post->anonymous ? null : $post->user->username
+      ];
+    });
+  }
+
+  /**
+   * Format main categories to only include category name and subforum name
+   *
+   * @param \Illuminate\Database\Eloquent\Collection $categories
+   * @return \Illuminate\Support\Collection
+   */
+  private function formatMainCategories($categories)
+  {
+    return $categories->map(function ($category) {
+      return [
+        'name' => $category->name,
+        'subforums' => $category->subforums->map(function ($subforum) {
+          return [
+            'name' => $subforum->name,
+            'topics_count' => $subforum->topics_count,
+            'comments_count' => $subforum->comments_count,
+            'latest_topic' => ($subforum->latest_public_topic && $subforum->latest_public_topic->title) ? [
+              'id' => $subforum->latest_public_topic->id,
+              'title' => $subforum->latest_public_topic->title,
+              'anonymous' => (bool) $subforum->latest_public_topic->anonymous,
+              'username' => $subforum->latest_public_topic->anonymous ? null : $subforum->latest_public_topic->user->username,
+              'author_name' => $subforum->latest_public_topic->anonymous
+                ? 'Người dùng ẩn danh'
+                : ($subforum->latest_public_topic->user->profile->profile_name ?? $subforum->latest_public_topic->user->username),
+              'created_at' => $subforum->latest_public_topic->created_at
+            ] : null
+          ];
+        })
+      ];
+    });
   }
 }

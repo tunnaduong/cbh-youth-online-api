@@ -18,7 +18,7 @@ class YouthNewsController extends Controller
   /**
    * Display a listing of youth news.
    *
-   * @return \Inertia\Response
+   * @return \Illuminate\Http\JsonResponse
    */
   public function index()
   {
@@ -31,7 +31,7 @@ class YouthNewsController extends Controller
       return $this->formatYouthNewsData($post);
     });
 
-    return Inertia::render('YouthNews/Index', [
+    return response()->json([
       'youthNews' => $youthNews,
       'pagination' => [
         'current_page' => $paginatedNews->currentPage(),

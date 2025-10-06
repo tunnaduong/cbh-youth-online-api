@@ -26,15 +26,13 @@ class StatsCacheService
   }
 
   /**
-   * Get online users count
+   * Get online users count (real-time, no cache)
    */
   public static function getOnlineUsersCount()
   {
-    return Cache::remember('online_users_count', 60, function () {
-      return DB::table('cyo_online_users')
-        ->where('last_activity', '>=', now()->subMinutes(5))
-        ->count();
-    });
+    return DB::table('cyo_online_users')
+      ->where('last_activity', '>=', now()->subMinutes(5))
+      ->count();
   }
 
   /**
@@ -78,7 +76,6 @@ class StatsCacheService
   public static function clearStats()
   {
     Cache::forget('forum_stats');
-    Cache::forget('online_users_count');
     Cache::forget('max_online_users');
     Cache::forget('latest_user');
   }

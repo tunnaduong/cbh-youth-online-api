@@ -8,58 +8,58 @@ use Inertia\Response;
 
 class HelpCenterController extends Controller
 {
-    /**
-     * Display the main help center page.
-     */
-    public function index(): Response
-    {
-        return Inertia::render('HelpCenter/Index');
-    }
+  /**
+   * Display the main help center page.
+   */
+  public function index(): \Illuminate\Http\JsonResponse
+  {
+    return response()->json(['message' => 'Help center index data']);
+  }
 
-    /**
-     * Show a specific help article.
-     *
-     * @param string $category
-     * @param string $article
-     * @return Response
-     */
-    public function show(string $category, string $article): Response
-    {
-        return Inertia::render('HelpCenter/Show', [
-            'categorySlug' => $category,
-            'articleSlug' => $article,
-        ]);
-    }
+  /**
+   * Show a specific help article.
+   *
+   * @param string $category
+   * @param string $article
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function show(string $category, string $article): \Illuminate\Http\JsonResponse
+  {
+    return response()->json([
+      'categorySlug' => $category,
+      'articleSlug' => $article,
+    ]);
+  }
 
-    /**
-     * Display the About page.
-     */
-    public function about(): Response
-    {
-        return Inertia::render('HelpCenter/Static/About');
-    }
+  /**
+   * Display the About page.
+   */
+  public function about(): \Illuminate\Http\JsonResponse
+  {
+    return response()->json(['message' => 'About page data']);
+  }
 
-    /**
-     * Display the Jobs page.
-     */
-    public function jobs(): Response
-    {
-        return Inertia::render('HelpCenter/Static/Jobs');
-    }
+  /**
+   * Display the Jobs page.
+   */
+  public function jobs(): \Illuminate\Http\JsonResponse
+  {
+    return response()->json(['message' => 'Jobs page data']);
+  }
 
-    /**
-     * Display the Ads page.
-     */
-    public function ads(): Response
-    {
-        return Inertia::render('HelpCenter/Static/Ads');
-    }
+  /**
+   * Display the Ads page.
+   */
+  public function ads(): \Illuminate\Http\JsonResponse
+  {
+    return response()->json(['message' => 'Ads page data']);
+  }
 
-    /**
-     * Display the Contact page.
-     */
-    public function contact(): Response
-    {
-        return Inertia::render('HelpCenter/Static/Contact');
-    }
+  /**
+   * Display the Contact page.
+   */
+  public function contact(): \Illuminate\Http\JsonResponse
+  {
+    return response()->json(['message' => 'Contact page data']);
+  }
 }

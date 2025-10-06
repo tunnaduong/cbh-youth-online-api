@@ -113,4 +113,26 @@ class ForumCategory extends Model
   {
     return 'slug';
   }
+
+  /**
+   * Get main categories with subforums for forum index with minimal data
+   *
+   * @return \Illuminate\Database\Eloquent\Collection
+   */
+  public static function getCategoriesForIndex()
+  {
+    return static::select(['id', 'name', 'arrange'])
+      ->with([
+        'subforums' => function ($query) {
+          $query->select(['id', 'main_category_id', 'name'])
+            ->withCount(['topics', 'comments']);
+        },
+        'subforums.latestPublicTopic' => function ($query) {
+          $query->select(['id', 'subforum_id', 'title', 'created_at', 'user_id'])
+            ->with(['user:id,username', 'user.profile:id,auth_account_id,profile_name']);
+        }
+      ])
+      ->orderBy('arrange', 'asc')
+      ->get();
+  }
 }

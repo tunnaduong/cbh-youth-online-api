@@ -11,87 +11,87 @@ use App\Models\Recording;
  */
 class RecordingController extends Controller
 {
-    /**
-     * Display a listing of recordings.
-     *
-     * @return \Inertia\Response
-     */
-    public function index()
-    {
-        $recordings = Recording::with([
-            'author.profile',
-            'cdnAudio',
-            'cdnPreview',
-        ])
-            ->withCount('views')
-            ->latest()
-            ->get()
-            ->map(function ($recording) {
-                $recording->created_at_human = $recording->created_at->diffForHumans();
-                return $recording;
-            });
+  /**
+   * Display a listing of recordings.
+   *
+   * @return \Inertia\Response
+   */
+  public function index()
+  {
+    $recordings = Recording::with([
+      'author.profile',
+      'cdnAudio',
+      'cdnPreview',
+    ])
+      ->withCount('views')
+      ->latest()
+      ->get()
+      ->map(function ($recording) {
+        $recording->created_at_human = $recording->created_at->diffForHumans();
+        return $recording;
+      });
 
-        return Inertia::render('Recordings/Index', [
-            'recordings' => $recordings
-        ]);
-    }
+    return response()->json([
+      'recordings' => $recordings
+    ]);
+  }
 
-    /**
-     * Display the specified recording.
-     *
-     * @param  \App\Models\Recording  $recording
-     * @return \Inertia\Response
-     */
-    public function show(Recording $recording)
-    {
-        return Inertia::render('Recordings/Show', [
-            'recording' => $recording
-        ]);
-    }
+  /**
+   * Display the specified recording.
+   *
+   * @param  \App\Models\Recording  $recording
+   * @return \Inertia\Response
+   */
+  public function show(Recording $recording)
+  {
+    return response()->json([
+      'recording' => $recording
+    ]);
+  }
 
-    /**
-     * Store a newly created recording in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'likes' => 'required|integer',
-            'views' => 'required|integer',
-            'duration' => 'required|string'
-        ]);
+  /**
+   * Store a newly created recording in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\RedirectResponse
+   */
+  public function store(Request $request)
+  {
+    $validated = $request->validate([
+      'title' => 'required|string|max:255',
+      'description' => 'required|string',
+      'likes' => 'required|integer',
+      'views' => 'required|integer',
+      'duration' => 'required|string'
+    ]);
 
-        Recording::create($validated);
+    Recording::create($validated);
 
-        return redirect()->route('recordings.index')
-            ->with('success', 'Recording created successfully.');
-    }
+    return redirect()->route('recordings.index')
+      ->with('success', 'Recording created successfully.');
+  }
 
-    /**
-     * Remove the specified recording.
-     *
-     * @param  \App\Models\Recording  $recording
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function destroy(Recording $recording)
-    {
-        $recording->delete();
+  /**
+   * Remove the specified recording.
+   *
+   * @param  \App\Models\Recording  $recording
+   * @return \Illuminate\Http\RedirectResponse
+   */
+  public function destroy(Recording $recording)
+  {
+    $recording->delete();
 
-        return redirect()->route('recordings.index')
-            ->with('success', 'Recording deleted successfully.');
-    }
+    return redirect()->route('recordings.index')
+      ->with('success', 'Recording deleted successfully.');
+  }
 
-    /**
-     * Show the form for creating a new recording.
-     *
-     * @return \Inertia\Response
-     */
-    public function create()
-    {
-        return Inertia::render('Recordings/Create');
-    }
+  /**
+   * Show the form for creating a new recording.
+   *
+   * @return \Inertia\Response
+   */
+  public function create()
+  {
+    return response()->json(['message' => 'Create recording form data']);
+  }
 }

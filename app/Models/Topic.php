@@ -74,7 +74,6 @@ class Topic extends Model
     'subforum_id',
     'user_id',
     'title',
-    'description',
     'content_html',
     'pinned',
     'cdn_image_id',
@@ -214,7 +213,8 @@ class Topic extends Model
     $imageIds = array_filter(explode(',', $this->cdn_image_id));
     return UserContent::whereIn('id', $imageIds)
       ->orderByRaw("CASE id " . implode(' ', array_map(function ($id, $index) {
-        return "WHEN {$id} THEN {$index}"; }, $imageIds, array_keys($imageIds))) . " END")
+        return "WHEN {$id} THEN {$index}";
+      }, $imageIds, array_keys($imageIds))) . " END")
       ->get();
   }
 
@@ -244,7 +244,8 @@ class Topic extends Model
     $documentIds = array_filter(explode(',', $this->cdn_document_id));
     return UserContent::whereIn('id', $documentIds)
       ->orderByRaw("CASE id " . implode(' ', array_map(function ($id, $index) {
-        return "WHEN {$id} THEN {$index}"; }, $documentIds, array_keys($documentIds))) . " END")
+        return "WHEN {$id} THEN {$index}";
+      }, $documentIds, array_keys($documentIds))) . " END")
       ->get();
   }
 

@@ -13,103 +13,103 @@ use Inertia\Inertia;
  */
 class SavedPostsController extends Controller
 {
-    /**
-     * Display a listing of the user's saved posts.
-     *
-     * @return \Inertia\Response
-     */
-    public function index()
-    {
-        $userId = Auth::id();
+  /**
+   * Display a listing of the user's saved posts.
+   *
+   * @return \Inertia\Response
+   */
+  public function index()
+  {
+    $userId = Auth::id();
 
-        $savedTopics = UserSavedTopic::where('user_id', $userId)
-            ->with([
-                'topic' => function ($query) {
-                    $query->withCount(['views', 'comments'])
-                        ->withSum('votes', 'vote_value')
-                        ->with(['author.profile']);
-                }
-            ])
-            ->latest()
-            ->get()
-            ->map(function ($savedTopic) {
-                $topic = $savedTopic->topic;
-                return [
-                    'id' => $topic->id,
-                    'title' => $topic->title,
-                    'description' => $topic->description,
-                    'image_urls' => $topic->getImageUrls(),
-                    'anonymous' => $topic->anonymous,
-                    'author' => [
-                        'username' => $topic->author->username,
-                        'profile_name' => $topic->author->profile->profile_name ?? null,
-                        'verified' => $topic->author->profile->verified ?? false
-                    ],
-                    'stats' => [
-                        'views' => $topic->views_count,
-                        'comments' => $topic->comments_count,
-                        'votes' => $topic->votes_sum_vote_value ?? 0
-                    ],
-                    'saved_at_human' => $savedTopic->created_at->diffForHumans()
-                ];
-            });
-
-        return Inertia::render('SavedPosts/Index', [
-            'savedTopics' => $savedTopics
-        ]);
-    }
-
-    /**
-     * Store a newly created saved post in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'topic_id' => 'required|exists:cyo_topics,id',
-        ]);
-
-        $userId = Auth::id();
-
-        // Check if already saved
-        $exists = UserSavedTopic::where('topic_id', $request->topic_id)
-            ->where('user_id', $userId)
-            ->exists();
-
-        if ($exists) {
-            return back()->with('error', 'This topic is already saved.');
+    $savedTopics = UserSavedTopic::where('user_id', $userId)
+      ->with([
+        'topic' => function ($query) {
+          $query->withCount(['views', 'comments'])
+            ->withSum('votes', 'vote_value')
+            ->with(['author.profile']);
         }
+      ])
+      ->latest()
+      ->get()
+      ->map(function ($savedTopic) {
+        $topic = $savedTopic->topic;
+        return [
+          'id' => $topic->id,
+          'title' => $topic->title,
+          'description' => $topic->description,
+          'image_urls' => $topic->getImageUrls(),
+          'anonymous' => $topic->anonymous,
+          'author' => [
+            'username' => $topic->author->username,
+            'profile_name' => $topic->author->profile->profile_name ?? null,
+            'verified' => $topic->author->profile->verified ?? false
+          ],
+          'stats' => [
+            'views' => $topic->views_count,
+            'comments' => $topic->comments_count,
+            'votes' => $topic->votes_sum_vote_value ?? 0
+          ],
+          'saved_at_human' => $savedTopic->created_at->diffForHumans()
+        ];
+      });
 
-        UserSavedTopic::create([
-            'user_id' => $userId,
-            'topic_id' => $request->topic_id,
-        ]);
+    return response()->json([
+      'savedTopics' => $savedTopics
+    ]);
+  }
 
-        return back()->with('success', 'Topic saved successfully.');
+  /**
+   * Store a newly created saved post in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\RedirectResponse
+   */
+  public function store(Request $request)
+  {
+    $request->validate([
+      'topic_id' => 'required|exists:cyo_topics,id',
+    ]);
+
+    $userId = Auth::id();
+
+    // Check if already saved
+    $exists = UserSavedTopic::where('topic_id', $request->topic_id)
+      ->where('user_id', $userId)
+      ->exists();
+
+    if ($exists) {
+      return back()->with('error', 'This topic is already saved.');
     }
 
-    /**
-     * Remove the specified saved post from storage.
-     *
-     * @param  int  $savedPost The ID of the topic to remove.
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function destroy($savedPost)
-    {
-        $userId = Auth::id();
+    UserSavedTopic::create([
+      'user_id' => $userId,
+      'topic_id' => $request->topic_id,
+    ]);
 
-        $savedTopic = UserSavedTopic::where('topic_id', $savedPost)
-            ->where('user_id', $userId)
-            ->first();
+    return back()->with('success', 'Topic saved successfully.');
+  }
 
-        if (!$savedTopic) {
-            return back()->with('error', 'Saved topic not found.');
-        }
+  /**
+   * Remove the specified saved post from storage.
+   *
+   * @param  int  $savedPost The ID of the topic to remove.
+   * @return \Illuminate\Http\RedirectResponse
+   */
+  public function destroy($savedPost)
+  {
+    $userId = Auth::id();
 
-        $savedTopic->delete();
+    $savedTopic = UserSavedTopic::where('topic_id', $savedPost)
+      ->where('user_id', $userId)
+      ->first();
 
-        return back()->with('success', 'Topic removed from saved items.');
+    if (!$savedTopic) {
+      return back()->with('error', 'Saved topic not found.');
     }
+
+    $savedTopic->delete();
+
+    return back()->with('success', 'Topic removed from saved items.');
+  }
 }

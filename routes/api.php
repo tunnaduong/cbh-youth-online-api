@@ -18,6 +18,7 @@ use App\Http\Controllers\StoryController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\UserPointDeductionController;
+use App\Http\Controllers\PointsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,6 +34,9 @@ use App\Http\Controllers\UserPointDeductionController;
 Route::prefix('v1.0')->group(function () {
   // --- PUBLIC ROUTES ---
   // These routes are accessible to everyone, authenticated or not.
+
+  // Home Route
+  Route::get('/home', [ForumController::class, 'index']);
 
   // File and User Content
   Route::post('/upload', [FileUploadController::class, 'upload']);
@@ -60,6 +64,7 @@ Route::prefix('v1.0')->group(function () {
   // User Information
   Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
   Route::get('/users/top-active', [UserController::class, 'getTop8ActiveUsers']);
+  Route::get('/users/ranking', [PointsController::class, 'getTopUsers']);
 
   // Search & Stories
   Route::get('search', [SearchController::class, 'search']);
@@ -167,88 +172,5 @@ Route::prefix('v1.0')->group(function () {
       Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
       Route::get('search/users', [ChatController::class, 'searchUserForChat']);
     });
-  });
-
-  // --- ADMIN API ROUTES ---
-  // These routes are only accessible to users with the 'admin' role.
-  Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
-    // User Management
-    Route::get('/users', [AdminController::class, 'listUsers']);
-    Route::post('/users', [AdminController::class, 'storeUser']);
-    Route::put('/users/{id}', [AdminController::class, 'updateUser']);
-    Route::delete('/users/{id}', [AdminController::class, 'destroyUser']);
-    Route::get('/users/stats', [AdminController::class, 'userStats']);
-
-    // Forum Category Management
-    Route::get('/forum-categories', [AdminController::class, 'listForumCategories']);
-    Route::post('/forum-categories', [AdminController::class, 'storeForumCategory']);
-    Route::put('/forum-categories/{id}', [AdminController::class, 'updateForumCategory']);
-    Route::delete('/forum-categories/{id}', [AdminController::class, 'destroyForumCategory']);
-
-    // Subforum Management
-    Route::get('/subforums', [AdminController::class, 'listSubforums']);
-    Route::post('/subforums', [AdminController::class, 'storeSubforum']);
-    Route::put('/subforums/{id}', [AdminController::class, 'updateSubforum']);
-    Route::delete('/subforums/{id}', [AdminController::class, 'destroySubforum']);
-
-    // Post Management
-    Route::get('/posts', [AdminController::class, 'listPosts']);
-    Route::post('/posts', [AdminController::class, 'storePost']);
-    Route::put('/posts/{id}', [AdminController::class, 'updatePost']);
-    Route::delete('/posts/{id}', [AdminController::class, 'destroyPost']);
-    Route::put('/posts/{id}/pin', [AdminController::class, 'togglePinPost']);
-    Route::put('/posts/{id}/lock', [AdminController::class, 'toggleLockPost']);
-
-    // Class Management
-    Route::get('/classes', [AdminController::class, 'listClasses']);
-    Route::post('/classes', [AdminController::class, 'storeClass']);
-    Route::put('/classes/{id}', [AdminController::class, 'updateClass']);
-    Route::delete('/classes/{id}', [AdminController::class, 'destroyClass']);
-
-    // Schedule Management
-    Route::get('/schedules', [AdminController::class, 'listSchedules']);
-    Route::post('/schedules', [AdminController::class, 'storeSchedule']);
-    Route::put('/schedules/{id}', [AdminController::class, 'updateSchedule']);
-    Route::delete('/schedules/{id}', [AdminController::class, 'destroySchedule']);
-
-    // Student Violation Management
-    Route::get('/violations', [AdminController::class, 'listViolations']);
-    Route::post('/violations', [AdminController::class, 'storeViolation']);
-    Route::put('/violations/{id}', [AdminController::class, 'updateViolation']);
-    Route::delete('/violations/{id}', [AdminController::class, 'destroyViolation']);
-
-    // Monitor Report Management
-    Route::get('/monitor-reports', [AdminController::class, 'listMonitorReports']);
-    Route::post('/monitor-reports', [AdminController::class, 'storeMonitorReport']);
-    Route::put('/monitor-reports/{id}', [AdminController::class, 'updateMonitorReport']);
-    Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport']);
-
-    // Point Deduction Management
-    Route::get('/point-deductions', [UserPointDeductionController::class, 'index']);
-    Route::post('/point-deductions', [UserPointDeductionController::class, 'store']);
-    Route::get('/point-deductions/{id}', [UserPointDeductionController::class, 'show']);
-    Route::put('/point-deductions/{id}', [UserPointDeductionController::class, 'update']);
-    Route::delete('/point-deductions/{id}', [UserPointDeductionController::class, 'destroy']);
-    Route::post('/point-deductions/{id}/reverse', [UserPointDeductionController::class, 'reverse']);
-    Route::get('/point-deductions/stats', [UserPointDeductionController::class, 'getStats']);
-  });
-});
-
-// Point deduction routes for users
-Route::middleware('auth:sanctum')->group(function () {
-  Route::get('/user/{userId}/point-deductions', [UserPointDeductionController::class, 'getUserDeductions']);
-  Route::get('/user/{userId}/point-deductions/total', [UserPointDeductionController::class, 'getUserTotalDeductions']);
-});
-
-// Points management routes
-Route::prefix('points')->group(function () {
-  // Public routes
-  Route::get('/top-users', [App\Http\Controllers\PointsController::class, 'getTopUsers']);
-  Route::get('/top-users/{limit}', [App\Http\Controllers\PointsController::class, 'getTopUsers']);
-
-  // Admin routes
-  Route::middleware(['auth:sanctum', 'admin'])->group(function () {
-    Route::post('/refresh-all', [App\Http\Controllers\PointsController::class, 'refreshAll']);
-    Route::post('/refresh-user/{userId}', [App\Http\Controllers\PointsController::class, 'refreshUser']);
   });
 });

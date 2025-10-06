@@ -59,6 +59,7 @@ class TopicsController extends Controller
       'subforum_id',
       'user_id',
       'title',
+      'content_html',
       'created_at',
       'updated_at',
       'privacy',
@@ -115,7 +116,7 @@ class TopicsController extends Controller
         $topicData = [
           'id' => $topic->id,
           'title' => $topic->title,
-          'content' => $topic->description,
+          'content' => $topic->content_html,
           'image_urls' => $topic->getImageUrls()->map(function ($content) {
             return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
           })->all(),
