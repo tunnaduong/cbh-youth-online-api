@@ -303,5 +303,5 @@ Route::get('/{username}/{tab}', [ProfileController::class, 'showWithTab'])->name
 
 // Fallback route for 404 errors
 Route::fallback(function () {
-  return Inertia::render('Errors/404');
+  return response()->json(['message' => '404 Not Found'], 404);
 });

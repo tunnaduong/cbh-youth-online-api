@@ -44,7 +44,7 @@ class ForumController extends Controller
 
     // Load latest public topic for all subforums in one query (không filter hidden)
     $latestTopics = Topic::select(['id', 'subforum_id', 'title', 'created_at', 'user_id', 'anonymous'])
-      ->with(['user:id,username', 'user.profile:id,auth_account_id,profile_name'])
+      ->with(['user:id,username', 'user.profile:id,auth_account_id,profile_name,verified'])
       ->whereIn('subforum_id', $subforumIds)
       ->where('privacy', 'public')
       ->orderBy('subforum_id')
@@ -634,6 +634,7 @@ class ForumController extends Controller
       return [
         'id' => $category->id,
         'name' => $category->name,
+        'slug' => $category->slug,
         'description' => $category->description,
         'created_at' => $category->created_at,
         'updated_at' => $category->updated_at,
@@ -643,6 +644,7 @@ class ForumController extends Controller
             'id' => $subforum->id,
             'main_category_id' => $subforum->main_category_id,
             'name' => $subforum->name,
+            'slug' => $subforum->slug,
             'description' => $subforum->description,
             'active' => $subforum->active,
             'pinned' => $subforum->pinned,
@@ -1225,9 +1227,11 @@ class ForumController extends Controller
     return $categories->map(function ($category) {
       return [
         'name' => $category->name,
+        'slug' => $category->slug,
         'subforums' => $category->subforums->map(function ($subforum) {
           return [
             'name' => $subforum->name,
+            'slug' => $subforum->slug,
             'topics_count' => $subforum->topics_count,
             'comments_count' => $subforum->comments_count,
             'latest_topic' => ($subforum->latest_public_topic && $subforum->latest_public_topic->title) ? [
@@ -1238,6 +1242,7 @@ class ForumController extends Controller
               'author_name' => $subforum->latest_public_topic->anonymous
                 ? 'Người dùng ẩn danh'
                 : ($subforum->latest_public_topic->user->profile->profile_name ?? $subforum->latest_public_topic->user->username),
+              'verified' => $subforum->latest_public_topic->anonymous ? false : (bool) $subforum->latest_public_topic->user->profile->verified,
               'created_at' => $subforum->latest_public_topic->created_at
             ] : null
           ];
