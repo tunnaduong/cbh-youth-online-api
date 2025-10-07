@@ -188,11 +188,41 @@ class TopicsController extends Controller
   public function show(Request $request, $id)
   {
     // Find the topic with related data or return a 404 error if not found
-    $topic = Topic::with(['user.profile', 'votes.user', 'comments.user.profile', 'views', 'cdnUserContent'])
+    $topic = Topic::with([
+      'author.profile',
+      'comments.user.profile',
+      'user',
+      'votes.user',
+      'cdnUserContent'
+    ])
+      ->withCount(['comments as reply_count', 'views'])
       ->find($id);
 
     if (!$topic) {
       return response()->json(['message' => 'Không tìm thấy bài viết.'], 404); // Not Found
+    }
+
+    // Check privacy settings
+    if ($topic->privacy === 'private') {
+      // Only the author can see private posts (privacy = private)
+      if (!auth()->check() || $topic->user_id !== auth()->id()) {
+        return response()->json(['message' => 'Bạn không có quyền xem bài viết này'], 403);
+      }
+    } elseif ($topic->privacy === 'followers') {
+      // Only followers can see followers-only posts
+      if (!auth()->check()) {
+        return response()->json(['message' => 'Bạn cần đăng nhập để xem bài viết này'], 403);
+      }
+
+      if ($topic->user_id !== auth()->id()) {
+        $isFollowing = \App\Models\Follower::where('follower_id', auth()->id())
+          ->where('followed_id', $topic->user_id)
+          ->exists();
+
+        if (!$isFollowing) {
+          return response()->json(['message' => 'Bạn cần theo dõi tác giả để xem bài viết này'], 403);
+        }
+      }
     }
 
     // Load comments with their respective votes and voter usernames
@@ -205,25 +235,18 @@ class TopicsController extends Controller
           $q->with([
             'user.profile',
             'votes.user',
-          ]); // Load 5 replies per request
+          ]);
         }
       ])
       ->orderBy('created_at', 'desc')
       ->get();
-
 
     $formattedComments = $comments->map(function ($comment) {
       return [
         'id' => $comment->id,
         'content' => $comment->comment,
         'is_anonymous' => $comment->is_anonymous,
-        'author' => $comment->is_anonymous ? [
-          'id' => null,
-          'username' => 'Người dùng ẩn danh',
-          'email' => null,
-          'profile_name' => 'Người dùng ẩn danh',
-          'verified' => false,
-        ] : [
+        'author' => [
           'id' => $comment->user->id,
           'username' => $comment->user->username,
           'email' => $comment->user->email,
@@ -231,6 +254,7 @@ class TopicsController extends Controller
           'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
         ],
         'created_at' => $comment->created_at->diffForHumans(),
+        'updated_at' => $comment->updated_at ? $comment->updated_at->diffForHumans() : null,
         'votes' => $comment->votes->map(fn($vote) => [
           'user_id' => $vote->user_id,
           'username' => $vote->user->username,
@@ -241,13 +265,7 @@ class TopicsController extends Controller
             'id' => $reply->id,
             'content' => $reply->comment,
             'is_anonymous' => $reply->is_anonymous,
-            'author' => $reply->is_anonymous ? [
-              'id' => null,
-              'username' => 'Người dùng ẩn danh',
-              'email' => null,
-              'profile_name' => 'Người dùng ẩn danh',
-              'verified' => false,
-            ] : [
+            'author' => [
               'id' => $reply->user->id,
               'username' => $reply->user->username,
               'email' => $reply->user->email,
@@ -255,6 +273,7 @@ class TopicsController extends Controller
               'verified' => $reply->user->profile->verified == 1 ?? false ? true : false,
             ],
             'created_at' => $reply->created_at->diffForHumans(),
+            'updated_at' => $reply->updated_at ? $reply->updated_at->diffForHumans() : null,
             'votes' => $reply->votes->map(fn($vote) => [
               'user_id' => $vote->user_id,
               'username' => $vote->user->username,
@@ -265,13 +284,7 @@ class TopicsController extends Controller
                 'id' => $subReply->id,
                 'content' => $subReply->comment,
                 'is_anonymous' => $subReply->is_anonymous,
-                'author' => $subReply->is_anonymous ? [
-                  'id' => null,
-                  'username' => 'Người dùng ẩn danh',
-                  'email' => null,
-                  'profile_name' => 'Người dùng ẩn danh',
-                  'verified' => false,
-                ] : [
+                'author' => [
                   'id' => $subReply->user->id,
                   'username' => $subReply->user->username,
                   'email' => $subReply->user->email,
@@ -279,6 +292,7 @@ class TopicsController extends Controller
                   'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
                 ],
                 'created_at' => $subReply->created_at->diffForHumans(),
+                'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
                 'votes' => $subReply->votes->map(fn($vote) => [
                   'user_id' => $vote->user_id,
                   'username' => $vote->user->username,
@@ -291,64 +305,59 @@ class TopicsController extends Controller
       ];
     });
 
+    // Get the first image URL for og:image
+    $imageUrls = $topic->getImageUrls()->map(function ($content) {
+      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+    })->all();
 
+    $ogImage = !empty($imageUrls) ? $imageUrls[0] : asset('images/cyo_thumbnail.png');
 
-    // Check if user is moderator/admin
-    $isModerator = $request->user() && (
-      $request->user()->hasRole('admin') ||
-      $request->user()->hasRole('moderator') ||
-      $request->user()->id === 1 // Assuming user ID 1 is admin, adjust as needed
-    );
-
-    // Map the topic details into the response format
-    $topicData = [
-      'id' => $topic->id,
-      'title' => $topic->title,
-      'content' => $topic->description,
-      'image_urls' => $topic->getImageUrls()->map(function ($content) {
-        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
-      })->all(),
-      'document_urls' => $topic->getDocuments()->map(function ($content) {
-        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
-      })->all(),
-      'document_sizes' => $topic->getDocuments()->map(function ($content) {
-        return $content->file_size;
-      })->all(),
-      'author' => $topic->anonymous && !$isModerator ? [
-        'id' => null,
-        'username' => 'Ẩn danh',
-        'email' => null,
-        'profile_name' => 'Người dùng ẩn danh',
-        'verified' => false,
-      ] : [
-        'id' => $topic->user->id,
-        'username' => $topic->user->username,
-        'email' => $topic->user->email,
-        'profile_name' => $topic->user->profile->profile_name ?? null,
-        'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
-      ],
-      'anonymous' => $topic->anonymous,
-      'time' => Carbon::parse($topic->created_at)->diffForHumans(),
-      'comments' => $this->roundToNearestFive($topic->comments->count()) . '+',
-      'views' => $topic->views->count(),
-      'votes' => $topic->votes->map(function ($vote) {
-        return [
-          'username' => $vote->user->username,
-          'vote_value' => $vote->vote_value,
-          'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
-          'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
-        ];
-      }),
-    ];
-
-    // Check if the user is authenticated
-    if ($request->user()) {
-      $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
-    } else {
-      $topicData['saved'] = false;
+    $isSaved = false;
+    if (auth()->check()) {
+      $isSaved = \App\Models\UserSavedTopic::where('user_id', auth()->id())
+        ->where('topic_id', $topic->id)
+        ->exists();
     }
 
-    return response()->json(['topic' => $topicData, 'comments' => $formattedComments]);
+    return response()->json([
+      'post' => [
+        'id' => $topic->id,
+        'title' => $topic->title,
+        'content' => $topic->content_html,
+        'image_urls' => $imageUrls,
+        'document_urls' => $topic->getDocuments()->map(function ($content) {
+          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        })->all(),
+        'document_sizes' => $topic->getDocuments()->map(function ($content) {
+          return $content->file_size;
+        })->all(),
+        'votes' => $topic->votes->map(function ($vote) {
+          return [
+            'username' => $vote->user->username,
+            'vote_value' => $vote->vote_value,
+            'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
+            'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
+          ];
+        }),
+        'reply_count' => $this->roundToNearestFive($topic->reply_count) . "+",
+        'view_count' => $topic->views_count,
+        'created_at' => $topic->created_at->diffForHumans(),
+        'author' => $topic->anonymous ? [
+          'username' => 'Ẩn danh',
+          'profile_name' => 'Người dùng ẩn danh',
+          'verified' => false,
+        ] : [
+          'username' => $topic->author->username,
+          'profile_name' => $topic->author->profile->profile_name ?? null,
+          'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
+        ],
+        'anonymous' => $topic->anonymous,
+        'is_saved' => $isSaved,
+        'comments' => $formattedComments,
+      ],
+      'ogImage' => $ogImage,
+      'comments' => $formattedComments
+    ]);
   }
 
   /**
@@ -462,7 +471,7 @@ class TopicsController extends Controller
     $author = $topic->user()->with('profile')->first();
 
     // Check if this is an API request or web request
-    if ($request->wantsJson() || $request->is('api/*')) {
+    if ($request->wantsJson() || $request->is('v1.0/*')) {
       return response()->json([
         'id' => $topic->id,
         'title' => $topic->title,

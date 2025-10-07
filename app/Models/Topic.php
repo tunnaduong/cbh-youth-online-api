@@ -74,6 +74,7 @@ class Topic extends Model
     'subforum_id',
     'user_id',
     'title',
+    'description',
     'content_html',
     'pinned',
     'cdn_image_id',
