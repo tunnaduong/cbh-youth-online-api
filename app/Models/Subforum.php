@@ -27,113 +27,114 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Subforum extends Model
 {
-    use HasFactory;
+  use HasFactory;
 
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'cyo_forum_subforums';
+  /**
+   * The table associated with the model.
+   *
+   * @var string
+   */
+  protected $table = 'cyo_forum_subforums';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'name',
-        'slug',
-        'description',
-        'category_id',
-        'order',
-        'is_active',
-        'moderator_id',
-        'last_post_id'
-    ];
+  /**
+   * The attributes that are mass assignable.
+   *
+   * @var array<int, string>
+   */
+  protected $fillable = [
+    'name',
+    'slug',
+    'description',
+    'category_id',
+    'order',
+    'is_active',
+    'moderator_id',
+    'last_post_id',
+    'background_image'
+  ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'is_active' => 'boolean',
-        'order' => 'integer'
-    ];
+  /**
+   * The attributes that should be cast.
+   *
+   * @var array<string, string>
+   */
+  protected $casts = [
+    'is_active' => 'boolean',
+    'order' => 'integer'
+  ];
 
-    /**
-     * Get the category that the subforum belongs to.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function category()
-    {
-        return $this->belongsTo(ForumCategory::class, 'category_id');
-    }
+  /**
+   * Get the category that the subforum belongs to.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function category()
+  {
+    return $this->belongsTo(ForumCategory::class, 'category_id');
+  }
 
-    /**
-     * Get the posts for the subforum.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function posts()
-    {
-        return $this->hasMany(Topic::class, 'subforum_id');
-    }
+  /**
+   * Get the posts for the subforum.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\HasMany
+   */
+  public function posts()
+  {
+    return $this->hasMany(Topic::class, 'subforum_id');
+  }
 
-    /**
-     * Get the moderator for the subforum.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function moderator()
-    {
-        return $this->belongsTo(User::class, 'moderator_id');
-    }
+  /**
+   * Get the moderator for the subforum.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function moderator()
+  {
+    return $this->belongsTo(User::class, 'moderator_id');
+  }
 
-    /**
-     * Get the last post for the subforum.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function lastPost()
-    {
-        return $this->belongsTo(Topic::class, 'last_post_id');
-    }
+  /**
+   * Get the last post for the subforum.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function lastPost()
+  {
+    return $this->belongsTo(Topic::class, 'last_post_id');
+  }
 
-    /**
-     * Get the latest topic, applying visibility scopes.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
-     */
-    public function latestTopic()
-    {
-        return $this->hasOne(Topic::class, 'subforum_id')
-            ->ofMany(['created_at' => 'max'], function ($query) {
-                $query->visibleToCurrentUser();
-            });
-    }
+  /**
+   * Get the latest topic, applying visibility scopes.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\HasOne
+   */
+  public function latestTopic()
+  {
+    return $this->hasOne(Topic::class, 'subforum_id')
+      ->ofMany(['created_at' => 'max'], function ($query) {
+        $query->visibleToCurrentUser();
+      });
+  }
 
-    /**
-     * Scope a query to only include active subforums.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
+  /**
+   * Scope a query to only include active subforums.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeActive($query)
+  {
+    return $query->where('is_active', true);
+  }
 
-    /**
-     * Scope a query to order subforums by their order.
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    public function scopeOrdered($query)
-    {
-        return $query->orderBy('order');
-    }
+  /**
+   * Scope a query to order subforums by their order.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeOrdered($query)
+  {
+    return $query->orderBy('order');
+  }
 }

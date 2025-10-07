@@ -16,27 +16,27 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ForumMainCategory extends Model
 {
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = "cyo_forum_main_categories";
+  /**
+   * The table associated with the model.
+   *
+   * @var string
+   */
+  protected $table = "cyo_forum_main_categories";
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = ['name', 'description'];
+  /**
+   * The attributes that are mass assignable.
+   *
+   * @var array<int, string>
+   */
+  protected $fillable = ['name', 'description', 'background_image'];
 
-    /**
-     * Get the subforums for the main category.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function subforums()
-    {
-        return $this->hasMany(ForumSubforum::class, 'main_category_id');
-    }
+  /**
+   * Get the subforums for the main category.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\HasMany
+   */
+  public function subforums()
+  {
+    return $this->hasMany(ForumSubforum::class, 'main_category_id');
+  }
 }

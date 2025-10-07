@@ -636,6 +636,7 @@ class ForumController extends Controller
         'name' => $category->name,
         'slug' => $category->slug,
         'description' => $category->description,
+        'background_image' => $category->background_image,
         'created_at' => $category->created_at,
         'updated_at' => $category->updated_at,
         'subforums' => $category->subforums->map(function ($subforum) {
@@ -648,6 +649,7 @@ class ForumController extends Controller
             'description' => $subforum->description,
             'active' => $subforum->active,
             'pinned' => $subforum->pinned,
+            'background_image' => $subforum->background_image,
             'created_at' => $subforum->created_at,
             'updated_at' => $subforum->updated_at,
             'post_count' => $subforum->topics_count,
