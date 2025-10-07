@@ -33,7 +33,7 @@ class UpdateOnlineUsers
     // Đối với user đã đăng nhập: tìm theo user_id và session_id
     // Đối với guest: tìm theo session_id và ip_address
     $existingRecord = null;
-    
+
     if ($userId) {
       // User đã đăng nhập: tìm theo user_id và session_id
       $existingRecord = DB::table('cyo_online_users')
@@ -94,7 +94,7 @@ class UpdateOnlineUsers
         ->where('session_id', '<>', $sessionId)
         ->delete();
     }
-    
+
     // Đối với user đã đăng nhập, xóa các record cũ của cùng user nhưng khác session
     // (trường hợp user đăng nhập từ nhiều thiết bị/trình duyệt khác nhau)
     if ($userId) {

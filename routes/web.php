@@ -36,33 +36,6 @@ use App\Http\Controllers\HelpCenterController;
 // Home page
 Route::get('/', [ForumController::class, 'index'])->name('home');
 
-// Forum data API route
-Route::get('/api/forum-data', function () {
-  $user = auth()->user();
-
-  $mainCategories = $user && $user->role == 'admin' ?
-    \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
-      ->with([
-        'subForums' => function ($query) {
-          $query->select('id', 'name', 'main_category_id');
-        }
-      ])
-      ->orderBy('arrange', 'asc')
-      ->get() :
-    \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
-      ->with([
-        'subForums' => function ($query) {
-          $query->select('id', 'name', 'main_category_id');
-        }
-      ])
-      ->where('role_restriction', '!=', 'admin')
-      ->orderBy('arrange', 'asc')
-      ->get();
-
-  return response()->json([
-    'main_categories' => $mainCategories
-  ]);
-})->name('api.forum-data');
 
 // Dashboard (requires authentication and email verification)
 Route::get('/dashboard', function () {
