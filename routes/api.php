@@ -72,7 +72,7 @@ Route::prefix('v1.0')->group(function () {
 
 
   // --- OPTIONAL AUTHENTICATION ROUTES ---
-  // These routes can be accessed by guests, but provide additional data for authenticated users.
+  // These routes can be accessed by guests, but provide additional data for authenticated users
   Route::middleware('optional.auth')->group(function () {
     Route::get('/forum-data', function () {
       $user = auth()->user();
