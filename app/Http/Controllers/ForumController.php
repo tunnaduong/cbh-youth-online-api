@@ -621,8 +621,14 @@ class ForumController extends Controller
   {
     $categories = ForumMainCategory::with([
       'subforums' => function ($query) {
-        // Giữ lại phần đếm số topic và comment
-        $query->withCount(['topics', 'comments']);
+        // Count topics and manually calculate comment count
+        $query->withCount(['topics'])
+          ->addSelect([
+            'comment_count' => \DB::table('cyo_topic_comments')
+              ->join('cyo_topics', 'cyo_topic_comments.topic_id', '=', 'cyo_topics.id')
+              ->whereColumn('cyo_topics.subforum_id', 'cyo_forum_subforums.id')
+              ->selectRaw('count(*)')
+          ]);
       },
       // Sử dụng relationship 'latestPublicTopic' để chỉ hiển thị bài viết public
       'subforums.latestPublicTopic.user.profile'
