@@ -42,7 +42,7 @@ class ForumSubforum extends Model
    *
    * @var array<int, string>
    */
-  protected $fillable = ['main_category_id', 'name', 'description', 'active', 'pinned', 'role_restriction', 'background_image'];
+  protected $fillable = ['main_category_id', 'name', 'description', 'seo_description', 'active', 'pinned', 'role_restriction', 'background_image'];
 
   /**
    * Get the main category that the subforum belongs to.

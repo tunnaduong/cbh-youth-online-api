@@ -28,7 +28,7 @@ class ForumMainCategory extends Model
    *
    * @var array<int, string>
    */
-  protected $fillable = ['name', 'description', 'background_image'];
+  protected $fillable = ['name', 'description', 'seo_description', 'background_image'];
 
   /**
    * Get the subforums for the main category.
