@@ -43,10 +43,10 @@ class ForumController extends Controller
     $subforumIds = $mainCategories->pluck('subforums')->flatten()->pluck('id')->toArray();
 
     // Load latest public topic for all subforums in one query (không filter hidden)
-    $latestTopics = Topic::select(['id', 'subforum_id', 'title', 'created_at', 'user_id', 'anonymous'])
+    $latestTopics = Topic::select(['id', 'subforum_id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user:id,username', 'user.profile:id,auth_account_id,profile_name,verified'])
       ->whereIn('subforum_id', $subforumIds)
-      ->where('privacy', 'public')
+      ->where('cyo_topics.privacy', 'public')
       ->orderBy('subforum_id')
       ->orderBy('created_at', 'desc')
       ->get()
@@ -100,9 +100,9 @@ class ForumController extends Controller
 
     $stats = (object) [
       'total' => $onlineUsers->count(),
-      'registered' => $onlineUsers->where('user_id', '!=', null)->where('is_hidden', false)->count(),
-      'hidden' => $onlineUsers->where('user_id', '!=', null)->where('is_hidden', true)->count(),
-      'guests' => $onlineUsers->where('user_id', null)->count()
+      'registered' => $onlineUsers->where('cyo_topics.user_id', '!=', null)->where('is_hidden', false)->count(),
+      'hidden' => $onlineUsers->where('cyo_topics.user_id', '!=', null)->where('is_hidden', true)->count(),
+      'guests' => $onlineUsers->where('cyo_topics.user_id', null)->count()
     ];
 
     $visitors = $stats;
@@ -186,13 +186,13 @@ class ForumController extends Controller
     $query = Topic::with([
       'user.profile',
       'comments' => function ($query) {
-        $query->select('id', 'topic_id', 'user_id', 'comment', 'created_at')
+        $query->select('id', 'topic_id', 'cyo_topics.user_id', 'comment', 'created_at')
           ->with('user:id,username')
           ->latest()
           ->limit(5); // Chỉ load 5 comment gần nhất
       },
       'votes' => function ($query) {
-        $query->select('id', 'topic_id', 'user_id', 'vote_value', 'created_at')
+        $query->select('id', 'topic_id', 'cyo_topics.user_id', 'vote_value', 'created_at')
           ->with('user:id,username')
           ->latest()
           ->limit(10); // Chỉ load 10 vote gần nhất
@@ -212,17 +212,17 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('privacy', 'public')
-          ->orWhere('user_id', $userId) // User's own posts (including private ones)
+        $q->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('privacy', 'followers')
-              ->whereIn('user_id', $followingIds);
+            $subQ->where('cyo_topics.privacy', 'followers')
+              ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
     } else {
       // For non-authenticated users, only show public posts
-      $query->where('privacy', 'public');
+      $query->where('cyo_topics.privacy', 'public');
     }
 
     return $query;
@@ -234,7 +234,7 @@ class ForumController extends Controller
     if (Auth::check()) {
       // Cache saved topics check để tránh N+1 query
       $savedTopics = cache()->remember('user_saved_topics_' . Auth::id(), 300, function () {
-        return UserSavedTopic::where('user_id', Auth::id())
+        return UserSavedTopic::where('cyo_topics.user_id', Auth::id())
           ->pluck('topic_id')
           ->toArray();
       });
@@ -365,16 +365,16 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('privacy', 'public')
-          ->orWhere('user_id', $userId) // User's own posts (including private ones)
+        $q->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
-            $subQ->where('privacy', 'followers')
-              ->whereIn('user_id', $followingIds);
+            $subQ->where('cyo_topics.privacy', 'followers')
+              ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
     } else {
       // For non-authenticated users, only show public posts
-      $query->where('privacy', 'public');
+      $query->where('cyo_topics.privacy', 'public');
     }
 
     $topics = $query->get();
@@ -448,7 +448,7 @@ class ForumController extends Controller
 
     $topic = Topic::create([
       ...$validated,
-      'user_id' => auth()->id()
+      'cyo_topics.user_id' => auth()->id()
     ]);
 
     return redirect()->route('forum.topic.show', $topic)
@@ -518,7 +518,7 @@ class ForumController extends Controller
   //     Reply::create([
   //         ...$validated,
   //         'topic_id' => $topic->id,
-  //         'user_id' => auth()->id()
+  //         'cyo_topics.user_id' => auth()->id()
   //     ]);
 
   //     return redirect()->route('forum.topic.show', $topic)
@@ -591,7 +591,7 @@ class ForumController extends Controller
         'mainCategory',
         'topics' => function ($query) {
           // For non-authenticated users, only show public posts
-          $query->where('privacy', 'public')
+          $query->where('cyo_topics.privacy', 'public')
             ->latest('created_at')
             ->with(['user.profile']);
         }
@@ -690,17 +690,17 @@ class ForumController extends Controller
             ->toArray();
 
           $query->where(function ($q) use ($userId, $followingIds) {
-            $q->where('privacy', 'public')
-              ->orWhere('user_id', $userId) // User's own posts (including private ones)
+            $q->where('cyo_topics.privacy', 'public')
+              ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
               ->orWhere(function ($subQ) use ($followingIds) {
                 // Followers posts
-                $subQ->where('privacy', 'followers')
-                  ->whereIn('user_id', $followingIds);
+                $subQ->where('cyo_topics.privacy', 'followers')
+                  ->whereIn('cyo_topics.user_id', $followingIds);
               });
           });
         } else {
           // For non-authenticated users, only show public posts
-          $query->where('privacy', 'public');
+          $query->where('cyo_topics.privacy', 'public');
         }
 
         // Now get the latest topic from the filtered results
@@ -903,7 +903,7 @@ class ForumController extends Controller
         'created_at' => $comment->created_at->diffForHumans(),
         'updated_at' => $comment->updated_at ? $comment->updated_at->diffForHumans() : null,
         'votes' => $comment->votes->map(fn($vote) => [
-          'user_id' => $vote->user_id,
+          'cyo_topics.user_id' => $vote->user_id,
           'username' => $vote->user->username,
           'vote_value' => $vote->vote_value,
         ]),
@@ -922,7 +922,7 @@ class ForumController extends Controller
             'created_at' => $reply->created_at->diffForHumans(),
             'updated_at' => $reply->updated_at ? $reply->updated_at->diffForHumans() : null,
             'votes' => $reply->votes->map(fn($vote) => [
-              'user_id' => $vote->user_id,
+              'cyo_topics.user_id' => $vote->user_id,
               'username' => $vote->user->username,
               'vote_value' => $vote->vote_value,
             ]),
@@ -941,7 +941,7 @@ class ForumController extends Controller
                 'created_at' => $subReply->created_at->diffForHumans(),
                 'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
                 'votes' => $subReply->votes->map(fn($vote) => [
-                  'user_id' => $vote->user_id,
+                  'cyo_topics.user_id' => $vote->user_id,
                   'username' => $vote->user->username,
                   'vote_value' => $vote->vote_value,
                 ]),
@@ -961,7 +961,7 @@ class ForumController extends Controller
 
     $isSaved = false;
     if (Auth::check()) {
-      $isSaved = UserSavedTopic::where('user_id', Auth::id())
+      $isSaved = UserSavedTopic::where('cyo_topics.user_id', Auth::id())
         ->where('topic_id', $post->id)
         ->exists();
     }
@@ -1018,8 +1018,12 @@ class ForumController extends Controller
     $query = $subforum->topics()
       ->with(['user.profile', 'comments'])
       ->withCount(['comments as reply_count', 'views'])
+      ->leftJoin('cyo_topic_comments', function ($join) {
+        $join->on('cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
+          ->whereRaw('cyo_topic_comments.created_at = (SELECT MAX(created_at) FROM cyo_topic_comments WHERE topic_id = cyo_topics.id)');
+      })
       ->orderBy('pinned', 'desc')
-      ->orderBy('updated_at', 'desc');
+      ->orderByRaw('COALESCE(cyo_topic_comments.created_at, cyo_topics.created_at) DESC');
 
     // Apply privacy filtering
     if (auth()->check()) {
@@ -1029,16 +1033,16 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('privacy', 'public')
-          ->orWhere('user_id', $userId) // User's own posts (including private ones)
+        $q->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
-            $subQ->where('privacy', 'followers')
-              ->whereIn('user_id', $followingIds);
+            $subQ->where('cyo_topics.privacy', 'followers')
+              ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
     } else {
       // For non-authenticated users, only show public posts
-      $query->where('privacy', 'public');
+      $query->where('cyo_topics.privacy', 'public');
     }
 
     $topics = $query->get();
@@ -1101,7 +1105,7 @@ class ForumController extends Controller
   // Lấy tất cả bài viết mới nhất trong tất cả các danh mục
   private function getLatestPosts()
   {
-    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
+    $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
       ->orderBy('created_at', 'desc')
@@ -1115,16 +1119,16 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('privacy', 'public')
-          ->orWhere('user_id', $userId) // User's own posts (including private ones)
+        $q->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('privacy', 'followers')
-              ->whereIn('user_id', $followingIds);
+            $subQ->where('cyo_topics.privacy', 'followers')
+              ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
     } else {
-      $query->where('privacy', 'public');
+      $query->where('cyo_topics.privacy', 'public');
     }
 
     return $query->get();
@@ -1133,7 +1137,7 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem nhiều nhất
   private function getMostViewedPosts()
   {
-    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
+    $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
       ->withCount('views')
@@ -1148,16 +1152,16 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('privacy', 'public')
-          ->orWhere('user_id', $userId) // User's own posts (including private ones)
+        $q->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('privacy', 'followers')
-              ->whereIn('user_id', $followingIds);
+            $subQ->where('cyo_topics.privacy', 'followers')
+              ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
     } else {
-      $query->where('privacy', 'public');
+      $query->where('cyo_topics.privacy', 'public');
     }
 
     return $query->get();
@@ -1166,7 +1170,7 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem và lượt tương tác (bình luận, like) nhiều nhất
   private function getMostEngagedPosts()
   {
-    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
+    $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
       ->withCount(['comments', 'votes'])
@@ -1181,16 +1185,16 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('privacy', 'public')
-          ->orWhere('user_id', $userId) // User's own posts (including private ones)
+        $q->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('privacy', 'followers')
-              ->whereIn('user_id', $followingIds);
+            $subQ->where('cyo_topics.privacy', 'followers')
+              ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
     } else {
-      $query->where('privacy', 'public');
+      $query->where('cyo_topics.privacy', 'public');
     }
 
     return $query->get();
