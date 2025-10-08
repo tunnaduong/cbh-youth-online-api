@@ -54,32 +54,6 @@ Route::prefix('v1.0')->group(function () {
   // Forum & Topic Browsing
   Route::get('/forum/categories', [ForumController::class, 'getCategories']);
   Route::get('/forum/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
-  Route::get('/forum-data', function () {
-    $user = auth()->user();
-
-    $mainCategories = $user && $user->role == 'admin' ?
-      \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
-        ->with([
-          'subForums' => function ($query) {
-            $query->select('id', 'name', 'main_category_id');
-          }
-        ])
-        ->orderBy('arrange', 'asc')
-        ->get() :
-      \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
-        ->with([
-          'subForums' => function ($query) {
-            $query->select('id', 'name', 'main_category_id');
-          }
-        ])
-        ->where('role_restriction', '!=', 'admin')
-        ->orderBy('arrange', 'asc')
-        ->get();
-
-    return response()->json([
-      'main_categories' => $mainCategories
-    ]);
-  });
   Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
   Route::get('/topics/{id}/views', [TopicsController::class, 'getViews']);
   Route::get('/topics/{id}/votes', [TopicsController::class, 'getVotes']);
@@ -100,6 +74,32 @@ Route::prefix('v1.0')->group(function () {
   // --- OPTIONAL AUTHENTICATION ROUTES ---
   // These routes can be accessed by guests, but provide additional data for authenticated users.
   Route::middleware('optional.auth')->group(function () {
+    Route::get('/forum-data', function () {
+      $user = auth()->user();
+
+      $mainCategories = $user && $user->role == 'admin' ?
+        \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
+          ->with([
+            'subForums' => function ($query) {
+              $query->select('id', 'name', 'main_category_id');
+            }
+          ])
+          ->orderBy('arrange', 'asc')
+          ->get() :
+        \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
+          ->with([
+            'subForums' => function ($query) {
+              $query->select('id', 'name', 'main_category_id');
+            }
+          ])
+          ->where('role_restriction', '!=', 'admin')
+          ->orderBy('arrange', 'asc')
+          ->get();
+
+      return response()->json([
+        'main_categories' => $mainCategories
+      ]);
+    });
     Route::get('/topics', [TopicsController::class, 'index']);
     Route::get('/topics/{id}', [TopicsController::class, 'show']);
     Route::get('/comments/{commentId}/replies', [TopicsController::class, 'getReplies']);
