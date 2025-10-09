@@ -234,7 +234,7 @@ class ForumController extends Controller
     if (Auth::check()) {
       // Cache saved topics check để tránh N+1 query
       $savedTopics = cache()->remember('user_saved_topics_' . Auth::id(), 300, function () {
-        return UserSavedTopic::where('cyo_topics.user_id', Auth::id())
+        return UserSavedTopic::where('user_id', Auth::id())
           ->pluck('topic_id')
           ->toArray();
       });

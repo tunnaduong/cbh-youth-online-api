@@ -331,7 +331,7 @@ class TopicsController extends Controller
 
     $isSaved = false;
     if (auth()->check()) {
-      $isSaved = \App\Models\UserSavedTopic::where('user_id', auth()->id())
+      $isSaved = UserSavedTopic::where('user_id', auth()->id())
         ->where('topic_id', $topic->id)
         ->exists();
     }
