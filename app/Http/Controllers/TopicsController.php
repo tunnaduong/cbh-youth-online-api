@@ -31,9 +31,12 @@ class TopicsController extends Controller
    * @param  string  $markdown
    * @return string
    */
-  private function convertMarkdownToHtml($markdown)
+  private function convertMarkdownToHtml(string $markdown): string
   {
+    // 1. Chặn toàn bộ HTML thô
     $config = [
+      'html_input' => 'strip',       // loại bỏ tất cả HTML trong Markdown
+      'allow_unsafe_links' => false, // chặn javascript: links
       'renderer' => [
         'soft_break' => "<br>\n",
       ],
@@ -42,7 +45,21 @@ class TopicsController extends Controller
     $converter = new CommonMarkConverter($config);
     $converter->getEnvironment()->addExtension(new AutolinkExtension());
 
-    return $converter->convert($markdown)->getContent();
+    // 2. Chuyển Markdown → HTML
+    $html = $converter->convert($markdown)->getContent();
+
+    // 3. Thêm iframe theo whitelist
+    // ví dụ chỉ cho phép YouTube/Vimeo
+    preg_match_all('#<iframe[^>]+src="([^"]+)"[^>]*>.*?</iframe>#is', $markdown, $matches, PREG_SET_ORDER);
+    foreach ($matches as $m) {
+      $src = $m[1];
+      if (preg_match('#^(https?:)?//(www\.)?(youtube\.com|youtube-nocookie\.com|player\.vimeo\.com)/#', $src)) {
+        // giữ iframe, append vào cuối HTML
+        $html .= "\n" . $m[0];
+      }
+    }
+
+    return $html;
   }
 
   /**
