@@ -32,9 +32,9 @@ class OnlineUserController extends Controller
     $isHidden = $request->boolean('is_hidden', false);
     $userAgent = substr($request->header('User-Agent', ''), 0, 255);
 
-    // Skip tracking nếu là server requests (Vercel, etc.)
-    if ($userAgent === 'node' || empty($userAgent)) {
-      return response()->json(['message' => 'Server request skipped.']);
+    // Skip nếu không có header xác nhận từ frontend (Vercel, etc.)
+    if (!$request->header('X-From-Frontend')) {
+      return response()->json(['message' => 'Skipped: not frontend user']);
     }
 
     // Cleanup trước để tránh duplicate
