@@ -74,7 +74,7 @@ Route::prefix('v1.0')->group(function () {
   // Online Users (Public)
   Route::get('/online-users/stats', [OnlineUserController::class, 'getStats']);
   Route::get('/online-users/max', [OnlineUserController::class, 'getMaxOnline']);
-
+  Route::post('/online-users/track', [OnlineUserController::class, 'track']);
 
   // --- OPTIONAL AUTHENTICATION ROUTES ---
   // These routes can be accessed by guests, but provide additional data for authenticated users.
@@ -143,9 +143,6 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/users/{username}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);
     Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
-
-    // Online Users Tracking (Authenticated)
-    Route::post('/online-users/track', [OnlineUserController::class, 'track']);
 
     // Topics & Content
     Route::post('/topics', [TopicsController::class, 'store']);
