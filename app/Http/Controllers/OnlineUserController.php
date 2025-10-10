@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\OnlineUser;
 use App\Models\OnlineRecord;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class OnlineUserController extends Controller
 {
@@ -40,36 +41,34 @@ class OnlineUserController extends Controller
     // Cleanup trước để tránh duplicate
     OnlineUser::where('last_activity', '<', Carbon::now()->subMinutes(5))->delete();
 
-    // Nếu có user ID, nhận diện theo user_id (đăng nhập)
-    if ($userId) {
-      // Xóa tất cả records cũ của user này trước
-      OnlineUser::where('user_id', $userId)->delete();
+    // Sử dụng database transaction để đảm bảo atomicity
+    return DB::transaction(function () use ($userId, $ip, $userAgent, $isHidden, $now) {
+      // Nếu có user ID, nhận diện theo user_id (đăng nhập)
+      if ($userId) {
+        // Xóa tất cả records cũ của user này trước
+        OnlineUser::where('user_id', $userId)->delete();
 
-      // Tạo record mới
-      OnlineUser::create([
-        'user_id' => $userId,
-        'last_activity' => $now,
-        'ip_address' => $ip,
-        'user_agent' => $userAgent,
-        'is_hidden' => $isHidden,
-        'session_id' => session()->getId(),
-      ]);
-    } else {
-      // Nếu chưa đăng nhập, sử dụng updateOrCreate để tránh duplicate
-      // Tìm record hiện tại với IP + User-Agent
-      $existingUser = OnlineUser::where('ip_address', $ip)
-        ->where('user_agent', $userAgent)
-        ->whereNull('user_id')
-        ->first();
+        // Cũng xóa guest records từ cùng IP (trường hợp user vừa login)
+        OnlineUser::where('ip_address', $ip)
+          ->whereNull('user_id')
+          ->delete();
 
-      if ($existingUser) {
-        // Update existing record
-        $existingUser->update([
+        // Tạo record mới
+        OnlineUser::create([
+          'user_id' => $userId,
           'last_activity' => $now,
+          'ip_address' => $ip,
+          'user_agent' => $userAgent,
           'is_hidden' => $isHidden,
           'session_id' => session()->getId(),
         ]);
       } else {
+        // Nếu chưa đăng nhập, xóa tất cả records cũ từ IP + User-Agent trước
+        OnlineUser::where('ip_address', $ip)
+          ->where('user_agent', $userAgent)
+          ->whereNull('user_id')
+          ->delete();
+
         // Tạo record mới
         OnlineUser::create([
           'user_id' => null,
@@ -80,13 +79,12 @@ class OnlineUserController extends Controller
           'session_id' => session()->getId(),
         ]);
       }
-    }
 
+      // Cập nhật kỷ lục max online
+      $this->updateMaxOnline();
 
-    // Cập nhật kỷ lục max online
-    $this->updateMaxOnline();
-
-    return response()->json(['message' => 'Online user tracked successfully.']);
+      return response()->json(['message' => 'Online user tracked successfully.']);
+    });
   }
 
   public function getStats()
