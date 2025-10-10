@@ -709,7 +709,7 @@ class TopicsController extends Controller
       'replying_to' => $request->replying_to,
       'topic_id' => $request->topic_id,
       'user_id' => auth()->id(),
-      'comment' => $request->comment,
+      'comment' => $this->convertMarkdownToHtml($request->comment),
       'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
@@ -718,7 +718,7 @@ class TopicsController extends Controller
 
     $commentData = [
       'id' => $comment->id,
-      'content' => $this->convertMarkdownToHtml($comment->comment),
+      'content' => $comment->comment,
       'is_anonymous' => $comment->is_anonymous,
       'author' => $comment->is_anonymous ? [
         'id' => null,
