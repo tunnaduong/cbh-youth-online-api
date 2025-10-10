@@ -13,7 +13,6 @@ use Illuminate\Http\Request;
 use App\Models\ForumCategory;
 use App\Models\ForumSubforum;
 use App\Models\ForumMainCategory;
-use App\Services\StatsCacheService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -79,36 +78,35 @@ class ForumController extends Controller
         break;
     }
 
-    // Sử dụng cached stats thay vì query trực tiếp
-    $forumStats = StatsCacheService::getForumStats();
-
-    $userCount = $forumStats['total_users'];
-    $postCount = $forumStats['total_topics'];
-    $commentCount = $forumStats['total_comments'];
+    // Get forum stats directly (no caching)
+    $userCount = AuthAccount::count();
+    $postCount = Topic::count();
+    $commentCount = TopicComment::count();
 
     // Lấy online record với recorded_at
     $onlineRecord = DB::table('cyo_online_record')->first();
     $record = (object) [
-      'max_online' => $forumStats['max_online'],
+      'max_online' => $onlineRecord ? $onlineRecord->max_online : 0,
       'recorded_at' => $onlineRecord ? $onlineRecord->recorded_at : now()
     ];
 
-    // Lấy online users thực tế (không cache để có data real-time)
-    $onlineUsers = DB::table('cyo_online_users')
-      ->where('last_activity', '>=', now()->subMinutes(15))
-      ->get();
+    // Get online users stats from OnlineUserController
+    $onlineUserController = new \App\Http\Controllers\OnlineUserController();
+    $visitors = $onlineUserController->getStats()->getData(true);
 
-    $stats = (object) [
-      'total' => $onlineUsers->count(),
-      'registered' => $onlineUsers->where('cyo_topics.user_id', '!=', null)->where('is_hidden', false)->count(),
-      'hidden' => $onlineUsers->where('cyo_topics.user_id', '!=', null)->where('is_hidden', true)->count(),
-      'guests' => $onlineUsers->where('cyo_topics.user_id', null)->count()
-    ];
+    // Get latest user directly (no caching)
+    $user = AuthAccount::with('profile')
+      ->orderBy('created_at', 'desc')
+      ->first();
 
-    $visitors = $stats;
-
-    // Sử dụng cached latest user
-    $latestUser = StatsCacheService::getLatestUser();
+    $latestUser = $user ? [
+      'id' => $user->id,
+      'username' => $user->username,
+      'profile' => [
+        'profile_name' => $user->profile->profile_name ?? null,
+      ],
+      'created_at' => $user->created_at,
+    ] : null;
 
     return response()->json([
       'latestPosts' => $this->formatLatestPosts($latestPosts),
@@ -283,35 +281,12 @@ class ForumController extends Controller
 
   /**
    * Update the maximum number of online users.
-   *
-   * @return void
+   * @deprecated Use OnlineUserController::updateMaxOnline() instead
    */
   public static function updateMaxOnline()
   {
-    // Lấy online users count real-time
-    $total = DB::table('cyo_online_users')
-      ->where('last_activity', '>=', now()->subMinutes(15))
-      ->count();
-
-    // Get online record directly (no caching)
-    $record = DB::table('cyo_online_record')->first();
-
-    if (!$record || $total > $record->max_online) {
-      if ($record) {
-        DB::table('cyo_online_record')
-          ->where('id', 1)
-          ->update([
-            'max_online' => $total,
-            'recorded_at' => now()
-          ]);
-      } else {
-        DB::table('cyo_online_record')->insert([
-          'id' => 1,
-          'max_online' => $total,
-          'recorded_at' => now()
-        ]);
-      }
-    }
+    $controller = new \App\Http\Controllers\OnlineUserController();
+    $controller->updateMaxOnline();
   }
 
   /**

@@ -19,6 +19,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\UserPointDeductionController;
 use App\Http\Controllers\PointsController;
+use App\Http\Controllers\OnlineUserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,6 +70,10 @@ Route::prefix('v1.0')->group(function () {
   // Search & Stories
   Route::get('search', [SearchController::class, 'search']);
   Route::get('stories', [StoryController::class, 'index']);
+
+  // Online Users (Public)
+  Route::get('/online-users/stats', [OnlineUserController::class, 'getStats']);
+  Route::get('/online-users/max', [OnlineUserController::class, 'getMaxOnline']);
 
 
   // --- OPTIONAL AUTHENTICATION ROUTES ---
@@ -138,6 +143,9 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/users/{username}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);
     Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
+
+    // Online Users Tracking (Authenticated)
+    Route::post('/online-users/track', [OnlineUserController::class, 'track']);
 
     // Topics & Content
     Route::post('/topics', [TopicsController::class, 'store']);
