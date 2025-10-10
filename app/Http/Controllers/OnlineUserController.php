@@ -86,9 +86,17 @@ class OnlineUserController extends Controller
     $registered = $users->whereNotNull('user_id')->where('is_hidden', false)->count();
     $hidden = $users->whereNotNull('user_id')->where('is_hidden', true)->count();
     $guests = $users->whereNull('user_id')->count();
+    $total = $users->count();
+
+    // Fallback: If no users are tracked but someone is requesting stats,
+    // assume there's at least 1 guest user (the person making the request)
+    if ($total === 0) {
+      $guests = 1;
+      $total = 1;
+    }
 
     return response()->json([
-      'total' => $users->count(),
+      'total' => $total,
       'registered' => $registered,
       'hidden' => $hidden,
       'guests' => $guests,

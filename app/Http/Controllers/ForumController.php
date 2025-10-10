@@ -94,6 +94,16 @@ class ForumController extends Controller
     $onlineUserController = new \App\Http\Controllers\OnlineUserController();
     $visitors = $onlineUserController->getStats()->getData(true);
 
+    // Additional fallback: If no visitors are tracked, assume at least 1 guest
+    if ($visitors['total'] === 0) {
+      $visitors = [
+        'total' => 1,
+        'registered' => 0,
+        'hidden' => 0,
+        'guests' => 1,
+      ];
+    }
+
     // Get latest user directly (no caching)
     $user = AuthAccount::with('profile')
       ->orderBy('created_at', 'desc')
