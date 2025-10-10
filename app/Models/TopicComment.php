@@ -14,6 +14,7 @@ use App\Services\PointsService;
  * @property int $topic_id
  * @property int $user_id
  * @property string $comment
+ * @property string $comment_html
  * @property bool $is_anonymous Whether the comment is anonymous
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -43,6 +44,7 @@ class TopicComment extends Model
     'topic_id',
     'user_id',
     'comment',
+    'comment_html',
     'is_anonymous',
   ];
 

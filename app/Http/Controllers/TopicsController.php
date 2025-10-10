@@ -262,6 +262,7 @@ class TopicsController extends Controller
       return [
         'id' => $comment->id,
         'content' => $comment->comment,
+        'comment' => $comment->comment_html,
         'is_anonymous' => $comment->is_anonymous,
         'author' => [
           'id' => $comment->user->id,
@@ -281,6 +282,7 @@ class TopicsController extends Controller
           return [
             'id' => $reply->id,
             'content' => $reply->comment,
+            'comment' => $reply->comment_html,
             'is_anonymous' => $reply->is_anonymous,
             'author' => [
               'id' => $reply->user->id,
@@ -300,6 +302,7 @@ class TopicsController extends Controller
               return [
                 'id' => $subReply->id,
                 'content' => $subReply->comment,
+                'comment' => $subReply->comment_html,
                 'is_anonymous' => $subReply->is_anonymous,
                 'author' => [
                   'id' => $subReply->user->id,
@@ -643,7 +646,8 @@ class TopicsController extends Controller
         return [
           'id' => $comment->id,
           'topic_id' => $comment->topic_id,
-          'comment' => $comment->comment,
+          'content' => $comment->comment, // Use HTML if available, fallback to markdown
+          'comment' => $comment->comment_html,
           'is_anonymous' => $comment->is_anonymous,
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
@@ -666,6 +670,54 @@ class TopicsController extends Controller
     }
 
     return $comments;
+  }
+
+  /**
+   * Update the specified comment in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $id
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+   */
+  public function updateComment(Request $request, $id)
+  {
+    $request->validate([
+      'comment' => 'required|string',
+    ]);
+
+    $comment = TopicComment::findOrFail($id);
+
+    // Check if user owns the comment
+    if ($comment->user_id !== auth()->id()) {
+      if ($request->wantsJson()) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+      }
+      return redirect()->back()->withErrors(['comment' => 'Bạn không có quyền sửa bình luận này']);
+    }
+
+    $comment->update([
+      'comment' => $request->comment, // Store raw markdown/text
+      'comment_html' => $this->convertMarkdownToHtml($request->comment), // Store processed HTML
+    ]);
+
+    if ($request->wantsJson()) {
+      // Load the comment's author profile details
+      $author = $comment->user()->with('profile')->first();
+
+      return response()->json([
+        'id' => $comment->id,
+        'content' => $comment->comment_html, // Return HTML for display
+        'author' => [
+          'id' => $author->id,
+          'username' => $author->username,
+          'profile_name' => $author->profile->profile_name ?? null,
+        ],
+        'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
+        'votes' => $comment->votes,
+      ]);
+    }
+
+    return redirect()->back()->with('success', 'Bình luận đã được cập nhật thành công');
   }
 
   /**
@@ -709,7 +761,8 @@ class TopicsController extends Controller
       'replying_to' => $request->replying_to,
       'topic_id' => $request->topic_id,
       'user_id' => auth()->id(),
-      'comment' => $this->convertMarkdownToHtml($request->comment),
+      'comment' => $request->comment, // Store raw markdown/text
+      'comment_html' => $this->convertMarkdownToHtml($request->comment), // Store processed HTML
       'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
@@ -718,7 +771,7 @@ class TopicsController extends Controller
 
     $commentData = [
       'id' => $comment->id,
-      'content' => $comment->comment,
+      'content' => $comment->comment_html, // Return HTML for display
       'is_anonymous' => $comment->is_anonymous,
       'author' => $comment->is_anonymous ? [
         'id' => null,
@@ -994,52 +1047,5 @@ class TopicsController extends Controller
     }
 
     return redirect()->back()->with('success', 'Đã xóa vote bình luận thành công');
-  }
-
-  /**
-   * Update the specified comment in storage.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  int  $id
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function updateComment(Request $request, $id)
-  {
-    $request->validate([
-      'comment' => 'required|string',
-    ]);
-
-    $comment = TopicComment::findOrFail($id);
-
-    // Check if user owns the comment
-    if ($comment->user_id !== auth()->id()) {
-      if ($request->wantsJson()) {
-        return response()->json(['message' => 'Unauthorized'], 403);
-      }
-      return redirect()->back()->withErrors(['comment' => 'Bạn không có quyền sửa bình luận này']);
-    }
-
-    $comment->update([
-      'comment' => $request->comment,
-    ]);
-
-    if ($request->wantsJson()) {
-      // Load the comment's author profile details
-      $author = $comment->user()->with('profile')->first();
-
-      return response()->json([
-        'id' => $comment->id,
-        'content' => $comment->comment,
-        'author' => [
-          'id' => $author->id,
-          'username' => $author->username,
-          'profile_name' => $author->profile->profile_name ?? null,
-        ],
-        'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
-        'votes' => $comment->votes,
-      ]);
-    }
-
-    return redirect()->back()->with('success', 'Bình luận đã được cập nhật thành công');
   }
 }
