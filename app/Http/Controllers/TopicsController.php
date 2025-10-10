@@ -1039,13 +1039,23 @@ class TopicsController extends Controller
    */
   public function destroyCommentVote(Request $request, $id)
   {
-    $vote = TopicCommentVote::findOrFail($id);
-    $vote->delete();
+    $user = $request->user();
 
-    if ($request->wantsJson()) {
-      return response()->json(['message' => 'Comment vote deleted successfully.'], Response::HTTP_OK);
+    if (!$user) {
+      return response()->json(['error' => 'Unauthorized'], 401);
     }
 
-    return redirect()->back()->with('success', 'Đã xóa vote bình luận thành công');
+    // Find the vote by comment_id and user_id
+    $vote = TopicCommentVote::where('comment_id', $id)
+      ->where('user_id', $user->id)
+      ->first();
+
+    if (!$vote) {
+      return response()->json(['error' => 'Vote not found'], 404);
+    }
+
+    $vote->delete();
+
+    return response()->json(['message' => 'Comment vote deleted successfully.'], Response::HTTP_OK);
   }
 }
