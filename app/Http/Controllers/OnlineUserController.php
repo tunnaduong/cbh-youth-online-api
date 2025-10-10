@@ -32,6 +32,11 @@ class OnlineUserController extends Controller
     $isHidden = $request->boolean('is_hidden', false);
     $userAgent = substr($request->header('User-Agent', ''), 0, 255);
 
+    // Skip tracking nếu là server requests (Vercel, etc.)
+    if ($userAgent === 'node' || empty($userAgent)) {
+      return response()->json(['message' => 'Server request skipped.']);
+    }
+
     // Cleanup trước để tránh duplicate
     OnlineUser::where('last_activity', '<', Carbon::now()->subMinutes(5))->delete();
 
