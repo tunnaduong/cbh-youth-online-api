@@ -15,7 +15,7 @@ class StatsCacheService
    */
   public static function getForumStats()
   {
-    return Cache::remember('forum_stats', 300, function () {
+    return Cache::remember('forum_stats', 60, function () {
       return [
         'total_users' => AuthAccount::count(),
         'total_topics' => Topic::count(),
@@ -40,7 +40,7 @@ class StatsCacheService
    */
   public static function getMaxOnlineUsers()
   {
-    return Cache::remember('max_online_users', 300, function () {
+    return Cache::remember('max_online_users', 60, function () {
       $record = DB::table('cyo_online_record')->first();
       return $record ? $record->max_online : 0;
     });
@@ -51,7 +51,7 @@ class StatsCacheService
    */
   public static function getLatestUser()
   {
-    return Cache::remember('latest_user', 300, function () {
+    return Cache::remember('latest_user', 60, function () {
       $user = AuthAccount::with('profile')
         ->orderBy('created_at', 'desc')
         ->first();
