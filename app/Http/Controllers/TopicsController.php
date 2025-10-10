@@ -718,7 +718,7 @@ class TopicsController extends Controller
 
     $commentData = [
       'id' => $comment->id,
-      'content' => $comment->comment,
+      'content' => $this->convertMarkdownToHtml($comment->comment),
       'is_anonymous' => $comment->is_anonymous,
       'author' => $comment->is_anonymous ? [
         'id' => null,
