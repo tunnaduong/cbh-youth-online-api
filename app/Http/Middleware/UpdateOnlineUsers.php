@@ -23,7 +23,24 @@ class UpdateOnlineUsers
   {
     $userId = Auth::id(); // null if not logged in
     $sessionId = session()->getId();
+
+    // Get real client IP address, handling proxies properly
     $ip = $request->ip();
+
+    // If we get localhost IPs, try to get the real IP from headers
+    if (in_array($ip, ['127.0.0.1', '::1', 'localhost'])) {
+      $ip = $request->header('X-Forwarded-For')
+        ?? $request->header('X-Real-IP')
+        ?? $request->header('CF-Connecting-IP')
+        ?? $request->header('X-Forwarded-For')
+        ?? $ip;
+
+      // If X-Forwarded-For contains multiple IPs, get the first one
+      if (strpos($ip, ',') !== false) {
+        $ip = trim(explode(',', $ip)[0]);
+      }
+    }
+
     $now = now();
 
     // Cleanup ngay lập tức để tránh tích lũy records
@@ -68,11 +85,13 @@ class UpdateOnlineUsers
       ]);
     }
 
-    // Update max online mỗi 2 phút
-    $lastMaxUpdate = cache()->get('last_max_online_update', 0);
-    if (now()->timestamp - $lastMaxUpdate > 120) {
+    // Update max online mỗi 2 phút (no caching)
+    $lastMaxUpdate = DB::table('cyo_online_record')
+      ->where('id', 1)
+      ->value('recorded_at');
+
+    if (!$lastMaxUpdate || now()->diffInMinutes($lastMaxUpdate) >= 2) {
       \App\Http\Controllers\ForumController::updateMaxOnline();
-      cache()->put('last_max_online_update', now()->timestamp, 300);
     }
 
     return $next($request);
@@ -80,9 +99,9 @@ class UpdateOnlineUsers
 
   private function performCleanup($now, $userId, $ip, $sessionId)
   {
-    // Delete records older than 5 minutes
+    // Delete records older than 15 minutes (less aggressive cleanup)
     DB::table('cyo_online_users')
-      ->where('last_activity', '<', $now->subMinutes(5))
+      ->where('last_activity', '<', $now->subMinutes(15))
       ->delete();
 
     // Delete duplicate guest records from the same IP but different session_id
@@ -101,7 +120,7 @@ class UpdateOnlineUsers
       DB::table('cyo_online_users')
         ->where('user_id', $userId)
         ->where('session_id', '<>', $sessionId)
-        ->where('last_activity', '<', $now->subMinutes(2))
+        ->where('last_activity', '<', $now->subMinutes(10))
         ->delete();
     }
   }

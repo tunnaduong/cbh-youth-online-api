@@ -95,7 +95,7 @@ class ForumController extends Controller
 
     // Lấy online users thực tế (không cache để có data real-time)
     $onlineUsers = DB::table('cyo_online_users')
-      ->where('last_activity', '>=', now()->subMinutes(5))
+      ->where('last_activity', '>=', now()->subMinutes(15))
       ->get();
 
     $stats = (object) [
@@ -232,12 +232,10 @@ class ForumController extends Controller
   {
     $isSaved = false;
     if (Auth::check()) {
-      // Cache saved topics check để tránh N+1 query
-      $savedTopics = cache()->remember('user_saved_topics_' . Auth::id(), 300, function () {
-        return UserSavedTopic::where('user_id', Auth::id())
-          ->pluck('topic_id')
-          ->toArray();
-      });
+      // Get saved topics directly (no caching)
+      $savedTopics = UserSavedTopic::where('user_id', Auth::id())
+        ->pluck('topic_id')
+        ->toArray();
       $isSaved = in_array($post->id, $savedTopics);
     }
 
@@ -292,13 +290,11 @@ class ForumController extends Controller
   {
     // Lấy online users count real-time
     $total = DB::table('cyo_online_users')
-      ->where('last_activity', '>=', now()->subMinutes(5))
+      ->where('last_activity', '>=', now()->subMinutes(15))
       ->count();
 
-    // Cache online record để tránh query mỗi lần
-    $record = cache()->remember('online_record', 300, function () {
-      return DB::table('cyo_online_record')->first();
-    });
+    // Get online record directly (no caching)
+    $record = DB::table('cyo_online_record')->first();
 
     if (!$record || $total > $record->max_online) {
       if ($record) {
