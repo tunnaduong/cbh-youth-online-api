@@ -74,7 +74,6 @@ Route::prefix('v1.0')->group(function () {
   // Online Users (Public)
   Route::get('/online-users/stats', [OnlineUserController::class, 'getStats']);
   Route::get('/online-users/max', [OnlineUserController::class, 'getMaxOnline']);
-  Route::post('/online-users/track', [OnlineUserController::class, 'track']);
 
   // --- OPTIONAL AUTHENTICATION ROUTES ---
   // These routes can be accessed by guests, but provide additional data for authenticated users.
@@ -111,6 +110,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
     Route::get('/forum/subforums', [ForumController::class, 'getSubforumsByRole']);
     Route::get('/forum/subforums/{subforum}/topics', [ForumController::class, 'getSubforumPosts']);
+    Route::post('/online-users/track', [OnlineUserController::class, 'track']);
   });
 
 
