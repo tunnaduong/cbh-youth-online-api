@@ -17,7 +17,7 @@ class ConvertMarkdownComments extends Command
   /**
    * Mô tả command
    */
-  protected $description = 'Chuyển đổi toàn bộ nội dung comment từ Markdown sang HTML';
+  protected $description = 'Chuyển đổi toàn bộ nội dung comment từ Markdown sang HTML (lưu vào cột comment_html)';
 
   public function handle()
   {
@@ -36,13 +36,13 @@ class ConvertMarkdownComments extends Command
       // Chuyển markdown -> HTML
       $html = $converter->convert($comment->comment)->getContent();
 
-      // Ghi đè lên cột comment
-      $comment->comment = $html;
+      // Ghi đè lên cột comment_html
+      $comment->comment_html = $html;
 
       $comment->save();
       $count++;
     }
 
-    $this->info("✅ Đã chuyển đổi {$count} comment.");
+    $this->info("✅ Đã chuyển đổi {$count} comment vào cột comment_html.");
   }
 }
