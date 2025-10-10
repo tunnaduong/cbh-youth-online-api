@@ -55,21 +55,31 @@ class OnlineUserController extends Controller
         'session_id' => session()->getId(),
       ]);
     } else {
-      // Nếu chưa đăng nhập, nhận diện theo IP (không cần User-Agent vì có thể thay đổi)
-      // Xóa tất cả records cũ của IP này trước
-      OnlineUser::where('ip_address', $ip)
+      // Nếu chưa đăng nhập, sử dụng updateOrCreate để tránh duplicate
+      // Tìm record hiện tại với IP + User-Agent
+      $existingUser = OnlineUser::where('ip_address', $ip)
+        ->where('user_agent', $userAgent)
         ->whereNull('user_id')
-        ->delete();
+        ->first();
 
-      // Tạo record mới
-      OnlineUser::create([
-        'user_id' => null,
-        'last_activity' => $now,
-        'ip_address' => $ip,
-        'user_agent' => $userAgent,
-        'is_hidden' => $isHidden,
-        'session_id' => session()->getId(),
-      ]);
+      if ($existingUser) {
+        // Update existing record
+        $existingUser->update([
+          'last_activity' => $now,
+          'is_hidden' => $isHidden,
+          'session_id' => session()->getId(),
+        ]);
+      } else {
+        // Tạo record mới
+        OnlineUser::create([
+          'user_id' => null,
+          'last_activity' => $now,
+          'ip_address' => $ip,
+          'user_agent' => $userAgent,
+          'is_hidden' => $isHidden,
+          'session_id' => session()->getId(),
+        ]);
+      }
     }
 
 
