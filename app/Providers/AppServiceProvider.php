@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\AuthAccount;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -31,5 +33,8 @@ class AppServiceProvider extends ServiceProvider
     if (config('app.env') === 'production') {
       URL::forceScheme('https');
     }
+    Gate::define('viewApiDocs', function () {
+      return true;
+    });
   }
 }
