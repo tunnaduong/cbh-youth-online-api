@@ -152,8 +152,8 @@ class TopicsController extends Controller
           ],
           'anonymous' => $topic->anonymous,
           'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
-          'comments' => $this->roundToNearestFive($topic->comments_count) . '+', // Comment count in '05+' format
-          'views' => $topic->views_count, // Fallback to 0 if 'views' is null
+          'comments' => $this->roundToNearestFive($topic->comments_count) . "+", // Comment count in '05+' format
+          'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0, // Ensure numeric value
           'votes' => $topic->votes->map(function ($vote) {
             return [
               'username' => $vote->user->username, // Assuming votes relation includes the user
@@ -186,6 +186,9 @@ class TopicsController extends Controller
    */
   private function roundToNearestFive($count)
   {
+    // Ensure count is numeric, default to 0 if not
+    $count = is_numeric($count) ? (int) $count : 0;
+
     if ($count <= 5) {
       // If count is less than or equal to 5, format it with leading zero
       return str_pad($count, 2, '0', STR_PAD_LEFT);
@@ -359,8 +362,8 @@ class TopicsController extends Controller
             'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
           ];
         }),
-        'reply_count' => $this->roundToNearestFive($topic->reply_count) . "+",
-        'view_count' => $topic->views_count,
+        'reply_count' => $this->roundToNearestFive($topic->reply_count ?? 0) . "+",
+        'view_count' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,
         'created_at' => $topic->created_at->diffForHumans(),
         'author' => $topic->anonymous ? [
           'username' => 'Ẩn danh',
