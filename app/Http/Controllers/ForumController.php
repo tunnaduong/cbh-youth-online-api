@@ -194,13 +194,13 @@ class ForumController extends Controller
     $query = Topic::with([
       'user.profile',
       'comments' => function ($query) {
-        $query->select('id', 'topic_id', 'cyo_topics.user_id', 'comment', 'created_at')
+        $query->select('id', 'topic_id', 'user_id', 'comment', 'created_at')
           ->with('user:id,username')
           ->latest()
           ->limit(5); // Chỉ load 5 comment gần nhất
       },
       'votes' => function ($query) {
-        $query->select('id', 'topic_id', 'cyo_topics.user_id', 'vote_value', 'created_at')
+        $query->select('id', 'topic_id', 'user_id', 'vote_value', 'created_at')
           ->with('user:id,username')
           ->latest()
           ->limit(10); // Chỉ load 10 vote gần nhất
