@@ -649,8 +649,8 @@ class TopicsController extends Controller
         return [
           'id' => $comment->id,
           'topic_id' => $comment->topic_id,
-          'content' => $comment->comment, // Use HTML if available, fallback to markdown
-          'comment' => $comment->comment_html,
+          'content' => $comment->comment, // Raw markdown text for editing
+          'comment' => $comment->comment_html, // HTML for display
           'is_anonymous' => $comment->is_anonymous,
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
@@ -709,7 +709,8 @@ class TopicsController extends Controller
 
       return response()->json([
         'id' => $comment->id,
-        'content' => $comment->comment_html, // Return HTML for display
+        'content' => $comment->comment, // Return raw markdown for editing
+        'comment' => $comment->comment_html, // Return HTML for display
         'author' => [
           'id' => $author->id,
           'username' => $author->username,
@@ -774,7 +775,8 @@ class TopicsController extends Controller
 
     $commentData = [
       'id' => $comment->id,
-      'content' => $comment->comment_html, // Return HTML for display
+      'content' => $comment->comment, // Return raw markdown for editing
+      'comment' => $comment->comment_html, // Return HTML for display
       'is_anonymous' => $comment->is_anonymous,
       'author' => $comment->is_anonymous ? [
         'id' => null,
