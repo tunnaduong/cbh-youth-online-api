@@ -909,6 +909,7 @@ class TopicsController extends Controller
           'user_id' => $savedTopic->topic->user->id,
           'title' => $savedTopic->topic->title,
           'content' => $savedTopic->topic->description,
+          'anonymous' => $savedTopic->topic->anonymous,
           'created_at' => $savedTopic->topic->created_at,
           'updated_at' => $savedTopic->topic->updated_at,
           'pinned' => $savedTopic->topic->pinned,
