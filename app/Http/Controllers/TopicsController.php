@@ -152,7 +152,7 @@ class TopicsController extends Controller
           ],
           'anonymous' => $topic->anonymous,
           'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
-          'comments' => $this->roundToNearestFive($topic->comments_count) . "+", // Comment count in '05+' format
+          'comments' => $topic->comments_count, // Comment count in '05+' format (already formatted by accessor)
           'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0, // Ensure numeric value
           'votes' => $topic->votes->map(function ($vote) {
             return [
@@ -646,12 +646,15 @@ class TopicsController extends Controller
       ->where('topic_id', $topicId)->orderBy('created_at', 'desc')
       ->get()
       ->map(function ($comment) {
+        $isOwner = auth()->check() && $comment->user_id === auth()->id();
+
         return [
           'id' => $comment->id,
           'topic_id' => $comment->topic_id,
           'content' => $comment->comment, // Raw markdown text for editing
           'comment' => $comment->comment_html, // HTML for display
           'is_anonymous' => $comment->is_anonymous,
+          'is_owner' => $isOwner, // Add ownership flag
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
           'author' => $comment->is_anonymous ? [
@@ -659,11 +662,13 @@ class TopicsController extends Controller
             'username' => 'Người dùng ẩn danh',
             'email' => null,
             'profile_name' => 'Người dùng ẩn danh',
+            'verified' => false,
           ] : [
             'id' => $comment->user->id,
             'username' => $comment->user->username,
             'email' => $comment->user->email,
             'profile_name' => $comment->user->profile->profile_name ?? null, // Handle case where profile might not exist
+            'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
           ],
         ];
       });
@@ -711,10 +716,12 @@ class TopicsController extends Controller
         'id' => $comment->id,
         'content' => $comment->comment, // Return raw markdown for editing
         'comment' => $comment->comment_html, // Return HTML for display
+        'is_owner' => true, // Updated comment is always owned by updater
         'author' => [
           'id' => $author->id,
           'username' => $author->username,
           'profile_name' => $author->profile->profile_name ?? null,
+          'verified' => $author->profile->verified == 1 ?? false ? true : false,
         ],
         'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
         'votes' => $comment->votes,
@@ -778,14 +785,17 @@ class TopicsController extends Controller
       'content' => $comment->comment, // Return raw markdown for editing
       'comment' => $comment->comment_html, // Return HTML for display
       'is_anonymous' => $comment->is_anonymous,
+      'is_owner' => true, // New comment is always owned by creator
       'author' => $comment->is_anonymous ? [
         'id' => null,
         'username' => 'Người dùng ẩn danh',
         'profile_name' => 'Người dùng ẩn danh',
+        'verified' => false,
       ] : [
         'id' => $author->id,
         'username' => $author->username,
         'profile_name' => $author->profile->profile_name ?? null,
+        'verified' => $author->profile->verified == 1 ?? false ? true : false,
       ],
       'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
       'votes' => [], // Initialize an empty array for votes
