@@ -1,0 +1,28 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/<username>/public_html  # 👉 Đường dẫn public_html hoặc thư mục domain con
+
+    # Xóa cache cũ (nếu có)
+    - /bin/rm -rf $DEPLOYPATH/bootstrap/cache/*
+    - /bin/rm -rf $DEPLOYPATH/storage/framework/cache/*
+
+    # Cài đặt composer dependencies
+    - /usr/local/bin/composer install --no-dev --optimize-autoloader --working-dir=$DEPLOYPATH
+
+    # Copy environment file nếu bạn giữ .env ngoài repo
+    # (bỏ comment nếu bạn cần)
+    # - /bin/cp /home/<username>/.env $DEPLOYPATH/.env
+
+    # Chạy migrate database (nếu cho phép)
+    # ⚠️ Cẩn trọng khi auto migrate trên production
+    # - /usr/local/bin/php $DEPLOYPATH/artisan migrate --force
+
+    # Cache lại cấu hình, route
+    - /usr/local/bin/php $DEPLOYPATH/artisan config:cache
+    - /usr/local/bin/php $DEPLOYPATH/artisan route:cache
+    - /usr/local/bin/php $DEPLOYPATH/artisan view:clear
+
+    # Phân quyền thư mục storage & bootstrap/cache
+    - /bin/chmod -R 775 $DEPLOYPATH/storage
+    - /bin/chmod -R 775 $DEPLOYPATH/bootstrap/cache
