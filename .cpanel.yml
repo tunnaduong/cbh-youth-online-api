@@ -1,7 +1,7 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/<username>/public_html  # 👉 Đường dẫn public_html hoặc thư mục domain con
+    - export DEPLOYPATH=/home/repositories/cbh-youth-online-api  # 👉 Đường dẫn public_html hoặc thư mục domain con
 
     # Xóa cache cũ (nếu có)
     - /bin/rm -rf $DEPLOYPATH/bootstrap/cache/*
