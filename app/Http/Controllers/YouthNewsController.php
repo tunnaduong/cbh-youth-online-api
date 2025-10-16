@@ -25,50 +25,14 @@ class YouthNewsController extends Controller
     $query = $this->buildYouthNewsQuery();
 
     // Paginate youth news
-    $paginatedNews = $query->paginate(10);
-
-    $youthNews = collect($paginatedNews->items())->map(function ($post) {
-      return $this->formatYouthNewsData($post);
+    $paginatedNews = $query->paginate(10)->through(function ($topic) {
+      return $this->formatYouthNewsData($topic);
     });
 
-    return response()->json([
-      'youthNews' => $youthNews,
-      'pagination' => [
-        'current_page' => $paginatedNews->currentPage(),
-        'last_page' => $paginatedNews->lastPage(),
-        'per_page' => $paginatedNews->perPage(),
-        'total' => $paginatedNews->total(),
-        'has_more_pages' => $paginatedNews->hasMorePages(),
-      ]
-    ]);
-  }
 
-  /**
-   * Get a paginated list of youth news for API consumption.
-   *
-   * @return \Illuminate\Http\JsonResponse
-   */
-  public function youthNewsApi()
-  {
-    $query = $this->buildYouthNewsQuery();
 
-    // Paginate youth news
-    $paginatedNews = $query->paginate(10);
 
-    $youthNews = collect($paginatedNews->items())->map(function ($post) {
-      return $this->formatYouthNewsData($post);
-    });
-
-    return response()->json([
-      'youthNews' => $youthNews,
-      'pagination' => [
-        'current_page' => $paginatedNews->currentPage(),
-        'last_page' => $paginatedNews->lastPage(),
-        'per_page' => $paginatedNews->perPage(),
-        'total' => $paginatedNews->total(),
-        'has_more_pages' => $paginatedNews->hasMorePages(),
-      ]
-    ]);
+    return response()->json($paginatedNews);
   }
 
   /**

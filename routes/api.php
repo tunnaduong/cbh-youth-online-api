@@ -3,23 +3,25 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\ForumController;
-use App\Http\Controllers\FollowController;
-use App\Http\Controllers\TopicsController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ForumController;
+use App\Http\Controllers\StoryController;
+use App\Http\Controllers\FollowController;
+use App\Http\Controllers\PointsController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\TopicsController;
+use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\RecordingController;
+use App\Http\Controllers\YouthNewsController;
 use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\OnlineUserController;
+use App\Http\Controllers\UserReportController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
-use App\Http\Controllers\ActivityController;
-use App\Http\Controllers\UserReportController;
-use App\Http\Controllers\StoryController;
-use App\Http\Controllers\SearchController;
-use App\Http\Controllers\ChatController;
 use App\Http\Controllers\UserPointDeductionController;
-use App\Http\Controllers\PointsController;
-use App\Http\Controllers\OnlineUserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -78,6 +80,11 @@ Route::prefix('v1.0')->group(function () {
   // --- OPTIONAL AUTHENTICATION ROUTES ---
   // These routes can be accessed by guests, but provide additional data for authenticated users.
   Route::middleware('optional.auth')->group(function () {
+    Route::get('/youth-news', [YouthNewsController::class, 'index']);
+
+    // Recordings
+    Route::get('/recordings', [RecordingController::class, 'index']);
+
     Route::get('/forum-data', function () {
       $user = auth()->user();
 

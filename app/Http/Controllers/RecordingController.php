@@ -13,8 +13,6 @@ class RecordingController extends Controller
 {
   /**
    * Display a listing of recordings.
-   *
-   * @return \Inertia\Response
    */
   public function index()
   {
@@ -40,7 +38,6 @@ class RecordingController extends Controller
    * Display the specified recording.
    *
    * @param  \App\Models\Recording  $recording
-   * @return \Inertia\Response
    */
   public function show(Recording $recording)
   {
@@ -53,7 +50,6 @@ class RecordingController extends Controller
    * Store a newly created recording in storage.
    *
    * @param  \Illuminate\Http\Request  $request
-   * @return \Illuminate\Http\RedirectResponse
    */
   public function store(Request $request)
   {
@@ -75,7 +71,6 @@ class RecordingController extends Controller
    * Remove the specified recording.
    *
    * @param  \App\Models\Recording  $recording
-   * @return \Illuminate\Http\RedirectResponse
    */
   public function destroy(Recording $recording)
   {
@@ -88,7 +83,6 @@ class RecordingController extends Controller
   /**
    * Show the form for creating a new recording.
    *
-   * @return \Inertia\Response
    */
   public function create()
   {
