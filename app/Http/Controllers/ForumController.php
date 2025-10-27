@@ -1246,4 +1246,56 @@ class ForumController extends Controller
       ];
     });
   }
+
+  /**
+   * Get the URL for a specific post by title, user_id, and subforum_id
+   * Used to retrieve forum rules and other important posts after ID scrambling
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getPostUrl(Request $request)
+  {
+    // Get parameters from query string
+    $title = $request->query('title');
+    $userId = $request->query('user_id');
+    $subforumId = $request->query('subforum_id');
+
+    // Validate parameters
+    if (empty($title) || empty($userId) || empty($subforumId)) {
+      return response()->json([
+        'success' => false,
+        'message' => 'Thiếu tham số bắt buộc: title, user_id, subforum_id'
+      ], 400);
+    }
+
+    $topic = Topic::where('subforum_id', $subforumId)
+      ->where('user_id', $userId)
+      ->where('title', $title)
+      ->first();
+
+    if (!$topic) {
+      return response()->json([
+        'success' => false,
+        'message' => 'Bài viết không tồn tại'
+      ], 404);
+    }
+
+    $username = $topic->anonymous ? 'anonymous' : $topic->user->username;
+    $titleSlug = str()->slug($topic->title, '-') ?: 'untitled';
+    $correctSlug = $topic->id . '-' . $titleSlug;
+
+    $url = url()->route('posts.show', [
+      'username' => $username,
+      'id' => $correctSlug
+    ]);
+
+    return response()->json([
+      'success' => true,
+      'url' => $url,
+      'post_id' => $topic->id,
+      'username' => $username,
+      'slug' => $correctSlug
+    ]);
+  }
 }
