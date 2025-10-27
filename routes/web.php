@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\ForumCategoryController;
 use App\Http\Controllers\Admin\ForumSubforumController;
 use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\HelpCenterController;
+use App\Http\Controllers\FacebookWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +31,11 @@ use App\Http\Controllers\HelpCenterController;
 | contains the "web" middleware group. Now create something great!
 |
 */
+
+// --- Facebook Webhook Routes ---
+// These routes handle Facebook Messenger Webhook
+// GET for verification, POST for receiving events
+Route::match(['get', 'post'], '/webhook/facebook', [FacebookWebhookController::class, 'handleWebhook']);
 
 // --- Main Application Routes ---
 
