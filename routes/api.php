@@ -133,16 +133,12 @@ Route::prefix('v1.0')->group(function () {
         'id' => $user->id,
         'username' => $user->username,
         'email' => $user->email,
+        'profile_name' => $user->profile->profile_name ?? null,
         'created_at' => $user->created_at,
         'updated_at' => $user->updated_at,
-        'profile' => [
-          'profile_name' => $user->profile->profile_name ?? null,
-          'bio' => $user->profile->bio ?? null,
-          'profile_picture' => $user->profile->profile_picture ?? null,
-          'birthday' => $user->profile->birthday ?? null,
-          'gender' => $user->profile->gender ?? null,
-          'location' => $user->profile->location ?? null,
-        ],
+        'email_verified_at' => $user->email_verified_at ?? null,
+        'verified' => $user->verified ?? false,
+        'role' => $user->role ?? null,
       ]);
     });
     Route::post('/logout', [AuthController::class, 'logout']);
