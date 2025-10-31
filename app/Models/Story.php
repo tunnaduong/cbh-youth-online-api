@@ -119,6 +119,9 @@ class Story extends Model
      */
     public function hasExpired(): bool
     {
+        if ($this->pinned) {
+            return false;
+        }
         return $this->expires_at ? $this->expires_at->isPast() : false;
     }
 
@@ -131,7 +134,8 @@ class Story extends Model
     public function scopeActive($query)
     {
         return $query->where(function ($q) {
-            $q->whereNull('expires_at')
+            $q->where('pinned', true)
+                ->orWhereNull('expires_at')
                 ->orWhere('expires_at', '>', now());
         });
     }
