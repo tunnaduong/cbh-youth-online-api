@@ -35,9 +35,23 @@ class AuthController extends Controller
       ->orWhere('email', $request->username)
       ->first();
 
-    // Check if user exists and the password matches
-    if (!$user || !Hash::check($request->password, $user->password)) {
-      return response()->json(['message' => 'Tên tài khoản hoặc mật khẩu sai!'], 401);
+    // Return structured errors for invalid credentials
+    if (!$user) {
+      return response()->json([
+        'message' => 'Tên tài khoản hoặc mật khẩu sai!',
+        'errors' => [
+          'username' => 'Tên đăng nhập không chính xác.',
+        ],
+      ], 401);
+    }
+
+    if (!Hash::check($request->password, $user->password)) {
+      return response()->json([
+        'message' => 'Tên tài khoản hoặc mật khẩu sai!',
+        'errors' => [
+          'password' => 'Mật khẩu sai.',
+        ],
+      ], 401);
     }
 
     // Load the 'profile' relationship if the user exists
