@@ -217,15 +217,21 @@ class AuthController extends Controller
       $email = (string)($verified['email'] ?? '');
       $name = (string)($verified['name'] ?? '');
 
-      if (!$email) {
-        return response()->json(['message' => 'Không lấy được email từ nhà cung cấp'], 422);
+      // Find by provider or email when available
+      $user = null;
+      if ($providerId !== '') {
+        $user = AuthAccount::where('provider', $provider)
+          ->where('provider_id', $providerId)
+          ->first();
+      }
+      if (!$user && $email) {
+        $user = AuthAccount::where('email', $email)->first();
       }
 
-      $user = AuthAccount::where('email', $email)->first();
-
       if (!$user) {
-        // Create username
-        $baseUsername = Str::slug($name ?: ($provider . '-' . substr($providerId, -6)), '_');
+        // Create username (fallback to provider id when email missing)
+        $fallbackId = $providerId !== '' ? substr($providerId, -6) : Str::random(6);
+        $baseUsername = Str::slug($name ?: ($provider . '-' . $fallbackId), '_');
         if ($baseUsername === '') {
           $baseUsername = $provider . '_' . substr($providerId ?: Str::random(8), -8);
         }
@@ -239,8 +245,11 @@ class AuthController extends Controller
         $user = AuthAccount::create([
           'username' => $username,
           'password' => Hash::make(Str::random(32)),
-          'email' => $email,
-          'email_verified_at' => now(),
+          'email' => $email ?: null,
+          'email_verified_at' => $email ? now() : null,
+          'provider' => $provider,
+          'provider_id' => $providerId ?: null,
+          'provider_token' => $accessToken,
         ]);
 
         UserProfile::create([
@@ -248,6 +257,13 @@ class AuthController extends Controller
           'profile_username' => $user->username,
           'profile_name' => $name ?: $user->username,
         ]);
+      } else {
+        // Ensure provider info is stored/updated
+        $dirty = false;
+        if (!$user->provider) { $user->provider = $provider; $dirty = true; }
+        if (!$user->provider_id && $providerId) { $user->provider_id = $providerId; $dirty = true; }
+        if ($accessToken) { $user->provider_token = $accessToken; $dirty = true; }
+        if ($dirty) { $user->save(); }
       }
 
       $user->load('profile');
