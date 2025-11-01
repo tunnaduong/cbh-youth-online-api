@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Notifications\VerifyEmail;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
+use App\Models\UserContent;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Facades\Image;
 use App\Models\AuthEmailVerificationCode;
 use Illuminate\Support\Facades\Http;
 
@@ -17,6 +20,52 @@ use Illuminate\Support\Facades\Http;
  */
 class AuthController extends Controller
 {
+  /**
+   * Download avatar from URL, process it, and save to storage
+   * Returns UserContent ID or null on failure
+   */
+  private function downloadAndSaveAvatar($avatarUrl, $userId)
+  {
+    try {
+      // Download the image from URL
+      $imageData = Http::timeout(10)->get($avatarUrl);
+      if (!$imageData->successful()) {
+        return null;
+      }
+
+      // Create image from downloaded data
+      $image = Image::make($imageData->body());
+
+      // Crop and resize to 500x500 (1:1 ratio)
+      $size = min($image->width(), $image->height());
+      $image->crop($size, $size)->resize(500, 500);
+
+      // Generate filename
+      $fileName = time() . '_' . $userId . '_oauth_avatar.jpg';
+      $filePath = 'avatars/' . $fileName;
+
+      // Save to storage
+      Storage::disk('public')->put($filePath, (string) $image->encode('jpg', 90));
+
+      // Create UserContent record
+      $userContent = UserContent::create([
+        'user_id' => $userId,
+        'file_name' => $fileName,
+        'file_path' => $filePath,
+        'file_type' => 'image/jpeg',
+        'file_size' => Storage::disk('public')->size($filePath),
+      ]);
+
+      return $userContent->id;
+    } catch (\Throwable $e) {
+      // Log error but don't fail the login process
+      \Log::warning('Failed to download OAuth avatar', [
+        'url' => $avatarUrl,
+        'error' => $e->getMessage(),
+      ]);
+      return null;
+    }
+  }
   /**
    * Handle a login request to the application.
    *
@@ -187,7 +236,7 @@ class AuthController extends Controller
 
       if ($provider === 'facebook') {
         $fbRes = Http::withoutVerifying()->get('https://graph.facebook.com/me', [
-          'fields' => 'id,name,email,picture',
+          'fields' => 'id,name,email,picture.type(large)',
           'access_token' => $accessToken,
         ]);
         if (!$fbRes->ok()) {
@@ -213,9 +262,24 @@ class AuthController extends Controller
         }
       }
 
-      $providerId = (string)($verified['id'] ?? $verified['sub'] ?? '');
-      $email = (string)($verified['email'] ?? '');
-      $name = (string)($verified['name'] ?? '');
+      $providerId = (string) ($verified['id'] ?? $verified['sub'] ?? '');
+      $email = (string) ($verified['email'] ?? '');
+      $name = (string) ($verified['name'] ?? '');
+
+      // Extract avatar URL from provider response
+      $avatarUrl = null;
+      if ($provider === 'facebook') {
+        // Facebook: picture is an object with data.url
+        if (isset($verified['picture']['data']['url'])) {
+          $avatarUrl = $verified['picture']['data']['url'];
+        } elseif (is_string($verified['picture'] ?? null)) {
+          // If picture is directly a string URL
+          $avatarUrl = $verified['picture'];
+        }
+      } elseif ($provider === 'google') {
+        // Google: picture is directly a URL string
+        $avatarUrl = $verified['picture'] ?? null;
+      }
 
       // Find by provider or email when available
       $user = null;
@@ -252,21 +316,52 @@ class AuthController extends Controller
           'provider_token' => $accessToken,
         ]);
 
+        // Download and save avatar if available
+        $avatarContentId = null;
+        if ($avatarUrl) {
+          $avatarContentId = $this->downloadAndSaveAvatar($avatarUrl, $user->id);
+        }
+
         UserProfile::create([
           'auth_account_id' => $user->id,
           'profile_username' => $user->username,
           'profile_name' => $name ?: $user->username,
+          'profile_picture' => $avatarContentId,
         ]);
       } else {
         // Ensure provider info is stored/updated
         $dirty = false;
-        if (!$user->provider) { $user->provider = $provider; $dirty = true; }
-        if (!$user->provider_id && $providerId) { $user->provider_id = $providerId; $dirty = true; }
-        if ($accessToken) { $user->provider_token = $accessToken; $dirty = true; }
-        if ($dirty) { $user->save(); }
+        if (!$user->provider) {
+          $user->provider = $provider;
+          $dirty = true;
+        }
+        if (!$user->provider_id && $providerId) {
+          $user->provider_id = $providerId;
+          $dirty = true;
+        }
+        if ($accessToken) {
+          $user->provider_token = $accessToken;
+          $dirty = true;
+        }
+        if ($dirty) {
+          $user->save();
+        }
+
       }
 
+      // Load profile and update avatar if available
       $user->load('profile');
+      if ($user->profile && $avatarUrl) {
+        // Download and save avatar if not already set or if we want to refresh it
+        // Only update if profile_picture is not set yet
+        if (!$user->profile->profile_picture) {
+          $avatarContentId = $this->downloadAndSaveAvatar($avatarUrl, $user->id);
+          if ($avatarContentId) {
+            $user->profile->profile_picture = $avatarContentId;
+            $user->profile->save();
+          }
+        }
+      }
       $token = $user->createToken('api-token')->plainTextToken;
 
       return response()->json([
