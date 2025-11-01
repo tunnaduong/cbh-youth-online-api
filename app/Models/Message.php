@@ -11,7 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property int $id
  * @property int $conversation_id
- * @property int $user_id
+ * @property int|null $user_id
+ * @property string|null $guest_name
  * @property string|null $content
  * @property string $type
  * @property string|null $file_url
@@ -42,6 +43,7 @@ class Message extends Model
     protected $fillable = [
         'conversation_id',
         'user_id',
+        'guest_name',
         'content',
         'type',
         'file_url',

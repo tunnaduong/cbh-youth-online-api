@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\OnlineUser;
 use App\Models\OnlineRecord;
+use App\Models\AuthAccount;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -62,6 +63,9 @@ class OnlineUserController extends Controller
           'is_hidden' => $isHidden,
           'session_id' => session()->getId(),
         ]);
+
+        // Cập nhật last_activity trong bảng cyo_auth_accounts
+        AuthAccount::where('id', $userId)->update(['last_activity' => $now]);
       } else {
         // Nếu chưa đăng nhập, xóa tất cả records cũ từ IP + User-Agent trước
         OnlineUser::where('ip_address', $ip)

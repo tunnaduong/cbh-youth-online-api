@@ -532,4 +532,312 @@ class ChatController extends Controller
       'existing_conversation_id' => $existingConversation?->id
     ]);
   }
+
+  /**
+   * Get messages from the public chat room.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getPublicChatMessages(Request $request)
+  {
+    // Find public chat by name and type instead of fixed ID
+    $conversation = Conversation::where('name', 'Tán gẫu linh tinh')
+      ->where('type', 'group')
+      ->first();
+
+    if (!$conversation) {
+      return response()->json(['message' => 'Public chat not found'], 404);
+    }
+
+    $perPage = 50;
+    $totalMessages = $conversation->messages()
+      ->where('conversation_id', $conversation->id)
+      ->whereNull('deleted_at')
+      ->count();
+    $lastPage = max(1, ceil($totalMessages / $perPage));
+    $page = (int) $request->get('page', 1);
+    $page = max(1, min($page, $lastPage)); // Ensure page is within valid range
+
+    // Standard pagination: page 1 = newest messages
+    // Order by created_at DESC to get newest first
+    $offset = ($page - 1) * $perPage;
+
+    $messages = $conversation->messages()
+      ->where('conversation_id', $conversation->id)
+      ->whereNull('deleted_at')
+      ->with('user.profile')
+      ->orderBy('created_at', 'desc') // Newest first
+      ->skip($offset)
+      ->take($perPage)
+      ->get()
+      ->reverse() // Reverse to show oldest to newest within the page
+      ->map(function ($message) {
+        $isGuest = $message->user_id === null;
+
+        return [
+          'id' => $message->id,
+          'content' => $message->content,
+          'type' => $message->type,
+          'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+          'is_edited' => $message->is_edited,
+          'is_guest' => $isGuest,
+          'sender' => $isGuest ? [
+            'id' => null,
+            'username' => $message->guest_name ?? 'Ẩn danh',
+            'profile_name' => $message->guest_name ?? 'Ẩn danh',
+            'avatar_url' => null,
+          ] : ($message->user ? [
+              'id' => $message->user->id,
+              'username' => $message->user->username ?? 'Ẩn danh',
+              'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
+              'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$message->user->username}/avatar",
+            ] : [
+              'id' => null,
+              'username' => 'Ẩn danh',
+              'profile_name' => 'Ẩn danh',
+              'avatar_url' => null,
+            ]),
+          'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
+          'created_at_human' => $message->created_at->diffForHumans(),
+          'read_at' => $message->read_at?->toISOString(),
+        ];
+      });
+
+    // Calculate pagination data
+    // With DESC order: page 1 = newest, page N = older
+    // next_page_url = older messages (page + 1)
+    // prev_page_url = newer messages (page - 1)
+    $hasMorePages = $page < $lastPage;
+    $hasPrevPage = $page > 1;
+
+    // Calculate from/to based on actual message count in this page
+    $actualCount = $messages->count();
+    $from = $actualCount > 0 ? $offset + 1 : 0;
+    $to = $offset + $actualCount;
+
+    $paginationData = [
+      'current_page' => $page,
+      'data' => $messages->values()->all(),
+      'first_page_url' => url("/v1.0/chat/public/messages?page=1"),
+      'from' => $from,
+      'last_page' => $lastPage,
+      'last_page_url' => url("/v1.0/chat/public/messages?page={$lastPage}"),
+      'next_page_url' => $hasMorePages ? url("/v1.0/chat/public/messages?page=" . ($page + 1)) : null,
+      'path' => url("/v1.0/chat/public/messages"),
+      'per_page' => $perPage,
+      'prev_page_url' => $hasPrevPage ? url("/v1.0/chat/public/messages?page=" . ($page - 1)) : null,
+      'to' => $to,
+      'total' => $totalMessages,
+    ];
+
+    return response()->json($paginationData);
+  }
+
+  /**
+   * Send a message to the public chat room.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function sendPublicMessage(Request $request)
+  {
+    // Try to get authenticated user (optional)
+    // Check both Sanctum guard and default guard
+    $user = Auth::guard('sanctum')->user() ?? Auth::user();
+    $isGuest = !$user;
+
+    // Debug logging
+    \Log::info('[PublicChat] sendPublicMessage auth check', [
+      'has_bearer_token' => $request->bearerToken() !== null,
+      'sanctum_user' => Auth::guard('sanctum')->user() ? Auth::guard('sanctum')->user()->id : null,
+      'default_user' => Auth::user() ? Auth::user()->id : null,
+      'final_user' => $user ? $user->id : null,
+      'is_guest' => $isGuest,
+    ]);
+
+    // Validation rules - guest_name is only required for guests
+    $rules = [
+      'content' => 'required_without:file|string|max:5000',
+      'file' => 'nullable|file|max:10240', // 10MB max
+      'type' => 'required|in:text,image,file',
+    ];
+
+    // Only require guest_name if user is not authenticated (no valid token)
+    if ($isGuest) {
+      // User is not authenticated, require guest_name
+      $rules['guest_name'] = 'required|string|min:1|max:50';
+    } else {
+      // User is authenticated, guest_name is optional (should be null/not provided)
+      $rules['guest_name'] = 'nullable|string|max:50'; // Ignore if provided
+    }
+
+    $request->validate($rules);
+
+    // Find public chat by name and type instead of fixed ID
+    $conversation = Conversation::where('name', 'Tán gẫu linh tinh')
+      ->where('type', 'group')
+      ->first();
+
+    if (!$conversation) {
+      return response()->json(['message' => 'Public chat not found'], 404);
+    }
+
+    // Validate guest_name format if provided (for guests)
+    if ($isGuest) {
+      $guestName = trim($request->guest_name);
+      if (empty($guestName) || strlen($guestName) < 1 || strlen($guestName) > 50) {
+        return response()->json(['message' => 'Tên hiển thị phải từ 1-50 ký tự'], 422);
+      }
+    }
+
+    $messageData = [
+      'conversation_id' => $conversation->id,
+      'user_id' => $user ? $user->id : null,
+      'guest_name' => $isGuest ? $request->guest_name : null,
+      'content' => $request->content,
+      'type' => $request->type
+    ];
+
+    // Handle file upload
+    if ($request->hasFile('file')) {
+      $file = $request->file('file');
+      $path = $file->store('chat_files', 'public');
+      $messageData['file_url'] = $path;
+    }
+
+    $message = Message::create($messageData);
+
+    // Update conversation's updated_at timestamp
+    $conversation->touch();
+
+    // Add participant to conversation if user is authenticated
+    if (!$isGuest && $user) {
+      // Check if user is already a participant
+      if (!$conversation->hasParticipant($user->id)) {
+        // Add user as participant
+        $conversation->participants()->attach($user->id);
+      }
+    }
+
+    // Load relationships for the response (only if not guest)
+    if (!$isGuest && $message->user_id) {
+      // Reload with relationships
+      $message = Message::with('user.profile')->find($message->id);
+      if (!$message->user) {
+        \Log::warning('[PublicChat] sendPublicMessage: User not found after reload', [
+          'message_id' => $message->id,
+          'user_id' => $message->user_id,
+        ]);
+      }
+    }
+
+    // Prepare message data for broadcasting
+    $messageData = [
+      'id' => $message->id,
+      'content' => $message->content,
+      'type' => $message->type,
+      'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+      'is_edited' => $message->is_edited,
+      'is_guest' => $isGuest,
+      'sender' => $isGuest ? [
+        'id' => null,
+        'username' => $message->guest_name ?? 'Ẩn danh',
+        'profile_name' => $message->guest_name ?? 'Ẩn danh',
+        'avatar_url' => null,
+      ] : ($message->user ? [
+          'id' => $message->user->id,
+          'username' => $message->user->username ?? 'Ẩn danh',
+          'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
+          'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$message->user->username}/avatar",
+        ] : [
+          'id' => null,
+          'username' => 'Ẩn danh',
+          'profile_name' => 'Ẩn danh',
+          'avatar_url' => null,
+        ]),
+      'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
+      'created_at_human' => $message->created_at->diffForHumans(),
+      'read_at' => $message->read_at?->toISOString(),
+    ];
+
+    // Broadcast the message to other participants
+    broadcast(new MessageSent($conversation->id, $messageData))->toOthers();
+
+    return response()->json($messageData, 201);
+  }
+
+  /**
+   * Get participants list for the public chat room.
+   * Returns users from cyo_conversation_participants table and guests from messages.
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getPublicChatParticipants()
+  {
+    // Find public chat by name and type instead of fixed ID
+    $conversation = Conversation::where('name', 'Tán gẫu linh tinh')
+      ->where('type', 'group')
+      ->first();
+
+    if (!$conversation) {
+      return response()->json(['participants' => [], 'total' => 0]);
+    }
+
+    // Get participants from cyo_conversation_participants table
+    $now = Carbon::now();
+    $users = $conversation->participants()
+      ->with('profile')
+      ->get()
+      ->map(function ($user) use ($now) {
+        // Check if user is online (last_activity within 5 minutes)
+        $isOnline = false;
+        $lastActivityString = null;
+        if ($user->last_activity) {
+          // last_activity might be a string or Carbon instance
+          $lastActivity = $user->last_activity instanceof Carbon
+            ? $user->last_activity
+            : Carbon::parse($user->last_activity);
+          $isOnline = $lastActivity->diffInMinutes($now) <= 5;
+          $lastActivityString = $lastActivity->toISOString();
+        }
+
+        return [
+          'id' => $user->id,
+          'username' => $user->username,
+          'profile_name' => $user->profile->profile_name ?? $user->username,
+          'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$user->username}/avatar",
+          'is_guest' => false,
+          'last_activity' => $lastActivityString,
+          'is_online' => $isOnline,
+        ];
+      });
+
+    // Get unique guest names from messages (guests are not stored in participants table)
+    $guestNames = $conversation->messages()
+      ->where('conversation_id', $conversation->id)
+      ->whereNotNull('guest_name')
+      ->distinct()
+      ->pluck('guest_name')
+      ->unique();
+
+    // Add guest users
+    $guests = $guestNames->map(function ($guestName) {
+      return [
+        'id' => null,
+        'username' => $guestName,
+        'profile_name' => $guestName,
+        'avatar_url' => null,
+        'is_guest' => true,
+      ];
+    });
+
+    // Combine and return
+    $participants = $users->concat($guests)->values();
+
+    return response()->json([
+      'participants' => $participants,
+      'total' => $participants->count(),
+    ]);
+  }
 }

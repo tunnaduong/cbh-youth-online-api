@@ -23,10 +23,20 @@ class OptionalAuthSanctum
      */
     public function handle(Request $request, Closure $next)
     {
+        // Try to authenticate if token is provided
         if ($request->bearerToken()) {
-            $user = Auth::guard('sanctum')->user();
-            if ($user) {
-                Auth::setUser($user);
+            try {
+                // First try Sanctum guard
+                $user = Auth::guard('sanctum')->user();
+                if ($user) {
+                    // Set user to default guard so Auth::user() works
+                    Auth::setUser($user);
+                    // Also ensure Sanctum guard has the user
+                    Auth::guard('sanctum')->setUser($user);
+                }
+            } catch (\Exception $e) {
+                // If token is invalid, just continue without authentication
+                // This allows the request to proceed as a guest
             }
         }
 

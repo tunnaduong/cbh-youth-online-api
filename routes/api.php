@@ -76,6 +76,13 @@ Route::prefix('v1.0')->group(function () {
   Route::get('search', [SearchController::class, 'search']);
   Route::get('stories', [StoryController::class, 'index']);
 
+  // Public Chat (accessible to everyone, but can check auth if token provided)
+  Route::middleware('optional.auth')->prefix('chat/public')->group(function () {
+    Route::get('messages', [ChatController::class, 'getPublicChatMessages']);
+    Route::post('messages', [ChatController::class, 'sendPublicMessage']);
+    Route::get('participants', [ChatController::class, 'getPublicChatParticipants']);
+  });
+
   // Online Users (Public)
   Route::get('/online-users/stats', [OnlineUserController::class, 'getStats']);
   Route::get('/online-users/max', [OnlineUserController::class, 'getMaxOnline']);
