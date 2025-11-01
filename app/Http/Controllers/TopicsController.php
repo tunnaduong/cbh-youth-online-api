@@ -396,6 +396,21 @@ class TopicsController extends Controller
     \Log::info('Request method:', ['method' => $request->method()]);
     \Log::info('Request headers:', ['headers' => $request->headers->all()]);
 
+    // Check if user is authenticated
+    if (!auth()->check()) {
+      return response()->json([
+        'message' => 'Bạn cần đăng nhập để tạo bài viết'
+      ], 401);
+    }
+
+    // Check if user has verified their email
+    $user = auth()->user();
+    if (!$user->email_verified_at) {
+      return response()->json([
+        'message' => 'Bạn cần xác minh email để tạo cuộc thảo luận'
+      ], 403);
+    }
+
     // Validate the request data
     $request->validate([
       'title' => 'required|string|max:255',
