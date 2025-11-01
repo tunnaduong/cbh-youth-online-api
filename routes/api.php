@@ -22,6 +22,7 @@ use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\UserPointDeductionController;
+use App\Http\Controllers\NotificationSettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -150,6 +151,10 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/users/{username}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);
     Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
+
+    // Notification Settings
+    Route::get('/notification-settings', [NotificationSettingsController::class, 'getSettings']);
+    Route::put('/notification-settings', [NotificationSettingsController::class, 'updateSettings']);
 
     // Topics & Content
     Route::post('/topics', [TopicsController::class, 'store']);
