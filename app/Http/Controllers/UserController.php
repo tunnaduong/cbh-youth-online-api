@@ -10,9 +10,13 @@ use Illuminate\Http\Request;
 use App\Models\UserSavedTopic;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use App\Models\AuthEmailVerificationCode;
+use App\Notifications\VerifyEmail;
 
 /**
  * Handles user-related actions such as retrieving profiles, avatars, and activity status.
@@ -81,6 +85,14 @@ class UserController extends Controller
    */
   public function updateAvatar(Request $request, $username)
   {
+    // Get the authenticated user
+    $authenticatedUser = Auth::user();
+
+    // Check if the logged-in user's username matches the requested username
+    if ($authenticatedUser->username !== $username) {
+      return response()->json(['message' => 'Bạn không có quyền thay đổi avatar của người khác.'], 403);
+    }
+
     // Validate the incoming request
     $request->validate([
       'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240', // Validate the file type and size
@@ -324,6 +336,10 @@ class UserController extends Controller
 
     // Validate incoming profile data
     $validatedData = $request->validate([
+      // Account fields (username and email)
+      'username' => 'nullable|string|max:255|unique:cyo_auth_accounts,username,' . $user->id . ',id',
+      'email' => 'nullable|email|max:255|unique:cyo_auth_accounts,email,' . $user->id . ',id',
+      // Profile fields
       'profile_name' => 'nullable|string|max:255',
       'profile_picture' => 'nullable|integer', // Optional, if updating avatar via URL
       'bio' => 'nullable|string',
@@ -332,10 +348,114 @@ class UserController extends Controller
       'location' => 'nullable|string|max:255',
     ]);
 
-    // Update user's profile
-    $user->profile->update($validatedData);
+    // Track if username or email was changed (will need new token)
+    $usernameChanged = false;
+    $emailChanged = false;
 
-    return response()->json(['message' => 'Cập nhật trang cá nhân thành công.', 'request' => $validatedData]);
+    // Update username and email in AuthAccount if provided
+    if (isset($validatedData['username']) && $validatedData['username'] !== $user->username) {
+      $usernameChanged = true;
+
+      // Check if user can change username (must be 30 days since last change)
+      $profile = $user->profile;
+      $lastUsernameChange = $profile->last_username_change;
+
+      if ($lastUsernameChange) {
+        $daysSinceLastChange = now()->diffInDays($lastUsernameChange);
+        if ($daysSinceLastChange < 30) {
+          $daysRemaining = 30 - $daysSinceLastChange;
+          return response()->json([
+            'message' => "Bạn chỉ có thể thay đổi tên đăng nhập mỗi 30 ngày một lần. Vui lòng thử lại sau {$daysRemaining} ngày nữa.",
+            'errors' => [
+              'username' => ["Bạn chỉ có thể thay đổi tên đăng nhập mỗi 30 ngày một lần. Vui lòng thử lại sau {$daysRemaining} ngày nữa."]
+            ]
+          ], 422);
+        }
+      }
+
+      // Update username and set last_username_change timestamp
+      $user->username = $validatedData['username'];
+      $user->save();
+
+      // Update profile_username and last_username_change in profile
+      $profile->profile_username = $validatedData['username'];
+      $profile->last_username_change = now();
+      $profile->save();
+
+      // Remove from validatedData so we don't try to update it in profile
+      unset($validatedData['username']);
+    }
+
+    if (isset($validatedData['email']) && $validatedData['email'] !== $user->email) {
+      $emailChanged = true;
+
+      // Update email
+      $user->email = $validatedData['email'];
+
+      // Reset email verification status when email is changed
+      $user->email_verified_at = null;
+      $user->save();
+
+      // Delete old verification codes for this user
+      AuthEmailVerificationCode::where('user_id', $user->id)->delete();
+
+      // Create new verification code
+      $verificationCode = Str::random(64);
+      AuthEmailVerificationCode::create([
+        'user_id' => $user->id,
+        'verification_code' => $verificationCode,
+        'expires_at' => now()->addHours(24), // Expires after 24 hours
+      ]);
+
+      // Send verification email to the new email address
+      $user->notify(new VerifyEmail);
+
+      // Remove from validatedData so we don't try to update it in profile
+      unset($validatedData['email']);
+    }
+
+    // Update user's profile with remaining fields
+    if (!empty($validatedData)) {
+      $user->profile->update($validatedData);
+    }
+
+    // Create new token if username or email changed (for security, old token should be invalidated)
+    $newToken = null;
+    if ($usernameChanged || $emailChanged) {
+      // Revoke current token
+      $request->user()->currentAccessToken()->delete();
+
+      // Create new token
+      $newToken = $user->createToken('api-token')->plainTextToken;
+    }
+
+    // Prepare response message
+    $message = 'Cập nhật trang cá nhân thành công.';
+
+    // If email was changed, add note about verification
+    if ($emailChanged) {
+      $message .= ' Email xác minh đã được gửi đến địa chỉ email mới. Vui lòng kiểm tra hộp thư và xác minh email để hoàn tất.';
+    }
+
+    // Build response
+    $response = [
+      'message' => $message,
+      'user' => [
+        'id' => $user->id,
+        'username' => $user->username,
+        'email' => $user->email,
+        'email_verified_at' => $user->email_verified_at,
+      ],
+      'email_verification_sent' => $emailChanged ? true : false,
+    ];
+
+    // Include new token if username or email was changed
+    if ($newToken) {
+      $response['token'] = $newToken;
+      $response['access_token'] = $newToken; // Also include as access_token for compatibility
+    }
+
+    return response()->json($response);
   }
 
   /**
@@ -408,5 +528,43 @@ class UserController extends Controller
     $user->save();
 
     return response()->json(['message' => 'Cập nhật trạng thái hoạt động thành công.']);
+  }
+
+  /**
+   * Delete the authenticated user's account.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function deleteAccount(Request $request)
+  {
+    // Get the authenticated user
+    $user = Auth::user();
+
+    // Validate the incoming request
+    $validated = $request->validate([
+      'password' => 'required|string',
+      'confirm_text' => 'required|string|in:XÓA TÀI KHOẢN',
+    ]);
+
+    // Verify password
+    if (!Hash::check($validated['password'], $user->password)) {
+      return response()->json([
+        'message' => 'Mật khẩu không chính xác.',
+        'errors' => [
+          'password' => ['Mật khẩu không chính xác.']
+        ]
+      ], 422);
+    }
+
+    // Revoke all tokens for the user
+    $user->tokens()->delete();
+
+    // Delete user and related data (cascade deletes should handle related records)
+    $user->delete();
+
+    return response()->json([
+      'message' => 'Tài khoản đã được xóa thành công.'
+    ], 200);
   }
 }
