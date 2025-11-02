@@ -8,8 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
-use Inertia\Inertia;
-use Inertia\Response;
 use App\Models\AuthAccount;
 
 /**
@@ -20,7 +18,7 @@ class ProfileController extends Controller
   /**
    * Display the user's profile form.
    */
-  public function edit(Request $request): Response
+  public function edit(Request $request)
   {
     return response()->json([
       'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
@@ -66,34 +64,11 @@ class ProfileController extends Controller
   }
 
   /**
-   * Display the public profile of a user.
-   *
-   * @param  string  $username
-   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
-   */
-  public function show($username)
-  {
-    return $this->renderProfile($username, 'posts');
-  }
-
-  /**
-   * Display a specific tab of a user's public profile.
-   *
-   * @param  string  $username
-   * @param  string  $tab
-   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
-   */
-  public function showWithTab($username, $tab)
-  {
-    return $this->renderProfile($username, $tab);
-  }
-
-  /**
    * Render the user's profile page with the specified active tab.
    *
    * @param  string  $username
    * @param  string  $tab
-   * @return \Inertia\Response|\Illuminate\Http\RedirectResponse
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
    */
   private function renderProfile($username, $tab = 'posts')
   {
