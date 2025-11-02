@@ -343,6 +343,11 @@ class AuthController extends Controller
           $user->provider_token = $accessToken;
           $dirty = true;
         }
+        // Set email_verified_at if email is returned from provider and not already verified
+        if ($email && !$user->email_verified_at) {
+          $user->email_verified_at = now();
+          $dirty = true;
+        }
         if ($dirty) {
           $user->save();
         }
