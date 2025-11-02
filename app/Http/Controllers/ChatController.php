@@ -31,7 +31,7 @@ class ChatController extends Controller
       $query->where('user_id', $user->id);
     })
       ->orderBy('updated_at', 'desc')
-      ->with(['participants.profile', 'latestMessage'])
+      ->with(['participants.profile', 'latestMessage.user.profile'])
       ->get()
       ->map(function ($conversation) use ($user) {
         $otherParticipants = $conversation->participants
@@ -53,10 +53,10 @@ class ChatController extends Controller
           'latest_message' => $conversation->latestMessage ? [
             'content' => $conversation->latestMessage->content,
             'type' => $conversation->latestMessage->type,
-            'sender' => $conversation->latestMessage->user->username,
+            'sender' => $conversation->latestMessage->user ? $conversation->latestMessage->user->username : ($conversation->latestMessage->guest_name ?? 'Ẩn danh'),
             'is_myself' => $conversation->latestMessage->user_id === $user->id,
             'created_at' => $conversation->latestMessage->created_at ? $conversation->latestMessage->created_at->toISOString() : null,
-            'created_at_human' => $conversation->latestMessage->created_at->diffForHumans(),
+            'created_at_human' => $conversation->latestMessage->created_at ? $conversation->latestMessage->created_at->diffForHumans() : null,
           ] : null,
           'unread_count' => $conversation->unreadMessagesCount($user->id)
         ];
