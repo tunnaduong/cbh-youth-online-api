@@ -69,7 +69,7 @@ class YouthNewsController extends Controller
       'title' => $post->title,
       'content' => $post->content_html,
       'image_urls' => $post->getImageUrls()->map(function ($content) {
-        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        return config('app.url') . Storage::url($content->file_path);
       })->all(),
       'author' => [
         'id' => $post->user->id,

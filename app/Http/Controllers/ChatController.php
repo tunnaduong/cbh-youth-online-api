@@ -47,7 +47,7 @@ class ChatController extends Controller
               'id' => $participant->id,
               'username' => $participant->username,
               'profile_name' => $participant->profile->profile_name ?? $participant->username,
-              'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$participant->username}/avatar",
+              'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
             ];
           }),
           'latest_message' => $conversation->latestMessage ? [
@@ -107,7 +107,7 @@ class ChatController extends Controller
             'id' => $message->user->id,
             'username' => $message->user->username,
             'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
-            'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$message->user->username}/avatar",
+            'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
           ],
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at->diffForHumans(),
@@ -236,7 +236,7 @@ class ChatController extends Controller
         'id' => $message->user->id,
         'username' => $message->user->username,
         'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
-        'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$message->user->username}/avatar",
+        'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
       ],
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at->diffForHumans(),
@@ -375,7 +375,7 @@ class ChatController extends Controller
           'id' => $participant->id,
           'username' => $participant->username,
           'profile_name' => $participant->profile->profile_name ?? $participant->username,
-          'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$participant->username}/avatar",
+          'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
         ];
       })
     ], 201);
@@ -456,7 +456,7 @@ class ChatController extends Controller
           'id' => $participant->id,
           'username' => $participant->username,
           'profile_name' => $participant->profile->profile_name ?? $participant->username,
-          'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$participant->username}/avatar",
+          'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
         ];
       })
     ]);
@@ -527,7 +527,7 @@ class ChatController extends Controller
         'id' => $foundUser->id,
         'username' => $foundUser->username,
         'profile_name' => $foundUser->profile->profile_name ?? $foundUser->username,
-        'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$foundUser->username}/avatar",
+        'avatar_url' => config('app.url') . "/v1.0/users/{$foundUser->username}/avatar",
       ],
       'existing_conversation_id' => $existingConversation?->id
     ]);
@@ -591,7 +591,7 @@ class ChatController extends Controller
               'id' => $message->user->id,
               'username' => $message->user->username ?? 'Ẩn danh',
               'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-              'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$message->user->username}/avatar",
+              'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
             ] : [
               'id' => null,
               'username' => 'Ẩn danh',
@@ -749,7 +749,7 @@ class ChatController extends Controller
           'id' => $message->user->id,
           'username' => $message->user->username ?? 'Ẩn danh',
           'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-          'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$message->user->username}/avatar",
+          'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
         ] : [
           'id' => null,
           'username' => 'Ẩn danh',
@@ -806,7 +806,7 @@ class ChatController extends Controller
           'id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? $user->username,
-          'avatar_url' => "https://api.chuyenbienhoa.com/v1.0/users/{$user->username}/avatar",
+          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
           'is_guest' => false,
           'last_activity' => $lastActivityString,
           'is_online' => $isOnline,

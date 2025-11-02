@@ -200,7 +200,7 @@ class UserController extends Controller
         'id' => $follower->follower->id,
         'username' => $follower->follower->username,
         'profile_name' => $follower->follower->profile->profile_name ?? null,
-        'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$follower->follower->username}/avatar",
+        'profile_picture' => config('app.url') . "/v1.0/users/{$follower->follower->username}/avatar",
       ];
 
       if (auth()->check()) {
@@ -224,7 +224,7 @@ class UserController extends Controller
         'id' => $followed->followed->id,
         'username' => $followed->followed->username,
         'profile_name' => $followed->followed->profile->profile_name ?? null,
-        'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$followed->followed->username}/avatar",
+        'profile_picture' => config('app.url') . "/v1.0/users/{$followed->followed->username}/avatar",
         'isFollowed' => false, // Default to false
       ];
 
@@ -247,7 +247,7 @@ class UserController extends Controller
         'title' => $post->title,
         'content' => $post->description,
         'image_urls' => $post->getImageUrls()->map(function ($content) {
-          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+          return config('app.url') . Storage::url($content->file_path);
         })->all(),
         'time' => $post->created_at->diffForHumans(),
         'comments' => $this->roundToNearestFive($post->comments_count),
@@ -290,7 +290,7 @@ class UserController extends Controller
       'updated_at' => $user->updated_at,
       'profile' => [
         'profile_name' => $user->profile->profile_name ?? null,
-        'profile_picture' => "https://api.chuyenbienhoa.com/v1.0/users/{$user->username}/avatar",
+        'profile_picture' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
         'bio' => $user->profile->bio ?? null,
         'birthday' => $user->profile->birthday ? Carbon::parse($user->profile->birthday)->locale('vi')->format('d \T\h\á\n\g m Y') : null,
         'birthday_raw' => $user->profile->birthday ?? null,

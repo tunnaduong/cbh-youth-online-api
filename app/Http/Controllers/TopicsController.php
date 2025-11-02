@@ -135,7 +135,7 @@ class TopicsController extends Controller
           'title' => $topic->title,
           'content' => $topic->content_html,
           'image_urls' => $topic->getImageUrls()->map(function ($content) {
-            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+            return config('app.url') . Storage::url($content->file_path);
           })->all(),
           'author' => $topic->anonymous && !$isModerator ? [
             'id' => null,
@@ -330,7 +330,7 @@ class TopicsController extends Controller
 
     // Get the first image URL for og:image
     $imageUrls = $topic->getImageUrls()->map(function ($content) {
-      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+      return config('app.url') . Storage::url($content->file_path);
     })->all();
 
     $ogImage = !empty($imageUrls) ? $imageUrls[0] : asset('images/cyo_thumbnail.png');
@@ -349,7 +349,7 @@ class TopicsController extends Controller
         'content' => $topic->content_html,
         'image_urls' => $imageUrls,
         'document_urls' => $topic->getDocuments()->map(function ($content) {
-          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+          return config('app.url') . Storage::url($content->file_path);
         })->all(),
         'document_sizes' => $topic->getDocuments()->map(function ($content) {
           return $content->file_size;
@@ -515,10 +515,10 @@ class TopicsController extends Controller
         'title' => $topic->title,
         'content' => $topic->description,
         'image_urls' => $topic->getImageUrls()->map(function ($content) {
-          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+          return config('app.url') . Storage::url($content->file_path);
         })->all(),
         'document_urls' => $topic->getDocuments()->map(function ($content) {
-          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+          return config('app.url') . Storage::url($content->file_path);
         })->all(),
         'document_sizes' => $topic->getDocuments()->map(function ($content) {
           return $content->file_size;
@@ -929,7 +929,7 @@ class TopicsController extends Controller
           'updated_at' => $savedTopic->topic->updated_at,
           'pinned' => $savedTopic->topic->pinned,
           'image_urls' => $savedTopic->topic->getImageUrls()->map(function ($content) {
-            return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+            return config('app.url') . Storage::url($content->file_path);
           })->all(),
           'author' => [
             'id' => $savedTopic->topic->user->id,

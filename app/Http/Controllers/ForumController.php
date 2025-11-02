@@ -252,10 +252,10 @@ class ForumController extends Controller
       'title' => $post->title,
       'content' => $post->content_html,
       'image_urls' => $post->getImageUrls()->map(function ($content) {
-        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        return config('app.url') . Storage::url($content->file_path);
       })->all(),
       'document_urls' => $post->getDocuments()->map(function ($content) {
-        return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+        return config('app.url') . Storage::url($content->file_path);
       })->all(),
       'document_sizes' => $post->getDocuments()->map(function ($content) {
         return $content->file_size;
@@ -384,7 +384,7 @@ class ForumController extends Controller
             'id' => $topic->user->id,
             'username' => $topic->user->username,
             'profile_name' => $topic->user->profile->profile_name ?? null,
-            'avatar' => "https://api.chuyenbienhoa.com/v1.0/users/" . $topic->user->username . "/avatar",
+            'avatar' => config('app.url') . "/v1.0/users/" . $topic->user->username . "/avatar",
             'verified' => $topic->user->profile->verified == 1 ? true : false
           ],
           'latest_reply' => $topic->comments->sortByDesc('created_at')->first() ? [
@@ -944,7 +944,7 @@ class ForumController extends Controller
 
     // Get the first image URL for og:image
     $imageUrls = $post->getImageUrls()->map(function ($content) {
-      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+      return config('app.url') . Storage::url($content->file_path);
     })->all();
 
     $ogImage = !empty($imageUrls) ? $imageUrls[0] : asset('images/cyo_thumbnail.png');
@@ -963,7 +963,7 @@ class ForumController extends Controller
         'content' => $post->content_html,
         'image_urls' => $imageUrls,
         'document_urls' => $post->getDocuments()->map(function ($content) {
-          return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+          return config('app.url') . Storage::url($content->file_path);
         })->all(),
         'document_sizes' => $post->getDocuments()->map(function ($content) {
           return $content->file_size;
@@ -1065,7 +1065,7 @@ class ForumController extends Controller
             'id' => $topic->user->id,
             'username' => $topic->user->username,
             'profile_name' => $topic->user->profile->profile_name ?? null,
-            'avatar' => "https://api.chuyenbienhoa.com/v1.0/users/" . $topic->user->username . "/avatar",
+            'avatar' => config('app.url') . "/v1.0/users/" . $topic->user->username . "/avatar",
             'verified' => $topic->user->profile->verified == 1 ? true : false
           ],
           'latest_reply' => $topic->comments->sortByDesc('created_at')->first() ? [

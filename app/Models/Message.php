@@ -33,7 +33,7 @@ class Message extends Model
      *
      * @var string
      */
-    protected $table = 'cyo_messages';
+    protected $table = 'cyo_conversation_messages';
 
     /**
      * The attributes that are mass assignable.

@@ -227,7 +227,7 @@ class Topic extends Model
   public function getImageUrlsAttribute()
   {
     return $this->getImageUrls()->map(function ($content) {
-      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+      return config('app.url') . Storage::url($content->file_path);
     })->all();
   }
 
@@ -258,7 +258,7 @@ class Topic extends Model
   public function getDocumentUrlsAttribute()
   {
     return $this->getDocuments()->map(function ($content) {
-      return 'https://api.chuyenbienhoa.com' . Storage::url($content->file_path);
+      return config('app.url') . Storage::url($content->file_path);
     })->all();
   }
 
