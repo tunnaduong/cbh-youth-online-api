@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Services\PointsService;
+use App\Services\NotificationService;
 
 /**
  * Represents a comment on a topic.
@@ -100,6 +101,14 @@ class TopicComment extends Model
     // Update points when a comment is created
     static::created(function ($comment) {
       PointsService::onCommentCreated($comment->user_id);
+
+      // Create notification for comment reply
+      if ($comment->replying_to) {
+        $parentComment = TopicComment::find($comment->replying_to);
+        if ($parentComment) {
+          NotificationService::createCommentRepliedNotification($comment, $parentComment, $comment->user_id);
+        }
+      }
     });
 
     // Update points when a comment is deleted

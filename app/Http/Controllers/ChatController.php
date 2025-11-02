@@ -8,9 +8,11 @@ use App\Models\Conversation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use App\Events\MessageSent;
 use App\Events\MessageRead;
 use App\Events\MessageDeleted;
+use App\Services\PushNotificationService;
 use Carbon\Carbon;
 
 /**
@@ -246,7 +248,23 @@ class ChatController extends Controller
     // Broadcast the message to other participants
     broadcast(new MessageSent($conversation->id, $messageData))->toOthers();
 
+    // Send push notifications to other participants
+    $this->sendChatPushNotifications($conversation, $messageData, $user->id);
+
     return response()->json($messageData, 201);
+  }
+
+  /**
+   * Send push notifications for chat messages to participants.
+   *
+   * @param \App\Models\Conversation $conversation
+   * @param array $messageData
+   * @param int $senderId
+   * @return void
+   */
+  private function sendChatPushNotifications(Conversation $conversation, array $messageData, int $senderId): void
+  {
+    PushNotificationService::sendChatPushNotifications($conversation, $messageData, $senderId);
   }
 
   /**
@@ -763,6 +781,11 @@ class ChatController extends Controller
 
     // Broadcast the message to other participants
     broadcast(new MessageSent($conversation->id, $messageData))->toOthers();
+
+    // Send push notifications to other participants (only for authenticated users)
+    if (!$isGuest && $user) {
+      $this->sendChatPushNotifications($conversation, $messageData, $user->id);
+    }
 
     return response()->json($messageData, 201);
   }

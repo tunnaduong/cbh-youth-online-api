@@ -23,6 +23,7 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\UserPointDeductionController;
 use App\Http\Controllers\NotificationSettingsController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -75,6 +76,9 @@ Route::prefix('v1.0')->group(function () {
   // Search & Stories
   Route::get('search', [SearchController::class, 'search']);
   Route::get('stories', [StoryController::class, 'index']);
+  
+  // Push Notification VAPID Public Key (public endpoint)
+  Route::get('/notifications/vapid-public-key', [NotificationController::class, 'getVapidPublicKey']);
 
   // Public Chat (accessible to everyone, but can check auth if token provided)
   Route::middleware('optional.auth')->prefix('chat/public')->group(function () {
@@ -162,6 +166,20 @@ Route::prefix('v1.0')->group(function () {
     // Notification Settings
     Route::get('/notification-settings', [NotificationSettingsController::class, 'getSettings']);
     Route::put('/notification-settings', [NotificationSettingsController::class, 'updateSettings']);
+
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+      Route::get('/', [NotificationController::class, 'index']);
+      Route::get('/unread-count', [NotificationController::class, 'getUnreadCount']);
+      Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
+      Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
+      Route::delete('/{id}', [NotificationController::class, 'destroy']);
+      
+      // Push notification subscriptions
+      Route::post('/subscribe', [NotificationController::class, 'subscribe']);
+      Route::delete('/unsubscribe', [NotificationController::class, 'unsubscribe']);
+      Route::get('/subscriptions', [NotificationController::class, 'getSubscriptions']);
+    });
 
     // Topics & Content
     Route::post('/topics', [TopicsController::class, 'store']);

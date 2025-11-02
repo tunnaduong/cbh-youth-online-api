@@ -20,6 +20,7 @@
         "laravel/tinker": "^2.8",
         "laravel/ui": "^4.5",
         "league/commonmark": "^2.7",
+        "minishlink/web-push": "^9.0",
         "pusher/pusher-php-server": "^7.2",
         "spatie/laravel-backup": "^9.3",
         "tightenco/ziggy": "^2.0"

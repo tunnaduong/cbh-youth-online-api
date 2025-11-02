@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Services\NotificationService;
 use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
@@ -633,6 +634,14 @@ class TopicsController extends Controller
       $vote->delete();
     }
 
+    // Create notification for topic like (only for upvote)
+    if ($request->input('vote_value') == 1) {
+      $topic = Topic::find($topicId);
+      if ($topic) {
+        NotificationService::createTopicLikedNotification($topic, $user->id);
+      }
+    }
+
     if ($request->wantsJson()) {
       return response()->json([
         'message' => 'Vote registered',
@@ -795,6 +804,25 @@ class TopicsController extends Controller
     // Load the comment's author profile details
     $author = $comment->user()->with('profile')->first();
 
+    // Load the topic for notification
+    $topic = Topic::find($request->topic_id);
+    
+    // Create notification for topic being commented on (only if not a reply)
+    if ($topic && !$request->replying_to) {
+      NotificationService::createTopicCommentedNotification($topic, $comment, auth()->id());
+    }
+    
+    // Handle mentions in comment
+    $mentions = NotificationService::parseMentions($request->comment);
+    if (!empty($mentions) && $topic) {
+      foreach ($mentions as $mentionedUsername) {
+        $mentionedUser = \App\Models\AuthAccount::where('username', $mentionedUsername)->first();
+        if ($mentionedUser) {
+          NotificationService::createMentionedNotification($mentionedUser->id, $comment, auth()->id());
+        }
+      }
+    }
+
     $commentData = [
       'id' => $comment->id,
       'content' => $comment->comment, // Return raw markdown for editing
@@ -852,6 +880,14 @@ class TopicsController extends Controller
     // If vote_value is 0, delete the vote
     if ($request->input('vote_value') == 0) {
       $vote->delete();
+    }
+
+    // Create notification for comment like (only for upvote)
+    if ($request->input('vote_value') == 1) {
+      $comment = TopicComment::find($commentId);
+      if ($comment) {
+        NotificationService::createCommentLikedNotification($comment, auth()->id());
+      }
     }
 
     if ($request->wantsJson()) {
