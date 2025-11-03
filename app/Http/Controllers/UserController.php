@@ -240,8 +240,16 @@ class UserController extends Controller
       return $response;
     });
 
-    // Transform recent posts
-    $recentPosts = $user->posts()->latest()->withCount(['comments', 'views', 'votes'])->take(5)->get()->map(function ($post) {
+    // Transform recent posts - only show anonymous posts to the owner
+    $isOwnProfile = auth()->check() && auth()->id() === $user->id;
+    $recentPostsQuery = $user->posts()->latest()->withCount(['comments', 'views', 'votes']);
+
+    // Hide anonymous posts if not viewing own profile
+    if (!$isOwnProfile) {
+      $recentPostsQuery->where('anonymous', false);
+    }
+
+    $recentPosts = $recentPostsQuery->take(5)->get()->map(function ($post) {
       return [
         'id' => $post->id,
         'title' => $post->title,
@@ -274,12 +282,18 @@ class UserController extends Controller
           'verified' => $post->author->profile->verified == 1 ? true : false,
         ],
         'anonymous' => $post->anonymous,
-        'saved' => UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists(),
+        'saved' => auth()->check() ? UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists() : false,
       ];
     });
 
     // Check if the user is online
     $isOnline = $user->last_activity > now()->subMinutes(5);
+
+    // Adjust posts_count if not viewing own profile - exclude anonymous posts from count
+    $displayedPostsCount = $user->posts_count;
+    if (!$isOwnProfile) {
+      $displayedPostsCount = $user->posts()->where('anonymous', false)->count();
+    }
 
     // Return the user data, including the profile data, stats, followers, and following
     return response()->json([
@@ -305,7 +319,7 @@ class UserController extends Controller
       'stats' => [
         'followers' => $user->followers_count,
         'following' => $user->following_count,
-        'posts' => $user->posts_count,
+        'posts' => $displayedPostsCount,
         'total_likes_count' => $totalLikesCount,
         'activity_points' => $activityPoints,
         'is_online' => $isOnline,
