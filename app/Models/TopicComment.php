@@ -47,6 +47,7 @@ class TopicComment extends Model
     'comment',
     'comment_html',
     'is_anonymous',
+    'deleted_parent_username',
   ];
 
   /**

@@ -247,15 +247,24 @@ class TopicsController extends Controller
     }
 
     // Load comments with their respective votes and voter usernames
+    // Need to load nested replies recursively with all levels
     $comments = $topic->comments()
       ->whereNull('replying_to')
       ->with([
         'user.profile',
         'votes.user',
         'replies' => function ($q) {
+          $q->select('*'); // Ensure all columns including deleted_parent_username are loaded
           $q->with([
             'user.profile',
             'votes.user',
+            'replies' => function ($subQ) {
+            $subQ->select('*'); // Ensure all columns including deleted_parent_username are loaded
+            $subQ->with([
+              'user.profile',
+              'votes.user',
+            ]);
+          },
           ]);
         }
       ])
@@ -268,6 +277,7 @@ class TopicsController extends Controller
         'content' => $comment->comment,
         'comment' => $comment->comment_html,
         'is_anonymous' => $comment->is_anonymous,
+        'deleted_parent_username' => $comment->deleted_parent_username ?? null,
         'author' => [
           'id' => $comment->user->id,
           'username' => $comment->user->username,
@@ -288,6 +298,7 @@ class TopicsController extends Controller
             'content' => $reply->comment,
             'comment' => $reply->comment_html,
             'is_anonymous' => $reply->is_anonymous,
+            'deleted_parent_username' => $reply->getAttribute('deleted_parent_username') ?? null,
             'author' => [
               'id' => $reply->user->id,
               'username' => $reply->user->username,
@@ -308,6 +319,7 @@ class TopicsController extends Controller
                 'content' => $subReply->comment,
                 'comment' => $subReply->comment_html,
                 'is_anonymous' => $subReply->is_anonymous,
+                'deleted_parent_username' => $subReply->getAttribute('deleted_parent_username') ?? null,
                 'author' => [
                   'id' => $subReply->user->id,
                   'username' => $subReply->user->username,
@@ -806,12 +818,12 @@ class TopicsController extends Controller
 
     // Load the topic for notification
     $topic = Topic::find($request->topic_id);
-    
+
     // Create notification for topic being commented on (only if not a reply)
     if ($topic && !$request->replying_to) {
       NotificationService::createTopicCommentedNotification($topic, $comment, auth()->id());
     }
-    
+
     // Handle mentions in comment
     $mentions = NotificationService::parseMentions($request->comment);
     if (!empty($mentions) && $topic) {
@@ -1088,6 +1100,32 @@ class TopicsController extends Controller
       return redirect()->back()->withErrors(['comment' => 'Bạn không có quyền xóa bình luận này']);
     }
 
+    // Get the parent comment ID (if this comment has a parent)
+    $parentCommentId = $comment->replying_to;
+
+    // Get username of the comment being deleted (before deletion)
+    $deletedCommentUsername = $comment->is_anonymous ? 'Người dùng ẩn danh' : $comment->user->username;
+
+    // Only get direct children IDs (not all descendants)
+    // We only promote direct children by 1 level, keeping nested structure intact
+    $directChildrenIds = TopicComment::where('replying_to', $id)->pluck('id')->toArray();
+
+    // Promote direct children:
+    // - If deleting level 1 comment (no parent), promote direct children to level 1 (replying_to = null)
+    // - If deleting level 2+ comment (has parent), promote direct children to reply directly to the parent
+    // Note: Nested children (level 3, 4, etc.) keep their structure - they remain replies to their immediate parent
+    // Important: Do not update updated_at timestamp when promoting children - use DB::table() for direct update
+    // Also save the username of the deleted comment so children can display a notification
+    if (!empty($directChildrenIds)) {
+      DB::table('cyo_topic_comments')
+        ->whereIn('id', $directChildrenIds)
+        ->update([
+          'replying_to' => $parentCommentId,
+          'deleted_parent_username' => $deletedCommentUsername
+        ]);
+    }
+
+    // Delete the comment
     $comment->delete();
 
     if ($request->wantsJson()) {
@@ -1096,6 +1134,7 @@ class TopicsController extends Controller
 
     return redirect()->back()->with('success', 'Bình luận đã được xóa thành công');
   }
+
 
   /**
    * Remove the specified comment vote from storage.

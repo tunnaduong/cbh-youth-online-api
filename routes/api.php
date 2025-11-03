@@ -76,7 +76,7 @@ Route::prefix('v1.0')->group(function () {
   // Search & Stories
   Route::get('search', [SearchController::class, 'search']);
   Route::get('stories', [StoryController::class, 'index']);
-  
+
   // Push Notification VAPID Public Key (public endpoint)
   Route::get('/notifications/vapid-public-key', [NotificationController::class, 'getVapidPublicKey']);
 
@@ -141,6 +141,20 @@ Route::prefix('v1.0')->group(function () {
     // User & Profile
     Route::get('/user', function (Request $request) {
       $user = $request->user()->load('profile');
+      $userPoints = $user->getCachedPoints();
+
+      // If cached_points is null, refresh it (but not if it's legitimately 0)
+      if (is_null($user->cached_points)) {
+        \App\Services\PointsService::updateUserPoints($user->id);
+        $user->refresh();
+        $userPoints = $user->getCachedPoints();
+      }
+
+      // Calculate user ranking
+      $rank = \App\Models\AuthAccount::where('role', '!=', 'admin')
+        ->where('cached_points', '>', $userPoints)
+        ->count() + 1;
+
       return response()->json([
         'id' => $user->id,
         'username' => $user->username,
@@ -151,6 +165,8 @@ Route::prefix('v1.0')->group(function () {
         'email_verified_at' => $user->email_verified_at ?? null,
         'verified' => $user->verified ?? false,
         'role' => $user->role ?? null,
+        'total_points' => $userPoints,
+        'rank' => $rank,
       ]);
     });
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -173,12 +189,14 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/unread-count', [NotificationController::class, 'getUnreadCount']);
       Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
       Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
-      Route::delete('/{id}', [NotificationController::class, 'destroy']);
-      
-      // Push notification subscriptions
+
+      // Push notification subscriptions (must be before /{id} route to avoid route conflict)
       Route::post('/subscribe', [NotificationController::class, 'subscribe']);
       Route::delete('/unsubscribe', [NotificationController::class, 'unsubscribe']);
       Route::get('/subscriptions', [NotificationController::class, 'getSubscriptions']);
+
+      // Delete notification (must be after specific routes like /unsubscribe)
+      Route::delete('/{id}', [NotificationController::class, 'destroy']);
     });
 
     // Topics & Content

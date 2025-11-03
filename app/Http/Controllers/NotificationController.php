@@ -205,6 +205,31 @@ class NotificationController extends Controller
 
       $isUpdate = $existingSubscription !== null;
 
+      // Cleanup old subscriptions for this user (keep only the latest 3 subscriptions)
+      // This prevents database bloat when browser creates new endpoints on each refresh
+      $userSubscriptions = NotificationSubscription::where('user_id', $user->id)
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+      // If user has more than 3 subscriptions, delete the oldest ones
+      if ($userSubscriptions->count() > 3) {
+        $subscriptionsToDelete = $userSubscriptions->slice(3);
+        $deletedCount = 0;
+        foreach ($subscriptionsToDelete as $oldSubscription) {
+          // Don't delete if it's the same endpoint we're about to update/create
+          if ($oldSubscription->endpoint !== $request->endpoint) {
+            $oldSubscription->delete();
+            $deletedCount++;
+          }
+        }
+        if ($deletedCount > 0) {
+          Log::info('Cleaned up old push subscriptions', [
+            'user_id' => $user->id,
+            'deleted_count' => $deletedCount,
+          ]);
+        }
+      }
+
       // Use updateOrCreate with user_id + endpoint as unique keys
       // This ensures only one subscription per user per endpoint
       $subscription = NotificationSubscription::updateOrCreate(
