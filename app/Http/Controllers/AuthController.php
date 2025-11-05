@@ -263,8 +263,21 @@ class AuthController extends Controller
       }
 
       $providerId = (string) ($verified['id'] ?? $verified['sub'] ?? '');
-      $email = (string) ($verified['email'] ?? '');
-      $name = (string) ($verified['name'] ?? '');
+      $email = trim((string) ($verified['email'] ?? ''));
+      $name = trim((string) ($verified['name'] ?? ''));
+
+      // Fallback to profile data from client if API doesn't return email
+      // (Facebook/Google API sometimes doesn't return email even if user has email)
+      $profileData = $request->input('profile');
+      if (empty($email) && $profileData && is_array($profileData)) {
+        $emailFromProfile = trim((string) ($profileData['email'] ?? ''));
+        if (!empty($emailFromProfile)) {
+          $email = $emailFromProfile;
+        }
+        if (empty($name) && isset($profileData['name'])) {
+          $name = trim((string) $profileData['name']);
+        }
+      }
 
       // Extract avatar URL from provider response
       $avatarUrl = null;
@@ -306,14 +319,16 @@ class AuthController extends Controller
           $suffix++;
         }
 
-        // Use !empty() to properly check for email (handles empty strings)
-        $hasEmail = !empty(trim($email));
+        // Check if email exists and is not empty
+        // Email is already trimmed above, so just check if it's not empty
+        $hasEmail = !empty($email);
 
         $user = AuthAccount::create([
           'username' => $username,
           'password' => Hash::make(Str::random(32)),
           'email' => $hasEmail ? $email : null,
           // Set email_verified_at immediately if email exists (OAuth providers verify email)
+          // Users logging in via OAuth providers have already verified their email with the provider
           'email_verified_at' => $hasEmail ? now() : null,
           'provider' => $provider,
           'provider_id' => $providerId ?: null,
