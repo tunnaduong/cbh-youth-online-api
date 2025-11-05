@@ -306,11 +306,15 @@ class AuthController extends Controller
           $suffix++;
         }
 
+        // Use !empty() to properly check for email (handles empty strings)
+        $hasEmail = !empty(trim($email));
+
         $user = AuthAccount::create([
           'username' => $username,
           'password' => Hash::make(Str::random(32)),
-          'email' => $email ?: null,
-          'email_verified_at' => $email ? now() : null,
+          'email' => $hasEmail ? $email : null,
+          // Set email_verified_at immediately if email exists (OAuth providers verify email)
+          'email_verified_at' => $hasEmail ? now() : null,
           'provider' => $provider,
           'provider_id' => $providerId ?: null,
           'provider_token' => $accessToken,
@@ -343,11 +347,23 @@ class AuthController extends Controller
           $user->provider_token = $accessToken;
           $dirty = true;
         }
-        // Set email_verified_at if email is returned from provider and not already verified
-        if ($email && !$user->email_verified_at) {
+
+        // Update email if provider returns one and it's different
+        $hasEmailFromProvider = !empty(trim($email));
+        if ($hasEmailFromProvider && $email !== $user->email) {
+          $user->email = $email;
+          $dirty = true;
+        }
+
+        // Set email_verified_at if user has email (from provider or already in DB)
+        // and is logging in via OAuth provider (which proves email ownership)
+        // and not already verified
+        $userEmail = !empty(trim($user->email ?? '')) ? $user->email : ($hasEmailFromProvider ? $email : null);
+        if ($userEmail && !$user->email_verified_at) {
           $user->email_verified_at = now();
           $dirty = true;
         }
+
         if ($dirty) {
           $user->save();
         }
