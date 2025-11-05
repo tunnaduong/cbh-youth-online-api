@@ -392,4 +392,42 @@ class AuthController extends Controller
       ], 500);
     }
   }
+
+  /**
+   * Handle OAuth callback from Google/Facebook
+   * Redirects back to mobile app with authorization code or token
+   */
+  public function oauthCallback(Request $request)
+  {
+    // Extract provider from query or determine from request
+    $provider = $request->query('provider', 'google');
+    
+    // Get authorization code or token from query parameters
+    $code = $request->query('code');
+    $accessToken = $request->query('access_token');
+    $error = $request->query('error');
+    $errorDescription = $request->query('error_description');
+
+    // If there's an error, redirect back to app with error
+    if ($error) {
+      $deepLink = "com.fatties.youth://oauth?error=" . urlencode($error) . "&error_description=" . urlencode($errorDescription);
+      return redirect($deepLink);
+    }
+
+    // For Google (Authorization Code flow)
+    if ($code) {
+      $deepLink = "com.fatties.youth://oauth?code=" . urlencode($code) . "&provider=" . $provider;
+      return redirect($deepLink);
+    }
+
+    // For Facebook (Implicit flow - access token in URL)
+    if ($accessToken) {
+      $deepLink = "com.fatties.youth://oauth?access_token=" . urlencode($accessToken) . "&provider=" . $provider;
+      return redirect($deepLink);
+    }
+
+    // Default redirect with error
+    $deepLink = "com.fatties.youth://oauth?error=invalid_request";
+    return redirect($deepLink);
+  }
 }

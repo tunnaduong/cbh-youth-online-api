@@ -52,6 +52,7 @@ Route::prefix('v1.0')->group(function () {
   Route::post('/register', [AuthController::class, 'register']);
   Route::post('/login', [AuthController::class, 'login']);
   Route::post('/login/oauth', [AuthController::class, 'loginWithProvider']);
+  Route::get('/oauth/callback', [AuthController::class, 'oauthCallback']);
   Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset']);
   Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify']);
   Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
