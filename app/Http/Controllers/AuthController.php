@@ -401,33 +401,90 @@ class AuthController extends Controller
   {
     // Extract provider from query or determine from request
     $provider = $request->query('provider', 'google');
-    
+
     // Get authorization code or token from query parameters
     $code = $request->query('code');
     $accessToken = $request->query('access_token');
     $error = $request->query('error');
     $errorDescription = $request->query('error_description');
+    $state = $request->query('state'); // May contain scheme info
 
-    // If there's an error, redirect back to app with error
+    // Build query parameters
+    $params = [];
     if ($error) {
-      $deepLink = "com.fatties.youth://oauth?error=" . urlencode($error) . "&error_description=" . urlencode($errorDescription);
-      return redirect($deepLink);
+      $params['error'] = $error;
+      if ($errorDescription) {
+        $params['error_description'] = $errorDescription;
+      }
+    } elseif ($code) {
+      $params['code'] = $code;
+      $params['provider'] = $provider;
+    } elseif ($accessToken) {
+      $params['access_token'] = $accessToken;
+      $params['provider'] = $provider;
+    } else {
+      $params['error'] = 'invalid_request';
     }
 
-    // For Google (Authorization Code flow)
-    if ($code) {
-      $deepLink = "com.fatties.youth://oauth?code=" . urlencode($code) . "&provider=" . $provider;
-      return redirect($deepLink);
+    $queryString = http_build_query($params);
+
+    // Support multiple schemes for local development and production
+    // Try production scheme first, then local scheme
+    $schemes = [
+      'com.fatties.youth', // Production scheme
+      'exp+cbh-youth-online-mobile', // Expo local development scheme
+    ];
+
+    // Try to determine scheme from state or use default
+    $scheme = $schemes[0]; // Default to production scheme
+    if ($state) {
+      // Check if state contains scheme info
+      foreach ($schemes as $s) {
+        if (strpos($state, $s) !== false) {
+          $scheme = $s;
+          break;
+        }
+      }
     }
 
-    // For Facebook (Implicit flow - access token in URL)
-    if ($accessToken) {
-      $deepLink = "com.fatties.youth://oauth?access_token=" . urlencode($accessToken) . "&provider=" . $provider;
-      return redirect($deepLink);
-    }
+    // Build deep link URL
+    $deepLink = "{$scheme}://oauth" . ($queryString ? "?{$queryString}" : "");
 
-    // Default redirect with error
-    $deepLink = "com.fatties.youth://oauth?error=invalid_request";
-    return redirect($deepLink);
+    // Return HTML page that tries multiple schemes for better compatibility
+    // This helps with local development where scheme might vary
+    $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0;url=' . htmlspecialchars($deepLink) . '">
+    <script>
+        // Try to open app with multiple schemes
+        var schemes = ' . json_encode($schemes) . ';
+        var params = ' . json_encode($params) . ';
+        var queryString = "' . $queryString . '";
+
+        // Try primary scheme first
+        window.location.href = "' . $scheme . '://oauth" + (queryString ? "?" + queryString : "");
+
+        // Fallback: try other schemes after a short delay
+        setTimeout(function() {
+            for (var i = 0; i < schemes.length; i++) {
+                if (schemes[i] !== "' . $scheme . '") {
+                    var link = schemes[i] + "://oauth" + (queryString ? "?" + queryString : "");
+                    window.location.href = link;
+                    break;
+                }
+            }
+        }, 100);
+    </script>
+</head>
+<body>
+    <p>Đang chuyển hướng về ứng dụng...</p>
+    <p>Nếu không tự động chuyển, <a href="' . htmlspecialchars($deepLink) . '">click vào đây</a></p>
+</body>
+</html>';
+
+    return response($html)->header('Content-Type', 'text/html; charset=utf-8');
   }
 }
