@@ -34,7 +34,8 @@ class ForumController extends Controller
   {
     $mainCategories = ForumCategory::with([
       'subforums' => function ($query) {
-        $query->withCount(['topics', 'comments']);
+        $query->withCount(['topics', 'comments'])
+          ->orderBy('arrange', 'asc');
       }
     ])->orderBy('arrange', 'asc')->get();
 
@@ -310,6 +311,7 @@ class ForumController extends Controller
     $category->load([
       'subforums' => function ($query) {
         $query->withCount(['topics', 'comments'])
+          ->orderBy('arrange', 'asc')
           ->with([
             'latestPublicTopic' => function ($q) {
               $q->with(['user.profile']);
@@ -581,14 +583,17 @@ class ForumController extends Controller
         ->get();
     }
 
-    $transformedSubforums = $subforums->sortBy(function ($subforum) {
-      return $subforum->mainCategory->arrange;
-    })->values()->map(function ($subforum) {
-      return [
-        'label' => $subforum->name,
-        'value' => $subforum->id,
-      ];
-    });
+    $transformedSubforums = $subforums
+      ->sortBy(function ($subforum) {
+        return [$subforum->mainCategory->arrange ?? 999999, $subforum->arrange ?? 999999];
+      })
+      ->values()
+      ->map(function ($subforum) {
+        return [
+          'label' => $subforum->name,
+          'value' => $subforum->id,
+        ];
+      });
 
     return response()->json($transformedSubforums);
   }
@@ -609,7 +614,8 @@ class ForumController extends Controller
               ->join('cyo_topics', 'cyo_topic_comments.topic_id', '=', 'cyo_topics.id')
               ->whereColumn('cyo_topics.subforum_id', 'cyo_forum_subforums.id')
               ->selectRaw('count(*)')
-          ]);
+          ])
+          ->orderBy('arrange', 'asc');
       },
       // Sử dụng relationship 'latestPublicTopic' để chỉ hiển thị bài viết public
       'subforums.latestPublicTopic.user.profile'
@@ -669,33 +675,37 @@ class ForumController extends Controller
    */
   public function getSubforums(ForumMainCategory $mainCategory)
   {
-    $subforums = $mainCategory->subforums()->where('active', true)->withCount('topics')->with([
-      'topics' => function ($query) {
-        // Apply privacy filtering first, then find the latest visible topic
-        if (auth()->check()) {
-          $userId = auth()->id();
-          $followingIds = \App\Models\Follower::where('follower_id', $userId)
-            ->pluck('followed_id')
-            ->toArray();
+    $subforums = $mainCategory->subforums()
+      ->where('active', true)
+      ->withCount('topics')
+      ->orderBy('arrange', 'asc')
+      ->with([
+        'topics' => function ($query) {
+          // Apply privacy filtering first, then find the latest visible topic
+          if (auth()->check()) {
+            $userId = auth()->id();
+            $followingIds = \App\Models\Follower::where('follower_id', $userId)
+              ->pluck('followed_id')
+              ->toArray();
 
-          $query->where(function ($q) use ($userId, $followingIds) {
-            $q->where('cyo_topics.privacy', 'public')
-              ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
-              ->orWhere(function ($subQ) use ($followingIds) {
-                // Followers posts
-                $subQ->where('cyo_topics.privacy', 'followers')
-                  ->whereIn('cyo_topics.user_id', $followingIds);
-              });
-          });
-        } else {
-          // For non-authenticated users, only show public posts
-          $query->where('cyo_topics.privacy', 'public');
+            $query->where(function ($q) use ($userId, $followingIds) {
+              $q->where('cyo_topics.privacy', 'public')
+                ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+                ->orWhere(function ($subQ) use ($followingIds) {
+                  // Followers posts
+                  $subQ->where('cyo_topics.privacy', 'followers')
+                    ->whereIn('cyo_topics.user_id', $followingIds);
+                });
+            });
+          } else {
+            // For non-authenticated users, only show public posts
+            $query->where('cyo_topics.privacy', 'public');
+          }
+
+          // Now get the latest topic from the filtered results
+          $query->latest('created_at');
         }
-
-        // Now get the latest topic from the filtered results
-        $query->latest('created_at');
-      }
-    ])->get();
+      ])->get();
 
     return $subforums->map(function ($subforum) use ($mainCategory) {
       $latestPost = $subforum->topics->first();

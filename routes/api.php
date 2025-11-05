@@ -105,16 +105,18 @@ Route::prefix('v1.0')->group(function () {
       $mainCategories = $user && $user->role == 'admin' ?
         \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
           ->with([
-            'subForums' => function ($query) {
-              $query->select('id', 'name', 'main_category_id');
+            'subforums' => function ($query) {
+              $query->select('id', 'name', 'main_category_id', 'arrange')
+                ->orderBy('arrange', 'asc');
             }
           ])
           ->orderBy('arrange', 'asc')
           ->get() :
         \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
           ->with([
-            'subForums' => function ($query) {
-              $query->select('id', 'name', 'main_category_id');
+            'subforums' => function ($query) {
+              $query->select('id', 'name', 'main_category_id', 'arrange')
+                ->orderBy('arrange', 'asc');
             }
           ])
           ->where('role_restriction', '!=', 'admin')
