@@ -8,6 +8,7 @@ use App\Models\UserProfile;
 use App\Models\UserContent;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -216,14 +217,22 @@ class AuthController extends Controller
   }
 
   /**
-   * Exchange OAuth authorization code for tokens (Google OAuth with PKCE)
+   * Exchange OAuth authorization code for tokens (Google/Facebook OAuth with PKCE)
    */
   public function exchangeOAuthCode(Request $request)
   {
-    $request->validate([
+    // Log request for debugging
+    \Log::info('Exchange OAuth Code Request:', [
+      'code' => $request->input('code') ? 'present' : 'missing',
+      'code_verifier' => $request->input('code_verifier') ? 'present' : 'missing',
+      'provider' => $request->input('provider'),
+      'all_inputs' => $request->all(),
+    ]);
+
+    $validated = $request->validate([
       'code' => 'required|string',
       'code_verifier' => 'required|string',
-      'provider' => 'required|string|in:google',
+      'provider' => ['required', 'string', Rule::in(['google', 'facebook'])],
     ]);
 
     $code = $request->input('code');
@@ -259,6 +268,37 @@ class AuthController extends Controller
         return response()->json([
           'access_token' => $tokenData['access_token'] ?? null,
           'id_token' => $tokenData['id_token'] ?? null,
+          'token_type' => $tokenData['token_type'] ?? 'Bearer',
+          'expires_in' => $tokenData['expires_in'] ?? null,
+        ]);
+      } elseif ($provider === 'facebook') {
+        $clientId = config('services.facebook.client_id');
+        $clientSecret = config('services.facebook.client_secret');
+        $redirectUri = 'https://api.chuyenbienhoa.com/v1.0/oauth/callback';
+
+        // Exchange authorization code for tokens
+        // Facebook OAuth with PKCE
+        $tokenResponse = Http::asForm()->post('https://graph.facebook.com/v18.0/oauth/access_token', [
+          'grant_type' => 'authorization_code',
+          'code' => $code,
+          'redirect_uri' => $redirectUri,
+          'client_id' => $clientId,
+          'client_secret' => $clientSecret,
+          'code_verifier' => $codeVerifier,
+        ]);
+
+        if (!$tokenResponse->successful()) {
+          $error = $tokenResponse->json();
+          return response()->json([
+            'message' => 'Token exchange failed',
+            'error' => $error,
+          ], $tokenResponse->status());
+        }
+
+        $tokenData = $tokenResponse->json();
+
+        return response()->json([
+          'access_token' => $tokenData['access_token'] ?? null,
           'token_type' => $tokenData['token_type'] ?? 'Bearer',
           'expires_in' => $tokenData['expires_in'] ?? null,
         ]);
