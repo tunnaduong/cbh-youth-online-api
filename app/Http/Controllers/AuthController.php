@@ -510,7 +510,8 @@ class AuthController extends Controller
     }
 
     // Build deep link URL
-    $deepLink = "{$scheme}://oauth" . ($queryString ? "?{$queryString}" : "");
+    // Use single colon (:) instead of :// to avoid Android browser stripping trailing slashes
+    $deepLink = "{$scheme}:oauth" . ($queryString ? "?{$queryString}" : "");
 
     // Return HTML page with green button to redirect to app
     $html = '<!DOCTYPE html>
@@ -603,17 +604,18 @@ class AuthController extends Controller
         var schemes = ' . json_encode($schemes) . ';
         var queryString = "' . $queryString . '";
         var primaryScheme = "' . $scheme . '";
-
+        
         document.getElementById("redirectButton").addEventListener("click", function(e) {
             // Try primary scheme first
-            var primaryLink = primaryScheme + "://oauth" + (queryString ? "?" + queryString : "");
+            // Use single colon (:) instead of :// to avoid Android browser stripping trailing slashes
+            var primaryLink = primaryScheme + ":oauth" + (queryString ? "?" + queryString : "");
             window.location.href = primaryLink;
-
+            
             // Fallback to other schemes after a delay
             setTimeout(function() {
                 for (var i = 0; i < schemes.length; i++) {
                     if (schemes[i] !== primaryScheme) {
-                        var fallbackLink = schemes[i] + "://oauth" + (queryString ? "?" + queryString : "");
+                        var fallbackLink = schemes[i] + ":oauth" + (queryString ? "?" + queryString : "");
                         window.location.href = fallbackLink;
                         break;
                     }
