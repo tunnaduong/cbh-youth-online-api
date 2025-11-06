@@ -437,15 +437,39 @@ class AuthController extends Controller
    */
   public function oauthCallback(Request $request)
   {
-    // Extract provider from query or determine from request
-    $provider = $request->query('provider', 'google');
-
     // Get authorization code or token from query parameters
     $code = $request->query('code');
     $accessToken = $request->query('access_token');
     $error = $request->query('error');
     $errorDescription = $request->query('error_description');
     $state = $request->query('state'); // May contain scheme info
+    $providerFromQuery = $request->query('provider'); // May be passed from OAuth provider
+
+    // Try to determine provider from state or query
+    // State format could be: "provider:random" or just random
+    $provider = 'google'; // Default
+    if ($providerFromQuery) {
+      $provider = $providerFromQuery;
+    } elseif ($state) {
+      // Check if state contains provider info (format: "provider:random" or encoded JSON)
+      if (strpos($state, 'facebook') !== false) {
+        $provider = 'facebook';
+      } elseif (strpos($state, 'google') !== false) {
+        $provider = 'google';
+      }
+      // If state doesn't contain provider, try to detect from referrer or other clues
+      // Facebook typically has different patterns than Google
+    }
+
+    // Additional detection: Check referrer if available
+    $referrer = $request->header('referer') ?? $request->header('referrer');
+    if (!$providerFromQuery && $referrer) {
+      if (strpos($referrer, 'facebook.com') !== false) {
+        $provider = 'facebook';
+      } elseif (strpos($referrer, 'google.com') !== false || strpos($referrer, 'accounts.google.com') !== false) {
+        $provider = 'google';
+      }
+    }
 
     // Build query parameters
     $params = [];
