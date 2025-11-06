@@ -323,6 +323,9 @@ class AuthController extends Controller
         // Email is already trimmed above, so just check if it's not empty
         $hasEmail = !empty($email);
 
+        \Log::info('OAuth verified data', $verified);
+        \Log::info('Parsed email', ['email' => $email]);
+
         $user = AuthAccount::create([
           'username' => $username,
           'password' => Hash::make(Str::random(32)),
