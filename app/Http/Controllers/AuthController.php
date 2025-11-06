@@ -349,37 +349,41 @@ class AuthController extends Controller
         ]);
       } else {
         // Ensure provider info is stored/updated
-        $dirty = false;
+        // Use a clear flag to track if we need to save
+        $shouldSave = false;
+
         if (!$user->provider) {
           $user->provider = $provider;
-          $dirty = true;
+          $shouldSave = true;
         }
         if (!$user->provider_id && $providerId) {
           $user->provider_id = $providerId;
-          $dirty = true;
+          $shouldSave = true;
         }
-        if ($accessToken) {
+        if ($accessToken && $accessToken !== $user->provider_token) {
           $user->provider_token = $accessToken;
-          $dirty = true;
+          $shouldSave = true;
         }
 
         // Update email if provider returns one and it's different
         $hasEmailFromProvider = !empty(trim($email));
         if ($hasEmailFromProvider && $email !== $user->email) {
           $user->email = $email;
-          $dirty = true;
+          $shouldSave = true;
         }
 
         // Set email_verified_at if user has email (from provider or already in DB)
         // and is logging in via OAuth provider (which proves email ownership)
         // and not already verified
-        $userEmail = !empty(trim($user->email ?? '')) ? $user->email : ($hasEmailFromProvider ? $email : null);
-        if ($userEmail && !$user->email_verified_at) {
+        // This is the critical fix: check if user has email in DB, regardless of provider response
+        $userHasEmail = !empty(trim($user->email ?? ''));
+        if ($userHasEmail && !$user->email_verified_at) {
           $user->email_verified_at = now();
-          $dirty = true;
+          $shouldSave = true;
         }
 
-        if ($dirty) {
+        // Always save if there are any changes
+        if ($shouldSave) {
           $user->save();
         }
 
