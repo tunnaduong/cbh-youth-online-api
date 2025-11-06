@@ -216,6 +216,66 @@ class AuthController extends Controller
   }
 
   /**
+   * Exchange OAuth authorization code for tokens (Google OAuth with PKCE)
+   */
+  public function exchangeOAuthCode(Request $request)
+  {
+    $request->validate([
+      'code' => 'required|string',
+      'code_verifier' => 'required|string',
+      'provider' => 'required|string|in:google',
+    ]);
+
+    $code = $request->input('code');
+    $codeVerifier = $request->input('code_verifier');
+    $provider = $request->input('provider');
+
+    try {
+      if ($provider === 'google') {
+        $clientId = config('services.google.client_id');
+        $clientSecret = config('services.google.client_secret');
+        $redirectUri = 'https://api.chuyenbienhoa.com/v1.0/oauth/callback';
+
+        // Exchange authorization code for tokens
+        $tokenResponse = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+          'grant_type' => 'authorization_code',
+          'code' => $code,
+          'redirect_uri' => $redirectUri,
+          'client_id' => $clientId,
+          'client_secret' => $clientSecret,
+          'code_verifier' => $codeVerifier,
+        ]);
+
+        if (!$tokenResponse->successful()) {
+          $error = $tokenResponse->json();
+          return response()->json([
+            'message' => 'Token exchange failed',
+            'error' => $error,
+          ], $tokenResponse->status());
+        }
+
+        $tokenData = $tokenResponse->json();
+
+        return response()->json([
+          'access_token' => $tokenData['access_token'] ?? null,
+          'id_token' => $tokenData['id_token'] ?? null,
+          'token_type' => $tokenData['token_type'] ?? 'Bearer',
+          'expires_in' => $tokenData['expires_in'] ?? null,
+        ]);
+      }
+
+      return response()->json([
+        'message' => 'Unsupported provider',
+      ], 400);
+    } catch (\Exception $e) {
+      return response()->json([
+        'message' => 'Token exchange failed',
+        'error' => $e->getMessage(),
+      ], 500);
+    }
+  }
+
+  /**
    * Login with OAuth provider (facebook, google)
    */
   public function loginWithProvider(Request $request)
@@ -604,13 +664,13 @@ class AuthController extends Controller
         var schemes = ' . json_encode($schemes) . ';
         var queryString = "' . $queryString . '";
         var primaryScheme = "' . $scheme . '";
-        
+
         document.getElementById("redirectButton").addEventListener("click", function(e) {
             // Try primary scheme first
             // Use single colon (:) instead of :// to avoid Android browser stripping trailing slashes
             var primaryLink = primaryScheme + ":oauth" + (queryString ? "?" + queryString : "");
             window.location.href = primaryLink;
-            
+
             // Fallback to other schemes after a delay
             setTimeout(function() {
                 for (var i = 0; i < schemes.length; i++) {
