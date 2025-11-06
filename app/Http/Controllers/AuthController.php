@@ -488,38 +488,115 @@ class AuthController extends Controller
     // Build deep link URL
     $deepLink = "{$scheme}://oauth" . ($queryString ? "?{$queryString}" : "");
 
-    // Return HTML page that tries multiple schemes for better compatibility
-    // This helps with local development where scheme might vary
+    // Return HTML page with green button to redirect to app
     $html = '<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Redirecting...</title>
-    <meta http-equiv="refresh" content="0;url=' . htmlspecialchars($deepLink) . '">
-    <script>
-        // Try to open app with multiple schemes
-        var schemes = ' . json_encode($schemes) . ';
-        var params = ' . json_encode($params) . ';
-        var queryString = "' . $queryString . '";
-
-        // Try primary scheme first
-        window.location.href = "' . $scheme . '://oauth" + (queryString ? "?" + queryString : "");
-
-        // Fallback: try other schemes after a short delay
-        setTimeout(function() {
-            for (var i = 0; i < schemes.length; i++) {
-                if (schemes[i] !== "' . $scheme . '") {
-                    var link = schemes[i] + "://oauth" + (queryString ? "?" + queryString : "");
-                    window.location.href = link;
-                    break;
-                }
-            }
-        }, 100);
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chuyển hướng về ứng dụng</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: #f0f0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        p {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 32px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #319527;
+            color: white;
+            text-decoration: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(49, 149, 39, 0.3);
+        }
+        .button:hover {
+            background-color: #2a7e1f;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(49, 149, 39, 0.4);
+        }
+        .button:active {
+            transform: translateY(0);
+        }
+    </style>
 </head>
 <body>
-    <p>Đang chuyển hướng về ứng dụng...</p>
-    <p>Nếu không tự động chuyển, <a href="' . htmlspecialchars($deepLink) . '">click vào đây</a></p>
+    <div class="container">
+        <div class="icon">✓</div>
+        <h1>Đăng nhập thành công!</h1>
+        <p>Nhấn nút bên dưới để quay lại ứng dụng và hoàn tất đăng nhập.</p>
+        <a href="' . htmlspecialchars($deepLink) . '" class="button" id="redirectButton">Quay lại ứng dụng</a>
+    </div>
+    <script>
+        // Fallback: try other schemes if primary fails
+        var schemes = ' . json_encode($schemes) . ';
+        var queryString = "' . $queryString . '";
+        var primaryScheme = "' . $scheme . '";
+
+        document.getElementById("redirectButton").addEventListener("click", function(e) {
+            // Try primary scheme first
+            var primaryLink = primaryScheme + "://oauth" + (queryString ? "?" + queryString : "");
+            window.location.href = primaryLink;
+
+            // Fallback to other schemes after a delay
+            setTimeout(function() {
+                for (var i = 0; i < schemes.length; i++) {
+                    if (schemes[i] !== primaryScheme) {
+                        var fallbackLink = schemes[i] + "://oauth" + (queryString ? "?" + queryString : "");
+                        window.location.href = fallbackLink;
+                        break;
+                    }
+                }
+            }, 500);
+        });
+    </script>
 </body>
 </html>';
 
