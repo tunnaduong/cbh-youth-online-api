@@ -6,6 +6,7 @@ use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Throwable;
 use Inertia\Inertia;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -70,6 +71,13 @@ class Handler extends ExceptionHandler
       // Check if the exception is an AuthenticationException
       if ($exception instanceof AuthenticationException) {
         return response()->json(['message' => 'Unauthenticated.'], 401);
+      }
+
+      // Check if the exception is a ModelNotFoundException (404 for missing models)
+      if ($exception instanceof ModelNotFoundException) {
+        return response()->json([
+          'message' => $exception->getMessage() ?: 'Resource not found.',
+        ], 404);
       }
 
       // For other types of exceptions, return a generic error message

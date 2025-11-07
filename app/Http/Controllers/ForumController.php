@@ -801,12 +801,26 @@ class ForumController extends Controller
   /**
    * Get all posts for a specific subforum.
    *
-   * @param  \App\Models\ForumSubforum  $subforum
+   * @param  int|string  $subforum  Subforum ID or slug
    * @return \Illuminate\Http\JsonResponse
    */
-  public function getSubforumPosts(ForumSubforum $subforum)
+  public function getSubforumPosts($subforum)
   {
-    $query = $subforum->topics()
+    // Try to find by ID first (for numeric values), then by slug
+    if (is_numeric($subforum)) {
+      $subforumModel = ForumSubforum::find($subforum);
+    } else {
+      $subforumModel = ForumSubforum::where('slug', $subforum)->first();
+    }
+
+    // If subforum not found, return 404
+    if (!$subforumModel) {
+      return response()->json([
+        'message' => 'Subforum not found.',
+      ], 404);
+    }
+
+    $query = $subforumModel->topics()
       ->with(['user.profile', 'comments'])
       ->withCount(['comments as reply_count', 'views'])
       ->leftJoin('cyo_topic_comments', function ($join) {
@@ -840,10 +854,10 @@ class ForumController extends Controller
 
     return response()->json([
       'subforum' => [
-        'id' => $subforum->id,
-        'name' => $subforum->name,
-        'description' => $subforum->description,
-        'background' => "https://chuyenbienhoa.com/assets/images/" . $subforum->background_image
+        'id' => $subforumModel->id,
+        'name' => $subforumModel->name,
+        'description' => $subforumModel->description,
+        'background' => "https://www.chuyenbienhoa.com/images/" . $subforumModel->background_image
       ],
       'topics' => $topics->map(function ($topic) {
         return [
