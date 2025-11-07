@@ -64,7 +64,52 @@ class ChatController extends Controller
         ];
       });
 
-    return response()->json($conversations);
+    // Always include the public chat "Tán gẫu linh tinh" for all users
+    $publicChat = Conversation::where('name', 'Tán gẫu linh tinh')
+      ->where('type', 'group')
+      ->with(['participants.profile', 'latestMessage.user.profile'])
+      ->first();
+
+    if ($publicChat) {
+      // Check if public chat is already in the conversations list
+      $publicChatExists = $conversations->contains(function ($conv) use ($publicChat) {
+        return $conv['id'] === $publicChat->id;
+      });
+
+      if (!$publicChatExists) {
+        // Get all participants (for public chat, we don't exclude the current user)
+        $allParticipants = $publicChat->participants->map(function ($participant) {
+          return [
+            'id' => $participant->id,
+            'username' => $participant->username,
+            'profile_name' => $participant->profile->profile_name ?? $participant->username,
+            'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
+          ];
+        });
+
+        // Add public chat to conversations
+        $publicChatData = [
+          'id' => $publicChat->id,
+          'type' => $publicChat->type,
+          'name' => $publicChat->name,
+          'participants' => $allParticipants,
+          'latest_message' => $publicChat->latestMessage ? [
+            'content' => $publicChat->latestMessage->content,
+            'type' => $publicChat->latestMessage->type,
+            'sender' => $publicChat->latestMessage->user ? $publicChat->latestMessage->user->username : ($publicChat->latestMessage->guest_name ?? 'Ẩn danh'),
+            'is_myself' => $publicChat->latestMessage->user_id === $user->id,
+            'created_at' => $publicChat->latestMessage->created_at ? $publicChat->latestMessage->created_at->toISOString() : null,
+            'created_at_human' => $publicChat->latestMessage->created_at ? $publicChat->latestMessage->created_at->diffForHumans() : null,
+          ] : null,
+          'unread_count' => $publicChat->unreadMessagesCount($user->id)
+        ];
+
+        // Prepend public chat to the beginning of the list
+        $conversations = $conversations->prepend($publicChatData);
+      }
+    }
+
+    return response()->json($conversations->values());
   }
 
   /**
