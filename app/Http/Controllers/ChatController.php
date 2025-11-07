@@ -279,8 +279,18 @@ class ChatController extends Controller
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
 
-    if (!$conversation->hasParticipant($user->id)) {
+    // Allow access to public chat "Tán gẫu linh tinh" even if user is not a participant
+    $isPublicChat = $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+
+    if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    // Auto-add user to public chat participants if they're not already a participant
+    if ($isPublicChat && !$conversation->hasParticipant($user->id)) {
+      $conversation->participants()->attach($user->id, [
+        'last_read_at' => now(),
+      ]);
     }
 
     $messageData = [
