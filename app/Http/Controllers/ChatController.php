@@ -123,7 +123,10 @@ class ChatController extends Controller
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
 
-    if (!$conversation->hasParticipant($user->id)) {
+    // Allow access to public chat "Tán gẫu linh tinh" even if user is not a participant
+    $isPublicChat = $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+
+    if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
@@ -143,21 +146,52 @@ class ChatController extends Controller
       ->take($limit)
       ->get()
       ->map(function ($message) use ($user) {
+        $isGuest = $message->guest_name !== null || $message->user_id === null;
+        $isMyself = !$isGuest && $message->user_id !== null && $message->user_id === $user->id;
+
+        // Determine sender information
+        $senderData = [
+          'id' => null,
+          'username' => 'Ẩn danh',
+          'profile_name' => 'Ẩn danh',
+          'avatar_url' => null,
+        ];
+
+        if ($isGuest) {
+          $senderData['username'] = $message->guest_name ?? 'Ẩn danh';
+          $senderData['profile_name'] = $message->guest_name ?? 'Ẩn danh';
+        } elseif ($message->user) {
+          try {
+            $senderData['id'] = $message->user->id;
+            $senderData['username'] = $message->user->username ?? 'Ẩn danh';
+
+            // Safely access profile - use null coalescing to avoid errors
+            $profile = $message->user->profile ?? null;
+            $senderData['profile_name'] = ($profile && isset($profile->profile_name))
+              ? $profile->profile_name
+              : ($message->user->username ?? 'Ẩn danh');
+
+            if ($message->user->username) {
+              $senderData['avatar_url'] = config('app.url') . "/v1.0/users/{$message->user->username}/avatar";
+            }
+          } catch (\Exception $e) {
+            // Fallback if any error occurs accessing user properties
+            $senderData['username'] = 'Ẩn danh';
+            $senderData['profile_name'] = 'Ẩn danh';
+          }
+        }
+
         return [
           'id' => $message->id,
           'content' => $message->content,
           'type' => $message->type,
           'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
           'is_edited' => $message->is_edited,
-          'is_myself' => $message->user_id === $user->id,
-          'sender' => [
-            'id' => $message->user->id,
-            'username' => $message->user->username,
-            'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
-            'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
-          ],
+          'is_myself' => $isMyself,
+          'is_guest' => $isGuest,
+          'sender' => $senderData,
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
-          'created_at_human' => $message->created_at->diffForHumans(),
+          'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
         ];
       });
@@ -272,6 +306,34 @@ class ChatController extends Controller
     $message->load('user.profile');
 
     // Prepare message data for broadcasting
+    $senderData = [
+      'id' => null,
+      'username' => 'Ẩn danh',
+      'profile_name' => 'Ẩn danh',
+      'avatar_url' => null,
+    ];
+
+    if ($message->user) {
+      try {
+        $senderData['id'] = $message->user->id;
+        $senderData['username'] = $message->user->username ?? 'Ẩn danh';
+
+        // Safely access profile - use null coalescing to avoid errors
+        $profile = $message->user->profile ?? null;
+        $senderData['profile_name'] = ($profile && isset($profile->profile_name))
+          ? $profile->profile_name
+          : ($message->user->username ?? 'Ẩn danh');
+
+        if ($message->user->username) {
+          $senderData['avatar_url'] = config('app.url') . "/v1.0/users/{$message->user->username}/avatar";
+        }
+      } catch (\Exception $e) {
+        // Fallback if any error occurs accessing user properties
+        $senderData['username'] = 'Ẩn danh';
+        $senderData['profile_name'] = 'Ẩn danh';
+      }
+    }
+
     $messageData = [
       'id' => $message->id,
       'content' => $message->content,
@@ -279,14 +341,9 @@ class ChatController extends Controller
       'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
       'is_edited' => $message->is_edited,
       'is_myself' => $message->user_id === $user->id,
-      'sender' => [
-        'id' => $message->user->id,
-        'username' => $message->user->username,
-        'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
-        'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
-      ],
+      'sender' => $senderData,
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
-      'created_at_human' => $message->created_at->diffForHumans(),
+      'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
       'read_at' => $message->read_at?->toISOString(),
     ];
 
