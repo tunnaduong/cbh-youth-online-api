@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -70,6 +71,17 @@ class SocialAuthController extends Controller
           'auth_account_id' => $user->id,
           'profile_name' => $socialUser->getName(),
         ]);
+
+        // Create welcome notification for new social user
+        try {
+          NotificationService::createWelcomeNotification($user->id);
+        } catch (\Exception $e) {
+          // Log error but don't fail registration
+          \Log::warning('Failed to create welcome notification for social user', [
+            'user_id' => $user->id,
+            'error' => $e->getMessage(),
+          ]);
+        }
       }
     } else {
       // Update the token for existing social user

@@ -7,6 +7,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules;
 use App\Http\Controllers\Controller;
@@ -105,6 +106,17 @@ class RegisteredUserController extends Controller
       'profile_username' => $account->username,
       'profile_name' => $request->profile_name,
     ]);
+
+    // Create welcome notification for new user
+    try {
+      NotificationService::createWelcomeNotification($account->id);
+    } catch (\Exception $e) {
+      // Log error but don't fail registration
+      \Log::warning('Failed to create welcome notification', [
+        'user_id' => $account->id,
+        'error' => $e->getMessage(),
+      ]);
+    }
 
     event(new Registered($account));
 

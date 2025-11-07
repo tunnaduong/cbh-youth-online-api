@@ -6,6 +6,7 @@ use App\Notifications\VerifyEmail;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
 use App\Models\UserContent;
+use App\Services\NotificationService;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -173,6 +174,17 @@ class AuthController extends Controller
 
     // Send the verification email
     $account->notify(new VerifyEmail);
+
+    // Create welcome notification for new user
+    try {
+      NotificationService::createWelcomeNotification($account->id);
+    } catch (\Exception $e) {
+      // Log error but don't fail registration
+      \Log::warning('Failed to create welcome notification', [
+        'user_id' => $account->id,
+        'error' => $e->getMessage(),
+      ]);
+    }
 
     // Retrieve the user by username or email
     $user = AuthAccount::where('username', $request->username)
@@ -450,6 +462,17 @@ class AuthController extends Controller
           'profile_name' => $name ?: $user->username,
           'profile_picture' => $avatarContentId,
         ]);
+
+        // Create welcome notification for new OAuth user
+        try {
+          NotificationService::createWelcomeNotification($user->id);
+        } catch (\Exception $e) {
+          // Log error but don't fail login
+          \Log::warning('Failed to create welcome notification for OAuth user', [
+            'user_id' => $user->id,
+            'error' => $e->getMessage(),
+          ]);
+        }
       } else {
         // Ensure provider info is stored/updated
         // Use a clear flag to track if we need to save
