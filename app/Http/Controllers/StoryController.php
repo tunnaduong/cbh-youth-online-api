@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Story;
 use App\Models\StoryViewer;
 use App\Models\StoryReaction;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Services\NotificationService;
+use App\Events\MessageSent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -308,6 +312,12 @@ class StoryController extends Controller
       ]
     );
 
+    // Create notification for story reaction
+    // Only notify if user is reacting to someone else's story
+    if ($story->user_id !== Auth::id()) {
+      NotificationService::createStoryReactionNotification($story, Auth::id(), $request->reaction_type);
+    }
+
     if ($request->expectsJson()) {
       return response()->json([
         'status' => 'success',
@@ -341,6 +351,136 @@ class StoryController extends Controller
         'status' => 'success',
         'message' => 'Reaction removed successfully'
       ]);
+    }
+
+    return back();
+  }
+
+  /**
+   * Reply to a story by sending a message to the story owner.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  \App\Models\Story  $story
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+   */
+  public function reply(Request $request, Story $story)
+  {
+    $validator = Validator::make($request->all(), [
+      'content' => 'required|string|max:5000',
+    ]);
+
+    if ($validator->fails()) {
+      if ($request->expectsJson()) {
+        return response()->json([
+          'status' => 'error',
+          'message' => $validator->errors()
+        ], 422);
+      }
+      return back()->withErrors($validator);
+    }
+
+    if ($story->hasExpired()) {
+      if ($request->expectsJson()) {
+        return response()->json([
+          'status' => 'error',
+          'message' => 'Story has expired'
+        ], 404);
+      }
+      return back()->with('error', 'Story has expired');
+    }
+
+    $user = Auth::user();
+    $storyOwnerId = $story->user_id;
+
+    // Don't allow replying to your own story
+    if ($user->id === $storyOwnerId) {
+      if ($request->expectsJson()) {
+        return response()->json([
+          'status' => 'error',
+          'message' => 'Cannot reply to your own story'
+        ], 400);
+      }
+      return back()->with('error', 'Cannot reply to your own story');
+    }
+
+    // Find or create conversation between current user and story owner
+    $conversation = Conversation::whereHas('participants', function ($query) use ($user) {
+      $query->where('user_id', $user->id);
+    })->whereHas('participants', function ($query) use ($storyOwnerId) {
+      $query->where('user_id', $storyOwnerId);
+    })->where('type', 'private')->first();
+
+    if (!$conversation) {
+      // Create new conversation
+      $conversation = Conversation::create(['type' => 'private']);
+      $conversation->participants()->attach([$user->id, $storyOwnerId]);
+    }
+
+    // Create message with story reference in content
+    // Format: "Replying to your story: [message content]"
+    $messageContent = $request->content;
+    
+    // Create the message
+    $message = Message::create([
+      'conversation_id' => $conversation->id,
+      'user_id' => $user->id,
+      'content' => $messageContent,
+      'type' => 'text',
+    ]);
+
+    // Update conversation's updated_at timestamp
+    $conversation->touch();
+
+    // Load relationships for the response
+    $message->load('user.profile');
+
+    // Prepare message data for broadcasting (similar to ChatController)
+    $senderData = [
+      'id' => $message->user->id,
+      'username' => $message->user->username ?? 'Ẩn danh',
+      'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
+      'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+    ];
+
+    $messageData = [
+      'id' => $message->id,
+      'content' => $message->content,
+      'type' => $message->type,
+      'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+      'is_edited' => $message->is_edited,
+      'is_myself' => false, // For the recipient, this is not their own message
+      'sender' => $senderData,
+      'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
+      'created_at_human' => $message->created_at->diffForHumans(),
+      'read_at' => $message->read_at?->toISOString(),
+    ];
+
+    // Broadcast the message to other participants
+    broadcast(new MessageSent($conversation->id, $messageData))->toOthers();
+
+    // Create notification for story reply (after message is created and broadcasted)
+    NotificationService::createStoryReplyNotification($story, $message, Auth::id());
+
+    if ($request->expectsJson()) {
+      return response()->json([
+        'status' => 'success',
+        'data' => [
+          'message' => [
+            'id' => $message->id,
+            'content' => $message->content,
+            'type' => $message->type,
+            'conversation_id' => $conversation->id,
+            'sender' => [
+              'id' => $message->user->id,
+              'username' => $message->user->username,
+              'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
+              'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+            ],
+            'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
+          ],
+          'conversation_id' => $conversation->id,
+        ]
+      ], 201);
     }
 
     return back();

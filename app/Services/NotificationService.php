@@ -6,6 +6,8 @@ use App\Models\Notification;
 use App\Models\NotificationSettings;
 use App\Models\Topic;
 use App\Models\TopicComment;
+use App\Models\Story;
+use App\Models\Message;
 use App\Services\PushNotificationService;
 
 /**
@@ -443,5 +445,86 @@ class NotificationService
   {
     preg_match_all('/@(\w+)/', $text, $matches);
     return array_unique($matches[1] ?? []);
+  }
+
+  /**
+   * Create a notification for a story being reacted to.
+   *
+   * @param Story $story
+   * @param int $actorId User who reacted to the story
+   * @param string $reactionType Type of reaction (like, love, haha, wow, sad, angry)
+   * @return Notification|null
+   */
+  public static function createStoryReactionNotification(Story $story, int $actorId, string $reactionType): ?Notification
+  {
+    // Don't notify if user reacts to their own story
+    if ($story->user_id === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($story->user_id, 'story_reacted')) {
+      return null;
+    }
+
+    // Map reaction types to emoji for display
+    $reactionEmojis = [
+      'like' => '👍',
+      'love' => '❤️',
+      'haha' => '😆',
+      'wow' => '😮',
+      'sad' => '😢',
+      'angry' => '😡',
+    ];
+
+    return self::createAndPushNotification([
+      'user_id' => $story->user_id,
+      'actor_id' => $actorId,
+      'type' => 'story_reacted',
+      'notifiable_type' => Story::class,
+      'notifiable_id' => $story->id,
+      'data' => [
+        'story_id' => $story->id,
+        'reaction_type' => $reactionType,
+        'reaction_emoji' => $reactionEmojis[$reactionType] ?? '👍',
+        'url' => '/', // Will navigate to story in mobile app
+      ],
+    ]);
+  }
+
+  /**
+   * Create a notification for a story being replied to.
+   *
+   * @param Story $story
+   * @param Message $message The reply message
+   * @param int $actorId User who replied to the story
+   * @return Notification|null
+   */
+  public static function createStoryReplyNotification(Story $story, Message $message, int $actorId): ?Notification
+  {
+    // Don't notify if user replies to their own story
+    if ($story->user_id === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($story->user_id, 'story_replied')) {
+      return null;
+    }
+
+    $messageExcerpt = mb_substr($message->content, 0, 100);
+
+    return self::createAndPushNotification([
+      'user_id' => $story->user_id,
+      'actor_id' => $actorId,
+      'type' => 'story_replied',
+      'notifiable_type' => Message::class,
+      'notifiable_id' => $message->id,
+      'data' => [
+        'story_id' => $story->id,
+        'message_id' => $message->id,
+        'conversation_id' => $message->conversation_id,
+        'message_excerpt' => $messageExcerpt,
+        'url' => '/chat?conversation=' . $message->conversation_id, // Will navigate to conversation in mobile app
+      ],
+    ]);
   }
 }
