@@ -49,6 +49,7 @@ class Message extends Model
         'file_url',
         'is_edited',
         'read_at',
+        'metadata',
     ];
 
     /**
@@ -62,6 +63,7 @@ class Message extends Model
         'updated_at' => 'datetime',
         'read_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     /**

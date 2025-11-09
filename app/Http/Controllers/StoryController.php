@@ -403,6 +403,11 @@ class StoryController extends Controller
       return back()->with('error', 'Cannot reply to your own story');
     }
 
+    // Load story owner information
+    $story->load('user.profile');
+    $storyOwner = $story->user;
+    $storyOwnerName = $storyOwner->profile->profile_name ?? $storyOwner->username;
+
     // Find or create conversation between current user and story owner
     $conversation = Conversation::whereHas('participants', function ($query) use ($user) {
       $query->where('user_id', $user->id);
@@ -417,15 +422,21 @@ class StoryController extends Controller
     }
 
     // Create message with story reference in content
-    // Format: "Replying to your story: [message content]"
     $messageContent = $request->content;
-    
-    // Create the message
+
+    // Create the message with metadata for story reply
     $message = Message::create([
       'conversation_id' => $conversation->id,
       'user_id' => $user->id,
       'content' => $messageContent,
       'type' => 'text',
+      'metadata' => [
+        'story_reply' => true,
+        'story_id' => $story->id,
+        'story_owner_id' => $storyOwnerId,
+        'story_owner_name' => $storyOwnerName,
+        'story_owner_username' => $storyOwner->username,
+      ],
     ]);
 
     // Update conversation's updated_at timestamp
@@ -453,6 +464,7 @@ class StoryController extends Controller
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at->diffForHumans(),
       'read_at' => $message->read_at?->toISOString(),
+      'metadata' => $message->metadata, // Include metadata for story reply
     ];
 
     // Broadcast the message to other participants
@@ -470,6 +482,7 @@ class StoryController extends Controller
             'content' => $message->content,
             'type' => $message->type,
             'conversation_id' => $conversation->id,
+            'metadata' => $message->metadata,
             'sender' => [
               'id' => $message->user->id,
               'username' => $message->user->username,

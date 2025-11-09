@@ -193,6 +193,7 @@ class ChatController extends Controller
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
+          'metadata' => $message->metadata, // Include metadata for story reply and other features
         ];
       });
 
@@ -355,6 +356,7 @@ class ChatController extends Controller
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
       'read_at' => $message->read_at?->toISOString(),
+      'metadata' => $message->metadata, // Include metadata for story reply and other features
     ];
 
     // Broadcast the message to other participants
