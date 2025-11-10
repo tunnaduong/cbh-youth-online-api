@@ -604,9 +604,17 @@ class AuthController extends Controller
     } elseif ($code) {
       $params['code'] = $code;
       $params['provider'] = $provider;
+      // Preserve state parameter for OAuth state verification
+      if ($state) {
+        $params['state'] = $state;
+      }
     } elseif ($accessToken) {
       $params['access_token'] = $accessToken;
       $params['provider'] = $provider;
+      // Preserve state parameter for OAuth state verification
+      if ($state) {
+        $params['state'] = $state;
+      }
     } else {
       $params['error'] = 'invalid_request';
     }
