@@ -431,6 +431,7 @@ class TopicsController extends Controller
       'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
       'image_files' => 'nullable|array',
       'image_files.*' => 'file|image|max:10240', // 10MB max for each image
+      'cdn_image_id' => 'nullable|string', // For mobile app: comma-separated IDs of already uploaded images
       'document_files' => 'nullable|array',
       'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600', // 25MB max for each document
       'visibility' => 'nullable|integer|in:0,1', // 0: public, 1: private (for hidden field)
@@ -439,8 +440,9 @@ class TopicsController extends Controller
     ]);
 
     $cdnImageIds = [];
+    $cdnImageId = null;
 
-    // Handle multiple image uploads if present
+    // Handle multiple image uploads if present (for web app)
     if ($request->hasFile('image_files')) {
       $files = $request->file('image_files');
 
@@ -459,10 +461,31 @@ class TopicsController extends Controller
 
         $cdnImageIds[] = $userContent->id;
       }
+      
+      // Convert array of IDs to comma-separated string for database storage
+      $cdnImageId = !empty($cdnImageIds) ? implode(',', $cdnImageIds) : null;
     }
-
-    // Convert array of IDs to comma-separated string for database storage
-    $cdnImageId = !empty($cdnImageIds) ? implode(',', $cdnImageIds) : null;
+    // Handle cdn_image_id from mobile app (already uploaded images)
+    // Only use if no image_files were uploaded
+    elseif ($request->has('cdn_image_id') && !empty($request->cdn_image_id)) {
+      // Mobile app sends comma-separated string of UserContent IDs
+      $cdnImageId = $request->cdn_image_id;
+      
+      // Validate that all IDs exist and belong to the authenticated user
+      $imageIds = array_filter(explode(',', $cdnImageId));
+      if (!empty($imageIds)) {
+        $validIds = UserContent::where('user_id', auth()->id())
+          ->whereIn('id', $imageIds)
+          ->pluck('id')
+          ->toArray();
+        
+        if (count($validIds) !== count($imageIds)) {
+          return response()->json([
+            'message' => 'Một số ảnh không hợp lệ hoặc không thuộc về bạn'
+          ], 400);
+        }
+      }
+    }
 
     $cdnDocumentIds = [];
 
