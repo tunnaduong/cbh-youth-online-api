@@ -1052,8 +1052,8 @@ class ForumController extends Controller
               'username' => $subforum->latest_public_topic->anonymous ? null : $subforum->latest_public_topic->user->username,
               'author_name' => $subforum->latest_public_topic->anonymous
                 ? 'Người dùng ẩn danh'
-                : ($subforum->latest_public_topic->user->profile->profile_name ?? $subforum->latest_public_topic->user->username),
-              'verified' => $subforum->latest_public_topic->anonymous ? false : (bool) $subforum->latest_public_topic->user->profile->verified,
+                : ($subforum->latest_public_topic->user->profile?->profile_name ?? $subforum->latest_public_topic->user->username),
+              'verified' => $subforum->latest_public_topic->anonymous ? false : (bool) ($subforum->latest_public_topic->user->profile?->verified ?? false),
               'created_at' => $subforum->latest_public_topic->created_at
             ] : null
           ];
