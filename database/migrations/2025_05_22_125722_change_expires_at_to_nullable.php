@@ -1,8 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class () extends Migration {
     /**
@@ -10,9 +9,7 @@ return new class () extends Migration {
      */
     public function up(): void
     {
-        Schema::table('cyo_stories', function (Blueprint $table) {
-            $table->timestamp('expires_at')->nullable()->change();
-        });
+        DB::statement('ALTER TABLE cyo_stories MODIFY expires_at TIMESTAMP NULL');
     }
 
     /**
@@ -20,8 +17,6 @@ return new class () extends Migration {
      */
     public function down(): void
     {
-        Schema::table('cyo_stories', function (Blueprint $table) {
-            $table->timestamp('expires_at')->nullable(false)->change();
-        });
+        DB::statement('ALTER TABLE cyo_stories MODIFY expires_at TIMESTAMP NOT NULL');
     }
 };
