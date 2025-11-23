@@ -241,6 +241,7 @@ Route::prefix('v1.0')->group(function () {
 
     // Stories
     Route::post('stories', [StoryController::class, 'store']);
+    Route::get('stories/archive', [StoryController::class, 'getArchive']); // Must be before stories/{story}
     Route::get('stories/{story}', [StoryController::class, 'show']);
     Route::delete('stories/{story}', [StoryController::class, 'destroy']);
     Route::post('stories/{story}/view', [StoryController::class, 'markAsViewed']);
@@ -248,7 +249,6 @@ Route::prefix('v1.0')->group(function () {
     Route::delete('stories/{story}/react', [StoryController::class, 'removeReaction']);
     Route::post('stories/{story}/reply', [StoryController::class, 'reply']);
     Route::get('stories/{story}/viewers', [StoryController::class, 'getViewers']);
-    Route::get('stories/archive', [StoryController::class, 'getArchive']);
 
     // Chat
     Route::prefix('chat')->group(function () {
