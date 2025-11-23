@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use App\Models\NotificationSubscription;
+use App\Models\ExpoPushToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -349,6 +350,159 @@ class NotificationController extends Controller
 
     return response()->json([
       'subscriptions' => $subscriptions,
+    ]);
+  }
+
+  /**
+   * Register an Expo push token.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function registerExpoPushToken(Request $request)
+  {
+    Log::info('Expo push token registration request received', [
+      'request_data' => $request->all(),
+    ]);
+
+    $request->validate([
+      'expo_push_token' => 'required|string',
+      'device_type' => 'nullable|string|in:ios,android',
+      'device_id' => 'nullable|string|max:255',
+    ]);
+
+    $user = Auth::user();
+
+    if (!$user) {
+      Log::warning('Expo push token registration request without authenticated user');
+      return response()->json([
+        'message' => 'Unauthorized',
+      ], 401);
+    }
+
+    Log::info('Saving Expo push token', [
+      'user_id' => $user->id,
+      'expo_push_token' => $request->expo_push_token,
+    ]);
+
+    try {
+      // Use updateOrCreate to handle duplicate tokens
+      $token = ExpoPushToken::updateOrCreate(
+        [
+          'user_id' => $user->id,
+          'expo_push_token' => $request->expo_push_token,
+        ],
+        [
+          'device_type' => $request->device_type,
+          'device_id' => $request->device_id,
+          'is_active' => true,
+          'last_used_at' => now(),
+        ]
+      );
+
+      Log::info('Expo push token saved', [
+        'token_id' => $token->id,
+        'user_id' => $user->id,
+        'expo_push_token' => $token->expo_push_token,
+      ]);
+
+      return response()->json([
+        'message' => 'Expo push token registered successfully',
+        'token' => [
+          'id' => $token->id,
+          'expo_push_token' => $token->expo_push_token,
+          'device_type' => $token->device_type,
+          'is_active' => $token->is_active,
+        ],
+      ]);
+    } catch (\Exception $e) {
+      Log::error('Error saving Expo push token', [
+        'user_id' => $user->id,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+      ]);
+
+      return response()->json([
+        'message' => 'Failed to register Expo push token',
+        'error' => $e->getMessage(),
+      ], 500);
+    }
+  }
+
+  /**
+   * Unregister an Expo push token.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function unregisterExpoPushToken(Request $request)
+  {
+    $user = Auth::user();
+
+    if (!$user) {
+      Log::warning('Expo push token unregistration attempt without authentication');
+      return response()->json([
+        'message' => 'Unregistered successfully',
+      ], 200); // Return success even if not authenticated
+    }
+
+    $expoPushToken = $request->input('expo_push_token');
+
+    if ($expoPushToken) {
+      // Unregister specific token
+      $token = ExpoPushToken::where('user_id', $user->id)
+        ->where('expo_push_token', $expoPushToken)
+        ->first();
+
+      if ($token) {
+        $token->deactivate();
+        Log::info('Expo push token deactivated', [
+          'token_id' => $token->id,
+          'user_id' => $user->id,
+          'expo_push_token' => $expoPushToken,
+        ]);
+      }
+    } else {
+      // Deactivate all tokens for user
+      $deactivatedCount = ExpoPushToken::where('user_id', $user->id)
+        ->where('is_active', true)
+        ->update(['is_active' => false]);
+      Log::info('All Expo push tokens deactivated for user', [
+        'user_id' => $user->id,
+        'deactivated_count' => $deactivatedCount,
+      ]);
+    }
+
+    return response()->json([
+      'message' => 'Expo push token unregistered successfully',
+    ]);
+  }
+
+  /**
+   * Get all Expo push tokens for the authenticated user.
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getExpoPushTokens()
+  {
+    $user = Auth::user();
+
+    $tokens = ExpoPushToken::where('user_id', $user->id)
+      ->get()
+      ->map(function ($token) {
+        return [
+          'id' => $token->id,
+          'expo_push_token' => $token->expo_push_token,
+          'device_type' => $token->device_type,
+          'device_id' => $token->device_id,
+          'is_active' => $token->is_active,
+          'last_used_at' => $token->last_used_at ? $token->last_used_at->toISOString() : null,
+          'created_at' => $token->created_at->toISOString(),
+        ];
+      });
+
+    return response()->json([
+      'tokens' => $tokens,
     ]);
   }
 

@@ -199,6 +199,13 @@ Route::prefix('v1.0')->group(function () {
       Route::delete('/unsubscribe', [NotificationController::class, 'unsubscribe']);
       Route::get('/subscriptions', [NotificationController::class, 'getSubscriptions']);
 
+      // Expo push token registration
+      Route::prefix('expo')->group(function () {
+        Route::post('/register', [NotificationController::class, 'registerExpoPushToken']);
+        Route::delete('/unregister', [NotificationController::class, 'unregisterExpoPushToken']);
+        Route::get('/tokens', [NotificationController::class, 'getExpoPushTokens']);
+      });
+
       // Delete notification (must be after specific routes like /unsubscribe)
       Route::delete('/{id}', [NotificationController::class, 'destroy']);
     });

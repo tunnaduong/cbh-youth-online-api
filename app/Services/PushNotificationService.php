@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Notification;
 use App\Models\NotificationSubscription;
+use App\Models\ExpoPushToken;
 use App\Models\Conversation;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
 
@@ -120,6 +122,9 @@ class PushNotificationService
    */
   public static function sendToUser(int $userId, Notification $notification): int
   {
+    $sentCount = 0;
+
+    // Send web push notifications
     $subscriptions = NotificationSubscription::where('user_id', $userId)
       ->where(function ($query) {
         $query->whereNull('expires_at')
@@ -127,12 +132,15 @@ class PushNotificationService
       })
       ->get();
 
-    $sentCount = 0;
     foreach ($subscriptions as $subscription) {
       if (self::sendPushNotification($subscription, $notification)) {
         $sentCount++;
       }
     }
+
+    // Send Expo push notifications
+    $expoSentCount = self::sendExpoPushToUser($userId, $notification);
+    $sentCount += $expoSentCount;
 
     return $sentCount;
   }
@@ -263,7 +271,7 @@ class PushNotificationService
           continue;
         }
 
-        // Get all valid push subscriptions for this participant
+        // Send web push notifications
         $subscriptions = NotificationSubscription::where('user_id', $participant->id)
           ->where(function ($query) {
             $query->whereNull('expires_at')
@@ -314,6 +322,10 @@ class PushNotificationService
             $sentCount++;
           }
         }
+
+        // Send Expo push notifications
+        $expoSentCount = self::sendExpoChatPushNotification($participant->id, $messageData, $conversation);
+        $sentCount += $expoSentCount;
       }
 
       Log::info("Chat push notifications sent", [
@@ -428,6 +440,287 @@ class PushNotificationService
         'trace' => $e->getTraceAsString(),
       ]);
       return false;
+    }
+  }
+
+  /**
+   * Send Expo push notification to a user.
+   *
+   * @param int $userId
+   * @param \App\Models\Notification $notification
+   * @return int Number of notifications sent successfully
+   */
+  public static function sendExpoPushToUser(int $userId, Notification $notification): int
+  {
+    try {
+      $tokens = ExpoPushToken::where('user_id', $userId)
+        ->where('is_active', true)
+        ->get();
+
+      if ($tokens->isEmpty()) {
+        return 0;
+      }
+
+      $payload = self::buildExpoNotificationPayload($notification);
+      $sentCount = self::sendExpoPushNotifications($tokens->pluck('expo_push_token')->toArray(), $payload);
+
+      // Update last_used_at for successfully sent tokens
+      if ($sentCount > 0) {
+        ExpoPushToken::where('user_id', $userId)
+          ->where('is_active', true)
+          ->whereIn('expo_push_token', $tokens->pluck('expo_push_token')->toArray())
+          ->update(['last_used_at' => now()]);
+      }
+
+      return $sentCount;
+    } catch (\Exception $e) {
+      Log::error("Error sending Expo push notifications", [
+        'user_id' => $userId,
+        'notification_id' => $notification->id,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+      ]);
+      return 0;
+    }
+  }
+
+  /**
+   * Send Expo push notification with custom title and body.
+   *
+   * @param int $userId
+   * @param string $title
+   * @param string $body
+   * @param array $data
+   * @return int Number of notifications sent successfully
+   */
+  public static function sendExpoPushToUserWithPayload(int $userId, string $title, string $body, array $data = []): int
+  {
+    try {
+      $tokens = ExpoPushToken::where('user_id', $userId)
+        ->where('is_active', true)
+        ->get();
+
+      if ($tokens->isEmpty()) {
+        return 0;
+      }
+
+      $payload = [
+        'to' => $tokens->pluck('expo_push_token')->toArray(),
+        'title' => $title,
+        'body' => $body,
+        'data' => $data,
+        'sound' => 'default',
+        'badge' => null, // Will be set by app based on unread count
+      ];
+
+      $sentCount = self::sendExpoPushNotifications($tokens->pluck('expo_push_token')->toArray(), $payload);
+
+      // Update last_used_at for successfully sent tokens
+      if ($sentCount > 0) {
+        ExpoPushToken::where('user_id', $userId)
+          ->where('is_active', true)
+          ->whereIn('expo_push_token', $tokens->pluck('expo_push_token')->toArray())
+          ->update(['last_used_at' => now()]);
+      }
+
+      return $sentCount;
+    } catch (\Exception $e) {
+      Log::error("Error sending Expo push notifications with custom payload", [
+        'user_id' => $userId,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+      ]);
+      return 0;
+    }
+  }
+
+  /**
+   * Build Expo notification payload from Notification model.
+   *
+   * @param \App\Models\Notification $notification
+   * @return array
+   */
+  private static function buildExpoNotificationPayload(Notification $notification): array
+  {
+    $actor = $notification->actor;
+    $data = $notification->data ?? [];
+
+    // Build notification message based on type
+    $message = self::getNotificationMessage($notification);
+
+    $payload = [
+      'title' => $message,
+      'body' => $data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? '',
+      'sound' => 'default',
+      'badge' => null, // Will be set by app based on unread count
+      'data' => [
+        'notification_id' => $notification->id,
+        'type' => $notification->type,
+        'url' => $data['url'] ?? '/',
+        'actor' => $actor ? [
+          'id' => $actor->id,
+          'username' => $actor->username,
+          'profile_name' => $actor->profile->profile_name ?? $actor->username,
+          'avatar_url' => config('app.url') . "/v1.0/users/{$actor->username}/avatar",
+        ] : null,
+      ],
+    ];
+
+    // Add additional data from notification data
+    if (isset($data['topic_id'])) {
+      $payload['data']['topic_id'] = $data['topic_id'];
+    }
+    if (isset($data['comment_id'])) {
+      $payload['data']['comment_id'] = $data['comment_id'];
+    }
+
+    return $payload;
+  }
+
+  /**
+   * Send Expo push notifications to multiple tokens.
+   *
+   * @param array $tokens Array of Expo push tokens
+   * @param array $payload Notification payload (without 'to' field)
+   * @return int Number of notifications sent successfully
+   */
+  private static function sendExpoPushNotifications(array $tokens, array $payload): int
+  {
+    if (empty($tokens)) {
+      return 0;
+    }
+
+    try {
+      // Expo Push API accepts up to 100 tokens per request
+      $chunks = array_chunk($tokens, 100);
+      $sentCount = 0;
+
+      foreach ($chunks as $chunk) {
+        $requestPayload = array_merge($payload, [
+          'to' => $chunk,
+        ]);
+
+        Log::debug("Sending Expo push notifications", [
+          'token_count' => count($chunk),
+          'payload' => $requestPayload,
+        ]);
+
+        $response = Http::timeout(10)->post('https://exp.host/--/api/v2/push/send', $requestPayload);
+
+        if ($response->successful()) {
+          $responseData = $response->json();
+          
+          // Check for errors in response
+          if (isset($responseData['data'])) {
+            foreach ($responseData['data'] as $result) {
+              if (isset($result['status']) && $result['status'] === 'ok') {
+                $sentCount++;
+              } else {
+                // Handle errors (invalid token, etc.)
+                if (isset($result['details']['error']) && $result['details']['error'] === 'DeviceNotRegistered') {
+                  // Token is invalid, deactivate it
+                  $token = $result['details']['expoPushToken'] ?? null;
+                  if ($token) {
+                    ExpoPushToken::where('expo_push_token', $token)
+                      ->update(['is_active' => false]);
+                    Log::info("Deactivated invalid Expo push token", [
+                      'token' => $token,
+                    ]);
+                  }
+                }
+                Log::warning("Expo push notification failed", [
+                  'result' => $result,
+                ]);
+              }
+            }
+          }
+        } else {
+          Log::error("Expo push API request failed", [
+            'status' => $response->status(),
+            'body' => $response->body(),
+          ]);
+        }
+      }
+
+      Log::info("Expo push notifications sent", [
+        'total_tokens' => count($tokens),
+        'sent_count' => $sentCount,
+      ]);
+
+      return $sentCount;
+    } catch (\Exception $e) {
+      Log::error("Error sending Expo push notifications", [
+        'token_count' => count($tokens),
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+      ]);
+      return 0;
+    }
+  }
+
+  /**
+   * Send Expo push notifications for chat messages.
+   *
+   * @param int $userId
+   * @param array $messageData
+   * @param \App\Models\Conversation $conversation
+   * @return int Number of notifications sent successfully
+   */
+  public static function sendExpoChatPushNotification(int $userId, array $messageData, Conversation $conversation): int
+  {
+    try {
+      $tokens = ExpoPushToken::where('user_id', $userId)
+        ->where('is_active', true)
+        ->get();
+
+      if ($tokens->isEmpty()) {
+        return 0;
+      }
+
+      $sender = $messageData['sender'] ?? [];
+      $senderName = $sender['profile_name'] ?? $sender['username'] ?? 'Ai đó';
+
+      $title = $conversation->type === 'group' && $conversation->name
+        ? "{$senderName} trong {$conversation->name}"
+        : $senderName;
+
+      $body = $messageData['content'] ?? '';
+      if (mb_strlen($body) > 50) {
+        $body = mb_substr($body, 0, 50) . '...';
+      }
+
+      $payload = [
+        'to' => $tokens->pluck('expo_push_token')->toArray(),
+        'title' => $title,
+        'body' => $body,
+        'sound' => 'default',
+        'data' => [
+          'type' => 'chat_message',
+          'conversation_id' => $conversation->id,
+          'message_id' => $messageData['id'],
+          'url' => "/chat?conversation={$conversation->id}",
+        ],
+      ];
+
+      $sentCount = self::sendExpoPushNotifications($tokens->pluck('expo_push_token')->toArray(), $payload);
+
+      // Update last_used_at for successfully sent tokens
+      if ($sentCount > 0) {
+        ExpoPushToken::where('user_id', $userId)
+          ->where('is_active', true)
+          ->whereIn('expo_push_token', $tokens->pluck('expo_push_token')->toArray())
+          ->update(['last_used_at' => now()]);
+      }
+
+      return $sentCount;
+    } catch (\Exception $e) {
+      Log::error("Error sending Expo chat push notification", [
+        'user_id' => $userId,
+        'conversation_id' => $conversation->id,
+        'error' => $e->getMessage(),
+        'trace' => $e->getTraceAsString(),
+      ]);
+      return 0;
     }
   }
 
