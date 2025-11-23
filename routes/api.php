@@ -247,6 +247,8 @@ Route::prefix('v1.0')->group(function () {
     Route::post('stories/{story}/react', [StoryController::class, 'react']);
     Route::delete('stories/{story}/react', [StoryController::class, 'removeReaction']);
     Route::post('stories/{story}/reply', [StoryController::class, 'reply']);
+    Route::get('stories/{story}/viewers', [StoryController::class, 'getViewers']);
+    Route::get('stories/archive', [StoryController::class, 'getArchive']);
 
     // Chat
     Route::prefix('chat')->group(function () {

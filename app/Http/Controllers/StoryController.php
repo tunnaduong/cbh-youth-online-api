@@ -498,4 +498,107 @@ class StoryController extends Controller
 
     return back();
   }
+
+  /**
+   * Get list of viewers for a story.
+   * Only the story owner can view the list of viewers.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  \App\Models\Story  $story
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+   */
+  public function getViewers(Request $request, Story $story)
+  {
+    // Only story owner can view the list of viewers
+    if ($story->user_id !== Auth::id()) {
+      if ($request->expectsJson()) {
+        return response()->json([
+          'status' => 'error',
+          'message' => 'Unauthorized'
+        ], 403);
+      }
+      return back()->with('error', 'Unauthorized');
+    }
+
+    $viewers = StoryViewer::where('story_id', $story->id)
+      ->with(['user.profile'])
+      ->orderBy('viewed_at', 'desc')
+      ->get()
+      ->map(function ($viewer) {
+        return [
+          'id' => $viewer->user->id,
+          'username' => $viewer->user->username,
+          'profile_name' => $viewer->user->profile->profile_name ?? $viewer->user->username,
+          'profile_picture' => config('app.url') . "/v1.0/users/{$viewer->user->username}/avatar",
+          'viewed_at' => $viewer->viewed_at ? $viewer->viewed_at->toISOString() : null,
+          'viewed_at_human' => $viewer->viewed_at ? $viewer->viewed_at->diffForHumans() : null,
+        ];
+      });
+
+    if ($request->expectsJson()) {
+      return response()->json([
+        'status' => 'success',
+        'data' => [
+          'story_id' => $story->id,
+          'viewers_count' => $viewers->count(),
+          'viewers' => $viewers
+        ]
+      ]);
+    }
+
+    return back();
+  }
+
+  /**
+   * Get archived stories for the authenticated user.
+   * Returns all stories (active and expired) created by the user.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+   */
+  public function getArchive(Request $request)
+  {
+    $stories = Story::where('user_id', Auth::id())
+      ->with(['viewers', 'reactions'])
+      ->orderBy('created_at', 'desc')
+      ->get()
+      ->map(function ($story) {
+        return [
+          'id' => $story->id,
+          'media_url' => $story->media_url,
+          'text_content' => $story->content,
+          'type' => $story->media_type,
+          'background_color' => $story->background_color,
+          'font_style' => $story->font_style,
+          'text_position' => $story->text_position,
+          'created_at' => $story->created_at ? $story->created_at->toISOString() : null,
+          'created_at_human' => $story->created_at->diffForHumans(),
+          'expires_at' => $story->expires_at ? $story->expires_at->toISOString() : null,
+          'is_expired' => $story->hasExpired(),
+          'viewers_count' => $story->viewers->count(),
+          'reactions_count' => $story->reactions->count(),
+        ];
+      })
+      ->groupBy(function ($story) {
+        // Group by date (YYYY-MM-DD)
+        return Carbon::parse($story['created_at'])->format('Y-m-d');
+      })
+      ->map(function ($stories, $date) {
+        return [
+          'date' => $date,
+          'date_human' => Carbon::parse($date)->format('d/m/Y'),
+          'stories' => $stories
+        ];
+      })
+      ->values();
+
+    if ($request->expectsJson()) {
+      return response()->json([
+        'status' => 'success',
+        'data' => $stories
+      ]);
+    }
+
+    return back();
+  }
 }
