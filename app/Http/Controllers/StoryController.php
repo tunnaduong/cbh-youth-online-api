@@ -520,48 +520,78 @@ class StoryController extends Controller
       return back()->with('error', 'Unauthorized');
     }
 
-    $viewers = StoryViewer::where('story_id', $story->id)
-      ->where('user_id', '!=', Auth::id()) // Exclude current user
+    // Get all viewers (excluding current user)
+    $viewersData = StoryViewer::where('story_id', $story->id)
+      ->where('user_id', '!=', Auth::id())
       ->with(['user.profile'])
       ->orderBy('viewed_at', 'desc')
-      ->get()
-      ->map(function ($viewer) {
+      ->get();
+
+    // Get all reactions for the story
+    $reactionsData = StoryReaction::where('story_id', $story->id)
+      ->with(['user.profile'])
+      ->orderBy('created_at', 'desc')
+      ->get();
+
+    // Group reactions by user_id
+    $reactionsByUser = $reactionsData->groupBy('user_id');
+
+    // Merge viewers with their reactions
+    $viewers = $viewersData->map(function ($viewer) use ($reactionsByUser) {
+      $userReactions = $reactionsByUser->get($viewer->user_id, collect());
+
+      return [
+        'id' => $viewer->user->id,
+        'username' => $viewer->user->username,
+        'profile_name' => $viewer->user->profile->profile_name ?? $viewer->user->username,
+        'profile_picture' => config('app.url') . "/v1.0/users/{$viewer->user->username}/avatar",
+        'viewed_at' => $viewer->viewed_at ? $viewer->viewed_at->toISOString() : null,
+        'viewed_at_human' => $viewer->viewed_at ? $viewer->viewed_at->diffForHumans() : null,
+        'reactions' => $userReactions->map(function ($reaction) {
+          return [
+            'type' => $reaction->reaction_type,
+            'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
+          ];
+        })->toArray(),
+      ];
+    });
+
+    // Also include users who only reacted but didn't view (if any)
+    $reactionOnlyUsers = $reactionsData
+      ->filter(function ($reaction) use ($viewersData) {
+        return !$viewersData->contains('user_id', $reaction->user_id);
+      })
+      ->groupBy('user_id')
+      ->map(function ($userReactions, $userId) {
+        $firstReaction = $userReactions->first();
+        $user = $firstReaction->user;
+
         return [
-          'id' => $viewer->user->id,
-          'username' => $viewer->user->username,
-          'profile_name' => $viewer->user->profile->profile_name ?? $viewer->user->username,
-          'profile_picture' => config('app.url') . "/v1.0/users/{$viewer->user->username}/avatar",
-          'viewed_at' => $viewer->viewed_at ? $viewer->viewed_at->toISOString() : null,
-          'viewed_at_human' => $viewer->viewed_at ? $viewer->viewed_at->diffForHumans() : null,
+          'id' => $user->id,
+          'username' => $user->username,
+          'profile_name' => $user->profile->profile_name ?? $user->username,
+          'profile_picture' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'viewed_at' => null,
+          'viewed_at_human' => null,
+          'reactions' => $userReactions->map(function ($reaction) {
+            return [
+              'type' => $reaction->reaction_type,
+              'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
+            ];
+          })->toArray(),
         ];
       });
 
-    // Get reactions for the story
-    $reactions = StoryReaction::where('story_id', $story->id)
-      ->with(['user.profile'])
-      ->orderBy('created_at', 'desc')
-      ->get()
-      ->map(function ($reaction) {
-        return [
-          'id' => $reaction->user->id,
-          'username' => $reaction->user->username,
-          'profile_name' => $reaction->user->profile->profile_name ?? $reaction->user->username,
-          'profile_picture' => config('app.url') . "/v1.0/users/{$reaction->user->username}/avatar",
-          'reaction_type' => $reaction->reaction_type,
-          'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
-          'created_at_human' => $reaction->created_at ? $reaction->created_at->diffForHumans() : null,
-        ];
-      });
+    // Merge both lists
+    $allViewers = $viewers->merge($reactionOnlyUsers)->values();
 
     if ($request->expectsJson()) {
       return response()->json([
         'status' => 'success',
         'data' => [
           'story_id' => $story->id,
-          'viewers_count' => $viewers->count(),
-          'viewers' => $viewers,
-          'reactions_count' => $reactions->count(),
-          'reactions' => $reactions
+          'viewers_count' => $allViewers->count(),
+          'viewers' => $allViewers
         ]
       ]);
     }
