@@ -461,7 +461,7 @@ class TopicsController extends Controller
 
         $cdnImageIds[] = $userContent->id;
       }
-      
+
       // Convert array of IDs to comma-separated string for database storage
       $cdnImageId = !empty($cdnImageIds) ? implode(',', $cdnImageIds) : null;
     }
@@ -470,7 +470,7 @@ class TopicsController extends Controller
     elseif ($request->has('cdn_image_id') && !empty($request->cdn_image_id)) {
       // Mobile app sends comma-separated string of UserContent IDs
       $cdnImageId = $request->cdn_image_id;
-      
+
       // Validate that all IDs exist and belong to the authenticated user
       $imageIds = array_filter(explode(',', $cdnImageId));
       if (!empty($imageIds)) {
@@ -478,7 +478,7 @@ class TopicsController extends Controller
           ->whereIn('id', $imageIds)
           ->pluck('id')
           ->toArray();
-        
+
         if (count($validIds) !== count($imageIds)) {
           return response()->json([
             'message' => 'Một số ảnh không hợp lệ hoặc không thuộc về bạn'
@@ -1186,5 +1186,43 @@ class TopicsController extends Controller
     $vote->delete();
 
     return response()->json(['message' => 'Comment vote deleted successfully.'], Response::HTTP_OK);
+  }
+
+  /**
+   * Get all public topics for sitemap generation.
+   * Only returns minimal data: id, title, username, anonymous, created_at, updated_at
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getSitemapTopics()
+  {
+    // Only get public, non-hidden topics
+    $topics = Topic::select([
+      'id',
+      'title',
+      'user_id',
+      'anonymous',
+      'created_at',
+      'updated_at'
+    ])
+      ->where('hidden', 0)
+      ->where('privacy', 'public')
+      ->orderBy('created_at', 'desc')
+      ->with(['user:id,username'])
+      ->get();
+
+    // Format the response with minimal data
+    $formattedTopics = $topics->map(function ($topic) {
+      return [
+        'id' => $topic->id,
+        'title' => $topic->title,
+        'username' => $topic->anonymous ? 'anonymous' : ($topic->user->username ?? 'anonymous'),
+        'anonymous' => $topic->anonymous,
+        'created_at' => $topic->created_at ? $topic->created_at->toISOString() : null,
+        'updated_at' => $topic->updated_at ? $topic->updated_at->toISOString() : null,
+      ];
+    });
+
+    return response()->json($formattedTopics);
   }
 }
