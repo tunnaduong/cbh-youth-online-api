@@ -521,6 +521,7 @@ class StoryController extends Controller
     }
 
     $viewers = StoryViewer::where('story_id', $story->id)
+      ->where('user_id', '!=', Auth::id()) // Exclude current user
       ->with(['user.profile'])
       ->orderBy('viewed_at', 'desc')
       ->get()
@@ -535,13 +536,32 @@ class StoryController extends Controller
         ];
       });
 
+    // Get reactions for the story
+    $reactions = StoryReaction::where('story_id', $story->id)
+      ->with(['user.profile'])
+      ->orderBy('created_at', 'desc')
+      ->get()
+      ->map(function ($reaction) {
+        return [
+          'id' => $reaction->user->id,
+          'username' => $reaction->user->username,
+          'profile_name' => $reaction->user->profile->profile_name ?? $reaction->user->username,
+          'profile_picture' => config('app.url') . "/v1.0/users/{$reaction->user->username}/avatar",
+          'reaction_type' => $reaction->reaction_type,
+          'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
+          'created_at_human' => $reaction->created_at ? $reaction->created_at->diffForHumans() : null,
+        ];
+      });
+
     if ($request->expectsJson()) {
       return response()->json([
         'status' => 'success',
         'data' => [
           'story_id' => $story->id,
           'viewers_count' => $viewers->count(),
-          'viewers' => $viewers
+          'viewers' => $viewers,
+          'reactions_count' => $reactions->count(),
+          'reactions' => $reactions
         ]
       ]);
     }
