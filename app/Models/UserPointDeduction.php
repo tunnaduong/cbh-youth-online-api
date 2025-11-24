@@ -155,19 +155,47 @@ class UserPointDeduction extends Model
   {
     parent::boot();
 
-    // Update points when a deduction is created
+    // Deduct points when a deduction is created
     static::created(function ($deduction) {
-      PointsService::onPointDeduction($deduction->user_id);
+      if ($deduction->is_active && !$deduction->isExpired()) {
+        PointsService::onPointDeduction($deduction->user_id, $deduction->points_deducted);
+      }
     });
 
-    // Update points when a deduction is updated
+    // Handle deduction updates (e.g., activate/deactivate, points change)
     static::updated(function ($deduction) {
-      PointsService::onPointDeduction($deduction->user_id);
+      $wasActive = $deduction->getOriginal('is_active') && !$deduction->isExpired();
+      $isActive = $deduction->is_active && !$deduction->isExpired();
+      $pointsChanged = $deduction->getOriginal('points_deducted') != $deduction->points_deducted;
+      $oldPoints = $deduction->getOriginal('points_deducted');
+      
+      if ($pointsChanged || ($wasActive != $isActive)) {
+        // If was active, add back the old amount
+        if ($wasActive) {
+          PointsService::addPoints(
+            $deduction->user_id,
+            $oldPoints,
+            'deduction_reversal',
+            'Reversal of point deduction'
+          );
+        }
+        // If now active, deduct the new amount
+        if ($isActive) {
+          PointsService::onPointDeduction($deduction->user_id, $deduction->points_deducted);
+        }
+      }
     });
 
-    // Update points when a deduction is deleted
+    // Restore points when a deduction is deleted (if it was active)
     static::deleted(function ($deduction) {
-      PointsService::onPointDeduction($deduction->user_id);
+      if ($deduction->is_active && !$deduction->isExpired()) {
+        PointsService::addPoints(
+          $deduction->user_id,
+          $deduction->points_deducted,
+          'deduction_reversal',
+          'Point deduction removed'
+        );
+      }
     });
   }
 }

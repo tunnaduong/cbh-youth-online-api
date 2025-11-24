@@ -99,7 +99,7 @@ class TopicComment extends Model
   {
     parent::boot();
 
-    // Update points when a comment is created
+    // Add points when a comment is created (+2 points)
     static::created(function ($comment) {
       PointsService::onCommentCreated($comment->user_id);
 
@@ -112,9 +112,9 @@ class TopicComment extends Model
       }
     });
 
-    // Update points when a comment is deleted
+    // Deduct points when a comment is deleted (-2 points)
     static::deleted(function ($comment) {
-      PointsService::onCommentCreated($comment->user_id);
+      PointsService::onCommentDeleted($comment->user_id);
     });
   }
 }

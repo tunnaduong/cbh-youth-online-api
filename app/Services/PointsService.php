@@ -3,110 +3,167 @@
 namespace App\Services;
 
 use App\Models\AuthAccount;
-use App\Models\TopicComment;
-use App\Models\UserPointDeduction;
+use App\Models\PointsTransaction;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class PointsService
 {
   /**
-   * Calculate points for a specific user
+   * Add points directly to user's account
    *
    * @param int $userId
-   * @return int
-   */
-  public static function calculatePoints($userId)
-  {
-    $user = AuthAccount::find($userId);
-    if (!$user) {
-      return 0;
-    }
-
-    // Calculate total points based on posts, likes, and comments
-    $postsCount = $user->posts()->count();
-    $totalLikes = $user->posts()->withCount([
-      'votes' => function ($query) {
-        $query->where('vote_value', 1);
-      }
-    ])->get()->sum('votes_count');
-    $commentsCount = TopicComment::where('user_id', $userId)->count();
-
-    $basePoints = ($postsCount * 10) + ($totalLikes * 5) + ($commentsCount * 2);
-
-    // Boost specific users (for testing/admin purposes)
-    $boostedUsers = [
-      // 'tunnaduong' => 5000,    // Add 5000 points to tunna
-      // 'admin' => 10000,   // Add 10000 points to admin
-    ];
-
-    if (isset($boostedUsers[$user->username])) {
-      $basePoints += $boostedUsers[$user->username];
-    }
-
-    // Subtract point deductions
-    $totalDeductions = UserPointDeduction::getTotalActiveDeductions($userId);
-    $finalPoints = $basePoints - $totalDeductions;
-
-    // Ensure points don't go below 0
-    return max(0, $finalPoints);
-  }
-
-  /**
-   * Update cached points for a specific user
-   *
-   * @param int $userId
+   * @param int $amount
+   * @param string $type deposit|withdrawal|purchase|earning|post|vote|comment
+   * @param string $description
+   * @param int|null $relatedId
    * @return bool
    */
-  public static function updateUserPoints($userId)
+  public static function addPoints($userId, $amount, $type, $description, $relatedId = null)
   {
     try {
-      $points = self::calculatePoints($userId);
+      DB::transaction(function () use ($userId, $amount, $type, $description, $relatedId) {
+        // Update user's points
+        $user = AuthAccount::find($userId);
+        if (!$user) {
+          throw new \Exception("User not found");
+        }
 
-      AuthAccount::where('id', $userId)
-        ->update(['cached_points' => $points]);
+        $newPoints = max(0, ($user->points ?? 0) + $amount);
+        $user->update(['points' => $newPoints]);
+
+        // Create transaction record
+        PointsTransaction::create([
+          'user_id' => $userId,
+          'type' => $type,
+          'amount' => $amount,
+          'status' => 'completed',
+          'description' => $description,
+          'related_id' => $relatedId,
+        ]);
+      });
 
       return true;
     } catch (\Exception $e) {
-      Log::error("Failed to update points for user {$userId}: " . $e->getMessage());
+      Log::error("Failed to add points for user {$userId}: " . $e->getMessage());
       return false;
     }
   }
 
   /**
-   * Update cached points for all users (background job)
+   * Deduct points directly from user's account
    *
-   * @return array
+   * @param int $userId
+   * @param int $amount
+   * @param string $type deposit|withdrawal|purchase|earning|post|vote|comment
+   * @param string $description
+   * @param int|null $relatedId
+   * @return bool
    */
-  public static function refreshAllPoints()
+  public static function deductPoints($userId, $amount, $type, $description, $relatedId = null)
   {
-    $results = [
-      'success' => 0,
-      'failed' => 0,
-      'total' => 0
-    ];
-
     try {
-      $users = AuthAccount::where('role', '!=', 'admin')->get();
-      $results['total'] = $users->count();
-
-      foreach ($users as $user) {
-        if (self::updateUserPoints($user->id)) {
-          $results['success']++;
-        } else {
-          $results['failed']++;
+      DB::transaction(function () use ($userId, $amount, $type, $description, $relatedId) {
+        // Update user's points
+        $user = AuthAccount::find($userId);
+        if (!$user) {
+          throw new \Exception("User not found");
         }
-      }
 
-      Log::info("Points refresh completed: {$results['success']} success, {$results['failed']} failed");
+        $newPoints = max(0, ($user->points ?? 0) - $amount);
+        $user->update(['points' => $newPoints]);
+
+        // Create transaction record (amount is negative)
+        PointsTransaction::create([
+          'user_id' => $userId,
+          'type' => $type,
+          'amount' => -$amount,
+          'status' => 'completed',
+          'description' => $description,
+          'related_id' => $relatedId,
+        ]);
+      });
+
+      return true;
     } catch (\Exception $e) {
-      Log::error("Failed to refresh all points: " . $e->getMessage());
+      Log::error("Failed to deduct points for user {$userId}: " . $e->getMessage());
+      return false;
     }
-
-    return $results;
   }
 
   /**
-   * Get top users using cached points
+   * Convert points to VND
+   * 10 points = 1.000 VND
+   *
+   * @param int $points
+   * @return float
+   */
+  public static function convertPointsToVND($points)
+  {
+    return ($points / 10) * 1000;
+  }
+
+  /**
+   * Convert VND to points
+   * 1.000 VND = 10 points
+   *
+   * @param float $vnd
+   * @return int
+   */
+  public static function convertVNDToPoints($vnd)
+  {
+    return (int) round(($vnd / 1000) * 10);
+  }
+
+  /**
+   * Check if user can withdraw the specified amount
+   * Minimum withdrawal: 500 points = 50.000 VND
+   *
+   * @param int $userId
+   * @param int $amount Points to withdraw
+   * @return bool
+   */
+  public static function canWithdraw($userId, $amount)
+  {
+    $user = AuthAccount::find($userId);
+    if (!$user) {
+      return false;
+    }
+
+    $currentPoints = $user->points ?? 0;
+    $minWithdrawal = 500; // 500 points = 50.000 VND
+
+    return $amount >= $minWithdrawal && $currentPoints >= $amount;
+  }
+
+  /**
+   * Process withdrawal request
+   * Deducts points including fee (10 points = 1.000 VND fee)
+   *
+   * @param int $requestId WithdrawalRequest ID
+   * @return bool
+   */
+  public static function processWithdrawal($requestId)
+  {
+    $withdrawalRequest = \App\Models\WithdrawalRequest::find($requestId);
+    if (!$withdrawalRequest || $withdrawalRequest->status !== 'approved') {
+      return false;
+    }
+
+    $fee = 10; // 10 points = 1.000 VND
+    $totalDeduction = $withdrawalRequest->amount + $fee;
+
+    return self::deductPoints(
+      $withdrawalRequest->user_id,
+      $totalDeduction,
+      'withdrawal',
+      "Rút tiền: {$withdrawalRequest->amount} điểm (phí: {$fee} điểm)",
+      $requestId
+    );
+  }
+
+  /**
+   * Get top users by points
    *
    * @param int $limit
    * @return \Illuminate\Database\Eloquent\Collection
@@ -115,52 +172,87 @@ class PointsService
   {
     return AuthAccount::with(['profile'])
       ->where('role', '!=', 'admin')
-      ->orderByDesc('cached_points')
+      ->orderByDesc('points')
       ->limit($limit)
       ->get();
   }
 
   /**
-   * Update points when user creates a post
+   * Add points when user creates a post (+10 points)
    *
    * @param int $userId
    * @return void
    */
   public static function onPostCreated($userId)
   {
-    self::updateUserPoints($userId);
+    self::addPoints($userId, 10, 'post', 'Đăng bài viết mới', null);
   }
 
   /**
-   * Update points when user receives a vote
+   * Deduct points when user deletes a post (-10 points)
+   *
+   * @param int $userId
+   * @return void
+   */
+  public static function onPostDeleted($userId)
+  {
+    self::deductPoints($userId, 10, 'post', 'Xóa bài viết', null);
+  }
+
+  /**
+   * Add points when user receives a vote (+5 points)
    *
    * @param int $userId
    * @return void
    */
   public static function onVoteReceived($userId)
   {
-    self::updateUserPoints($userId);
+    self::addPoints($userId, 5, 'vote', 'Nhận vote từ thành viên', null);
   }
 
   /**
-   * Update points when user creates a comment
+   * Deduct points when vote is removed (-5 points)
+   *
+   * @param int $userId
+   * @return void
+   */
+  public static function onVoteRemoved($userId)
+  {
+    self::deductPoints($userId, 5, 'vote', 'Mất vote từ thành viên', null);
+  }
+
+  /**
+   * Add points when user creates a comment (+2 points)
    *
    * @param int $userId
    * @return void
    */
   public static function onCommentCreated($userId)
   {
-    self::updateUserPoints($userId);
+    self::addPoints($userId, 2, 'comment', 'Bình luận trên bài viết', null);
   }
 
   /**
-   * Update points when user gets point deduction
+   * Deduct points when user deletes a comment (-2 points)
    *
    * @param int $userId
    * @return void
    */
-  public static function onPointDeduction($userId)
+  public static function onCommentDeleted($userId)
   {
-    self::updateUserPoints($userId);
+    self::deductPoints($userId, 2, 'comment', 'Xóa bình luận', null);
+  }
+
+  /**
+   * Deduct points when admin applies point deduction
+   *
+   * @param int $userId
+   * @param int $amount
+   * @return void
+   */
+  public static function onPointDeduction($userId, $amount)
+  {
+    self::deductPoints($userId, $amount, 'deduction', 'Admin trừ điểm', null);
   }
 }
+

@@ -53,7 +53,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
    *
    * @var array<int, string>
    */
-  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token', 'cached_points', 'email_verified_at'];
+  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token', 'points', 'email_verified_at'];
 
   /**
    * The attributes that should be hidden for serialization.
@@ -158,58 +158,23 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   /**
    * Calculate the user's activity points.
    *
-   * @deprecated Use cached_points attribute instead for better performance
+   * @deprecated Use points attribute instead. Points are now stored directly in database.
    * @return int
    */
-  public function points()
+  public function calculatePoints()
   {
-    // Calculate total points based on posts, likes, and comments
-    $postsCount = $this->posts()->count();
-    $totalLikes = $this->posts()->withCount([
-      'votes' => function ($query) {
-        $query->where('vote_value', 1);
-      }
-    ])->get()->sum('votes_count');
-    $commentsCount = TopicComment::where('user_id', $this->id)->count();
-
-    $basePoints = ($postsCount * 10) + ($totalLikes * 5) + ($commentsCount * 2);
-
-    // Boost specific users (for testing/admin purposes)
-    $boostedUsers = [
-      // 'tunnaduong' => 5000,    // Add 5000 points to tunna
-      // 'admin' => 10000,   // Add 10000 points to admin
-    ];
-
-    if (isset($boostedUsers[$this->username])) {
-      $basePoints += $boostedUsers[$this->username];
-    }
-
-    // Subtract point deductions
-    $totalDeductions = UserPointDeduction::getTotalActiveDeductions($this->id);
-    $finalPoints = $basePoints - $totalDeductions;
-
-    // Ensure points don't go below 0
-    return max(0, $finalPoints);
+    // This method is deprecated. Use $user->points or $user->getPoints() instead.
+    return $this->points ?? 0;
   }
 
   /**
-   * Get the user's cached points (recommended for performance)
+   * Get the user's points (stored directly in database)
    *
    * @return int
    */
-  public function getCachedPoints()
+  public function getPoints()
   {
-    return $this->cached_points ?? 0;
-  }
-
-  /**
-   * Update the user's cached points
-   *
-   * @return bool
-   */
-  public function updateCachedPoints()
-  {
-    return PointsService::updateUserPoints($this->id);
+    return $this->points ?? 0;
   }
 
   /**

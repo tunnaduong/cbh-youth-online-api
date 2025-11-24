@@ -33,7 +33,7 @@ class AuthAccountsSeeder extends Seeder
                 'provider' => $provider,
                 'provider_id' => $provider ? $faker->numerify('##########') : null,
                 'provider_token' => $provider ? $faker->sha256() : null,
-                'cached_points' => $faker->numberBetween(0, 5000),
+                'points' => $faker->numberBetween(0, 5000),
                 'email_verified_at' => $faker->optional(0.8)->dateTimeBetween('-1 year', 'now'),
                 'last_activity' => $faker->optional(0.7)->dateTimeBetween('-1 month', 'now'),
                 'remember_token' => $faker->optional(0.3)->sha1(),

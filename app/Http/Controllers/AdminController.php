@@ -1608,4 +1608,102 @@ class AdminController extends Controller
       'topic' => $topic
     ]);
   }
+
+  // Withdrawal Management
+  /**
+   * Get pending withdrawal requests
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getPendingWithdrawals()
+  {
+    $withdrawals = \App\Models\WithdrawalRequest::with(['user.profile'])
+      ->where('status', 'pending')
+      ->orderBy('created_at', 'asc')
+      ->paginate(20);
+
+    return response()->json($withdrawals);
+  }
+
+  /**
+   * Approve withdrawal request
+   *
+   * @param int $id
+   * @param Request $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function approveWithdrawal($id, Request $request)
+  {
+    $withdrawal = \App\Models\WithdrawalRequest::findOrFail($id);
+
+    if ($withdrawal->status !== 'pending') {
+      return response()->json(['message' => 'Yêu cầu này đã được xử lý'], 400);
+    }
+
+    $admin = Auth::user();
+    $fee = 10; // 10 points = 1.000 VND
+    $totalDeduction = $withdrawal->amount + $fee;
+
+    // Check if user has enough points
+    $user = $withdrawal->user;
+    if (($user->points ?? 0) < $totalDeduction) {
+      return response()->json([
+        'message' => 'Người dùng không đủ điểm để rút',
+        'required' => $totalDeduction,
+        'current' => $user->points ?? 0,
+      ], 400);
+    }
+
+    \Illuminate\Support\Facades\DB::transaction(function () use ($withdrawal, $admin, $totalDeduction) {
+      // Deduct points
+      \App\Services\PointsService::deductPoints(
+        $withdrawal->user_id,
+        $totalDeduction,
+        'withdrawal',
+        "Rút tiền: {$withdrawal->amount} điểm (phí: 10 điểm)",
+        $withdrawal->id
+      );
+
+      // Update withdrawal request
+      $withdrawal->update([
+        'status' => 'approved',
+        'admin_id' => $admin->id,
+        'admin_note' => $request->admin_note ?? null,
+      ]);
+    });
+
+    return response()->json([
+      'message' => 'Đã duyệt yêu cầu rút tiền',
+      'withdrawal' => $withdrawal->fresh(['user.profile', 'admin']),
+    ]);
+  }
+
+  /**
+   * Reject withdrawal request
+   *
+   * @param int $id
+   * @param Request $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function rejectWithdrawal($id, Request $request)
+  {
+    $withdrawal = \App\Models\WithdrawalRequest::findOrFail($id);
+
+    if ($withdrawal->status !== 'pending') {
+      return response()->json(['message' => 'Yêu cầu này đã được xử lý'], 400);
+    }
+
+    $admin = Auth::user();
+
+    $withdrawal->update([
+      'status' => 'rejected',
+      'admin_id' => $admin->id,
+      'admin_note' => $request->admin_note ?? 'Yêu cầu bị từ chối',
+    ]);
+
+    return response()->json([
+      'message' => 'Đã từ chối yêu cầu rút tiền',
+      'withdrawal' => $withdrawal->fresh(['user.profile', 'admin']),
+    ]);
+  }
 }

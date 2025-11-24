@@ -69,19 +69,33 @@ class TopicVote extends Model
   {
     parent::boot();
 
-    // Update points when a vote is created
+    // Add points when a vote is created (+5 points)
     static::created(function ($vote) {
-      PointsService::onVoteReceived($vote->topic->user_id);
+      if ($vote->vote_value == 1) { // Only upvotes give points
+        PointsService::onVoteReceived($vote->topic->user_id);
+      }
     });
 
-    // Update points when a vote is deleted
+    // Deduct points when a vote is deleted (-5 points)
     static::deleted(function ($vote) {
-      PointsService::onVoteReceived($vote->topic->user_id);
+      if ($vote->vote_value == 1) { // Only upvotes give points
+        PointsService::onVoteRemoved($vote->topic->user_id);
+      }
     });
 
-    // Update points when a vote is updated
+    // Handle vote changes (e.g., upvote to downvote)
     static::updated(function ($vote) {
-      PointsService::onVoteReceived($vote->topic->user_id);
+      $originalVoteValue = $vote->getOriginal('vote_value');
+      $newVoteValue = $vote->vote_value;
+      
+      // If changed from upvote to downvote, remove points
+      if ($originalVoteValue == 1 && $newVoteValue != 1) {
+        PointsService::onVoteRemoved($vote->topic->user_id);
+      }
+      // If changed from downvote to upvote, add points
+      elseif ($originalVoteValue != 1 && $newVoteValue == 1) {
+        PointsService::onVoteReceived($vote->topic->user_id);
+      }
     });
   }
 }

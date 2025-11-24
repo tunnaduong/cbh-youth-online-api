@@ -504,7 +504,7 @@ class UserController extends Controller
     try {
       $topUsers = AuthAccount::with(['profile'])
         ->where('role', '!=', 'admin') // Exclude admin users
-        ->orderByDesc('cached_points') // Use cached points for sorting
+        ->orderByDesc('points') // Use points for sorting
         ->limit(8)
         ->get()
         ->map(function ($user) {
@@ -514,7 +514,7 @@ class UserController extends Controller
             'profile_name' => $user->profile->profile_name ?? $user->username,
             'profile_picture' => $user->profile->profile_picture ?? null,
             'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
-            'total_points' => $user->getCachedPoints() // Use cached points for better performance
+            'total_points' => $user->getPoints() // Use points
           ];
         })
         ->values()

@@ -24,6 +24,11 @@ use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\UserPointDeductionController;
 use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\StudyMaterialController;
+use App\Http\Controllers\StudyMaterialCategoryController;
+use App\Http\Controllers\StudyMaterialRatingController;
+use App\Http\Controllers\WalletController;
+use App\Http\Controllers\SEPayWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -79,6 +84,18 @@ Route::prefix('v1.0')->group(function () {
   // Search & Stories
   Route::get('search', [SearchController::class, 'search']);
   Route::get('stories', [StoryController::class, 'index']);
+
+  // Study Materials (public routes)
+  Route::get('/study-materials', [StudyMaterialController::class, 'index']);
+  Route::get('/study-materials/{id}', [StudyMaterialController::class, 'show']);
+  Route::get('/study-materials/{id}/preview', [StudyMaterialController::class, 'getPreview']);
+  Route::get('/users/{username}/study-materials', [StudyMaterialController::class, 'getUserMaterials']);
+  Route::get('/study-materials/{id}/ratings', [StudyMaterialRatingController::class, 'getRatings']);
+  Route::get('/study-material-categories', [StudyMaterialCategoryController::class, 'index']);
+  Route::get('/study-material-categories/{id}', [StudyMaterialCategoryController::class, 'show']);
+
+  // Webhook (public, no auth)
+  Route::post('/webhooks/sepay', [SEPayWebhookController::class, 'handleWebhook']);
 
   // Push Notification VAPID Public Key (public endpoint)
   Route::get('/notifications/vapid-public-key', [NotificationController::class, 'getVapidPublicKey']);
@@ -146,18 +163,11 @@ Route::prefix('v1.0')->group(function () {
     // User & Profile
     Route::get('/user', function (Request $request) {
       $user = $request->user()->load('profile');
-      $userPoints = $user->getCachedPoints();
-
-      // If cached_points is null, refresh it (but not if it's legitimately 0)
-      if (is_null($user->cached_points)) {
-        \App\Services\PointsService::updateUserPoints($user->id);
-        $user->refresh();
-        $userPoints = $user->getCachedPoints();
-      }
+      $userPoints = $user->getPoints();
 
       // Calculate user ranking
       $rank = \App\Models\AuthAccount::where('role', '!=', 'admin')
-        ->where('cached_points', '>', $userPoints)
+        ->where('points', '>', $userPoints)
         ->count() + 1;
 
       return response()->json([
@@ -272,6 +282,41 @@ Route::prefix('v1.0')->group(function () {
       Route::post('groups/{conversationId}/participants', [ChatController::class, 'addGroupParticipants']);
       Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
       Route::get('search/users', [ChatController::class, 'searchUserForChat']);
+    });
+
+    // Study Materials
+    Route::post('/study-materials', [StudyMaterialController::class, 'store']);
+    Route::put('/study-materials/{id}', [StudyMaterialController::class, 'update']);
+    Route::delete('/study-materials/{id}', [StudyMaterialController::class, 'destroy']);
+    Route::post('/study-materials/{id}/purchase', [StudyMaterialController::class, 'purchase']);
+    Route::get('/study-materials/{id}/download', [StudyMaterialController::class, 'download']);
+    Route::post('/study-materials/{id}/view', [StudyMaterialController::class, 'view']);
+
+    // Study Material Categories (admin only)
+    Route::middleware('role:admin')->group(function () {
+      Route::post('/study-material-categories', [StudyMaterialCategoryController::class, 'store']);
+      Route::put('/study-material-categories/{id}', [StudyMaterialCategoryController::class, 'update']);
+      Route::delete('/study-material-categories/{id}', [StudyMaterialCategoryController::class, 'destroy']);
+    });
+
+    // Study Material Ratings
+    Route::post('/study-materials/{id}/ratings', [StudyMaterialRatingController::class, 'store']);
+    Route::put('/ratings/{id}', [StudyMaterialRatingController::class, 'update']);
+    Route::delete('/ratings/{id}', [StudyMaterialRatingController::class, 'destroy']);
+
+    // Wallet
+    Route::get('/wallet/balance', [WalletController::class, 'getBalance']);
+    Route::get('/wallet/transactions', [WalletController::class, 'getTransactions']);
+    Route::post('/wallet/deposit-request', [WalletController::class, 'createDepositRequest']);
+    Route::post('/wallet/withdrawal-request', [WalletController::class, 'requestWithdrawal']);
+    Route::get('/wallet/withdrawal-requests', [WalletController::class, 'getWithdrawalRequests']);
+    Route::get('/wallet/withdrawal-history', [WalletController::class, 'getWithdrawalHistory']);
+
+    // Admin routes
+    Route::middleware('role:admin')->group(function () {
+      Route::get('/admin/withdrawal-requests/pending', [AdminController::class, 'getPendingWithdrawals']);
+      Route::post('/admin/withdrawal-requests/{id}/approve', [AdminController::class, 'approveWithdrawal']);
+      Route::post('/admin/withdrawal-requests/{id}/reject', [AdminController::class, 'rejectWithdrawal']);
     });
   });
 });

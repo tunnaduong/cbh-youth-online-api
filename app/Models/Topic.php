@@ -412,14 +412,14 @@ class Topic extends Model
       }
     });
 
-    // Update user points when a topic is created
+    // Add points when a topic is created (+10 points)
     static::created(function ($topic) {
       PointsService::onPostCreated($topic->user_id);
     });
 
-    // Update user points when a topic is deleted
+    // Deduct points when a topic is deleted (-10 points)
     static::deleted(function ($topic) {
-      PointsService::onPostCreated($topic->user_id);
+      PointsService::onPostDeleted($topic->user_id);
     });
   }
 
