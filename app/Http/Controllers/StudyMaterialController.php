@@ -24,60 +24,87 @@ class StudyMaterialController extends Controller
    */
   public function index(Request $request)
   {
-    $query = StudyMaterial::with(['user.profile', 'category', 'file'])
-      ->where('status', 'published')
-      ->orderBy('created_at', 'desc');
+    try {
+      $query = StudyMaterial::with(['user.profile', 'category', 'file'])
+        ->where('status', 'published')
+        ->orderBy('created_at', 'desc');
 
-    // Filter by category
-    if ($request->has('category_id')) {
-      $query->where('category_id', $request->category_id);
-    }
+      // Filter by category
+      if ($request->has('category_id') && $request->category_id) {
+        $query->where('category_id', $request->category_id);
+      }
 
-    // Filter by free/paid
-    if ($request->has('is_free')) {
-      $query->where('is_free', $request->is_free === 'true');
-    }
+      // Filter by free/paid
+      if ($request->has('is_free') && $request->is_free !== null) {
+        $query->where('is_free', $request->is_free === 'true' || $request->is_free === true);
+      }
 
-    // Search
-    if ($request->has('search')) {
-      $search = $request->search;
-      $query->where(function ($q) use ($search) {
-        $q->where('title', 'like', "%{$search}%")
-          ->orWhere('description', 'like', "%{$search}%");
+      // Search
+      if ($request->has('search') && $request->search) {
+        $search = $request->search;
+        $query->where(function ($q) use ($search) {
+          $q->where('title', 'like', "%{$search}%")
+            ->orWhere('description', 'like', "%{$search}%");
+        });
+      }
+
+      $materials = $query->paginate(20);
+
+      $materials->getCollection()->transform(function ($material) use ($request) {
+        try {
+          $user = $request->user();
+          $isPurchased = $user ? $material->isPurchasedBy($user->id) : false;
+          
+          // Calculate average rating safely
+          $ratingsCount = $material->ratings()->count();
+          $averageRating = $ratingsCount > 0 
+            ? round((float)$material->ratings()->avg('rating'), 1) 
+            : 0;
+
+          return [
+            'id' => $material->id,
+            'title' => $material->title,
+            'description' => $material->description,
+            'category' => $material->category ? [
+              'id' => $material->category->id,
+              'name' => $material->category->name,
+            ] : null,
+            'price' => $material->price,
+            'is_free' => $material->is_free,
+            'download_count' => $material->download_count ?? 0,
+            'view_count' => $material->view_count ?? 0,
+            'average_rating' => $averageRating,
+            'ratings_count' => $ratingsCount,
+            'author' => [
+              'id' => $material->user->id,
+              'username' => $material->user->username,
+              'profile_name' => $material->user->profile->profile_name ?? null,
+            ],
+            'is_purchased' => $isPurchased,
+            'created_at' => $material->created_at,
+          ];
+        } catch (\Exception $e) {
+          Log::error('Error transforming material: ' . $e->getMessage(), [
+            'material_id' => $material->id ?? null,
+            'trace' => $e->getTraceAsString()
+          ]);
+          return null;
+        }
       });
+
+      // Filter out null values in case of transformation errors
+      $materials->setCollection($materials->getCollection()->filter());
+
+      return response()->json($materials);
+    } catch (\Exception $e) {
+      Log::error('Error loading study materials: ' . $e->getMessage(), [
+        'trace' => $e->getTraceAsString()
+      ]);
+      return response()->json([
+        'error' => 'Failed to load materials',
+        'message' => $e->getMessage()
+      ], 500);
     }
-
-    $materials = $query->paginate(20);
-
-    $materials->getCollection()->transform(function ($material) use ($request) {
-      $user = $request->user();
-      $isPurchased = $user ? $material->isPurchasedBy($user->id) : false;
-
-      return [
-        'id' => $material->id,
-        'title' => $material->title,
-        'description' => $material->description,
-        'category' => $material->category ? [
-          'id' => $material->category->id,
-          'name' => $material->category->name,
-        ] : null,
-        'price' => $material->price,
-        'is_free' => $material->is_free,
-        'download_count' => $material->download_count,
-        'view_count' => $material->view_count,
-        'average_rating' => round($material->average_rating, 1),
-        'ratings_count' => $material->ratings_count,
-        'author' => [
-          'id' => $material->user->id,
-          'username' => $material->user->username,
-          'profile_name' => $material->user->profile->profile_name ?? null,
-        ],
-        'is_purchased' => $isPurchased,
-        'created_at' => $material->created_at,
-      ];
-    });
-
-    return response()->json($materials);
   }
 
   /**
@@ -99,6 +126,12 @@ class StudyMaterialController extends Controller
     $user = $request->user();
     $isPurchased = $user ? $material->isPurchasedBy($user->id) : false;
     $userRating = $user ? $material->ratings()->where('user_id', $user->id)->first() : null;
+    
+    // Calculate average rating safely
+    $ratingsCount = $material->ratings()->count();
+    $averageRating = $ratingsCount > 0 
+      ? round($material->ratings()->avg('rating'), 1) 
+      : 0;
 
     return response()->json([
       'id' => $material->id,
@@ -111,10 +144,10 @@ class StudyMaterialController extends Controller
       'price' => $material->price,
       'is_free' => $material->is_free,
       'preview_content' => $material->preview_content,
-      'download_count' => $material->download_count,
-      'view_count' => $material->view_count,
-      'average_rating' => round($material->average_rating, 1),
-      'ratings_count' => $material->ratings_count,
+      'download_count' => $material->download_count ?? 0,
+      'view_count' => $material->view_count ?? 0,
+      'average_rating' => $averageRating,
+      'ratings_count' => $ratingsCount,
       'author' => [
         'id' => $material->user->id,
         'username' => $material->user->username,

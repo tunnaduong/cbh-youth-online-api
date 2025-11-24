@@ -128,16 +128,19 @@ class StudyMaterial extends Model
 
   /**
    * Get average rating.
+   * Note: This is a computed attribute, not stored in database
    *
    * @return float
    */
   public function getAverageRatingAttribute()
   {
-    return $this->ratings()->avg('rating') ?? 0;
+    $avg = $this->ratings()->avg('rating');
+    return $avg ? round((float)$avg, 1) : 0;
   }
 
   /**
    * Get total ratings count.
+   * Note: This is a computed attribute, not stored in database
    *
    * @return int
    */

@@ -13,7 +13,7 @@ return new class extends Migration {
     Schema::create('cyo_points_transactions', function (Blueprint $table) {
       $table->id();
       $table->unsignedBigInteger('user_id');
-      $table->enum('type', ['deposit', 'withdrawal', 'purchase', 'earning', 'post', 'vote', 'comment'])->index();
+      $table->enum('type', ['deposit', 'withdrawal', 'purchase', 'earning', 'post', 'vote', 'comment']);
       $table->integer('amount'); // points (can be positive or negative)
       $table->string('sepay_transaction_id')->nullable();
       $table->string('reference_code')->nullable();
