@@ -7,6 +7,7 @@ use App\Models\ExpoPushToken;
 use App\Services\PushNotificationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class SendExpoNotification extends Command
 {
@@ -15,7 +16,7 @@ class SendExpoNotification extends Command
    *
    * @var string
    */
-  protected $signature = 'expo:send {user : User ID or username} {title : Notification title} {body : Notification body} {--data= : Additional data as JSON string} {--all : Send to all users with active Expo tokens}';
+  protected $signature = 'expo:send {user : User ID or username} {title : Notification title} {body : Notification body} {--data= : Additional data as JSON string} {--all : Send to all users with active Expo tokens} {--verbose : Show detailed debug information}';
 
   /**
    * The console command description.
@@ -84,7 +85,23 @@ class SendExpoNotification extends Command
 
     $this->info("Found {$tokenCount} active Expo push token(s) for this user.");
 
+    // Get tokens for debugging
+    $tokens = ExpoPushToken::where('user_id', $user->id)
+      ->where('is_active', true)
+      ->get();
+
+    if ($this->option('verbose')) {
+      $this->line('');
+      $this->info("Token details:");
+      foreach ($tokens as $token) {
+        $tokenPreview = substr($token->expo_push_token, 0, 20) . '...';
+        $this->line("  - Token: {$tokenPreview} (Device: {$token->device_type}, Last used: {$token->last_used_at})");
+      }
+      $this->line('');
+    }
+
     try {
+      // Try sending via service first
       $sentCount = PushNotificationService::sendExpoPushToUserWithPayload(
         $user->id,
         $title,
@@ -97,6 +114,14 @@ class SendExpoNotification extends Command
         return 0;
       } else {
         $this->warn("No notifications were sent (all tokens may be invalid).");
+
+        // If verbose, try direct API call to see the actual error
+        if ($this->option('verbose') && $tokens->isNotEmpty()) {
+          $this->line('');
+          $this->info("Testing direct API call to Expo...");
+          $this->testDirectExpoApi($tokens->first()->expo_push_token, $title, $body, $data);
+        }
+
         return 0;
       }
     } catch (\Exception $e) {
@@ -202,5 +227,60 @@ class SendExpoNotification extends Command
     }
 
     return 0;
+  }
+
+  /**
+   * Test direct API call to Expo to see the actual response.
+   *
+   * @param string $token
+   * @param string $title
+   * @param string $body
+   * @param array $data
+   * @return void
+   */
+  private function testDirectExpoApi(string $token, string $title, string $body, array $data = []): void
+  {
+    try {
+      $payload = [
+        'to' => $token,
+        'title' => $title,
+        'body' => $body,
+        'data' => $data,
+        'sound' => 'default',
+      ];
+
+      $this->line("Payload: " . json_encode($payload, JSON_PRETTY_PRINT));
+      $this->line('');
+
+      $response = Http::timeout(10)->post('https://exp.host/--/api/v2/push/send', $payload);
+
+      $this->info("Response Status: " . $response->status());
+      $this->info("Response Body: " . $response->body());
+      $this->line('');
+
+      if ($response->successful()) {
+        $responseData = $response->json();
+        if (isset($responseData['data'])) {
+          foreach ($responseData['data'] as $result) {
+            if (isset($result['status'])) {
+              $this->info("Status: " . $result['status']);
+              if (isset($result['details'])) {
+                $this->info("Details: " . json_encode($result['details'], JSON_PRETTY_PRINT));
+              }
+              if (isset($result['message'])) {
+                $this->warn("Message: " . $result['message']);
+              }
+            }
+          }
+        } else {
+          $this->warn("No 'data' field in response");
+        }
+      } else {
+        $this->error("API request failed with status: " . $response->status());
+        $this->error("Response: " . $response->body());
+      }
+    } catch (\Exception $e) {
+      $this->error("Error testing direct API call: " . $e->getMessage());
+    }
   }
 }
