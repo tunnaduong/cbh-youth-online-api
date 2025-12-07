@@ -50,7 +50,7 @@ class PopulateCachedPoints extends Command
     foreach ($users as $user) {
       try {
         $points = PointsService::calculatePoints($user->id);
-        $user->update(['cached_points' => $points]);
+        $user->update(['points' => $points]);
         $successCount++;
       } catch (\Exception $e) {
         $this->error("Failed to update points for user {$user->username}: " . $e->getMessage());
