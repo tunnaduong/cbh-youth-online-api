@@ -69,3 +69,4 @@ class StudyMaterialRating extends Model
   }
 }
 
+

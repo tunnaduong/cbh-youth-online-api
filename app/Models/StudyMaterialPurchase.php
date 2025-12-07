@@ -67,3 +67,4 @@ class StudyMaterialPurchase extends Model
   }
 }
 
+
