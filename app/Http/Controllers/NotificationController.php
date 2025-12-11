@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ExpoPushToken;
 use App\Models\Notification;
 use App\Models\NotificationSubscription;
-use App\Models\ExpoPushToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -46,7 +46,7 @@ class NotificationController extends Controller
 
     // Pagination
     $perPage = $request->get('per_page', 20);
-    $perPage = min($perPage, 100); // Limit max per page
+    $perPage = min($perPage, 100);  // Limit max per page
     $notifications = $query->paginate($perPage);
 
     $notifications->getCollection()->transform(function ($notification) {
@@ -295,7 +295,7 @@ class NotificationController extends Controller
       Log::warning('Unsubscribe attempt without authentication');
       return response()->json([
         'message' => 'Unsubscribed successfully',
-      ], 200); // Return success even if not authenticated
+      ], 200);  // Return success even if not authenticated
     }
 
     $endpoint = $request->input('endpoint');
@@ -386,13 +386,15 @@ class NotificationController extends Controller
     ]);
 
     try {
-      // Use updateOrCreate to handle duplicate tokens
+      // Update or create based on the unique token
+      // If the token exists (even for another user), claim it for the current user
+      // This handles the case where multiple users log in on the same device
       $token = ExpoPushToken::updateOrCreate(
         [
-          'user_id' => $user->id,
           'expo_push_token' => $request->expo_push_token,
         ],
         [
+          'user_id' => $user->id,
           'device_type' => $request->device_type,
           'device_id' => $request->device_id,
           'is_active' => true,
@@ -443,7 +445,7 @@ class NotificationController extends Controller
       Log::warning('Expo push token unregistration attempt without authentication');
       return response()->json([
         'message' => 'Unregistered successfully',
-      ], 200); // Return success even if not authenticated
+      ], 200);  // Return success even if not authenticated
     }
 
     $expoPushToken = $request->input('expo_push_token');
