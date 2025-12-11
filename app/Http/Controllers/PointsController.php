@@ -15,9 +15,11 @@ class PointsController extends Controller
    * @param int $limit
    * @return JsonResponse
    */
-  public function getTopUsers($limit = 8): JsonResponse
+  public function getTopUsers(Request $request): JsonResponse
   {
     try {
+      $limit = $request->query('limit', 8);
+
       $topUsers = AuthAccount::with(['profile'])
         ->where('role', '!=', 'admin')
         ->orderByDesc('points')
