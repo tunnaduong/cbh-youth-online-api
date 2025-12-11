@@ -508,7 +508,7 @@ class PushNotificationService
         'to' => $tokens->pluck('expo_push_token')->toArray(),
         'title' => $title,
         'body' => $body,
-        'data' => $data,
+        'data' => empty($data) ? (object)[] : $data,
         'sound' => 'default',
         'badge' => null, // Will be set by app based on unread count
       ];
