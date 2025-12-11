@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
 use League\CommonMark\CommonMarkConverter;
@@ -480,7 +481,8 @@ class TopicsController extends Controller
       $files = $request->file('image_files');
 
       foreach ($files as $file) {
-        $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('images', $fileName, 'public');
 
         // Create UserContent record for each image
@@ -527,7 +529,8 @@ class TopicsController extends Controller
       $files = $request->file('document_files');
 
       foreach ($files as $file) {
-        $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('documents', $fileName, 'public');
 
         // Create UserContent record for each document
@@ -695,7 +698,8 @@ class TopicsController extends Controller
       $files = $request->file('image_files');
 
       foreach ($files as $file) {
-        $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('images', $fileName, 'public');
 
         // Create UserContent record for each image
@@ -716,7 +720,8 @@ class TopicsController extends Controller
       $files = $request->file('document_files');
 
       foreach ($files as $file) {
-        $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('documents', $fileName, 'public');
 
         // Create UserContent record for each document

@@ -83,7 +83,8 @@ class FileUploadController extends Controller
         break;
     }
 
-    $fileName = time() . '_' . $file->getClientOriginalName();
+    $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+    $fileName = time() . '_' . Str::slug($originalName) . '.' . $extension;
 
     // Store the file in the appropriate folder
     $path = $file->storeAs($folder, $fileName, 'public');
