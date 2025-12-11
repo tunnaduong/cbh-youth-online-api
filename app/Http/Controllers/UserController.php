@@ -188,11 +188,8 @@ class UserController extends Controller
     });
 
     // Calculate activity points
-    $activityPoints = ($user->posts_count * 10) // 10 points per post
-      + ($totalLikesCount * 5) // 5 points per vote
-      + ($user->posts->sum(function ($post) {
-        return $post->comments->count(); // Count comments on all posts
-      }) * 2); // 2 points per comment
+    // Get activity points directly from database
+    $activityPoints = $user->getPoints();
 
     // Transform followers
     $followers = $user->followers->map(function ($follower) {
