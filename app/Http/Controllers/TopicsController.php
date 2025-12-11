@@ -618,6 +618,54 @@ class TopicsController extends Controller
   }
 
   /**
+   * Update the specified topic in storage.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $id
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+   */
+  public function update(Request $request, $id)
+  {
+    $topic = Topic::findOrFail($id);
+
+    // Check ownership
+    if ($topic->user_id !== auth()->id() && !auth()->user()->hasRole('admin')) {
+      return response()->json(['message' => 'Bạn không có quyền chỉnh sửa bài viết này'], 403);
+    }
+
+    $request->validate([
+      'title' => 'required|string|max:255',
+      'description' => 'required|string',
+      'subforum_id' => 'nullable|exists:cyo_forum_subforums,id',
+      'visibility' => 'nullable|integer|in:0,1',
+      'privacy' => 'nullable|string|in:public,followers,private',
+      'anonymous' => 'nullable|boolean',
+    ]);
+
+    // Convert markdown to HTML
+    $contentHtml = $this->convertMarkdownToHtml($request->description);
+
+    $topic->title = $request->title;
+    $topic->description = $request->description;
+    $topic->content_html = $contentHtml;
+    $topic->subforum_id = $request->subforum_id;
+    $topic->hidden = $request->visibility ?? 0;
+    $topic->privacy = $request->privacy ?? 'public';
+    $topic->anonymous = $request->boolean('anonymous', false);
+
+    // Handle files if new files uploaded (logic similar to store if needed)
+    // Currently relying on existing handling or if user clears/adds
+    // Implementation of full file update logic omitted to keep it focused as per request
+
+    $topic->save();
+
+    return response()->json([
+      'message' => 'Bài viết đã được cập nhật thành công',
+      'data' => $topic
+    ]);
+  }
+
+  /**
    * Get the views for a specific topic.
    *
    * @param  int  $topicId

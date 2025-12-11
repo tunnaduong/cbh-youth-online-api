@@ -229,6 +229,7 @@ Route::prefix('v1.0')->group(function () {
     Route::delete('/user/saved-topics/{id}', [TopicsController::class, 'destroySavedTopic']);
     Route::delete('/user-content/{id}', [FileUploadController::class, 'destroy']);
     Route::delete('/topics/{id}', [TopicsController::class, 'destroyTopic']);
+    Route::put('/topics/{id}', [TopicsController::class, 'update']);
     Route::delete('/topics/{id}/votes', [TopicsController::class, 'destroyTopicVote']);
 
 
