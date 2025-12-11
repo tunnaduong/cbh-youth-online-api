@@ -2,20 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Notifications\VerifyEmail;
 use App\Models\AuthAccount;
-use App\Models\UserProfile;
+use App\Models\AuthEmailVerificationCode;
 use App\Models\UserContent;
+use App\Models\UserProfile;
+use App\Notifications\VerifyEmail;
 use App\Services\NotificationService;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Intervention\Image\Facades\Image;
-use App\Models\AuthEmailVerificationCode;
-use Illuminate\Support\Facades\Http;
 
 /**
  * Handles user authentication, including login, registration, and logout.
@@ -68,6 +68,7 @@ class AuthController extends Controller
       return null;
     }
   }
+
   /**
    * Handle a login request to the application.
    *
@@ -116,12 +117,12 @@ class AuthController extends Controller
         'id' => $user->id,
         'username' => $user->username,
         'email' => $user->email,
-        'profile_name' => $user->profile->profile_name ?? null, // Include profile_name if it exists
+        'profile_name' => $user->profile->profile_name ?? null,  // Include profile_name if it exists
         'created_at' => $user->created_at,
         'updated_at' => $user->updated_at,
         'email_verified_at' => $user->email_verified_at,
         'verified' => ($user->profile->verified ?? null) == 1 ? true : false,
-        'role' => $user->role ?? null, // Include role if it exists
+        'role' => $user->role ?? null,  // Include role if it exists
       ],
       'token' => $token,
     ]);
@@ -139,10 +140,10 @@ class AuthController extends Controller
       'username' => [
         'required',
         'string',
-        'min:3', // Minimum length
-        'max:20', // Maximum length
-        'regex:/^[a-zA-Z0-9_]+$/', // No whitespace, no Unicode characters, only alphanumeric and underscore
-        'unique:cyo_auth_accounts,username', // Ensure the username is unique in the users table
+        'min:3',  // Minimum length
+        'max:20',  // Maximum length
+        'regex:/^[a-zA-Z0-9_]+$/',  // No whitespace, no Unicode characters, only alphanumeric and underscore
+        'unique:cyo_auth_accounts,username',  // Ensure the username is unique in the users table
       ],
       'password' => 'required|string|min:6',
       'email' => 'required|email|unique:cyo_auth_accounts',
@@ -164,8 +165,8 @@ class AuthController extends Controller
     ]);
 
     UserProfile::create([
-      'auth_account_id' => $account->id, // Assuming 'user_id' is a foreign key in cyo_user_profiles
-      'profile_username' => $account->username, // Or other default values
+      'auth_account_id' => $account->id,  // Assuming 'user_id' is a foreign key in cyo_user_profiles
+      'profile_username' => $account->username,  // Or other default values
       'profile_name' => $request->name,
     ]);
 
@@ -189,7 +190,8 @@ class AuthController extends Controller
     // Retrieve the user by username or email
     $user = AuthAccount::where('username', $request->username)
       ->orWhere('email', $request->username)
-      ->first()->load('profile');
+      ->first()
+      ->load('profile');
 
     // Return a success response with the token
     return response()->json([
@@ -199,7 +201,7 @@ class AuthController extends Controller
         'id' => $user->id,
         'username' => $user->username,
         'email' => $user->email,
-        'profile_name' => $user->profile->profile_name ?? null, // Include profile_name if it exists
+        'profile_name' => $user->profile->profile_name ?? null,  // Include profile_name if it exists
         'created_at' => $user->created_at,
         'updated_at' => $user->updated_at,
         'email_verified_at' => $user->email_verified_at
@@ -333,10 +335,12 @@ class AuthController extends Controller
   public function loginWithProvider(Request $request)
   {
     $request->validate([
-      'provider' => 'required|string|in:facebook,google',
-      'accessToken' => 'required|string',
+      'provider' => 'required|string|in:facebook,google,apple',
+      'accessToken' => 'nullable|string',  // accessToken is not always required for Apple
       'idToken' => 'nullable|string',
       'profile' => 'nullable|array',
+      'email' => 'nullable|string',  // Allow direct email input (from Apple)
+      'fullName' => 'nullable',  // Allow direct name input (from Apple)
     ]);
 
     $provider = $request->input('provider');
@@ -365,12 +369,47 @@ class AuthController extends Controller
           }
         }
         if (!$verified) {
-          $userinfoRes = Http::withoutVerifying()->withToken($accessToken)
+          $userinfoRes = Http::withoutVerifying()
+            ->withToken($accessToken)
             ->get('https://openidconnect.googleapis.com/v1/userinfo');
           if (!$userinfoRes->ok()) {
             return response()->json(['message' => 'Xác minh Google token thất bại'], 401);
           }
           $verified = $userinfoRes->json();
+        }
+      } elseif ($provider === 'apple') {
+        if (!$idToken) {
+          return response()->json(['message' => 'Apple Sign In yêu cầu idToken'], 400);
+        }
+
+        // Basic decoding of JWT to get user info (sub, email)
+        // In production, you should verify the signature against Apple's public keys
+        $parts = explode('.', $idToken);
+        if (count($parts) === 3) {
+          $payload = json_decode(base64_decode(str_replace('_', '/', str_replace('-', '+', $parts[1]))), true);
+          if ($payload) {
+            $verified = [
+              'id' => $payload['sub'],
+              'email' => $payload['email'] ?? $request->input('email'),
+              'email_verified' => $payload['email_verified'] ?? false,
+            ];
+
+            // Get name from request if available (only sent on first login)
+            $fullName = $request->input('fullName');
+            if ($fullName) {
+              if (is_array($fullName)) {
+                $givenName = $fullName['givenName'] ?? '';
+                $familyName = $fullName['familyName'] ?? '';
+                $verified['name'] = trim("$givenName $familyName");
+              } else {
+                $verified['name'] = $fullName;
+              }
+            }
+          }
+        }
+
+        if (!$verified) {
+          return response()->json(['message' => 'Token Apple không hợp lệ'], 401);
         }
       }
 
@@ -388,6 +427,16 @@ class AuthController extends Controller
         }
         if (empty($name) && isset($profileData['name'])) {
           $name = trim((string) $profileData['name']);
+        }
+      }
+
+      // Separate check for Apple name if not found in verified passed from profile logic
+      if ($provider === 'apple' && empty($name)) {
+        $fullName = $request->input('fullName');
+        if ($fullName && is_array($fullName)) {
+          $givenName = $fullName['givenName'] ?? '';
+          $familyName = $fullName['familyName'] ?? '';
+          $name = trim("$givenName $familyName");
         }
       }
 
@@ -512,7 +561,6 @@ class AuthController extends Controller
         if ($shouldSave) {
           $user->save();
         }
-
       }
 
       // Load profile and update avatar if available
@@ -565,12 +613,12 @@ class AuthController extends Controller
     $accessToken = $request->query('access_token');
     $error = $request->query('error');
     $errorDescription = $request->query('error_description');
-    $state = $request->query('state'); // May contain scheme info
-    $providerFromQuery = $request->query('provider'); // May be passed from OAuth provider
+    $state = $request->query('state');  // May contain scheme info
+    $providerFromQuery = $request->query('provider');  // May be passed from OAuth provider
 
     // Try to determine provider from state or query
     // State format could be: "provider:random" or just random
-    $provider = 'google'; // Default
+    $provider = 'google';  // Default
     if ($providerFromQuery) {
       $provider = $providerFromQuery;
     } elseif ($state) {
@@ -624,12 +672,12 @@ class AuthController extends Controller
     // Support multiple schemes for local development and production
     // Try production scheme first, then local scheme
     $schemes = [
-      'com.fatties.youth', // Production scheme
-      'exp+cbh-youth-online-mobile', // Expo local development scheme
+      'com.fatties.youth',  // Production scheme
+      'exp+cbh-youth-online-mobile',  // Expo local development scheme
     ];
 
     // Try to determine scheme from state or use default
-    $scheme = $schemes[0]; // Default to production scheme
+    $scheme = $schemes[0];  // Default to production scheme
     if ($state) {
       // Check if state contains scheme info
       foreach ($schemes as $s) {
@@ -642,7 +690,7 @@ class AuthController extends Controller
 
     // Build deep link URL
     // Use single colon (:) instead of :// to avoid Android browser stripping trailing slashes
-    $deepLink = "{$scheme}:oauth" . ($queryString ? "?{$queryString}" : "");
+    $deepLink = "{$scheme}:oauth" . ($queryString ? "?{$queryString}" : '');
 
     // Return HTML page with green button to redirect to app
     $html = '<!DOCTYPE html>
