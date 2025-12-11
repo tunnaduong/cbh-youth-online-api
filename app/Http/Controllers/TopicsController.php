@@ -177,11 +177,15 @@ class TopicsController extends Controller
         ];
 
         // Check if the user is authenticated
+        $isOwner = false;
         if ($request->user()) {
           $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
+          $isOwner = $request->user()->id === $topic->user_id;
         } else {
           $topicData['saved'] = false;
         }
+
+        $topicData['is_owner'] = $isOwner;
 
         return $topicData;
       });
@@ -371,6 +375,7 @@ class TopicsController extends Controller
       'post' => [
         'id' => $topic->id,
         'title' => $topic->title,
+        'description' => $topic->description,
         'content' => $topic->content_html,
         'image_urls' => $imageUrls,
         'document_urls' => $topic->getDocuments()->map(function ($content) {
@@ -401,7 +406,22 @@ class TopicsController extends Controller
         ],
         'anonymous' => $topic->anonymous,
         'is_saved' => $isSaved,
+        'is_owner' => auth()->check() && $topic->user_id === auth()->id(),
         'comments' => $formattedComments,
+        'images' => \App\Models\UserContent::whereIn('id', !empty($topic->cdn_image_id) ? explode(',', $topic->cdn_image_id) : [])->get()->map(function ($img) {
+          return [
+            'id' => $img->id,
+            'url' => config('app.url') . \Illuminate\Support\Facades\Storage::url($img->file_path)
+          ];
+        }),
+        'documents' => \App\Models\UserContent::whereIn('id', !empty($topic->cdn_document_id) ? explode(',', $topic->cdn_document_id) : [])->get()->map(function ($doc) {
+          return [
+            'id' => $doc->id,
+            'url' => config('app.url') . \Illuminate\Support\Facades\Storage::url($doc->file_path),
+            'name' => $doc->file_name,
+            'size' => $doc->file_size
+          ];
+        }),
       ],
       'ogImage' => $ogImage,
       'comments' => $formattedComments
@@ -637,10 +657,80 @@ class TopicsController extends Controller
       'title' => 'required|string|max:255',
       'description' => 'required|string',
       'subforum_id' => 'nullable|exists:cyo_forum_subforums,id',
+      'image_files' => 'nullable|array',
+      'image_files.*' => 'file|image|max:10240',
+      'document_files' => 'nullable|array',
+      'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600',
       'visibility' => 'nullable|integer|in:0,1',
       'privacy' => 'nullable|string|in:public,followers,private',
       'anonymous' => 'nullable|boolean',
     ]);
+
+    // Initialize ID arrays from request 'kept_ids' (allows deletion)
+    // We expect the frontend to send the comma-separated list of IDs it wants to KEEP from the original set
+    // If kept_image_ids is NOT present in request, we fallback to existing DB (assume no deletion intended if field missing?
+    // Or strictly require it? Better to fallback to DB if missing to prevent accidental wipe if frontend doesn't send it)
+    if ($request->has('kept_image_ids')) {
+      $cdnImageIds = !empty($request->kept_image_ids) ? explode(',', $request->kept_image_ids) : [];
+      // Optional: Validate that these IDs were indeed part of the original topic or belong to user
+      // For simplicity allow provided list, but filtering against original is safer practice:
+      // $originalIds = !empty($topic->cdn_image_id) ? explode(',', $topic->cdn_image_id) : [];
+      // $cdnImageIds = array_intersect($cdnImageIds, $originalIds);
+    } else {
+      $cdnImageIds = !empty($topic->cdn_image_id) ? explode(',', $topic->cdn_image_id) : [];
+    }
+
+    if ($request->has('kept_document_ids')) {
+      $cdnDocumentIds = !empty($request->kept_document_ids) ? explode(',', $request->kept_document_ids) : [];
+    } else {
+      $cdnDocumentIds = !empty($topic->cdn_document_id) ? explode(',', $topic->cdn_document_id) : [];
+    }
+
+    // Filter out any empty values
+    $cdnImageIds = array_filter($cdnImageIds);
+    $cdnDocumentIds = array_filter($cdnDocumentIds);
+
+    // Handle new image uploads
+    if ($request->hasFile('image_files')) {
+      $files = $request->file('image_files');
+
+      foreach ($files as $file) {
+        $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+        $path = $file->storeAs('images', $fileName, 'public');
+
+        // Create UserContent record for each image
+        $userContent = UserContent::create([
+          'user_id' => auth()->id(),
+          'file_name' => $fileName,
+          'file_path' => $path,
+          'file_type' => $file->getMimeType(),
+          'file_size' => $file->getSize(),
+        ]);
+
+        $cdnImageIds[] = $userContent->id;
+      }
+    }
+
+    // Handle new document uploads
+    if ($request->hasFile('document_files')) {
+      $files = $request->file('document_files');
+
+      foreach ($files as $file) {
+        $fileName = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+        $path = $file->storeAs('documents', $fileName, 'public');
+
+        // Create UserContent record for each document
+        $userContent = UserContent::create([
+          'user_id' => auth()->id(),
+          'file_name' => $fileName,
+          'file_path' => $path,
+          'file_type' => $file->getMimeType(),
+          'file_size' => $file->getSize(),
+        ]);
+
+        $cdnDocumentIds[] = $userContent->id;
+      }
+    }
 
     // Convert markdown to HTML
     $contentHtml = $this->convertMarkdownToHtml($request->description);
@@ -649,13 +739,11 @@ class TopicsController extends Controller
     $topic->description = $request->description;
     $topic->content_html = $contentHtml;
     $topic->subforum_id = $request->subforum_id;
+    $topic->cdn_image_id = !empty($cdnImageIds) ? implode(',', $cdnImageIds) : null;
+    $topic->cdn_document_id = !empty($cdnDocumentIds) ? implode(',', $cdnDocumentIds) : null;
     $topic->hidden = $request->visibility ?? 0;
     $topic->privacy = $request->privacy ?? 'public';
     $topic->anonymous = $request->boolean('anonymous', false);
-
-    // Handle files if new files uploaded (logic similar to store if needed)
-    // Currently relying on existing handling or if user clears/adds
-    // Implementation of full file update logic omitted to keep it focused as per request
 
     $topic->save();
 

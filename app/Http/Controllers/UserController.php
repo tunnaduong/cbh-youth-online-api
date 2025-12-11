@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Follower;
 use App\Models\AuthAccount;
-use App\Models\UserContent;
+use App\Models\AuthEmailVerificationCode;
+use App\Models\Follower;
 use App\Models\TopicComment;
-use Illuminate\Http\Request;
+use App\Models\UserContent;
 use App\Models\UserSavedTopic;
-use Illuminate\Support\Carbon;
+use App\Notifications\VerifyEmail;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use App\Models\AuthEmailVerificationCode;
-use App\Notifications\VerifyEmail;
 
 /**
  * Handles user-related actions such as retrieving profiles, avatars, and activity status.
@@ -51,7 +51,7 @@ class UserController extends Controller
             // Check if the file exists
             if (file_exists($imagePath)) {
               return response()->file($imagePath, [
-                'Content-Type' => $userContent->file_type, // Dynamically set the Content-Type
+                'Content-Type' => $userContent->file_type,  // Dynamically set the Content-Type
               ]);
             }
 
@@ -63,13 +63,13 @@ class UserController extends Controller
 
         // Check if oauth_profile_picture is set
         if ($userProfile->oauth_profile_picture) {
-          return redirect($userProfile->oauth_profile_picture); // Redirect to the external URL
+          return redirect($userProfile->oauth_profile_picture);  // Redirect to the external URL
         }
       }
 
       // Return the placeholder image if no avatar is found
       return response()->file(storage_path('app/public/avatars/placeholder-user.jpg'), [
-        'Content-Type' => "image/jpeg", // Dynamically set the Content-Type
+        'Content-Type' => 'image/jpeg',  // Dynamically set the Content-Type
       ]);
     } catch (ModelNotFoundException $e) {
       return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
@@ -95,7 +95,7 @@ class UserController extends Controller
 
     // Validate the incoming request
     $request->validate([
-      'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240', // Validate the file type and size
+      'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',  // Validate the file type and size
     ]);
 
     // Retrieve the user by username
@@ -111,8 +111,8 @@ class UserController extends Controller
 
       // Use Intervention Image to crop and resize to a 1:1 ratio
       $image = Image::make($file->getRealPath());
-      $size = min($image->width(), $image->height()); // Get the smallest dimension
-      $image->crop($size, $size)->resize(500, 500); // Crop and resize to 500x500 pixels (or any preferred size)
+      $size = min($image->width(), $image->height());  // Get the smallest dimension
+      $image->crop($size, $size)->resize(500, 500);  // Crop and resize to 500x500 pixels (or any preferred size)
 
       // Define the file path
       $filePath = 'avatars/' . $fileName;
@@ -143,7 +143,7 @@ class UserController extends Controller
 
       return response()->json([
         'message' => 'Cập nhật avatar thành công.',
-        'avatar' => Storage::url($filePath), // Return the file path or URL
+        'avatar' => Storage::url($filePath),  // Return the file path or URL
         'user_id' => $user->id,
         'profile_picture_id' => $userContent->id,
         'profile_picture' => $user->profile->profile_picture,
@@ -174,8 +174,8 @@ class UserController extends Controller
   {
     // Find the user by username
     $user = AuthAccount::where('username', $username)
-      ->with(['profile', 'followers.follower', 'following.followed', 'posts.votes', 'posts.comments']) // Eager load relationships
-      ->withCount(['followers', 'following', 'posts']) // Count followers, following, and posts
+      ->with(['profile', 'followers.follower', 'following.followed', 'posts.votes', 'posts.comments'])  // Eager load relationships
+      ->withCount(['followers', 'following', 'posts'])  // Count followers, following, and posts
       ->first();
 
     if (!$user) {
@@ -184,7 +184,7 @@ class UserController extends Controller
 
     // Calculate total likes count
     $totalLikesCount = $user->posts->sum(function ($post) {
-      return $post->votes->where('vote_value', 1)->count(); // Count only upvotes
+      return $post->votes->where('vote_value', 1)->count();  // Count only upvotes
     });
 
     // Calculate activity points
@@ -222,7 +222,7 @@ class UserController extends Controller
         'username' => $followed->followed->username,
         'profile_name' => $followed->followed->profile->profile_name ?? null,
         'profile_picture' => config('app.url') . "/v1.0/users/{$followed->followed->username}/avatar",
-        'isFollowed' => false, // Default to false
+        'isFollowed' => false,  // Default to false
       ];
 
       if (auth()->check()) {
@@ -250,7 +250,7 @@ class UserController extends Controller
       return [
         'id' => $post->id,
         'title' => $post->title,
-        'content' => $post->description,
+        'content' => $post->content_html,
         'image_urls' => $post->getImageUrls()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
         })->all(),
@@ -352,7 +352,7 @@ class UserController extends Controller
       'email' => 'nullable|email|max:255|unique:cyo_auth_accounts,email,' . $user->id . ',id',
       // Profile fields
       'profile_name' => 'nullable|string|max:255',
-      'profile_picture' => 'nullable|integer', // Optional, if updating avatar via URL
+      'profile_picture' => 'nullable|integer',  // Optional, if updating avatar via URL
       'bio' => 'nullable|string',
       'birthday' => 'nullable|date',
       'gender' => 'nullable|string|in:Male,Female',
@@ -415,7 +415,7 @@ class UserController extends Controller
       AuthEmailVerificationCode::create([
         'user_id' => $user->id,
         'verification_code' => $verificationCode,
-        'expires_at' => now()->addHours(24), // Expires after 24 hours
+        'expires_at' => now()->addHours(24),  // Expires after 24 hours
       ]);
 
       // Send verification email to the new email address
@@ -463,7 +463,7 @@ class UserController extends Controller
     // Include new token if username or email was changed
     if ($newToken) {
       $response['token'] = $newToken;
-      $response['access_token'] = $newToken; // Also include as access_token for compatibility
+      $response['access_token'] = $newToken;  // Also include as access_token for compatibility
     }
 
     return response()->json($response);
@@ -500,8 +500,8 @@ class UserController extends Controller
   {
     try {
       $topUsers = AuthAccount::with(['profile'])
-        ->where('role', '!=', 'admin') // Exclude admin users
-        ->orderByDesc('points') // Use points for sorting
+        ->where('role', '!=', 'admin')  // Exclude admin users
+        ->orderByDesc('points')  // Use points for sorting
         ->limit(8)
         ->get()
         ->map(function ($user) {
@@ -511,7 +511,7 @@ class UserController extends Controller
             'profile_name' => $user->profile->profile_name ?? $user->username,
             'profile_picture' => $user->profile->profile_picture ?? null,
             'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
-            'total_points' => $user->getPoints() // Use points
+            'total_points' => $user->getPoints()  // Use points
           ];
         })
         ->values()
