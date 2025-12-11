@@ -3,23 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\Topic;
+use App\Models\TopicComment;
+use App\Models\TopicCommentVote;
 use App\Models\TopicView;
 use App\Models\TopicVote;
 use App\Models\UserContent;
-use App\Models\TopicComment;
+use App\Models\UserSavedTopic;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use App\Models\UserSavedTopic;
-use Illuminate\Support\Carbon;
-use App\Models\TopicCommentVote;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use App\Services\NotificationService;
-use League\CommonMark\CommonMarkConverter;
+use Illuminate\Support\Carbon;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
+use League\CommonMark\CommonMarkConverter;
 
 /**
  * Handles all API-related actions for topics, including creation, retrieval, voting, and commenting.
@@ -36,8 +36,8 @@ class TopicsController extends Controller
   {
     // 1. Chặn toàn bộ HTML thô
     $config = [
-      'html_input' => 'strip',       // loại bỏ tất cả HTML trong Markdown
-      'allow_unsafe_links' => false, // chặn javascript: links
+      'html_input' => 'strip',  // loại bỏ tất cả HTML trong Markdown
+      'allow_unsafe_links' => false,  // chặn javascript: links
       'renderer' => [
         'soft_break' => "<br>\n",
       ],
@@ -103,32 +103,37 @@ class TopicsController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where(function ($subQ) {
-          // Public posts (privacy = public AND hidden = 0)
-          $subQ->where('privacy', 'public')
-            ->where('hidden', 0);
-        })
-          ->orWhere('user_id', $userId) // User's own posts (including private ones)
+        $q
+          ->where(function ($subQ) {
+            // Public posts (privacy = public AND hidden = 0)
+            $subQ
+              ->where('privacy', 'public')
+              ->where('hidden', 0);
+          })
+          ->orWhere('user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts (privacy = followers AND hidden = 0)
-            $subQ->where('privacy', 'followers')
+            $subQ
+              ->where('privacy', 'followers')
               ->where('hidden', 0)
               ->whereIn('user_id', $followingIds);
           });
       });
     } else {
       // For non-authenticated users, only show public posts
-      $query->where('privacy', 'public')
+      $query
+        ->where('privacy', 'public')
         ->where('hidden', 0);
     }
 
-    $topics = $query->paginate(10) // Paginate with 10 items per page
+    $topics = $query
+      ->paginate(10)  // Paginate with 10 items per page
       ->through(function ($topic) use ($request) {
         // Check if user is moderator/admin (you may need to adjust this logic based on your role system)
         $isModerator = $request->user() && (
           $request->user()->hasRole('admin') ||
           $request->user()->hasRole('moderator') ||
-          $request->user()->id === 1 // Assuming user ID 1 is admin, adjust as needed
+          $request->user()->id === 1  // Assuming user ID 1 is admin, adjust as needed
         );
 
         $topicData = [
@@ -137,6 +142,12 @@ class TopicsController extends Controller
           'content' => $topic->content_html,
           'image_urls' => $topic->getImageUrls()->map(function ($content) {
             return config('app.url') . Storage::url($content->file_path);
+          })->all(),
+          'document_urls' => $topic->getDocuments()->map(function ($content) {
+            return config('app.url') . Storage::url($content->file_path);
+          })->all(),
+          'document_sizes' => $topic->getDocuments()->map(function ($content) {
+            return $content->file_size;
           })->all(),
           'author' => $topic->anonymous && !$isModerator ? [
             'id' => null,
@@ -153,11 +164,11 @@ class TopicsController extends Controller
           ],
           'anonymous' => $topic->anonymous,
           'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
-          'comments' => $topic->comments_count, // Comment count in '05+' format (already formatted by accessor)
-          'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0, // Ensure numeric value
+          'comments' => $topic->comments_count,  // Comment count in '05+' format (already formatted by accessor)
+          'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,  // Ensure numeric value
           'votes' => $topic->votes->map(function ($vote) {
             return [
-              'username' => $vote->user->username, // Assuming votes relation includes the user
+              'username' => $vote->user->username,  // Assuming votes relation includes the user
               'vote_value' => $vote->vote_value,
               'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
               'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
@@ -220,7 +231,7 @@ class TopicsController extends Controller
       ->find($id);
 
     if (!$topic) {
-      return response()->json(['message' => 'Không tìm thấy bài viết.'], 404); // Not Found
+      return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);  // Not Found
     }
 
     // Check privacy settings
@@ -248,23 +259,24 @@ class TopicsController extends Controller
 
     // Load comments with their respective votes and voter usernames
     // Need to load nested replies recursively with all levels
-    $comments = $topic->comments()
+    $comments = $topic
+      ->comments()
       ->whereNull('replying_to')
       ->with([
         'user.profile',
         'votes.user',
         'replies' => function ($q) {
-          $q->select('*'); // Ensure all columns including deleted_parent_username are loaded
+          $q->select('*');  // Ensure all columns including deleted_parent_username are loaded
           $q->with([
             'user.profile',
             'votes.user',
             'replies' => function ($subQ) {
-            $subQ->select('*'); // Ensure all columns including deleted_parent_username are loaded
-            $subQ->with([
-              'user.profile',
-              'votes.user',
-            ]);
-          },
+              $subQ->select('*');  // Ensure all columns including deleted_parent_username are loaded
+              $subQ->with([
+                'user.profile',
+                'votes.user',
+              ]);
+            },
           ]);
         }
       ])
@@ -375,7 +387,7 @@ class TopicsController extends Controller
             'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
           ];
         }),
-        'reply_count' => $this->roundToNearestFive($topic->reply_count ?? 0) . "+",
+        'reply_count' => $this->roundToNearestFive($topic->reply_count ?? 0) . '+',
         'view_count' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,
         'created_at' => $topic->created_at->diffForHumans(),
         'author' => $topic->anonymous ? [
@@ -428,15 +440,16 @@ class TopicsController extends Controller
     $request->validate([
       'title' => 'required|string|max:255',
       'description' => 'required|string',
-      'subforum_id' => 'nullable|exists:cyo_forum_subforums,id', // Kiểm tra subforum_id
+      'subforum_id' => 'nullable|exists:cyo_forum_subforums,id',  // Kiểm tra subforum_id
       'image_files' => 'nullable|array',
-      'image_files.*' => 'file|image|max:10240', // 10MB max for each image
-      'cdn_image_id' => 'nullable|string', // For mobile app: comma-separated IDs of already uploaded images
+      'image_files.*' => 'file|image|max:10240',  // 10MB max for each image
+      'cdn_image_id' => 'nullable|string',  // For mobile app: comma-separated IDs of already uploaded images
       'document_files' => 'nullable|array',
-      'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600', // 25MB max for each document
-      'visibility' => 'nullable|integer|in:0,1', // 0: public, 1: private (for hidden field)
-      'privacy' => 'nullable|string|in:public,followers,private', // public, followers, private
-      'anonymous' => 'nullable|boolean', // Anonymous posting
+      'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600',  // 25MB max for each document
+      'cdn_document_id' => 'nullable|string',  // For mobile app: comma-separated IDs of already uploaded documents
+      'visibility' => 'nullable|integer|in:0,1',  // 0: public, 1: private (for hidden field)
+      'privacy' => 'nullable|string|in:public,followers,private',  // public, followers, private
+      'anonymous' => 'nullable|boolean',  // Anonymous posting
     ]);
 
     $cdnImageIds = [];
@@ -509,6 +522,26 @@ class TopicsController extends Controller
         $cdnDocumentIds[] = $userContent->id;
       }
     }
+    // Handle cdn_document_id from mobile app (already uploaded documents)
+    elseif ($request->has('cdn_document_id') && !empty($request->cdn_document_id)) {
+      $cdnDocumentId = $request->cdn_document_id;
+
+      // Validate IDs
+      $docIds = array_filter(explode(',', $cdnDocumentId));
+      if (!empty($docIds)) {
+        $validIds = UserContent::where('user_id', auth()->id())
+          ->whereIn('id', $docIds)
+          ->pluck('id')
+          ->toArray();
+
+        if (count($validIds) !== count($docIds)) {
+          return response()->json([
+            'message' => 'Một số tài liệu không hợp lệ hoặc không thuộc về bạn'
+          ], 400);
+        }
+      }
+      $cdnDocumentIds = $docIds;  // Update array for consistency if needed later, though we use $cdnDocumentId directly below
+    }
 
     $cdnDocumentId = !empty($cdnDocumentIds) ? implode(',', $cdnDocumentIds) : null;
 
@@ -518,14 +551,14 @@ class TopicsController extends Controller
     $topic = Topic::create([
       'user_id' => auth()->id(),
       'title' => $request->title,
-      'description' => $request->description, // Keep original markdown
-      'content_html' => $contentHtml, // Store converted HTML
-      'subforum_id' => $request->subforum_id, // Gán giá trị cho subforum_id
+      'description' => $request->description,  // Keep original markdown
+      'content_html' => $contentHtml,  // Store converted HTML
+      'subforum_id' => $request->subforum_id,  // Gán giá trị cho subforum_id
       'cdn_image_id' => $cdnImageId,
       'cdn_document_id' => $cdnDocumentId,
       'hidden' => $request->visibility,
-      'privacy' => $request->privacy ?? 'public', // Default to public if not provided
-      'anonymous' => $request->boolean('anonymous', false), // Default to false if not provided
+      'privacy' => $request->privacy ?? 'public',  // Default to public if not provided
+      'anonymous' => $request->boolean('anonymous', false),  // Default to false if not provided
     ]);
 
     // Debug: Log the created topic
@@ -569,14 +602,14 @@ class TopicsController extends Controller
           'id' => $author->id,
           'username' => $author->username,
           'email' => $author->email,
-          'profile_name' => $author->profile->profile_name ?? null, // Ensure profile_name is included
+          'profile_name' => $author->profile->profile_name ?? null,  // Ensure profile_name is included
         ],
         'anonymous' => $topic->anonymous,
-        'time' => Carbon::parse($topic->created_at)->diffForHumans(), // You can dynamically calculate the time difference if needed
-        'comments' => '00+', // Adjust this based on actual comment count if necessary
-        'views' => 0, // Initialize view count as 0 or load actual views
-        'votes' => [], // Initialize empty votes array or load actual votes
-        'saved' => false, // Default to false or check if the user has saved the topic
+        'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // You can dynamically calculate the time difference if needed
+        'comments' => '00+',  // Adjust this based on actual comment count if necessary
+        'views' => 0,  // Initialize view count as 0 or load actual views
+        'votes' => [],  // Initialize empty votes array or load actual votes
+        'saved' => false,  // Default to false or check if the user has saved the topic
       ], 201);
     }
 
@@ -624,8 +657,6 @@ class TopicsController extends Controller
     return back()->with('success', 'View tracked successfully');
   }
 
-
-
   /**
    * Get the votes for a specific topic.
    *
@@ -648,7 +679,7 @@ class TopicsController extends Controller
   public function registerVote(Request $request, $topicId)
   {
     $request->validate([
-      'vote_value' => 'required|integer|in:1,-1,0', // 1 for upvote, -1 for downvote, 0 for remove vote
+      'vote_value' => 'required|integer|in:1,-1,0',  // 1 for upvote, -1 for downvote, 0 for remove vote
     ]);
 
     // Retrieve the authenticated user
@@ -702,7 +733,8 @@ class TopicsController extends Controller
   public function getComments(Request $request, $topicId)
   {
     $comments = TopicComment::with(['user', 'user.profile'])
-      ->where('topic_id', $topicId)->orderBy('created_at', 'desc')
+      ->where('topic_id', $topicId)
+      ->orderBy('created_at', 'desc')
       ->get()
       ->map(function ($comment) {
         $isOwner = auth()->check() && $comment->user_id === auth()->id();
@@ -710,10 +742,10 @@ class TopicsController extends Controller
         return [
           'id' => $comment->id,
           'topic_id' => $comment->topic_id,
-          'content' => $comment->comment, // Raw markdown text for editing
-          'comment' => $comment->comment_html, // HTML for display
+          'content' => $comment->comment,  // Raw markdown text for editing
+          'comment' => $comment->comment_html,  // HTML for display
           'is_anonymous' => $comment->is_anonymous,
-          'is_owner' => $isOwner, // Add ownership flag
+          'is_owner' => $isOwner,  // Add ownership flag
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
           'author' => $comment->is_anonymous ? [
@@ -726,7 +758,7 @@ class TopicsController extends Controller
             'id' => $comment->user->id,
             'username' => $comment->user->username,
             'email' => $comment->user->email,
-            'profile_name' => $comment->user->profile->profile_name ?? null, // Handle case where profile might not exist
+            'profile_name' => $comment->user->profile->profile_name ?? null,  // Handle case where profile might not exist
             'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
           ],
         ];
@@ -763,8 +795,8 @@ class TopicsController extends Controller
     }
 
     $comment->update([
-      'comment' => $request->comment, // Store raw markdown/text
-      'comment_html' => $this->convertMarkdownToHtml($request->comment), // Store processed HTML
+      'comment' => $request->comment,  // Store raw markdown/text
+      'comment_html' => $this->convertMarkdownToHtml($request->comment),  // Store processed HTML
     ]);
 
     if ($request->wantsJson()) {
@@ -773,9 +805,9 @@ class TopicsController extends Controller
 
       return response()->json([
         'id' => $comment->id,
-        'content' => $comment->comment, // Return raw markdown for editing
-        'comment' => $comment->comment_html, // Return HTML for display
-        'is_owner' => true, // Updated comment is always owned by updater
+        'content' => $comment->comment,  // Return raw markdown for editing
+        'comment' => $comment->comment_html,  // Return HTML for display
+        'is_owner' => true,  // Updated comment is always owned by updater
         'author' => [
           'id' => $author->id,
           'username' => $author->username,
@@ -801,8 +833,9 @@ class TopicsController extends Controller
   {
     $comment = TopicComment::findOrFail($commentId);
 
-    $replies = $comment->replies()
-      ->paginate(5); // Load replies in chunks
+    $replies = $comment
+      ->replies()
+      ->paginate(5);  // Load replies in chunks
 
     if ($request->wantsJson()) {
       return response()->json($replies);
@@ -810,7 +843,6 @@ class TopicsController extends Controller
 
     return $replies;
   }
-
 
   /**
    * Add a comment to a topic.
@@ -831,8 +863,8 @@ class TopicsController extends Controller
       'replying_to' => $request->replying_to,
       'topic_id' => $request->topic_id,
       'user_id' => auth()->id(),
-      'comment' => $request->comment, // Store raw markdown/text
-      'comment_html' => $this->convertMarkdownToHtml($request->comment), // Store processed HTML
+      'comment' => $request->comment,  // Store raw markdown/text
+      'comment_html' => $this->convertMarkdownToHtml($request->comment),  // Store processed HTML
       'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
@@ -860,10 +892,10 @@ class TopicsController extends Controller
 
     $commentData = [
       'id' => $comment->id,
-      'content' => $comment->comment, // Return raw markdown for editing
-      'comment' => $comment->comment_html, // Return HTML for display
+      'content' => $comment->comment,  // Return raw markdown for editing
+      'comment' => $comment->comment_html,  // Return HTML for display
       'is_anonymous' => $comment->is_anonymous,
-      'is_owner' => true, // New comment is always owned by creator
+      'is_owner' => true,  // New comment is always owned by creator
       'author' => $comment->is_anonymous ? [
         'id' => null,
         'username' => 'Người dùng ẩn danh',
@@ -876,7 +908,7 @@ class TopicsController extends Controller
         'verified' => $author->profile->verified == 1 ?? false ? true : false,
       ],
       'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
-      'votes' => [], // Initialize an empty array for votes
+      'votes' => [],  // Initialize an empty array for votes
     ];
 
     if ($request->wantsJson()) {
@@ -899,7 +931,7 @@ class TopicsController extends Controller
   public function voteOnComment(Request $request, $commentId)
   {
     $request->validate([
-      'vote_value' => 'required|integer|in:1,-1,0', // 1 for upvote, -1 for downvote, 0 for remove vote
+      'vote_value' => 'required|integer|in:1,-1,0',  // 1 for upvote, -1 for downvote, 0 for remove vote
     ]);
 
     $vote = TopicCommentVote::updateOrCreate(
@@ -1024,10 +1056,10 @@ class TopicsController extends Controller
   public function saveTopicForUser(Request $request)
   {
     $request->validate([
-      'topic_id' => 'required|exists:cyo_topics,id', // Validate that the topic exists
+      'topic_id' => 'required|exists:cyo_topics,id',  // Validate that the topic exists
     ]);
 
-    $userId = auth()->id(); // Get authenticated user ID
+    $userId = auth()->id();  // Get authenticated user ID
 
     // Check if the user has already saved the topic
     $exists = DB::table('cyo_user_saved_topics')
@@ -1037,9 +1069,8 @@ class TopicsController extends Controller
 
     if ($exists) {
       // If the record exists, return a message or take appropriate action
-      return response()->json(['message' => 'This topic is already saved by the user.'], 409); // 409 Conflict
+      return response()->json(['message' => 'This topic is already saved by the user.'], 409);  // 409 Conflict
     }
-
 
     UserSavedTopic::create([
       'user_id' => $userId,
@@ -1087,7 +1118,7 @@ class TopicsController extends Controller
   public function destroySavedTopic($topicId, Request $request)
   {
     // Optionally, validate the user is authenticated
-    $userId = $request->user()->id; // Get the authenticated user's ID
+    $userId = $request->user()->id;  // Get the authenticated user's ID
 
     // Find the saved topic by topic_id and user_id
     $savedTopic = UserSavedTopic::where('topic_id', $topicId)
@@ -1157,7 +1188,6 @@ class TopicsController extends Controller
 
     return redirect()->back()->with('success', 'Bình luận đã được xóa thành công');
   }
-
 
   /**
    * Remove the specified comment vote from storage.
