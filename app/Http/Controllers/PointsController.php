@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\PointsService;
-use Illuminate\Http\Request;
+use App\Models\AuthAccount;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class PointsController extends Controller
@@ -18,7 +18,11 @@ class PointsController extends Controller
   public function getTopUsers($limit = 8): JsonResponse
   {
     try {
-      $topUsers = PointsService::getTopUsers($limit);
+      $topUsers = AuthAccount::with(['profile'])
+        ->where('role', '!=', 'admin')
+        ->orderByDesc('points')
+        ->limit($limit)
+        ->get();
 
       $formattedUsers = $topUsers->map(function ($user) {
         return [
