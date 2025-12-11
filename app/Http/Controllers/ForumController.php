@@ -2,22 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
-use Inertia\Inertia;
+use App\Models\AuthAccount;
+use App\Models\ForumCategory;
+use App\Models\ForumMainCategory;
+use App\Models\ForumSubforum;
 use App\Models\Reply;
 use App\Models\Topic;
-use App\Models\AuthAccount;
-use Illuminate\Support\Str;
 use App\Models\TopicComment;
+use App\Models\UserSavedTopic;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use App\Models\ForumCategory;
-use App\Models\ForumSubforum;
-use App\Models\ForumMainCategory;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Auth;
-use App\Models\UserSavedTopic;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 /**
  * Handles the display and interaction with the main forum, categories, subforums, and topics.
@@ -34,7 +34,8 @@ class ForumController extends Controller
   {
     $mainCategories = ForumCategory::with([
       'subforums' => function ($query) {
-        $query->withCount(['topics', 'comments'])
+        $query
+          ->withCount(['topics', 'comments'])
           ->orderBy('arrange', 'asc');
       }
     ])->orderBy('arrange', 'asc')->get();
@@ -195,16 +196,18 @@ class ForumController extends Controller
     $query = Topic::with([
       'user.profile',
       'comments' => function ($query) {
-        $query->select('id', 'topic_id', 'user_id', 'comment', 'created_at')
+        $query
+          ->select('id', 'topic_id', 'user_id', 'comment', 'created_at')
           ->with('user:id,username')
           ->latest()
-          ->limit(5); // Chỉ load 5 comment gần nhất
+          ->limit(5);  // Chỉ load 5 comment gần nhất
       },
       'votes' => function ($query) {
-        $query->select('id', 'topic_id', 'user_id', 'vote_value', 'created_at')
+        $query
+          ->select('id', 'topic_id', 'user_id', 'vote_value', 'created_at')
           ->with('user:id,username')
           ->latest()
-          ->limit(10); // Chỉ load 10 vote gần nhất
+          ->limit(10);  // Chỉ load 10 vote gần nhất
       }
     ])
       ->withCount(['comments as reply_count', 'views'])
@@ -221,11 +224,13 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+        $q
+          ->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('cyo_topics.privacy', 'followers')
+            $subQ
+              ->where('cyo_topics.privacy', 'followers')
               ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
@@ -310,7 +315,8 @@ class ForumController extends Controller
   {
     $category->load([
       'subforums' => function ($query) {
-        $query->withCount(['topics', 'comments'])
+        $query
+          ->withCount(['topics', 'comments'])
           ->orderBy('arrange', 'asc')
           ->with([
             'latestPublicTopic' => function ($q) {
@@ -334,7 +340,8 @@ class ForumController extends Controller
    */
   public function subforum(ForumCategory $category, ForumSubforum $subforum)
   {
-    $query = $subforum->topics()
+    $query = $subforum
+      ->topics()
       ->with(['user.profile', 'comments'])
       ->withCount(['comments as reply_count', 'views'])
       ->orderBy('pinned', 'desc')
@@ -348,10 +355,12 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+        $q
+          ->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
-            $subQ->where('cyo_topics.privacy', 'followers')
+            $subQ
+              ->where('cyo_topics.privacy', 'followers')
               ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
@@ -386,7 +395,7 @@ class ForumController extends Controller
             'id' => $topic->user->id,
             'username' => $topic->user->username,
             'profile_name' => $topic->user->profile->profile_name ?? null,
-            'avatar' => config('app.url') . "/v1.0/users/" . $topic->user->username . "/avatar",
+            'avatar' => config('app.url') . '/v1.0/users/' . $topic->user->username . '/avatar',
             'verified' => $topic->user->profile->verified == 1 ? true : false
           ],
           'latest_reply' => $topic->comments->sortByDesc('created_at')->first() ? [
@@ -434,7 +443,8 @@ class ForumController extends Controller
       'cyo_topics.user_id' => auth()->id()
     ]);
 
-    return redirect()->route('forum.topic.show', $topic)
+    return redirect()
+      ->route('forum.topic.show', $topic)
       ->with('success', 'Chủ đề đã được tạo thành công.');
   }
 
@@ -471,7 +481,8 @@ class ForumController extends Controller
 
     $topic->update($validated);
 
-    return redirect()->route('forum.topic.show', $topic)
+    return redirect()
+      ->route('forum.topic.show', $topic)
       ->with('success', 'Chủ đề đã được cập nhật thành công.');
   }
 
@@ -488,7 +499,8 @@ class ForumController extends Controller
     $subforum = $topic->subforum;
     $topic->delete();
 
-    return redirect()->route('forum.subforum', $subforum)
+    return redirect()
+      ->route('forum.subforum', $subforum)
       ->with('success', 'Chủ đề đã được xóa thành công.');
   }
 
@@ -548,7 +560,8 @@ class ForumController extends Controller
       $subforums = ForumSubforum::with([
         'mainCategory',
         'topics' => function ($query) {
-          $query->visibleToCurrentUser()
+          $query
+            ->visibleToCurrentUser()
             ->latest('created_at')
             ->with(['user.profile']);
         }
@@ -574,7 +587,8 @@ class ForumController extends Controller
         'mainCategory',
         'topics' => function ($query) {
           // For non-authenticated users, only show public posts
-          $query->where('cyo_topics.privacy', 'public')
+          $query
+            ->where('cyo_topics.privacy', 'public')
             ->latest('created_at')
             ->with(['user.profile']);
         }
@@ -592,6 +606,7 @@ class ForumController extends Controller
         return [
           'label' => $subforum->name,
           'value' => $subforum->id,
+          'category' => $subforum->mainCategory->name ?? 'Khác',
         ];
       });
 
@@ -608,7 +623,8 @@ class ForumController extends Controller
     $categories = ForumMainCategory::with([
       'subforums' => function ($query) {
         // Count topics and manually calculate comment count
-        $query->withCount(['topics'])
+        $query
+          ->withCount(['topics'])
           ->addSelect([
             'comment_count' => \DB::table('cyo_topic_comments')
               ->join('cyo_topics', 'cyo_topic_comments.topic_id', '=', 'cyo_topics.id')
@@ -675,7 +691,8 @@ class ForumController extends Controller
    */
   public function getSubforums(ForumMainCategory $mainCategory)
   {
-    $subforums = $mainCategory->subforums()
+    $subforums = $mainCategory
+      ->subforums()
       ->where('active', true)
       ->withCount('topics')
       ->orderBy('arrange', 'asc')
@@ -689,11 +706,13 @@ class ForumController extends Controller
               ->toArray();
 
             $query->where(function ($q) use ($userId, $followingIds) {
-              $q->where('cyo_topics.privacy', 'public')
-                ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+              $q
+                ->where('cyo_topics.privacy', 'public')
+                ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
                 ->orWhere(function ($subQ) use ($followingIds) {
                   // Followers posts
-                  $subQ->where('cyo_topics.privacy', 'followers')
+                  $subQ
+                    ->where('cyo_topics.privacy', 'followers')
                     ->whereIn('cyo_topics.user_id', $followingIds);
                 });
             });
@@ -705,7 +724,8 @@ class ForumController extends Controller
           // Now get the latest topic from the filtered results
           $query->latest('created_at');
         }
-      ])->get();
+      ])
+      ->get();
 
     return $subforums->map(function ($subforum) use ($mainCategory) {
       $latestPost = $subforum->topics->first();
@@ -820,11 +840,13 @@ class ForumController extends Controller
       ], 404);
     }
 
-    $query = $subforumModel->topics()
+    $query = $subforumModel
+      ->topics()
       ->with(['user.profile', 'comments'])
       ->withCount(['comments as reply_count', 'views'])
       ->leftJoin('cyo_topic_comments', function ($join) {
-        $join->on('cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
+        $join
+          ->on('cyo_topics.id', '=', 'cyo_topic_comments.topic_id')
           ->whereRaw('cyo_topic_comments.created_at = (SELECT MAX(created_at) FROM cyo_topic_comments WHERE topic_id = cyo_topics.id)');
       })
       ->orderBy('pinned', 'desc')
@@ -838,10 +860,12 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+        $q
+          ->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
-            $subQ->where('cyo_topics.privacy', 'followers')
+            $subQ
+              ->where('cyo_topics.privacy', 'followers')
               ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
@@ -857,7 +881,7 @@ class ForumController extends Controller
         'id' => $subforumModel->id,
         'name' => $subforumModel->name,
         'description' => $subforumModel->description,
-        'background' => "https://www.chuyenbienhoa.com/images/" . $subforumModel->background_image
+        'background' => 'https://www.chuyenbienhoa.com/images/' . $subforumModel->background_image
       ],
       'topics' => $topics->map(function ($topic) {
         return [
@@ -880,7 +904,7 @@ class ForumController extends Controller
             'id' => $topic->user->id,
             'username' => $topic->user->username,
             'profile_name' => $topic->user->profile->profile_name ?? null,
-            'avatar' => config('app.url') . "/v1.0/users/" . $topic->user->username . "/avatar",
+            'avatar' => config('app.url') . '/v1.0/users/' . $topic->user->username . '/avatar',
             'verified' => $topic->user->profile->verified == 1 ? true : false
           ],
           'latest_reply' => $topic->comments->sortByDesc('created_at')->first() ? [
@@ -924,11 +948,13 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+        $q
+          ->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('cyo_topics.privacy', 'followers')
+            $subQ
+              ->where('cyo_topics.privacy', 'followers')
               ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
@@ -957,11 +983,13 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+        $q
+          ->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('cyo_topics.privacy', 'followers')
+            $subQ
+              ->where('cyo_topics.privacy', 'followers')
               ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
@@ -990,11 +1018,13 @@ class ForumController extends Controller
         ->toArray();
 
       $query->where(function ($q) use ($userId, $followingIds) {
-        $q->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId) // User's own posts (including private ones)
+        $q
+          ->where('cyo_topics.privacy', 'public')
+          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
-            $subQ->where('cyo_topics.privacy', 'followers')
+            $subQ
+              ->where('cyo_topics.privacy', 'followers')
               ->whereIn('cyo_topics.user_id', $followingIds);
           });
       });
