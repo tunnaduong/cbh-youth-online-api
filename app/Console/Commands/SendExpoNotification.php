@@ -16,7 +16,7 @@ class SendExpoNotification extends Command
    *
    * @var string
    */
-  protected $signature = 'expo:send {user : User ID or username} {title : Notification title} {body : Notification body} {--data= : Additional data as JSON string} {--all : Send to all users with active Expo tokens} {--verbose : Show detailed debug information}';
+  protected $signature = 'expo:send {user : User ID or username} {title : Notification title} {body : Notification body} {--data= : Additional data as JSON string} {--all : Send to all users with active Expo tokens} {--debug : Show detailed debug information}';
 
   /**
    * The console command description.
@@ -90,7 +90,7 @@ class SendExpoNotification extends Command
       ->where('is_active', true)
       ->get();
 
-    if ($this->option('verbose')) {
+    if ($this->option('debug')) {
       $this->line('');
       $this->info("Token details:");
       foreach ($tokens as $token) {
@@ -116,7 +116,7 @@ class SendExpoNotification extends Command
         $this->warn("No notifications were sent (all tokens may be invalid).");
 
         // If verbose, try direct API call to see the actual error
-        if ($this->option('verbose') && $tokens->isNotEmpty()) {
+        if ($this->option('debug') && $tokens->isNotEmpty()) {
           $this->line('');
           $this->info("Testing direct API call to Expo...");
           $this->testDirectExpoApi($tokens->first()->expo_push_token, $title, $body, $data);
