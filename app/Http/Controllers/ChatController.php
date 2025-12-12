@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Message;
+use App\Events\MessageDeleted;
+use App\Events\MessageRead;
+use App\Events\MessageSent;
 use App\Models\AuthAccount;
 use App\Models\Conversation;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use App\Events\MessageSent;
-use App\Events\MessageRead;
-use App\Events\MessageDeleted;
+use App\Models\Message;
+use App\Models\UserBlock;
 use App\Services\PushNotificationService;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Handles all chat-related functionalities, including conversations and messages.
@@ -28,6 +29,7 @@ class ChatController extends Controller
   public function getConversations()
   {
     $user = Auth::user();
+    $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
 
     $conversations = Conversation::whereHas('participants', function ($query) use ($user) {
       $query->where('user_id', $user->id);
@@ -35,8 +37,20 @@ class ChatController extends Controller
       ->orderBy('updated_at', 'desc')
       ->with(['participants.profile', 'latestMessage.user.profile'])
       ->get()
+      ->filter(function ($conversation) use ($blockedUserIds, $user) {
+        if ($conversation->type === 'private') {
+          foreach ($conversation->participants as $participant) {
+            if ($participant->id !== $user->id && in_array($participant->id, $blockedUserIds)) {
+              return false;
+            }
+          }
+        }
+        return true;
+      })
+      ->values()  // Reset keys after filter
       ->map(function ($conversation) use ($user) {
-        $otherParticipants = $conversation->participants
+        $otherParticipants = $conversation
+          ->participants
           ->where('id', '!=', $user->id)
           ->values();
 
@@ -130,8 +144,14 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    // Get blocked user IDs
+    $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
+
     $perPage = 50;
-    $totalMessages = $conversation->messages()->count();
+    $totalMessages = $conversation
+      ->messages()
+      ->whereNotIn('user_id', $blockedUserIds)
+      ->count();
     $lastPage = ceil($totalMessages / $perPage);
     $page = (int) request()->get('page', 1);
 
@@ -139,7 +159,9 @@ class ChatController extends Controller
     $offset = max(0, $totalMessages - ($page * $perPage));
     $limit = min($perPage, $totalMessages - (($page - 1) * $perPage));
 
-    $messages = $conversation->messages()
+    $messages = $conversation
+      ->messages()
+      ->whereNotIn('user_id', $blockedUserIds)
       ->with('user.profile')
       ->orderBy('created_at', 'asc')
       ->skip($offset)
@@ -193,7 +215,7 @@ class ChatController extends Controller
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
-          'metadata' => $message->metadata, // Include metadata for story reply and other features
+          'metadata' => $message->metadata,  // Include metadata for story reply and other features
         ];
       });
 
@@ -216,13 +238,15 @@ class ChatController extends Controller
     ];
 
     // Mark messages as read
-    $conversation->messages()
+    $conversation
+      ->messages()
       ->where('user_id', '!=', $user->id)
       ->whereNull('read_at')
       ->update(['read_at' => now()]);
 
     // Update last_read_at for the user
-    $conversation->participants()
+    $conversation
+      ->participants()
       ->where('user_id', $user->id)
       ->update(['last_read_at' => now()]);
 
@@ -273,12 +297,22 @@ class ChatController extends Controller
   {
     $request->validate([
       'content' => 'required_without:file|string',
-      'file' => 'nullable|file|max:10240', // 10MB max
+      'file' => 'nullable|file|max:10240',  // 10MB max
       'type' => 'required|in:text,image,file'
     ]);
 
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type === 'private') {
+      $otherParticipant = $conversation->participants()->where('cyo_auth_accounts.id', '!=', $user->id)->first();
+      if ($otherParticipant) {
+        $isBlocked = UserBlock::where('user_id', $user->id)->where('blocked_user_id', $otherParticipant->id)->exists();
+        if ($isBlocked) {
+          return response()->json(['message' => 'Bạn đã chặn người dùng này.'], 403);
+        }
+      }
+    }
 
     // Allow access to public chat "Tán gẫu linh tinh" even if user is not a participant
     $isPublicChat = $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
@@ -356,7 +390,7 @@ class ChatController extends Controller
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
       'read_at' => $message->read_at?->toISOString(),
-      'metadata' => $message->metadata, // Include metadata for story reply and other features
+      'metadata' => $message->metadata,  // Include metadata for story reply and other features
     ];
 
     // Broadcast the message to other participants
@@ -398,13 +432,15 @@ class ChatController extends Controller
     }
 
     // Mark messages as read
-    $messages = $conversation->messages()
+    $messages = $conversation
+      ->messages()
       ->where('user_id', '!=', $user->id)
       ->whereNull('read_at')
       ->update(['read_at' => now()]);
 
     // Update last_read_at for the user
-    $conversation->participants()
+    $conversation
+      ->participants()
       ->where('user_id', $user->id)
       ->update(['last_read_at' => now()]);
 
@@ -683,27 +719,29 @@ class ChatController extends Controller
     }
 
     $perPage = 50;
-    $totalMessages = $conversation->messages()
+    $totalMessages = $conversation
+      ->messages()
       ->where('conversation_id', $conversation->id)
       ->whereNull('deleted_at')
       ->count();
     $lastPage = max(1, ceil($totalMessages / $perPage));
     $page = (int) $request->get('page', 1);
-    $page = max(1, min($page, $lastPage)); // Ensure page is within valid range
+    $page = max(1, min($page, $lastPage));  // Ensure page is within valid range
 
     // Standard pagination: page 1 = newest messages
     // Order by created_at DESC to get newest first
     $offset = ($page - 1) * $perPage;
 
-    $messages = $conversation->messages()
+    $messages = $conversation
+      ->messages()
       ->where('conversation_id', $conversation->id)
       ->whereNull('deleted_at')
       ->with('user.profile')
-      ->orderBy('created_at', 'desc') // Newest first
+      ->orderBy('created_at', 'desc')  // Newest first
       ->skip($offset)
       ->take($perPage)
       ->get()
-      ->reverse() // Reverse to show oldest to newest within the page
+      ->reverse()  // Reverse to show oldest to newest within the page
       ->map(function ($message) {
         $isGuest = $message->user_id === null;
 
@@ -720,16 +758,16 @@ class ChatController extends Controller
             'profile_name' => $message->guest_name ?? 'Ẩn danh',
             'avatar_url' => null,
           ] : ($message->user ? [
-              'id' => $message->user->id,
-              'username' => $message->user->username ?? 'Ẩn danh',
-              'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-              'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
-            ] : [
-              'id' => null,
-              'username' => 'Ẩn danh',
-              'profile_name' => 'Ẩn danh',
-              'avatar_url' => null,
-            ]),
+            'id' => $message->user->id,
+            'username' => $message->user->username ?? 'Ẩn danh',
+            'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
+            'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+          ] : [
+            'id' => null,
+            'username' => 'Ẩn danh',
+            'profile_name' => 'Ẩn danh',
+            'avatar_url' => null,
+          ]),
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at->diffForHumans(),
           'read_at' => $message->read_at?->toISOString(),
@@ -751,14 +789,14 @@ class ChatController extends Controller
     $paginationData = [
       'current_page' => $page,
       'data' => $messages->values()->all(),
-      'first_page_url' => url("/v1.0/chat/public/messages?page=1"),
+      'first_page_url' => url('/v1.0/chat/public/messages?page=1'),
       'from' => $from,
       'last_page' => $lastPage,
       'last_page_url' => url("/v1.0/chat/public/messages?page={$lastPage}"),
-      'next_page_url' => $hasMorePages ? url("/v1.0/chat/public/messages?page=" . ($page + 1)) : null,
-      'path' => url("/v1.0/chat/public/messages"),
+      'next_page_url' => $hasMorePages ? url('/v1.0/chat/public/messages?page=' . ($page + 1)) : null,
+      'path' => url('/v1.0/chat/public/messages'),
       'per_page' => $perPage,
-      'prev_page_url' => $hasPrevPage ? url("/v1.0/chat/public/messages?page=" . ($page - 1)) : null,
+      'prev_page_url' => $hasPrevPage ? url('/v1.0/chat/public/messages?page=' . ($page - 1)) : null,
       'to' => $to,
       'total' => $totalMessages,
     ];
@@ -791,7 +829,7 @@ class ChatController extends Controller
     // Validation rules - guest_name is only required for guests
     $rules = [
       'content' => 'required_without:file|string|max:5000',
-      'file' => 'nullable|file|max:10240', // 10MB max
+      'file' => 'nullable|file|max:10240',  // 10MB max
       'type' => 'required|in:text,image,file',
     ];
 
@@ -801,7 +839,7 @@ class ChatController extends Controller
       $rules['guest_name'] = 'required|string|min:1|max:50';
     } else {
       // User is authenticated, guest_name is optional (should be null/not provided)
-      $rules['guest_name'] = 'nullable|string|max:50'; // Ignore if provided
+      $rules['guest_name'] = 'nullable|string|max:50';  // Ignore if provided
     }
 
     $request->validate($rules);
@@ -878,16 +916,16 @@ class ChatController extends Controller
         'profile_name' => $message->guest_name ?? 'Ẩn danh',
         'avatar_url' => null,
       ] : ($message->user ? [
-          'id' => $message->user->id,
-          'username' => $message->user->username ?? 'Ẩn danh',
-          'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-          'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
-        ] : [
-          'id' => null,
-          'username' => 'Ẩn danh',
-          'profile_name' => 'Ẩn danh',
-          'avatar_url' => null,
-        ]),
+        'id' => $message->user->id,
+        'username' => $message->user->username ?? 'Ẩn danh',
+        'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
+        'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+      ] : [
+        'id' => null,
+        'username' => 'Ẩn danh',
+        'profile_name' => 'Ẩn danh',
+        'avatar_url' => null,
+      ]),
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at->diffForHumans(),
       'read_at' => $message->read_at?->toISOString(),
@@ -923,7 +961,8 @@ class ChatController extends Controller
 
     // Get participants from cyo_conversation_participants table
     $now = Carbon::now();
-    $users = $conversation->participants()
+    $users = $conversation
+      ->participants()
       ->with('profile')
       ->get()
       ->map(function ($user) use ($now) {
@@ -951,7 +990,8 @@ class ChatController extends Controller
       });
 
     // Get unique guest names from messages (guests are not stored in participants table)
-    $guestNames = $conversation->messages()
+    $guestNames = $conversation
+      ->messages()
       ->where('conversation_id', $conversation->id)
       ->whereNotNull('guest_name')
       ->distinct()

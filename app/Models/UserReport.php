@@ -26,77 +26,88 @@ use Illuminate\Database\Eloquent\Model;
  */
 class UserReport extends Model
 {
-    use HasFactory;
+  use HasFactory;
 
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'cyo_user_reports';
+  /**
+   * The table associated with the model.
+   *
+   * @var string
+   */
+  protected $table = 'cyo_user_reports';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'user_id',
-        'reported_user_id',
-        'topic_id',
-        'reason',
-        'status', // pending, reviewed, resolved, dismissed
-        'admin_notes',
-        'reviewed_by',
-        'reviewed_at'
-    ];
+  /**
+   * The attributes that are mass assignable.
+   *
+   * @var array<int, string>
+   */
+  protected $fillable = [
+    'user_id',
+    'reported_user_id',
+    'topic_id',
+    'story_id',
+    'reason',
+    'status',  // pending, reviewed, resolved, dismissed
+    'admin_notes',
+    'reviewed_by',
+    'reviewed_at'
+  ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected $casts = [
-        'reviewed_at' => 'datetime'
-    ];
+  /**
+   * The attributes that should be cast.
+   *
+   * @var array<string, string>
+   */
+  protected $casts = [
+    'reviewed_at' => 'datetime'
+  ];
 
-    /**
-     * Get the user who submitted the report.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function reporter()
-    {
-        return $this->belongsTo(AuthAccount::class, 'user_id');
-    }
+  /**
+   * Get the user who submitted the report.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function reporter()
+  {
+    return $this->belongsTo(AuthAccount::class, 'user_id');
+  }
 
-    /**
-     * Get the user who was reported.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function reportedUser()
-    {
-        return $this->belongsTo(AuthAccount::class, 'reported_user_id');
-    }
+  /**
+   * Get the user who was reported.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function reportedUser()
+  {
+    return $this->belongsTo(AuthAccount::class, 'reported_user_id');
+  }
 
-    /**
-     * Get the topic associated with the report.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function topic()
-    {
-        return $this->belongsTo(Topic::class, 'topic_id');
-    }
+  /**
+   * Get the topic associated with the report.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function topic()
+  {
+    return $this->belongsTo(Topic::class, 'topic_id');
+  }
 
-    /**
-     * Get the admin who reviewed the report.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
-     */
-    public function reviewedBy()
-    {
-        return $this->belongsTo(AuthAccount::class, 'reviewed_by');
-    }
+  /**
+   * Get the story associated with the report.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function story()
+  {
+    return $this->belongsTo(Story::class, 'story_id');
+  }
+
+  /**
+   * Get the admin who reviewed the report.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function reviewedBy()
+  {
+    return $this->belongsTo(AuthAccount::class, 'reviewed_by');
+  }
 }

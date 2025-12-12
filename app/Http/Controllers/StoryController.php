@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageSent;
 use App\Http\Controllers\Controller;
-use App\Models\Story;
-use App\Models\StoryViewer;
-use App\Models\StoryReaction;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Story;
+use App\Models\StoryReaction;
+use App\Models\StoryViewer;
 use App\Services\NotificationService;
-use App\Events\MessageSent;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
 use Inertia\Inertia;
 
 /**
@@ -36,11 +36,20 @@ class StoryController extends Controller
     // For authenticated users, show public and followers stories
     $privacyLevels = $request->user() ? ['public', 'followers'] : ['public'];
 
-    $stories = Story::with(['user', 'viewers', 'reactions'])
+    $query = Story::with(['user', 'viewers', 'reactions'])
       ->active()
-      ->whereIn('privacy', $privacyLevels)
-      ->orderByDesc('pinned') // Order by pinned first
-      ->orderBy('created_at', 'asc') // Order by oldest first so latest stories appear at end
+      ->whereIn('privacy', $privacyLevels);
+
+    if ($request->user()) {
+      $blockedUserIds = \App\Models\UserBlock::where('user_id', $request->user()->id)
+        ->pluck('blocked_user_id')
+        ->toArray();
+      $query->whereNotIn('user_id', $blockedUserIds);
+    }
+
+    $stories = $query
+      ->orderByDesc('pinned')  // Order by pinned first
+      ->orderBy('created_at', 'asc')  // Order by oldest first so latest stories appear at end
       ->get()
       ->groupBy('user_id')
       ->map(function ($userStories, $userId) {
@@ -65,7 +74,7 @@ class StoryController extends Controller
               'duration' => $story->duration ?? 10,
               'expires_at' => $story->expires_at,
               'user_id' => $story->user_id,
-              'pinned' => $story->pinned, // Add pinned status
+              'pinned' => $story->pinned,  // Add pinned status
               'viewers' => $story->viewers,
               'reactions' => $story->reactions->map(function ($reaction) {
                 return [
@@ -76,7 +85,8 @@ class StoryController extends Controller
             ];
           })->values()->toArray()
         ];
-      })->values();
+      })
+      ->values();
 
     if ($request->expectsJson()) {
       return response()->json([
@@ -459,12 +469,12 @@ class StoryController extends Controller
       'type' => $message->type,
       'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
       'is_edited' => $message->is_edited,
-      'is_myself' => false, // For the recipient, this is not their own message
+      'is_myself' => false,  // For the recipient, this is not their own message
       'sender' => $senderData,
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at->diffForHumans(),
       'read_at' => $message->read_at?->toISOString(),
-      'metadata' => $message->metadata, // Include metadata for story reply
+      'metadata' => $message->metadata,  // Include metadata for story reply
     ];
 
     // Broadcast the message to other participants

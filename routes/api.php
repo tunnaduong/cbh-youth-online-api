@@ -1,45 +1,46 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\ForumController;
-use App\Http\Controllers\StoryController;
-use App\Http\Controllers\FollowController;
-use App\Http\Controllers\PointsController;
-use App\Http\Controllers\SearchController;
-use App\Http\Controllers\TopicsController;
-use App\Http\Controllers\ActivityController;
-use App\Http\Controllers\RecordingController;
-use App\Http\Controllers\YouthNewsController;
 use App\Http\Controllers\FileUploadController;
+use App\Http\Controllers\FollowController;
+use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\ForumController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\OnlineUserController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\PointsController;
+use App\Http\Controllers\RecordingController;
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SEPayWebhookController;
+use App\Http\Controllers\StoryController;
+use App\Http\Controllers\StudyMaterialCategoryController;
+use App\Http\Controllers\StudyMaterialController;
+use App\Http\Controllers\StudyMaterialRatingController;
+use App\Http\Controllers\TopicsController;
+use App\Http\Controllers\UserBlockController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserPointDeductionController;
 use App\Http\Controllers\UserReportController;
 use App\Http\Controllers\VerificationController;
-use App\Http\Controllers\PasswordResetController;
-use App\Http\Controllers\ForgotPasswordController;
-use App\Http\Controllers\UserPointDeductionController;
-use App\Http\Controllers\NotificationSettingsController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\StudyMaterialController;
-use App\Http\Controllers\StudyMaterialCategoryController;
-use App\Http\Controllers\StudyMaterialRatingController;
 use App\Http\Controllers\WalletController;
-use App\Http\Controllers\SEPayWebhookController;
+use App\Http\Controllers\YouthNewsController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
+ * |--------------------------------------------------------------------------
+ * | API Routes
+ * |--------------------------------------------------------------------------
+ * |
+ * | Here is where you can register API routes for your application. These
+ * | routes are loaded by the RouteServiceProvider and all of them will
+ * | be assigned to the "api" middleware group. Make something great!
+ * |
+ */
 
 Route::prefix('v1.0')->group(function () {
   // --- PUBLIC ROUTES ---
@@ -122,20 +123,22 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/forum-data', function () {
       $user = auth()->user();
 
-      $mainCategories = $user && $user->role == 'admin' ?
-        \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
+      $mainCategories = $user && $user->role == 'admin'
+        ? \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
           ->with([
             'subforums' => function ($query) {
-              $query->select('id', 'name', 'main_category_id', 'arrange')
+              $query
+                ->select('id', 'name', 'main_category_id', 'arrange')
                 ->orderBy('arrange', 'asc');
             }
           ])
           ->orderBy('arrange', 'asc')
-          ->get() :
-        \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
+          ->get()
+        : \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
           ->with([
             'subforums' => function ($query) {
-              $query->select('id', 'name', 'main_category_id', 'arrange')
+              $query
+                ->select('id', 'name', 'main_category_id', 'arrange')
                 ->orderBy('arrange', 'asc');
             }
           ])
@@ -155,7 +158,6 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/forum/subforums/{subforum}/topics', [ForumController::class, 'getSubforumPosts']);
     Route::post('/online-users/track', [OnlineUserController::class, 'track']);
   });
-
 
   // --- AUTHENTICATION REQUIRED ROUTES ---
   // These routes require a valid Sanctum authentication token.
@@ -232,7 +234,6 @@ Route::prefix('v1.0')->group(function () {
     Route::put('/topics/{id}', [TopicsController::class, 'update']);
     Route::delete('/topics/{id}/votes', [TopicsController::class, 'destroyTopicVote']);
 
-
     // Comments
     Route::post('/topics/{id}/comments', [TopicsController::class, 'addComment']);
     Route::put('/comments/{id}', [TopicsController::class, 'updateComment']);
@@ -258,9 +259,14 @@ Route::prefix('v1.0')->group(function () {
       });
     });
 
+    // User Blocking
+    Route::post('/users/block', [UserBlockController::class, 'store']);
+    Route::post('/users/unblock', [UserBlockController::class, 'destroy']);
+    Route::get('/users/blocked', [UserBlockController::class, 'index']);
+
     // Stories
     Route::post('stories', [StoryController::class, 'store']);
-    Route::get('stories/archive', [StoryController::class, 'getArchive']); // Must be before stories/{story}
+    Route::get('stories/archive', [StoryController::class, 'getArchive']);  // Must be before stories/{story}
     Route::get('stories/{story}', [StoryController::class, 'show']);
     Route::delete('stories/{story}', [StoryController::class, 'destroy']);
     Route::post('stories/{story}/view', [StoryController::class, 'markAsViewed']);

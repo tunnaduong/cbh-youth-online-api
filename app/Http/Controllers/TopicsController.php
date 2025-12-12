@@ -103,6 +103,13 @@ class TopicsController extends Controller
         ->pluck('followed_id')
         ->toArray();
 
+      // Get list of blocked user IDs
+      $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)
+        ->pluck('blocked_user_id')
+        ->toArray();
+
+      $query->whereNotIn('user_id', $blockedUserIds);
+
       $query->where(function ($q) use ($userId, $followingIds) {
         $q
           ->where(function ($subQ) {
