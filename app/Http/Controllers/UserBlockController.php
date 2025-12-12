@@ -86,7 +86,7 @@ class UserBlockController extends Controller
   public function index()
   {
     $blockedUsers = UserBlock::where('user_id', Auth::id())
-      ->with('blockedUser')
+      ->with('blockedUser.profile')
       ->get()
       ->pluck('blockedUser');
 
