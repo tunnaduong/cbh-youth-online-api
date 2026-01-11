@@ -170,9 +170,9 @@ class StudyMaterialController extends Controller
       ? round($material->ratings()->avg('rating'), 1)
       : 0;
 
-    // Generate one-time preview key with very short TTL (20 seconds) - enough for MS Office to fetch
+    // Generate preview key with longer TTL (10 minutes) to allow viewers to fetch
     $previewKey = Str::random(40);
-    Cache::put('doc_preview_' . $previewKey, $material->id, now()->addSeconds(20));
+    Cache::put('doc_preview_' . $previewKey, $material->id, now()->addMinutes(10));
 
     return response()->json([
       'id' => $material->id,
@@ -412,7 +412,7 @@ class StudyMaterialController extends Controller
       return response()->json(['message' => 'File không tìm thấy'], 404);
     }
 
-    return Storage::disk('public')->download($material->file->file_path, $material->file->file_name);
+    return response()->download($filePath, $material->file->file_name);
   }
 
   /**
