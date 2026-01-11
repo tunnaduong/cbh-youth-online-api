@@ -79,17 +79,55 @@ class SEPayWebhookController extends Controller
   private function processDeposit($data)
   {
     try {
-      $code = SEPayWebhookService::parseTransactionCode($data['content'] ?? '');
-      if (!$code) {
-        Log::warning('SEPay webhook: No transaction code found', $data);
+      $content = $data['content'] ?? '';
+      $userId = null;
+      $code = null;
+
+      // Try to parse MW pattern first (MW<UserID><Timestamp>)
+      // Pattern: MW471732757864 where if length > 10, first part is user ID, last 10 digits are timestamp
+      if (preg_match('/MW(\d+)/i', $content, $matches)) {
+        $rawId = $matches[1];
+        
+        // If length > 10, assume last 10 digits are timestamp, rest is user ID
+        if (strlen($rawId) > 10) {
+          $userId = (int) substr($rawId, 0, -10);
+        } else {
+          $userId = (int) $rawId;
+        }
+
+        Log::info('SEPay webhook: Parsed MW pattern', [
+          'raw_id' => $rawId,
+          'user_id' => $userId,
+          'content' => $content
+        ]);
+      } else {
+        // Try to parse MW pattern (MW{user_id}{timestamp})
+        $code = SEPayWebhookService::parseTransactionCode($content);
+        if ($code) {
+          // Find user by deposit code
+          $userId = SEPayWebhookService::findUserByDepositCode($code);
+          if (!$userId) {
+            Log::warning('SEPay webhook: User not found for deposit code', ['code' => $code]);
+            return false;
+          }
+        } else {
+          Log::warning('SEPay webhook: No transaction code found in content', [
+            'content' => $content,
+            'data' => $data
+          ]);
+          return false;
+        }
+      }
+
+      if (!$userId) {
+        Log::warning('SEPay webhook: Could not determine user ID', ['content' => $content]);
         return false;
       }
 
-      // Find user by code
-      // TODO: Implement user mapping based on your deposit code system
-      $userId = SEPayWebhookService::findUserByDepositCode($code);
-      if (!$userId) {
-        Log::warning('SEPay webhook: User not found for code', ['code' => $code]);
+      // Verify user exists
+      $user = \App\Models\AuthAccount::find($userId);
+      if (!$user) {
+        Log::warning('SEPay webhook: User not found', ['user_id' => $userId]);
         return false;
       }
 
@@ -104,11 +142,14 @@ class SEPayWebhookController extends Controller
         return false;
       }
 
-      // Find and mark pending deposit as completed
-      $pendingDeposit = \App\Models\PendingDeposit::where('deposit_code', $code)
-        ->where('status', 'pending')
-        ->where('user_id', $userId)
-        ->first();
+      // Find and mark pending deposit as completed (if using MW code)
+      $pendingDeposit = null;
+      if ($code) {
+        $pendingDeposit = \App\Models\PendingDeposit::where('deposit_code', $code)
+          ->where('status', 'pending')
+          ->where('user_id', $userId)
+          ->first();
+      }
 
       // Add points to user
       DB::transaction(function () use ($userId, $points, $data, $pendingDeposit) {
@@ -140,9 +181,34 @@ class SEPayWebhookController extends Controller
         }
       });
 
+      // Send notification to user
+      try {
+        \App\Services\NotificationService::createSystemNotification(
+          $userId,
+          'payment_received',
+          [
+            'title' => 'Nạp tiền thành công',
+            'message' => 'Hệ thống đã nhận được ' . number_format($data['transferAmount'] ?? 0) . "đ và cộng {$points} điểm vào ví của bạn.",
+            'url' => '/wallet'
+          ]
+        );
+      } catch (\Exception $e) {
+        Log::error('SEPay notification error: ' . $e->getMessage());
+      }
+
+      Log::info('SEPay webhook: Successfully processed deposit', [
+        'user_id' => $userId,
+        'points' => $points,
+        'amount_vnd' => $amountVND,
+        'sepay_id' => $data['id']
+      ]);
+
       return true;
     } catch (\Exception $e) {
-      Log::error('SEPay deposit processing error: ' . $e->getMessage(), $data);
+      Log::error('SEPay deposit processing error: ' . $e->getMessage(), [
+        'data' => $data,
+        'trace' => $e->getTraceAsString()
+      ]);
       return false;
     }
   }

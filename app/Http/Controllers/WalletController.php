@@ -253,8 +253,8 @@ class WalletController extends Controller
       ], 400);
     }
 
-    // Generate unique deposit code (format: CBH + user_id + timestamp)
-    $depositCode = 'CBH' . $user->id . time();
+    // Generate unique deposit code (format: MW + user_id + timestamp)
+    $depositCode = 'MW' . $user->id . time();
 
     $pendingDeposit = PendingDeposit::create([
       'user_id' => $user->id,

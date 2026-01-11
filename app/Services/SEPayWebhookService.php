@@ -19,9 +19,9 @@ class SEPayWebhookService
   public static function parseTransactionCode($content)
   {
     // Try to extract code from content
-    // Format might be: "NAPTIEN CBH123456" or "CBH123456" or similar
-    if (preg_match('/CBH(\d+)/i', $content, $matches)) {
-      return $matches[1];
+    // Format might be: "NAPTIEN MW123456" or "MW123456" or similar
+    if (preg_match('/MW(\d+)/i', $content, $matches)) {
+      return 'MW' . $matches[1]; // Return full code including MW prefix
     }
 
     // Try other patterns
@@ -145,13 +145,17 @@ class SEPayWebhookService
    */
   public static function isDuplicateTransaction($sepayId, $referenceCode = null)
   {
-    $query = PointsTransaction::where('sepay_transaction_id', $sepayId);
-
-    if ($referenceCode) {
-      $query->orWhere('reference_code', $referenceCode);
+    // Check by SePay transaction ID (primary check)
+    if (PointsTransaction::where('sepay_transaction_id', $sepayId)->exists()) {
+      return true;
     }
 
-    return $query->exists();
+    // Also check by reference code if provided (secondary check)
+    if ($referenceCode && PointsTransaction::where('reference_code', $referenceCode)->exists()) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
