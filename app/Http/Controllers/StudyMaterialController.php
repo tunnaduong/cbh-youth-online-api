@@ -505,9 +505,12 @@ class StudyMaterialController extends Controller
       return response()->json(['message' => 'File missing on server'], 404);
     }
 
+    $extension = pathinfo($material->file->file_name, PATHINFO_EXTENSION);
+    $safeFilename = 'preview.' . $extension;
+
     return response()->file($localPath, [
       'Content-Type' => $material->file->file_type,
-      'Content-Disposition' => 'inline; filename="' . $material->file->file_name . '"',
+      'Content-Disposition' => 'inline; filename="' . $safeFilename . '"',
       'Cache-Control' => 'public, max-age=600',
     ]);
   }
