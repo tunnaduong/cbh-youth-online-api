@@ -87,7 +87,7 @@ Route::prefix('v1.0')->group(function () {
   Route::get('stories', [StoryController::class, 'index']);
 
   // Study Materials (public routes with optional auth to detect purchases)
-  Route::get('/study-materials/documents/view', [StudyMaterialController::class, 'viewDocument']);
+  Route::match(['get', 'head'], '/study-materials/documents/view', [StudyMaterialController::class, 'viewDocument']);
   Route::middleware('optional.auth')->group(function () {
     Route::get('/study-materials', [StudyMaterialController::class, 'index']);
     Route::get('/study-materials/{id}', [StudyMaterialController::class, 'show']);
