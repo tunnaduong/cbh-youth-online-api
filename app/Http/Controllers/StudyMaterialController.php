@@ -508,8 +508,7 @@ class StudyMaterialController extends Controller
     return response()->file($localPath, [
       'Content-Type' => $material->file->file_type,
       'Content-Disposition' => 'inline; filename="' . $material->file->file_name . '"',
-      'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-      'Pragma' => 'no-cache',
+      'Cache-Control' => 'public, max-age=600',
     ]);
   }
 }
