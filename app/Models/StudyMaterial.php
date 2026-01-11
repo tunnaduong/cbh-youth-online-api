@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $price Points required to purchase
  * @property bool $is_free
  * @property string|null $preview_content
+ * @property string|null $preview_path
  * @property int $download_count
  * @property int $view_count
  * @property string $status draft|published
@@ -50,6 +51,7 @@ class StudyMaterial extends Model
     'price',
     'is_free',
     'preview_content',
+    'preview_path',
     'status',
   ];
 
@@ -135,7 +137,7 @@ class StudyMaterial extends Model
   public function getAverageRatingAttribute()
   {
     $avg = $this->ratings()->avg('rating');
-    return $avg ? round((float)$avg, 1) : 0;
+    return $avg ? round((float) $avg, 1) : 0;
   }
 
   /**
@@ -149,4 +151,3 @@ class StudyMaterial extends Model
     return $this->ratings()->count();
   }
 }
-

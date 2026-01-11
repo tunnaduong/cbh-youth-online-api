@@ -121,6 +121,7 @@ class StudyMaterialController extends Controller
               'profile_name' => $material->user->profile->profile_name ?? null,
             ],
             'is_purchased' => $isPurchased,
+            'preview_path' => $material->preview_path ? url('storage/' . $material->preview_path) : null,
             'created_at' => $material->created_at,
           ];
         } catch (\Exception $e) {
@@ -186,6 +187,7 @@ class StudyMaterialController extends Controller
       'is_free' => $material->is_free,
       'preview_key' => $previewKey,
       'preview_content' => $material->preview_content,
+      'preview_path' => $material->preview_path ? url('storage/' . $material->preview_path) : null,
       'download_count' => $material->download_count ?? 0,
       'view_count' => $material->view_count ?? 0,
       'average_rating' => $averageRating,
