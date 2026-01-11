@@ -20,7 +20,7 @@ class StudyMaterialController extends Controller
    * Get paginated list of study materials
    *
    * @param Request $request
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Contracts\Pagination\LengthAwarePaginator
+   * @return \Illuminate\Http\JsonResponse
    */
   public function index(Request $request)
   {
@@ -194,7 +194,6 @@ class StudyMaterialController extends Controller
       'file' => $material->file ? [
         'id' => $material->file->id,
         'file_name' => $material->file->file_name,
-        'file_path' => $material->file->file_path,
         'file_type' => $material->file->file_type,
         'file_size' => $material->file->file_size,
       ] : null,
@@ -324,6 +323,7 @@ class StudyMaterialController extends Controller
   public function purchase($id, Request $request)
   {
     $material = StudyMaterial::findOrFail($id);
+    /** @var \App\Models\AuthAccount $user */
     $user = Auth::user();
 
     if ($material->is_free) {
@@ -344,12 +344,21 @@ class StudyMaterialController extends Controller
     }
 
     DB::transaction(function () use ($material, $user) {
-      // Deduct points
+      // Deduct points from buyer
       PointsService::deductPoints(
         $user->id,
         $material->price,
         'purchase',
         "Mua tài liệu: {$material->title}",
+        $material->id
+      );
+
+      // Add points to author
+      PointsService::addPoints(
+        $material->user_id,
+        $material->price,
+        'earning',
+        "Người dùng {$user->username} mua tài liệu: {$material->title}",
         $material->id
       );
 
@@ -361,6 +370,9 @@ class StudyMaterialController extends Controller
       ]);
     });
 
+    // Notify author
+    \App\Services\NotificationService::createStudyMaterialPurchasedNotification($material, $user);
+
     return response()->json(['message' => 'Mua tài liệu thành công'], 201);
   }
 
@@ -368,7 +380,7 @@ class StudyMaterialController extends Controller
    * Download study material file
    *
    * @param int $id
-   * @return \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
+   * @return \Illuminate\Http\Response
    */
   public function download($id)
   {

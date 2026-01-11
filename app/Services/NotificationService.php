@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Message;
 use App\Models\Notification;
 use App\Models\NotificationSettings;
+use App\Models\Story;
 use App\Models\Topic;
 use App\Models\TopicComment;
-use App\Models\Story;
-use App\Models\Message;
 use App\Services\PushNotificationService;
 
 /**
@@ -283,7 +283,7 @@ class NotificationService
 
     return self::createAndPushNotification([
       'user_id' => $topic->user_id,
-      'actor_id' => null, // System action
+      'actor_id' => null,  // System action
       'type' => 'topic_pinned',
       'notifiable_type' => Topic::class,
       'notifiable_id' => $topic->id,
@@ -311,7 +311,7 @@ class NotificationService
 
     return self::createAndPushNotification([
       'user_id' => $topic->user_id,
-      'actor_id' => null, // System action
+      'actor_id' => null,  // System action
       'type' => 'topic_moved',
       'notifiable_type' => Topic::class,
       'notifiable_id' => $topic->id,
@@ -339,7 +339,7 @@ class NotificationService
 
     return self::createAndPushNotification([
       'user_id' => $topic->user_id,
-      'actor_id' => null, // System/admin action
+      'actor_id' => null,  // System/admin action
       'type' => 'topic_closed',
       'notifiable_type' => Topic::class,
       'notifiable_id' => $topic->id,
@@ -367,7 +367,7 @@ class NotificationService
 
     return self::createAndPushNotification([
       'user_id' => $userId,
-      'actor_id' => null, // System action
+      'actor_id' => null,  // System action
       'type' => $type,
       'notifiable_type' => null,
       'notifiable_id' => null,
@@ -406,7 +406,7 @@ class NotificationService
 
     return self::createAndPushNotification([
       'user_id' => $userId,
-      'actor_id' => null, // Admin action
+      'actor_id' => null,  // Admin action
       'type' => $type,
       'notifiable_type' => get_class($content),
       'notifiable_id' => $content->id,
@@ -424,7 +424,7 @@ class NotificationService
   {
     return self::createAndPushNotification([
       'user_id' => $userId,
-      'actor_id' => null, // System action
+      'actor_id' => null,  // System action
       'type' => 'system_message',
       'notifiable_type' => null,
       'notifiable_id' => null,
@@ -486,7 +486,7 @@ class NotificationService
         'story_id' => $story->id,
         'reaction_type' => $reactionType,
         'reaction_emoji' => $reactionEmojis[$reactionType] ?? '👍',
-        'url' => '/', // Will navigate to story in mobile app
+        'url' => '/',  // Will navigate to story in mobile app
       ],
     ]);
   }
@@ -523,8 +523,60 @@ class NotificationService
         'message_id' => $message->id,
         'conversation_id' => $message->conversation_id,
         'message_excerpt' => $messageExcerpt,
-        'url' => '/chat?conversation=' . $message->conversation_id, // Will navigate to conversation in mobile app
+        'url' => '/chat?conversation=' . $message->conversation_id,  // Will navigate to conversation in mobile app
       ],
     ]);
+  }
+
+  /**
+   * Create a notification for a study material being purchased.
+   *
+   * @param \App\Models\StudyMaterial $material
+   * @param \App\Models\AuthAccount $buyer
+   * @return Notification|null
+   */
+  public static function createStudyMaterialPurchasedNotification(\App\Models\StudyMaterial $material, \App\Models\AuthAccount $buyer): ?Notification
+  {
+    // Don't notify if user buys their own material (should be prevented by controller anyway)
+    if ($material->user_id === $buyer->id) {
+      return null;
+    }
+
+    if (!self::shouldNotify($material->user_id, 'study_material_purchased')) {
+      return null;
+    }
+
+    $notification = self::createAndPushNotification([
+      'user_id' => $material->user_id,
+      'actor_id' => $buyer->id,
+      'type' => 'study_material_purchased',
+      'notifiable_type' => \App\Models\StudyMaterial::class,
+      'notifiable_id' => $material->id,
+      'data' => [
+        'material_id' => $material->id,
+        'material_title' => $material->title,
+        'buyer_name' => $buyer->profile->profile_name ?? $buyer->username,
+        'price' => $material->price,
+        'url' => "/explore/study-materials/{$material->id}",
+      ],
+    ]);
+
+    // Send Email if settings allow
+    $settings = NotificationSettings::where('user_id', $material->user_id)->first();
+    if (!$settings || $settings->notify_email_social) {
+      try {
+        $author = \App\Models\AuthAccount::find($material->user_id);
+        if ($author && $author->email) {
+          \Illuminate\Support\Facades\Mail::to($author->email)
+            ->queue(new \App\Mail\StudyMaterialPurchasedMail($material, $buyer));
+        }
+      } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Failed to send purchase email notification', [
+          'error' => $e->getMessage(),
+        ]);
+      }
+    }
+
+    return $notification;
   }
 }

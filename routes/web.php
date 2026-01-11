@@ -1,36 +1,42 @@
 <?php
 
-use Inertia\Inertia;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Foundation\Application;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\ForumController;
-use App\Http\Controllers\FollowController;
-use App\Http\Controllers\TopicsController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\RecordingController;
-use App\Http\Controllers\YouthNewsController;
-use App\Http\Controllers\SavedPostsController;
-use App\Http\Controllers\StoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ForumCategoryController;
 use App\Http\Controllers\Admin\ForumSubforumController;
 use App\Http\Controllers\Auth\SocialAuthController;
-use App\Http\Controllers\HelpCenterController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\FacebookWebhookController;
+use App\Http\Controllers\FollowController;
+use App\Http\Controllers\ForumController;
+use App\Http\Controllers\HelpCenterController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RecordingController;
+use App\Http\Controllers\SavedPostsController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\StoryController;
+use App\Http\Controllers\TopicsController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\YouthNewsController;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 /*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
-|
-*/
+ * |--------------------------------------------------------------------------
+ * | Web Routes
+ * |--------------------------------------------------------------------------
+ * |
+ * | Here is where you can register web routes for your application. These
+ * | routes are loaded by the RouteServiceProvider within a group which
+ * | contains the "web" middleware group. Now create something great!
+ * |
+ */
+
+Route::get('/preview-mail', function () {
+  $user = App\Models\AuthAccount::first();
+  $material = App\Models\StudyMaterial::first();
+  return new App\Mail\StudyMaterialPurchasedMail($material, $user);
+});
 
 // --- Facebook Webhook Routes ---
 // These routes handle Facebook Messenger Webhook
@@ -41,7 +47,6 @@ Route::match(['get', 'post'], '/webhook/facebook', [FacebookWebhookController::c
 
 // Home page
 Route::get('/', [ForumController::class, 'index'])->name('home');
-
 
 // Dashboard (requires authentication and email verification)
 Route::get('/dashboard', function () {
@@ -143,8 +148,6 @@ Route::middleware('auth')->prefix('api')->group(function () {
   Route::delete('/stories/{story}/react', [StoryController::class, 'removeReaction'])->name('api.stories.react.remove');
 });
 
-
-
 // Topic creation from outside the main /forum prefix
 Route::middleware('auth')->group(function () {
   Route::post('/topics', [TopicsController::class, 'store'])->name('topics.store');
@@ -161,7 +164,6 @@ Route::get('/about', [HelpCenterController::class, 'about'])->name('about');
 Route::get('/jobs', [HelpCenterController::class, 'jobs'])->name('jobs');
 Route::get('/ads', [HelpCenterController::class, 'ads'])->name('ads');
 Route::get('/contact', [HelpCenterController::class, 'contact'])->name('contact');
-
 
 // --- Dynamic User and Post Routes ---
 
@@ -272,7 +274,6 @@ if (!function_exists('redirectToTopic')) {
 
 // --- Static Policy and Info Routes ---
 Route::prefix('chinh-sach')->group(function () {
-
   // Forum rules route (redirects to a topic)
   Route::get('/noi-quy-dien-dan', function () {
     return redirectToTopic(10, 45, 'Quy định và hướng dẫn sử dụng diễn đàn CBH Youth Online');
@@ -298,8 +299,6 @@ Route::get('/huong-dan/cach-su-dung-markdown', function () {
 Route::get('/huong-dan/cach-tinh-diem-xep-hang-thanh-vien', function () {
   return redirectToTopic(10, 45, 'Cách Tính Điểm Xếp Hạng Thành Viên Trên CBH Youth Online');
 })->name('guide.points');
-
-
 
 // --- Fallback Routes ---
 

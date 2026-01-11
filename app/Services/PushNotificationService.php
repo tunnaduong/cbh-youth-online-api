@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Conversation;
+use App\Models\ExpoPushToken;
 use App\Models\Notification;
 use App\Models\NotificationSubscription;
-use App\Models\ExpoPushToken;
-use App\Models\Conversation;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
-use Minishlink\WebPush\WebPush;
+use Illuminate\Support\Facades\Log;
 use Minishlink\WebPush\Subscription;
+use Minishlink\WebPush\WebPush;
 
 /**
  * Service for sending push notifications using Web Push Protocol.
@@ -26,7 +26,7 @@ class PushNotificationService
   public static function sendPushNotification(NotificationSubscription $subscription, Notification $notification): bool
   {
     if (!$subscription->isValid()) {
-      Log::warning("Skipping push notification - subscription expired", [
+      Log::warning('Skipping push notification - subscription expired', [
         'subscription_id' => $subscription->id,
         'notification_id' => $notification->id,
       ]);
@@ -39,7 +39,7 @@ class PushNotificationService
       $vapidSubject = config('services.vapid.subject');
 
       if (!$vapidPublicKey || !$vapidPrivateKey) {
-        Log::warning("VAPID keys not configured", [
+        Log::warning('VAPID keys not configured', [
           'subscription_id' => $subscription->id,
           'notification_id' => $notification->id,
         ]);
@@ -79,13 +79,13 @@ class PushNotificationService
 
       // Check result
       if ($result->isSuccess()) {
-        Log::info("Push notification sent successfully", [
+        Log::info('Push notification sent successfully', [
           'subscription_id' => $subscription->id,
           'notification_id' => $notification->id,
         ]);
         return true;
       } else {
-        Log::warning("Failed to send push notification", [
+        Log::warning('Failed to send push notification', [
           'subscription_id' => $subscription->id,
           'notification_id' => $notification->id,
           'reason' => $result->getReason(),
@@ -95,7 +95,7 @@ class PushNotificationService
         $statusCode = $result->getResponse()?->getStatusCode();
         if (in_array($statusCode, [404, 410])) {
           $subscription->delete();
-          Log::info("Deleted invalid subscription", [
+          Log::info('Deleted invalid subscription', [
             'subscription_id' => $subscription->id,
           ]);
         }
@@ -103,7 +103,7 @@ class PushNotificationService
         return false;
       }
     } catch (\Exception $e) {
-      Log::error("Error sending push notification", [
+      Log::error('Error sending push notification', [
         'subscription_id' => $subscription->id,
         'notification_id' => $notification->id,
         'error' => $e->getMessage(),
@@ -127,7 +127,8 @@ class PushNotificationService
     // Send web push notifications
     $subscriptions = NotificationSubscription::where('user_id', $userId)
       ->where(function ($query) {
-        $query->whereNull('expires_at')
+        $query
+          ->whereNull('expires_at')
           ->orWhere('expires_at', '>', now());
       })
       ->get();
@@ -207,19 +208,20 @@ class PushNotificationService
       'comment_replied' => "{$actorName} đã trả lời bình luận của bạn",
       'topic_commented' => "{$actorName} đã bình luận bài viết của bạn",
       'mentioned' => "{$actorName} đã nhắc đến bạn",
-      'topic_pinned' => "Bài viết của bạn đã được ghim",
-      'topic_moved' => "Bài viết của bạn đã được chuyển",
-      'topic_closed' => "Bài viết của bạn đã bị đóng",
-      'rank_up' => "Bạn đã được thăng hạng!",
-      'badge_earned' => "Bạn đã nhận được huy hiệu",
-      'points_earned' => "Bạn đã nhận được điểm thưởng",
-      'content_reported' => "Nội dung của bạn đã bị báo cáo",
-      'content_hidden' => "Nội dung của bạn đã bị ẩn",
-      'content_deleted' => "Nội dung của bạn đã bị xóa",
-      'system_message' => $notification->data['message'] ?? "Bạn có thông báo mới",
+      'topic_pinned' => 'Bài viết của bạn đã được ghim',
+      'topic_moved' => 'Bài viết của bạn đã được chuyển',
+      'topic_closed' => 'Bài viết của bạn đã bị đóng',
+      'rank_up' => 'Bạn đã được thăng hạng!',
+      'badge_earned' => 'Bạn đã nhận được huy hiệu',
+      'points_earned' => 'Bạn đã nhận được điểm thưởng',
+      'content_reported' => 'Nội dung của bạn đã bị báo cáo',
+      'content_hidden' => 'Nội dung của bạn đã bị ẩn',
+      'content_deleted' => 'Nội dung của bạn đã bị xóa',
+      'study_material_purchased' => "{$actorName} đã mua tài liệu của bạn (+{$notification->data['price']} điểm)",
+      'system_message' => $notification->data['message'] ?? 'Bạn có thông báo mới',
     ];
 
-    return $messages[$notification->type] ?? "Bạn có thông báo mới";
+    return $messages[$notification->type] ?? 'Bạn có thông báo mới';
   }
 
   /**
@@ -233,7 +235,7 @@ class PushNotificationService
   public static function sendChatPushNotifications(Conversation $conversation, array $messageData, int $senderId): int
   {
     try {
-      Log::info("Sending chat push notifications", [
+      Log::info('Sending chat push notifications', [
         'conversation_id' => $conversation->id,
         'message_id' => $messageData['id'] ?? null,
         'sender_id' => $senderId,
@@ -242,7 +244,8 @@ class PushNotificationService
       // Get all participants except the sender (only authenticated users, skip guests)
       // participants() relationship only returns valid AuthAccount records (no nulls due to foreign key)
       // But we need to filter out the sender - specify table name to avoid ambiguous column error
-      $participants = $conversation->participants()
+      $participants = $conversation
+        ->participants()
         ->where('cyo_auth_accounts.id', '!=', $senderId)
         ->get()
         ->filter(function ($participant) use ($senderId) {
@@ -250,14 +253,14 @@ class PushNotificationService
           return $participant->id && $participant->id != $senderId;
         });
 
-      Log::info("Found participants for push notification", [
+      Log::info('Found participants for push notification', [
         'conversation_id' => $conversation->id,
         'participants_count' => $participants->count(),
         'participant_ids' => $participants->pluck('id')->toArray(),
       ]);
 
       if ($participants->isEmpty()) {
-        Log::info("No authenticated participants to send push notifications to", [
+        Log::info('No authenticated participants to send push notifications to', [
           'conversation_id' => $conversation->id,
         ]);
         return 0;
@@ -274,12 +277,13 @@ class PushNotificationService
         // Send web push notifications
         $subscriptions = NotificationSubscription::where('user_id', $participant->id)
           ->where(function ($query) {
-            $query->whereNull('expires_at')
+            $query
+              ->whereNull('expires_at')
               ->orWhere('expires_at', '>', now());
           })
           ->get();
 
-        Log::info("Found subscriptions for participant", [
+        Log::info('Found subscriptions for participant', [
           'participant_id' => $participant->id,
           'subscriptions_count' => $subscriptions->count(),
         ]);
@@ -328,7 +332,7 @@ class PushNotificationService
         $sentCount += $expoSentCount;
       }
 
-      Log::info("Chat push notifications sent", [
+      Log::info('Chat push notifications sent', [
         'conversation_id' => $conversation->id,
         'message_id' => $messageData['id'] ?? null,
         'sent_count' => $sentCount,
@@ -336,7 +340,7 @@ class PushNotificationService
 
       return $sentCount;
     } catch (\Exception $e) {
-      Log::error("Error sending chat push notifications", [
+      Log::error('Error sending chat push notifications', [
         'conversation_id' => $conversation->id,
         'message_id' => $messageData['id'] ?? null,
         'error' => $e->getMessage(),
@@ -356,7 +360,7 @@ class PushNotificationService
   private static function sendRawPushNotification(NotificationSubscription $subscription, array $payload): bool
   {
     if (!$subscription->isValid()) {
-      Log::warning("Skipping push notification - subscription expired", [
+      Log::warning('Skipping push notification - subscription expired', [
         'subscription_id' => $subscription->id,
       ]);
       return false;
@@ -368,7 +372,7 @@ class PushNotificationService
       $vapidSubject = config('services.vapid.subject');
 
       if (!$vapidPublicKey || !$vapidPrivateKey) {
-        Log::warning("VAPID keys not configured", [
+        Log::warning('VAPID keys not configured', [
           'subscription_id' => $subscription->id,
         ]);
         return false;
@@ -395,7 +399,7 @@ class PushNotificationService
       // Send push notification
       $payloadJson = json_encode($payload);
 
-      Log::debug("Sending push notification payload", [
+      Log::debug('Sending push notification payload', [
         'subscription_id' => $subscription->id,
         'payload' => $payload,
         'payload_json' => $payloadJson,
@@ -412,12 +416,12 @@ class PushNotificationService
 
       // Check result
       if ($result->isSuccess()) {
-        Log::info("Push notification sent successfully", [
+        Log::info('Push notification sent successfully', [
           'subscription_id' => $subscription->id,
         ]);
         return true;
       } else {
-        Log::warning("Failed to send push notification", [
+        Log::warning('Failed to send push notification', [
           'subscription_id' => $subscription->id,
           'reason' => $result->getReason(),
         ]);
@@ -426,7 +430,7 @@ class PushNotificationService
         $statusCode = $result->getResponse()?->getStatusCode();
         if (in_array($statusCode, [404, 410])) {
           $subscription->delete();
-          Log::info("Deleted invalid subscription", [
+          Log::info('Deleted invalid subscription', [
             'subscription_id' => $subscription->id,
           ]);
         }
@@ -434,7 +438,7 @@ class PushNotificationService
         return false;
       }
     } catch (\Exception $e) {
-      Log::error("Error sending push notification", [
+      Log::error('Error sending push notification', [
         'subscription_id' => $subscription->id,
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),
@@ -474,7 +478,7 @@ class PushNotificationService
 
       return $sentCount;
     } catch (\Exception $e) {
-      Log::error("Error sending Expo push notifications", [
+      Log::error('Error sending Expo push notifications', [
         'user_id' => $userId,
         'notification_id' => $notification->id,
         'error' => $e->getMessage(),
@@ -508,9 +512,9 @@ class PushNotificationService
         'to' => $tokens->pluck('expo_push_token')->toArray(),
         'title' => $title,
         'body' => $body,
-        'data' => empty($data) ? (object)[] : $data,
+        'data' => empty($data) ? (object) [] : $data,
         'sound' => 'default',
-        'badge' => null, // Will be set by app based on unread count
+        'badge' => null,  // Will be set by app based on unread count
       ];
 
       $sentCount = self::sendExpoPushNotifications($tokens->pluck('expo_push_token')->toArray(), $payload);
@@ -525,7 +529,7 @@ class PushNotificationService
 
       return $sentCount;
     } catch (\Exception $e) {
-      Log::error("Error sending Expo push notifications with custom payload", [
+      Log::error('Error sending Expo push notifications with custom payload', [
         'user_id' => $userId,
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),
@@ -552,7 +556,7 @@ class PushNotificationService
       'title' => $message,
       'body' => $data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? '',
       'sound' => 'default',
-      'badge' => null, // Will be set by app based on unread count
+      'badge' => null,  // Will be set by app based on unread count
       'data' => [
         'notification_id' => $notification->id,
         'type' => $notification->type,
@@ -600,7 +604,7 @@ class PushNotificationService
           'to' => $chunk,
         ]);
 
-        Log::debug("Sending Expo push notifications", [
+        Log::debug('Sending Expo push notifications', [
           'token_count' => count($chunk),
           'payload' => $requestPayload,
         ]);
@@ -609,7 +613,7 @@ class PushNotificationService
 
         if ($response->successful()) {
           $responseData = $response->json();
-          
+
           // Check for errors in response
           if (isset($responseData['data'])) {
             foreach ($responseData['data'] as $result) {
@@ -623,33 +627,33 @@ class PushNotificationService
                   if ($token) {
                     ExpoPushToken::where('expo_push_token', $token)
                       ->update(['is_active' => false]);
-                    Log::info("Deactivated invalid Expo push token", [
+                    Log::info('Deactivated invalid Expo push token', [
                       'token' => $token,
                     ]);
                   }
                 }
-                Log::warning("Expo push notification failed", [
+                Log::warning('Expo push notification failed', [
                   'result' => $result,
                 ]);
               }
             }
           }
         } else {
-          Log::error("Expo push API request failed", [
+          Log::error('Expo push API request failed', [
             'status' => $response->status(),
             'body' => $response->body(),
           ]);
         }
       }
 
-      Log::info("Expo push notifications sent", [
+      Log::info('Expo push notifications sent', [
         'total_tokens' => count($tokens),
         'sent_count' => $sentCount,
       ]);
 
       return $sentCount;
     } catch (\Exception $e) {
-      Log::error("Error sending Expo push notifications", [
+      Log::error('Error sending Expo push notifications', [
         'token_count' => count($tokens),
         'error' => $e->getMessage(),
         'trace' => $e->getTraceAsString(),
@@ -714,7 +718,7 @@ class PushNotificationService
 
       return $sentCount;
     } catch (\Exception $e) {
-      Log::error("Error sending Expo chat push notification", [
+      Log::error('Error sending Expo chat push notification', [
         'user_id' => $userId,
         'conversation_id' => $conversation->id,
         'error' => $e->getMessage(),
@@ -723,6 +727,4 @@ class PushNotificationService
       return 0;
     }
   }
-
 }
-
