@@ -20,7 +20,7 @@ class StudyMaterialController extends Controller
    * Get paginated list of study materials
    *
    * @param Request $request
-   * @return \Illuminate\Http\JsonResponse
+   * @return \Illuminate\Http\JsonResponse|\Illuminate\Contracts\Pagination\LengthAwarePaginator
    */
   public function index(Request $request)
   {
@@ -194,6 +194,7 @@ class StudyMaterialController extends Controller
       'file' => $material->file ? [
         'id' => $material->file->id,
         'file_name' => $material->file->file_name,
+        'file_path' => $material->file->file_path,
         'file_type' => $material->file->file_type,
         'file_size' => $material->file->file_size,
       ] : null,
@@ -367,7 +368,7 @@ class StudyMaterialController extends Controller
    * Download study material file
    *
    * @param int $id
-   * @return \Illuminate\Http\Response
+   * @return \Illuminate\Http\JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
    */
   public function download($id)
   {
