@@ -86,14 +86,17 @@ Route::prefix('v1.0')->group(function () {
   Route::get('search', [SearchController::class, 'search']);
   Route::get('stories', [StoryController::class, 'index']);
 
-  // Study Materials (public routes)
-  Route::get('/study-materials', [StudyMaterialController::class, 'index']);
-  Route::get('/study-materials/{id}', [StudyMaterialController::class, 'show']);
-  Route::get('/study-materials/{id}/preview', [StudyMaterialController::class, 'getPreview']);
-  Route::get('/users/{username}/study-materials', [StudyMaterialController::class, 'getUserMaterials']);
-  Route::get('/study-materials/{id}/ratings', [StudyMaterialRatingController::class, 'getRatings']);
-  Route::get('/study-material-categories', [StudyMaterialCategoryController::class, 'index']);
-  Route::get('/study-material-categories/{id}', [StudyMaterialCategoryController::class, 'show']);
+  // Study Materials (public routes with optional auth to detect purchases)
+  Route::middleware('optional.auth')->group(function () {
+    Route::get('/study-materials', [StudyMaterialController::class, 'index']);
+    Route::get('/study-materials/{id}', [StudyMaterialController::class, 'show']);
+    Route::get('/study-materials/{id}/preview', [StudyMaterialController::class, 'getPreview']);
+    Route::get('/users/{username}/study-materials', [StudyMaterialController::class, 'getUserMaterials']);
+    Route::get('/study-materials/{id}/ratings', [StudyMaterialRatingController::class, 'getRatings']);
+    Route::get('/study-material-categories', [StudyMaterialCategoryController::class, 'index']);
+    Route::get('/study-material-categories/{id}', [StudyMaterialCategoryController::class, 'show']);
+    Route::post('/study-materials/{id}/view', [StudyMaterialController::class, 'view']);
+  });
 
   // Webhook (public, no auth)
   Route::post('/webhooks/sepay', [SEPayWebhookController::class, 'handleWebhook']);
@@ -297,7 +300,6 @@ Route::prefix('v1.0')->group(function () {
     Route::delete('/study-materials/{id}', [StudyMaterialController::class, 'destroy']);
     Route::post('/study-materials/{id}/purchase', [StudyMaterialController::class, 'purchase']);
     Route::get('/study-materials/{id}/download', [StudyMaterialController::class, 'download']);
-    Route::post('/study-materials/{id}/view', [StudyMaterialController::class, 'view']);
 
     // Study Material Categories (admin only)
     Route::middleware('role:admin')->group(function () {

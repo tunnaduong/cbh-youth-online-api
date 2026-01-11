@@ -9,9 +9,9 @@ use App\Models\UserContent;
 use App\Services\PointsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StudyMaterialController extends Controller
@@ -26,8 +26,7 @@ class StudyMaterialController extends Controller
   {
     try {
       $query = StudyMaterial::with(['user.profile', 'category', 'file'])
-        ->where('status', 'published')
-        ->orderBy('created_at', 'desc');
+        ->where('status', 'published');
 
       // Filter by category
       if ($request->has('category_id') && $request->category_id) {
@@ -39,26 +38,65 @@ class StudyMaterialController extends Controller
         $query->where('is_free', $request->is_free === 'true' || $request->is_free === true);
       }
 
+      // Filter by purchased/authored
+      if ($request->has('is_purchased') && $request->is_purchased === 'true' && Auth::check()) {
+        $query->where(function ($q) {
+          $q->whereHas('purchases', function ($sub) {
+            $sub->where('user_id', Auth::id());
+          })->orWhere('user_id', Auth::id());
+        });
+      }
+
       // Search
       if ($request->has('search') && $request->search) {
         $search = $request->search;
         $query->where(function ($q) use ($search) {
-          $q->where('title', 'like', "%{$search}%")
+          $q
+            ->where('title', 'like', "%{$search}%")
             ->orWhere('description', 'like', "%{$search}%");
         });
       }
+
+      // Sorting
+      $sortBy = $request->query('sort_by', 'created_at');
+      $sortOrder = strtolower($request->query('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+      $allowedSortFields = [
+        'created_at' => 'cyo_study_materials.created_at',
+        'title' => 'cyo_study_materials.title',
+        'price' => 'cyo_study_materials.price',
+        'view_count' => 'cyo_study_materials.view_count',
+        'download_count' => 'cyo_study_materials.download_count',
+        'average_rating' => 'average_rating'
+      ];
+
+      if (array_key_exists($sortBy, $allowedSortFields)) {
+        $column = $allowedSortFields[$sortBy];
+        if ($sortBy === 'average_rating') {
+          $query
+            ->withAvg('ratings', 'rating')
+            ->orderBy('ratings_avg_rating', $sortOrder);
+        } else {
+          $query->orderBy($column, $sortOrder);
+        }
+      } else {
+        $query->orderBy('cyo_study_materials.created_at', 'desc');
+      }
+
+      // Add secondary stable sort
+      $query->orderBy('cyo_study_materials.id', $sortOrder);
 
       $materials = $query->paginate(20);
 
       $materials->getCollection()->transform(function ($material) use ($request) {
         try {
           $user = $request->user();
-          $isPurchased = $user ? $material->isPurchasedBy($user->id) : false;
-          
+          $isPurchased = $user ? ($material->isPurchasedBy($user->id) || $user->id === $material->user_id) : false;
+
           // Calculate average rating safely
           $ratingsCount = $material->ratings()->count();
-          $averageRating = $ratingsCount > 0 
-            ? round((float)$material->ratings()->avg('rating'), 1) 
+          $averageRating = $ratingsCount > 0
+            ? round((float) $material->ratings()->avg('rating'), 1)
             : 0;
 
           return [
@@ -124,13 +162,13 @@ class StudyMaterialController extends Controller
     }
 
     $user = $request->user();
-    $isPurchased = $user ? $material->isPurchasedBy($user->id) : false;
+    $isPurchased = $user ? ($material->isPurchasedBy($user->id) || $user->id === $material->user_id) : false;
     $userRating = $user ? $material->ratings()->where('user_id', $user->id)->first() : null;
-    
+
     // Calculate average rating safely
     $ratingsCount = $material->ratings()->count();
-    $averageRating = $ratingsCount > 0 
-      ? round($material->ratings()->avg('rating'), 1) 
+    $averageRating = $ratingsCount > 0
+      ? round($material->ratings()->avg('rating'), 1)
       : 0;
 
     return response()->json([
@@ -412,4 +450,3 @@ class StudyMaterialController extends Controller
     return response()->json($materials);
   }
 }
-

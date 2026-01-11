@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\StudyMaterialCategory;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class StudyMaterialCategorySeeder extends Seeder
@@ -55,26 +55,31 @@ class StudyMaterialCategorySeeder extends Seeder
         'order' => 8,
       ],
       [
+        'name' => 'Tiếng Nga',
+        'description' => 'Tài liệu ôn thi môn Tiếng Nga',
+        'order' => 9,
+      ],
+      [
         'name' => 'Tin học',
         'description' => 'Tài liệu ôn thi môn Tin học',
-        'order' => 9,
+        'order' => 10,
       ],
       [
         'name' => 'Khác',
         'description' => 'Các tài liệu khác',
-        'order' => 10,
+        'order' => 11,
       ],
     ];
 
     foreach ($categories as $category) {
-      StudyMaterialCategory::create([
-        'name' => $category['name'],
-        'description' => $category['description'],
-        'slug' => Str::slug($category['name']),
-        'order' => $category['order'],
-      ]);
+      StudyMaterialCategory::updateOrCreate(
+        ['slug' => Str::slug($category['name'])],
+        [
+          'name' => $category['name'],
+          'description' => $category['description'],
+          'order' => $category['order'],
+        ]
+      );
     }
   }
 }
-
-

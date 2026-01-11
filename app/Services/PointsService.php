@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Models\AuthAccount;
 use App\Models\PointsTransaction;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PointsService
 {
@@ -26,11 +26,15 @@ class PointsService
         // Update user's points
         $user = AuthAccount::find($userId);
         if (!$user) {
-          throw new \Exception("User not found");
+          throw new \Exception('User not found');
         }
 
-        $newPoints = max(0, ($user->points ?? 0) + $amount);
-        $user->update(['points' => $newPoints]);
+        $oldPoints = $user->points ?? 0;
+        $newPoints = max(0, $oldPoints + $amount);
+        $user->points = $newPoints;
+        $user->save();
+
+        Log::info("Points added for user {$userId}: {$oldPoints} -> {$newPoints} (+{$amount})");
 
         // Create transaction record
         PointsTransaction::create([
@@ -67,11 +71,15 @@ class PointsService
         // Update user's points
         $user = AuthAccount::find($userId);
         if (!$user) {
-          throw new \Exception("User not found");
+          throw new \Exception('User not found');
         }
 
-        $newPoints = max(0, ($user->points ?? 0) - $amount);
-        $user->update(['points' => $newPoints]);
+        $oldPoints = $user->points ?? 0;
+        $newPoints = max(0, $oldPoints - $amount);
+        $user->points = $newPoints;
+        $user->save();
+
+        Log::info("Points deducted for user {$userId}: {$oldPoints} -> {$newPoints} (-{$amount})");
 
         // Create transaction record (amount is negative)
         PointsTransaction::create([
@@ -131,7 +139,7 @@ class PointsService
     }
 
     $currentPoints = $user->points ?? 0;
-    $minWithdrawal = 500; // 500 points = 50.000 VND
+    $minWithdrawal = 500;  // 500 points = 50.000 VND
 
     return $amount >= $minWithdrawal && $currentPoints >= $amount;
   }
@@ -150,7 +158,7 @@ class PointsService
       return false;
     }
 
-    $fee = 10; // 10 points = 1.000 VND
+    $fee = 10;  // 10 points = 1.000 VND
     $totalDeduction = $withdrawalRequest->amount + $fee;
 
     return self::deductPoints(
@@ -255,5 +263,3 @@ class PointsService
     self::deductPoints($userId, $amount, 'deduction', 'Admin trừ điểm', null);
   }
 }
-
-
