@@ -9,9 +9,11 @@ use App\Models\UserContent;
 use App\Services\PointsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StudyMaterialController extends Controller
@@ -168,6 +170,10 @@ class StudyMaterialController extends Controller
       ? round($material->ratings()->avg('rating'), 1)
       : 0;
 
+    // Generate one-time preview key with very short TTL (20 seconds) - enough for MS Office to fetch
+    $previewKey = Str::random(40);
+    Cache::put('doc_preview_' . $previewKey, $material->id, now()->addSeconds(20));
+
     return response()->json([
       'id' => $material->id,
       'title' => $material->title,
@@ -178,6 +184,7 @@ class StudyMaterialController extends Controller
       ] : null,
       'price' => $material->price,
       'is_free' => $material->is_free,
+      'preview_key' => $previewKey,
       'preview_content' => $material->preview_content,
       'download_count' => $material->download_count ?? 0,
       'view_count' => $material->view_count ?? 0,
@@ -462,5 +469,47 @@ class StudyMaterialController extends Controller
     $materials = $query->orderBy('created_at', 'desc')->paginate(20);
 
     return response()->json($materials);
+  }
+
+  /**
+   * View document for preview mechanism (one-time/temporary link)
+   *
+   * @param Request $request
+   * @return \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\JsonResponse
+   */
+  public function viewDocument(Request $request)
+  {
+    $id = $request->input('id');
+    $key = $request->input('key');
+
+    if (!$id || !$key) {
+      return response()->json(['message' => 'Missing parameters'], 400);
+    }
+
+    $cachedId = Cache::get('doc_preview_' . $key);
+
+    if (!$cachedId || $cachedId != $id) {
+      return response()->json(['message' => 'Liên kết đã hết hạn hoặc không hợp lệ'], 403);
+    }
+
+    $material = StudyMaterial::with('file')->find($id);
+
+    if (!$material || !$material->file) {
+      return response()->json(['message' => 'File not found'], 404);
+    }
+
+    $filePath = $material->file->file_path;
+    $localPath = storage_path('app/public/' . $filePath);
+
+    if (!file_exists($localPath)) {
+      return response()->json(['message' => 'File missing on server'], 404);
+    }
+
+    return response()->file($localPath, [
+      'Content-Type' => $material->file->file_type,
+      'Content-Disposition' => 'inline; filename="' . $material->file->file_name . '"',
+      'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma' => 'no-cache',
+    ]);
   }
 }
