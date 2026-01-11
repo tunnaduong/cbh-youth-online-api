@@ -45,7 +45,7 @@ class StudyMaterialRating extends Model
    * @var array<string, string>
    */
   protected $casts = [
-    'rating' => 'integer',
+    'rating' => 'float',
   ];
 
   /**
@@ -68,5 +68,3 @@ class StudyMaterialRating extends Model
     return $this->belongsTo(StudyMaterial::class, 'study_material_id');
   }
 }
-
-

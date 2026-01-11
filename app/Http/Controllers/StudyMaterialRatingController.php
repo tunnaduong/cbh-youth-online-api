@@ -19,7 +19,7 @@ class StudyMaterialRatingController extends Controller
   public function store($materialId, Request $request)
   {
     $request->validate([
-      'rating' => 'required|integer|min:1|max:5',
+      'rating' => 'required|numeric|min:1|max:5',
       'comment' => 'nullable|string|max:1000',
     ]);
 
@@ -55,7 +55,7 @@ class StudyMaterialRatingController extends Controller
   public function update($id, Request $request)
   {
     $request->validate([
-      'rating' => 'sometimes|integer|min:1|max:5',
+      'rating' => 'sometimes|numeric|min:1|max:5',
       'comment' => 'nullable|string|max:1000',
     ]);
 
@@ -110,5 +110,3 @@ class StudyMaterialRatingController extends Controller
     return response()->json($ratings);
   }
 }
-
-
