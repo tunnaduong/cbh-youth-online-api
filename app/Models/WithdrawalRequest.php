@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $bank_account
  * @property string $bank_name
  * @property string $account_holder
- * @property string $status pending|approved|rejected|completed
+ * @property string $status pending|approved|rejected|completed|cancelled
  * @property int|null $admin_id
  * @property string|null $admin_note
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -76,4 +76,3 @@ class WithdrawalRequest extends Model
     return $this->belongsTo(AuthAccount::class, 'admin_id');
   }
 }
-

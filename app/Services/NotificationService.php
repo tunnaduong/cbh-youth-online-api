@@ -635,4 +635,46 @@ class NotificationService
 
     return $notification;
   }
+
+  /**
+   * Notify all admins about a system event.
+   *
+   * @param string $title
+   * @param string $message
+   * @param array $data
+   * @return void
+   */
+  public static function notifyAdmins(string $title, string $message, array $data = []): void
+  {
+    $admins = \App\Models\AuthAccount::where('role', 'admin')->get();
+
+    foreach ($admins as $admin) {
+      self::createAndPushNotification([
+        'user_id' => $admin->id,
+        'actor_id' => null,
+        'type' => 'system_alert',
+        'notifiable_type' => null,
+        'notifiable_id' => null,
+        'data' => array_merge([
+          'title' => $title,
+          'message' => $message,
+          'url' => '/admin/dashboard'
+        ], $data),
+      ]);
+
+      // Send Email to Admin (Mockup/Placeholder)
+
+      /*
+       * try {
+       *    if ($admin->email) {
+       *        \Illuminate\Support\Facades\Mail::raw($message, function ($msg) use ($admin, $title) {
+       *            $msg->to($admin->email)->subject('[Admin Alert] ' . $title);
+       *        });
+       *    }
+       * } catch (\Exception $e) {
+       *     \Illuminate\Support\Facades\Log::error('Failed to send admin email alert', ['error' => $e->getMessage()]);
+       * }
+       */
+    }
+  }
 }

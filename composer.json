@@ -22,6 +22,7 @@
         "league/commonmark": "^2.7",
         "minishlink/web-push": "^9.0",
         "pusher/pusher-php-server": "^7.2",
+        "sepayvn/laravel-sepay": "^1.2",
         "spatie/laravel-backup": "^9.3",
         "tightenco/ziggy": "^2.0"
     },

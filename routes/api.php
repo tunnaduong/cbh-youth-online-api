@@ -320,6 +320,7 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/wallet/deposit-request', [WalletController::class, 'createDepositRequest']);
     Route::post('/wallet/withdrawal-request', [WalletController::class, 'requestWithdrawal']);
     Route::get('/wallet/withdrawal-requests', [WalletController::class, 'getWithdrawalRequests']);
+    Route::post('/wallet/withdrawal-requests/{id}/cancel', [WalletController::class, 'cancelWithdrawalRequest']);
     Route::get('/wallet/withdrawal-history', [WalletController::class, 'getWithdrawalHistory']);
 
     // Admin routes
@@ -328,5 +329,8 @@ Route::prefix('v1.0')->group(function () {
       Route::post('/admin/withdrawal-requests/{id}/approve', [AdminController::class, 'approveWithdrawal']);
       Route::post('/admin/withdrawal-requests/{id}/reject', [AdminController::class, 'rejectWithdrawal']);
     });
+
+    // SePay Webhook
+    Route::post('/hooks/sepay-payment', [\SePay\SePay\Http\Controllers\SePayController::class, 'webhook']);
   });
 });

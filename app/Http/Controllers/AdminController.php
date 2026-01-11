@@ -2,23 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\Topic;
+use App\Models\AuthAccount;
+use App\Models\ForumCategory;
 use App\Models\ForumMainCategory;
 use App\Models\ForumSubforum;
-use App\Models\Schedule;
-use App\Models\StudentViolation;
 use App\Models\MonitorReport;
+use App\Models\Post;
+use App\Models\Schedule;
 use App\Models\SchoolClass;
+use App\Models\StudentViolation;
+use App\Models\Subforum;
+use App\Models\Topic;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
-use App\Models\ForumCategory;
-use App\Models\Subforum;
-use App\Models\Post;
-use App\Models\AuthAccount;
 
 /**
  * Handles administrative tasks for the application.
@@ -26,6 +27,7 @@ use App\Models\AuthAccount;
 class AdminController extends Controller
 {
   // User Management
+
   /**
    * Display the user management index page.
    *
@@ -164,6 +166,7 @@ class AdminController extends Controller
   }
 
   // Topic Management
+
   /**
    * Display the topic management index page.
    *
@@ -249,6 +252,7 @@ class AdminController extends Controller
   }
 
   // Forum Main Category Management
+
   /**
    * Display the forum main category management index page.
    *
@@ -298,7 +302,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Main category created successfully', 'category' => $category], 201);
     }
 
-    return redirect()->route('admin.categories.index')
+    return redirect()
+      ->route('admin.categories.index')
       ->with('success', 'Danh mục chính đã được tạo thành công');
   }
 
@@ -355,6 +360,7 @@ class AdminController extends Controller
   }
 
   // Schedule Management
+
   /**
    * Get a paginated list of schedules.
    *
@@ -404,6 +410,7 @@ class AdminController extends Controller
   }
 
   // Student Violation Management
+
   /**
    * Display the student violation management index page.
    *
@@ -508,7 +515,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Thêm vi phạm thành công', 'violation' => $violation], 201);
     }
 
-    return redirect()->route('admin.violations.index')
+    return redirect()
+      ->route('admin.violations.index')
       ->with('success', 'Thêm vi phạm thành công');
   }
 
@@ -544,11 +552,13 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật vi phạm thành công', 'violation' => $violation]);
     }
 
-    return redirect()->route('admin.violations.index')
+    return redirect()
+      ->route('admin.violations.index')
       ->with('success', 'Cập nhật vi phạm thành công');
   }
 
   // Monitor Reports Management
+
   /**
    * Get a paginated list of monitor reports.
    *
@@ -616,7 +626,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Tạo báo cáo xung kích thành công', 'report' => $report], 201);
     }
 
-    return redirect()->route('admin.monitor-reports.index')
+    return redirect()
+      ->route('admin.monitor-reports.index')
       ->with('success', 'Tạo báo cáo xung kích thành công');
   }
 
@@ -656,10 +667,10 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật báo cáo xung kích thành công', 'report' => $report]);
     }
 
-    return redirect()->route('admin.monitor-reports.index')
+    return redirect()
+      ->route('admin.monitor-reports.index')
       ->with('success', 'Cập nhật báo cáo xung kích thành công');
   }
-
 
   /**
    * Show the form for creating a new class.
@@ -704,11 +715,13 @@ class AdminController extends Controller
       return response()->json(['message' => 'Tạo lớp học thành công', 'class' => $class], 201);
     }
 
-    return redirect()->route('admin.classes.index')
+    return redirect()
+      ->route('admin.classes.index')
       ->with('success', 'Tạo lớp học thành công');
   }
 
   // Quản lý thời khóa biểu
+
   /**
    * Display the schedule management index page.
    *
@@ -765,11 +778,13 @@ class AdminController extends Controller
       return response()->json(['message' => 'Tạo thời khóa biểu thành công', 'schedule' => $schedule], 201);
     }
 
-    return redirect()->route('admin.schedules.index')
+    return redirect()
+      ->route('admin.schedules.index')
       ->with('success', 'Tạo thời khóa biểu thành công');
   }
 
   // Các phương thức cập nhật
+
   /**
    * Update the specified class in storage.
    *
@@ -803,7 +818,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật lớp học thành công', 'class' => $class]);
     }
 
-    return redirect()->route('admin.classes.index')
+    return redirect()
+      ->route('admin.classes.index')
       ->with('success', 'Cập nhật lớp học thành công');
   }
 
@@ -844,11 +860,13 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật thời khóa biểu thành công', 'schedule' => $schedule]);
     }
 
-    return redirect()->route('admin.schedules.index')
+    return redirect()
+      ->route('admin.schedules.index')
       ->with('success', 'Cập nhật thời khóa biểu thành công');
   }
 
   // Các phương thức xóa
+
   /**
    * Remove the specified class from storage.
    *
@@ -864,7 +882,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa lớp học thành công']);
     }
 
-    return redirect()->route('admin.classes.index')
+    return redirect()
+      ->route('admin.classes.index')
       ->with('success', 'Xóa lớp học thành công');
   }
 
@@ -883,7 +902,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa thời khóa biểu thành công']);
     }
 
-    return redirect()->route('admin.schedules.index')
+    return redirect()
+      ->route('admin.schedules.index')
       ->with('success', 'Xóa thời khóa biểu thành công');
   }
 
@@ -902,7 +922,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa vi phạm thành công']);
     }
 
-    return redirect()->route('admin.violations.index')
+    return redirect()
+      ->route('admin.violations.index')
       ->with('success', 'Xóa vi phạm thành công');
   }
 
@@ -921,11 +942,13 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa báo cáo xung kích thành công']);
     }
 
-    return redirect()->route('admin.monitor-reports.index')
+    return redirect()
+      ->route('admin.monitor-reports.index')
       ->with('success', 'Xóa báo cáo xung kích thành công');
   }
 
   // Forum Category Management
+
   /**
    * Display the forum category management index page.
    *
@@ -997,7 +1020,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Tạo danh mục thành công', 'category' => $category], 201);
     }
 
-    return redirect()->route('admin.forum-categories.index')
+    return redirect()
+      ->route('admin.forum-categories.index')
       ->with('success', 'Tạo danh mục thành công');
   }
 
@@ -1047,7 +1071,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật danh mục thành công', 'category' => $category]);
     }
 
-    return redirect()->route('admin.forum-categories.index')
+    return redirect()
+      ->route('admin.forum-categories.index')
       ->with('success', 'Cập nhật danh mục thành công');
   }
 
@@ -1066,11 +1091,13 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa danh mục thành công']);
     }
 
-    return redirect()->route('admin.forum-categories.index')
+    return redirect()
+      ->route('admin.forum-categories.index')
       ->with('success', 'Xóa danh mục thành công');
   }
 
   // User Management
+
   /**
    * Display the user management index page.
    *
@@ -1127,7 +1154,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Tạo người dùng thành công', 'user' => $user], 201);
     }
 
-    return redirect()->route('admin.users.index')
+    return redirect()
+      ->route('admin.users.index')
       ->with('success', 'Tạo người dùng thành công');
   }
 
@@ -1181,7 +1209,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật người dùng thành công', 'user' => $user]);
     }
 
-    return redirect()->route('admin.users.index')
+    return redirect()
+      ->route('admin.users.index')
       ->with('success', 'Cập nhật người dùng thành công');
   }
 
@@ -1200,7 +1229,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa người dùng thành công']);
     }
 
-    return redirect()->route('admin.users.index')
+    return redirect()
+      ->route('admin.users.index')
       ->with('success', 'Xóa người dùng thành công');
   }
 
@@ -1224,6 +1254,7 @@ class AdminController extends Controller
   }
 
   // Class Management
+
   /**
    * Display the class management index page.
    *
@@ -1256,6 +1287,7 @@ class AdminController extends Controller
   }
 
   // Subforum Management
+
   /**
    * Display the subforum management index page.
    *
@@ -1340,7 +1372,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Tạo diễn đàn con thành công', 'subforum' => $subforum], 201);
     }
 
-    return redirect()->route('admin.subforums.index')
+    return redirect()
+      ->route('admin.subforums.index')
       ->with('success', 'Tạo diễn đàn con thành công');
   }
 
@@ -1397,7 +1430,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật diễn đàn con thành công', 'subforum' => $subforum]);
     }
 
-    return redirect()->route('admin.subforums.index')
+    return redirect()
+      ->route('admin.subforums.index')
       ->with('success', 'Cập nhật diễn đàn con thành công');
   }
 
@@ -1416,11 +1450,13 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa diễn đàn con thành công']);
     }
 
-    return redirect()->route('admin.subforums.index')
+    return redirect()
+      ->route('admin.subforums.index')
       ->with('success', 'Xóa diễn đàn con thành công');
   }
 
   // Post Management
+
   /**
    * Display the post management index page.
    *
@@ -1499,7 +1535,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Tạo bài viết thành công', 'topic' => $topic], 201);
     }
 
-    return redirect()->route('admin.posts.index')
+    return redirect()
+      ->route('admin.posts.index')
       ->with('success', 'Tạo bài viết thành công');
   }
 
@@ -1552,7 +1589,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Cập nhật bài viết thành công', 'topic' => $topic]);
     }
 
-    return redirect()->route('admin.posts.index')
+    return redirect()
+      ->route('admin.posts.index')
       ->with('success', 'Cập nhật bài viết thành công');
   }
 
@@ -1571,7 +1609,8 @@ class AdminController extends Controller
       return response()->json(['message' => 'Xóa bài viết thành công']);
     }
 
-    return redirect()->route('admin.posts.index')
+    return redirect()
+      ->route('admin.posts.index')
       ->with('success', 'Xóa bài viết thành công');
   }
 
@@ -1610,6 +1649,7 @@ class AdminController extends Controller
   }
 
   // Withdrawal Management
+
   /**
    * Get pending withdrawal requests
    *
@@ -1641,36 +1681,14 @@ class AdminController extends Controller
     }
 
     $admin = Auth::user();
-    $fee = 10; // 10 points = 1.000 VND
-    $totalDeduction = $withdrawal->amount + $fee;
+    // Tiền đã được trừ khi tạo yêu cầu (requestWithdrawal).
+    // Ở đây chỉ cần update status.
 
-    // Check if user has enough points
-    $user = $withdrawal->user;
-    if (($user->points ?? 0) < $totalDeduction) {
-      return response()->json([
-        'message' => 'Người dùng không đủ điểm để rút',
-        'required' => $totalDeduction,
-        'current' => $user->points ?? 0,
-      ], 400);
-    }
-
-    \Illuminate\Support\Facades\DB::transaction(function () use ($withdrawal, $admin, $totalDeduction) {
-      // Deduct points
-      \App\Services\PointsService::deductPoints(
-        $withdrawal->user_id,
-        $totalDeduction,
-        'withdrawal',
-        "Rút tiền: {$withdrawal->amount} điểm (phí: 10 điểm)",
-        $withdrawal->id
-      );
-
-      // Update withdrawal request
-      $withdrawal->update([
-        'status' => 'approved',
-        'admin_id' => $admin->id,
-        'admin_note' => $request->admin_note ?? null,
-      ]);
-    });
+    $withdrawal->update([
+      'status' => 'approved',
+      'admin_id' => $admin->id,
+      'admin_note' => $request->admin_note ?? null,
+    ]);
 
     return response()->json([
       'message' => 'Đã duyệt yêu cầu rút tiền',
@@ -1695,11 +1713,23 @@ class AdminController extends Controller
 
     $admin = Auth::user();
 
-    $withdrawal->update([
-      'status' => 'rejected',
-      'admin_id' => $admin->id,
-      'admin_note' => $request->admin_note ?? 'Yêu cầu bị từ chối',
-    ]);
+    \Illuminate\Support\Facades\DB::transaction(function () use ($withdrawal, $admin, $request) {
+      $withdrawal->update([
+        'status' => 'rejected',
+        'admin_id' => $admin->id,
+        'admin_note' => $request->admin_note ?? 'Yêu cầu bị từ chối',
+      ]);
+
+      // Hoàn lại điểm cho user
+      // Chú ý: dùng type 'withdrawal' để cộng điểm (refund)
+      \App\Services\PointsService::addPoints(
+        $withdrawal->user_id,
+        $withdrawal->amount,
+        'withdrawal',
+        "Hoàn điểm từ chối rút tiền #MW{$withdrawal->id}",
+        $withdrawal->id
+      );
+    });
 
     return response()->json([
       'message' => 'Đã từ chối yêu cầu rút tiền',
