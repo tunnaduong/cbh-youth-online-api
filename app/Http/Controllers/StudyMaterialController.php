@@ -88,7 +88,7 @@ class StudyMaterialController extends Controller
 
       $materials = $query->paginate(20);
 
-      $materials->getCollection()->transform(function ($material) use ($request) {
+      $materials = $materials->through(function ($material) use ($request) {
         try {
           $user = $request->user();
           $isPurchased = $user ? ($material->isPurchasedBy($user->id) || $user->id === $material->user_id) : false;
@@ -129,9 +129,6 @@ class StudyMaterialController extends Controller
           return null;
         }
       });
-
-      // Filter out null values in case of transformation errors
-      $materials->setCollection($materials->getCollection()->filter());
 
       return response()->json($materials);
     } catch (\Exception $e) {
@@ -194,6 +191,7 @@ class StudyMaterialController extends Controller
       'file' => $material->file ? [
         'id' => $material->file->id,
         'file_name' => $material->file->file_name,
+        'file_path' => $material->file->file_path,
         'file_type' => $material->file->file_type,
         'file_size' => $material->file->file_size,
       ] : null,
@@ -380,15 +378,18 @@ class StudyMaterialController extends Controller
    * Download study material file
    *
    * @param int $id
-   * @return \Illuminate\Http\Response
+   * @return \Illuminate\Http\Response|\Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\JsonResponse
    */
   public function download($id)
   {
     $material = StudyMaterial::with('file')->findOrFail($id);
     $user = Auth::user();
 
-    // Check if free or purchased
-    if (!$material->is_free && !$material->isPurchasedBy($user->id)) {
+    // Check if free, purchased, or owner/admin
+    $isOwner = $user && $material->user_id === $user->id;
+    $isAdmin = $user && $user->hasRole('admin');
+
+    if (!$material->is_free && !$material->isPurchasedBy($user->id) && !$isOwner && !$isAdmin) {
       return response()->json(['message' => 'Bạn cần mua tài liệu này trước'], 403);
     }
 

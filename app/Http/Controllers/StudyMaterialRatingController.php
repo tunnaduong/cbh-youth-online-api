@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\StudyMaterial;
 use App\Models\StudyMaterialRating;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,6 +25,7 @@ class StudyMaterialRatingController extends Controller
     ]);
 
     $material = StudyMaterial::findOrFail($materialId);
+    /** @var \App\Models\AuthAccount $user */
     $user = Auth::user();
 
     // Check if user has purchased (if not free)
@@ -41,6 +43,9 @@ class StudyMaterialRatingController extends Controller
         'comment' => $request->comment,
       ]
     );
+
+    // Trigger notification for the author
+    NotificationService::createStudyMaterialRatedNotification($material, $user, $rating);
 
     return response()->json($rating->load('user.profile'), 201);
   }
@@ -60,6 +65,7 @@ class StudyMaterialRatingController extends Controller
     ]);
 
     $rating = StudyMaterialRating::findOrFail($id);
+    /** @var \App\Models\AuthAccount $user */
     $user = Auth::user();
 
     if ($rating->user_id !== $user->id) {
@@ -67,6 +73,12 @@ class StudyMaterialRatingController extends Controller
     }
 
     $rating->update($request->only(['rating', 'comment']));
+
+    // Trigger notification for the author on update as well
+    $material = StudyMaterial::find($rating->study_material_id);
+    if ($material) {
+      NotificationService::createStudyMaterialRatedNotification($material, $user, $rating);
+    }
 
     return response()->json($rating->load('user.profile'));
   }

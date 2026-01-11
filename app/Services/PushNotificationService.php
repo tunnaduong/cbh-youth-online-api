@@ -218,6 +218,7 @@ class PushNotificationService
       'content_hidden' => 'Nội dung của bạn đã bị ẩn',
       'content_deleted' => 'Nội dung của bạn đã bị xóa',
       'study_material_purchased' => "{$actorName} đã mua tài liệu của bạn (+{$notification->data['price']} điểm)",
+      'study_material_rated' => "{$actorName} đã đánh giá {$notification->data['rating']}/5 ⭐ cho tài liệu của bạn",
       'system_message' => $notification->data['message'] ?? 'Bạn có thông báo mới',
     ];
 

@@ -290,7 +290,7 @@ export default function Settings({ auth, user }) {
                 <Button
                   type="submit"
                   loading={processing}
-                  className="bg-green-600 hover:bg-green-700 text-white border-0 px-6 py-2 rounded-md font-medium"
+                  className="text-white border-0 px-6 py-2 rounded-md font-medium"
                 >
                   Cập nhật hồ sơ
                 </Button>
@@ -500,7 +500,7 @@ export default function Settings({ auth, user }) {
                 <Button
                   type="submit"
                   loading={processing}
-                  className="bg-green-600 hover:bg-green-700 text-white border-0 px-6 py-2 rounded-md font-medium"
+                  className="text-white border-0 px-6 py-2 rounded-md font-medium"
                 >
                   Cập nhật thông báo
                 </Button>

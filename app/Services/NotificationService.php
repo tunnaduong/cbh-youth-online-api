@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Mail\StudyMaterialPurchasedMail;
+use App\Mail\StudyMaterialRatedMail;
 use App\Models\Message;
 use App\Models\Notification;
 use App\Models\NotificationSettings;
@@ -572,6 +574,60 @@ class NotificationService
         }
       } catch (\Exception $e) {
         \Illuminate\Support\Facades\Log::error('Failed to send purchase email notification', [
+          'error' => $e->getMessage(),
+        ]);
+      }
+    }
+
+    return $notification;
+  }
+
+  /**
+   * Create a notification for a study material being rated.
+   *
+   * @param \App\Models\StudyMaterial $material
+   * @param \App\Models\AuthAccount $rater
+   * @param \App\Models\StudyMaterialRating $rating
+   * @return Notification|null
+   */
+  public static function createStudyMaterialRatedNotification(\App\Models\StudyMaterial $material, \App\Models\AuthAccount $rater, \App\Models\StudyMaterialRating $rating): ?Notification
+  {
+    // Don't notify if user rates their own material
+    if ($material->user_id === $rater->id) {
+      return null;
+    }
+
+    if (!self::shouldNotify($material->user_id, 'study_material_rated')) {
+      return null;
+    }
+
+    $notification = self::createAndPushNotification([
+      'user_id' => $material->user_id,
+      'actor_id' => $rater->id,
+      'type' => 'study_material_rated',
+      'notifiable_type' => \App\Models\StudyMaterial::class,
+      'notifiable_id' => $material->id,
+      'data' => [
+        'material_id' => $material->id,
+        'material_title' => $material->title,
+        'rater_name' => $rater->profile->profile_name ?? $rater->username,
+        'rating' => $rating->rating,
+        'comment' => $rating->comment,
+        'url' => "/explore/study-materials/{$material->id}",
+      ],
+    ]);
+
+    // Send Email if settings allow
+    $settings = NotificationSettings::where('user_id', $material->user_id)->first();
+    if (!$settings || $settings->notify_email_social) {
+      try {
+        $author = \App\Models\AuthAccount::find($material->user_id);
+        if ($author && $author->email) {
+          \Illuminate\Support\Facades\Mail::to($author->email)
+            ->queue(new \App\Mail\StudyMaterialRatedMail($material, $rater, $rating));
+        }
+      } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Failed to send rating email notification', [
           'error' => $e->getMessage(),
         ]);
       }
