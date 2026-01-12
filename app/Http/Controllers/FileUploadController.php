@@ -78,6 +78,8 @@ class FileUploadController extends Controller
       case 'txt':
       case 'doc':
       case 'docx':
+      case 'xls':
+      case 'xlsx':
       case 'pdf':
         $folder = 'documents';
         break;
