@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Follower;
-use Carbon\Carbon;
-use App\Models\Topic;
-use App\Models\TopicVote;
-use App\Models\TopicComment;
-use Illuminate\Http\Request;
-use App\Models\UserActivity;
 use App\Models\AuthAccount;
+use App\Models\Follow;
+use App\Models\Follower;
+use App\Models\Story;
+use App\Models\StoryReaction;
+use App\Models\StoryViewer;
+use App\Models\Topic;
+use App\Models\TopicComment;
+use App\Models\TopicCommentVote;
+use App\Models\TopicVote;
+use App\Models\UserActivity;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use App\Models\TopicCommentVote;
-use App\Models\StoryViewer;
-use App\Models\StoryReaction;
-use App\Models\Story;
-use App\Models\Follow;
 
 /**
  * Handles user activity-related actions.
@@ -243,7 +243,8 @@ class ActivityController extends Controller
         ])
         ->orderBy('cyo_user_saved_topics.created_at', 'desc')
         ->join('cyo_user_saved_topics', function ($join) use ($userId) {
-          $join->on('cyo_topics.id', '=', 'cyo_user_saved_topics.topic_id')
+          $join
+            ->on('cyo_topics.id', '=', 'cyo_user_saved_topics.topic_id')
             ->where('cyo_user_saved_topics.user_id', '=', $userId);
         })
         ->select('cyo_topics.*', 'cyo_user_saved_topics.created_at as saved_at', 'cyo_user_saved_topics.updated_at as saved_updated_at')
@@ -381,7 +382,8 @@ class ActivityController extends Controller
         ->values();
 
       // Merge all activities and sort by updated_timestamp
-      $allActivities = $votes->concat($commentVotes)
+      $allActivities = $votes
+        ->concat($commentVotes)
         ->concat($comments)
         ->concat($createdPosts)
         ->concat($savedPosts)
@@ -393,7 +395,6 @@ class ActivityController extends Controller
         ->values();
 
       return response()->json($allActivities);
-
     } catch (\Exception $e) {
       return response()->json([
         'message' => 'An error occurred while fetching activities.',
@@ -567,10 +568,19 @@ class ActivityController extends Controller
    *
    * @return \Illuminate\Http\JsonResponse
    */
-  public function updateLastActivity()
+  public function updateLastActivity(Request $request)
   {
     if (!Auth::check()) {
-      return response()->json(['message' => 'Unauthenticated.'], 401);
+      return response()->json([
+        'message' => 'Unauthenticated.',
+        'debug' => [
+          'has_auth_header' => $request->hasHeader('Authorization'),
+          'auth_header' => $request->header('Authorization') ? 'Present (length: ' . strlen($request->header('Authorization')) . ')' : 'Missing',
+          'auth_check' => Auth::check(),
+          'user' => Auth::user() ? 'Found' : 'Not found',
+          'guard' => Auth::getDefaultDriver(),
+        ]
+      ], 401);
     }
 
     $user = Auth::user();

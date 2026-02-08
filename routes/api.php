@@ -161,6 +161,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/forum/subforums', [ForumController::class, 'getSubforumsByRole']);
     Route::get('/forum/subforums/{subforum}/topics', [ForumController::class, 'getSubforumPosts']);
     Route::post('/online-users/track', [OnlineUserController::class, 'track']);
+    Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
   });
 
   // --- AUTHENTICATION REQUIRED ROUTES ---
@@ -198,7 +199,6 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/email/resend-verification', [VerificationController::class, 'resend']);
     Route::post('/users/{username}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);
-    Route::post('/online-status', [ActivityController::class, 'updateLastActivity']);
 
     // Notification Settings
     Route::get('/notification-settings', [NotificationSettingsController::class, 'getSettings']);
