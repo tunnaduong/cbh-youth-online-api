@@ -16,6 +16,7 @@ use App\Http\Controllers\PointsController;
 use App\Http\Controllers\RecordingController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SEPayWebhookController;
+use App\Http\Controllers\ShopController;
 use App\Http\Controllers\StoryController;
 use App\Http\Controllers\StudyMaterialCategoryController;
 use App\Http\Controllers\StudyMaterialController;
@@ -98,6 +99,11 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/study-material-categories/{id}', [StudyMaterialCategoryController::class, 'show']);
     Route::post('/study-materials/{id}/view', [StudyMaterialController::class, 'view']);
   });
+
+  // Gift Shop (Public)
+  Route::get('/shop/products', [ShopController::class, 'index']);
+  Route::get('/shop/products/{id}', [ShopController::class, 'show']);
+  Route::get('/shop/categories', [ShopController::class, 'categories']);
 
   // Webhook (public, no auth)
   Route::post('/webhooks/sepay', [SEPayWebhookController::class, 'handleWebhook']);
@@ -313,6 +319,10 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/study-materials/{id}/ratings', [StudyMaterialRatingController::class, 'store']);
     Route::put('/ratings/{id}', [StudyMaterialRatingController::class, 'update']);
     Route::delete('/ratings/{id}', [StudyMaterialRatingController::class, 'destroy']);
+
+    // Gift Shop Order
+    Route::post('/shop/orders', [ShopController::class, 'storeOrder']);
+    Route::get('/shop/my-orders', [ShopController::class, 'myOrders']);
 
     // Wallet
     Route::get('/wallet/balance', [WalletController::class, 'getBalance']);
