@@ -171,6 +171,7 @@ class TopicsController extends Controller
             'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
           ],
           'anonymous' => $topic->anonymous,
+          'is_edited' => $topic->is_edited,
           'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
           'comments' => $topic->comments_count,  // Comment count in '05+' format (already formatted by accessor)
           'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,  // Ensure numeric value
@@ -311,6 +312,7 @@ class TopicsController extends Controller
         ],
         'created_at' => $comment->created_at->diffForHumans(),
         'updated_at' => $comment->updated_at ? $comment->updated_at->diffForHumans() : null,
+        'is_edited' => $comment->is_edited,
         'votes' => $comment->votes->map(fn($vote) => [
           'user_id' => $vote->user_id,
           'username' => $vote->user->username,
@@ -332,6 +334,7 @@ class TopicsController extends Controller
             ],
             'created_at' => $reply->created_at->diffForHumans(),
             'updated_at' => $reply->updated_at ? $reply->updated_at->diffForHumans() : null,
+            'is_edited' => $reply->is_edited,
             'votes' => $reply->votes->map(fn($vote) => [
               'user_id' => $vote->user_id,
               'username' => $vote->user->username,
@@ -353,6 +356,7 @@ class TopicsController extends Controller
                 ],
                 'created_at' => $subReply->created_at->diffForHumans(),
                 'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
+                'is_edited' => $subReply->is_edited,
                 'votes' => $subReply->votes->map(fn($vote) => [
                   'user_id' => $vote->user_id,
                   'username' => $vote->user->username,
@@ -403,6 +407,7 @@ class TopicsController extends Controller
         'reply_count' => $this->roundToNearestFive($topic->reply_count ?? 0) . '+',
         'view_count' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,
         'created_at' => $topic->created_at->diffForHumans(),
+        'is_edited' => $topic->is_edited,
         'author' => $topic->anonymous ? [
           'username' => 'Ẩn danh',
           'profile_name' => 'Người dùng ẩn danh',
@@ -636,6 +641,7 @@ class TopicsController extends Controller
         ],
         'anonymous' => $topic->anonymous,
         'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // You can dynamically calculate the time difference if needed
+        'is_edited' => false,
         'comments' => '00+',  // Adjust this based on actual comment count if necessary
         'views' => 0,  // Initialize view count as 0 or load actual views
         'votes' => [],  // Initialize empty votes array or load actual votes
@@ -896,6 +902,7 @@ class TopicsController extends Controller
           'is_owner' => $isOwner,  // Add ownership flag
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
+          'is_edited' => $comment->is_edited,
           'author' => $comment->is_anonymous ? [
             'id' => null,
             'username' => 'Người dùng ẩn danh',
@@ -963,6 +970,7 @@ class TopicsController extends Controller
           'verified' => $author->profile->verified == 1 ?? false ? true : false,
         ],
         'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
+        'is_edited' => $comment->is_edited,
         'votes' => $comment->votes,
       ]);
     }
@@ -1056,6 +1064,7 @@ class TopicsController extends Controller
         'verified' => $author->profile->verified == 1 ?? false ? true : false,
       ],
       'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
+      'is_edited' => false,
       'votes' => [],  // Initialize an empty array for votes
     ];
 
@@ -1178,6 +1187,7 @@ class TopicsController extends Controller
           'anonymous' => $savedTopic->topic->anonymous,
           'created_at' => $savedTopic->topic->created_at,
           'updated_at' => $savedTopic->topic->updated_at,
+          'is_edited' => $savedTopic->topic->is_edited,
           'pinned' => $savedTopic->topic->pinned,
           'image_urls' => $savedTopic->topic->getImageUrls()->map(function ($content) {
             return config('app.url') . Storage::url($content->file_path);

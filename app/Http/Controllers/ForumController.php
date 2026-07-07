@@ -281,6 +281,7 @@ class ForumController extends Controller
       ],
       'anonymous' => $post->anonymous,
       'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
+      'is_edited' => $post->is_edited,
       'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
       'view_count' => $post->views_count,
       'is_saved' => $isSaved,
@@ -383,6 +384,7 @@ class ForumController extends Controller
           'anonymous' => $topic->anonymous,
           'created_at' => $topic->created_at->diffForHumans(),
           'updated_at' => $topic->updated_at->diffForHumans(),
+          'is_edited' => $topic->is_edited,
           'reply_count' => $this->roundToNearestFive($topic->reply_count),
           'view_count' => $topic->views_count,
           'author' => $topic->anonymous ? [
@@ -892,6 +894,7 @@ class ForumController extends Controller
           'anonymous' => $topic->anonymous,
           'created_at' => $topic->created_at->diffForHumans(),
           'updated_at' => $topic->updated_at->diffForHumans(),
+          'is_edited' => $topic->is_edited,
           'reply_count' => $this->roundToNearestFive($topic->reply_count),
           'view_count' => $topic->views_count,
           'author' => $topic->anonymous ? [

@@ -89,7 +89,7 @@ class Topic extends Model
    *
    * @var array<int, string>
    */
-  protected $appends = ['content', 'document_urls'];
+  protected $appends = ['content', 'document_urls', 'is_edited'];
 
   /**
    * Get the user that owns the topic.
@@ -270,6 +270,16 @@ class Topic extends Model
   public function getContentAttribute()
   {
     return $this->content_html;
+  }
+
+  /**
+   * Check if the topic has been edited.
+   *
+   * @return bool
+   */
+  public function getIsEditedAttribute()
+  {
+    return $this->updated_at && $this->created_at && $this->updated_at->diffInSeconds($this->created_at) > 5;
   }
 
   /**

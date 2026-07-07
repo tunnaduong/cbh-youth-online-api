@@ -29,6 +29,23 @@ class TopicComment extends Model
   use HasFactory;
 
   /**
+   * The accessors to append to the model's array form.
+   *
+   * @var array<int, string>
+   */
+  protected $appends = ['is_edited'];
+
+  /**
+   * Check if the comment has been edited.
+   *
+   * @return bool
+   */
+  public function getIsEditedAttribute()
+  {
+    return $this->updated_at && $this->created_at && $this->updated_at->diffInSeconds($this->created_at) > 5;
+  }
+
+  /**
    * The table associated with the model.
    *
    * @var string

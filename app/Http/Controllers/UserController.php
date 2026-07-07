@@ -255,6 +255,7 @@ class UserController extends Controller
           return config('app.url') . Storage::url($content->file_path);
         })->all(),
         'time' => $post->created_at->diffForHumans(),
+        'is_edited' => $post->is_edited,
         'comments' => $this->roundToNearestFive($post->comments_count),
         'views' => $post->views_count ?? 0,
         'votes' => $post->votes->map(function ($vote) {
