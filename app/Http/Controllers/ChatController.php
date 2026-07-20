@@ -22,6 +22,30 @@ use Illuminate\Support\Facades\Storage;
 class ChatController extends Controller
 {
   /**
+   * Build a normalized participant payload.
+   */
+  private function formatParticipant($participant): array
+  {
+    return [
+      'id' => $participant->id,
+      'username' => $participant->username,
+      'profile_name' => $participant->profile->profile_name ?? $participant->username,
+      'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
+    ];
+  }
+
+  /**
+   * Get the other participant in a private conversation.
+   */
+  private function getPrivateChatPartner(Conversation $conversation, int $currentUserId)
+  {
+    return $conversation->participants
+      ->first(function ($participant) use ($currentUserId) {
+        return $participant->id !== $currentUserId;
+      });
+  }
+
+  /**
    * Get all conversations for the authenticated user.
    *
    * @return \Illuminate\Http\JsonResponse
@@ -54,22 +78,32 @@ class ChatController extends Controller
           ->where('id', '!=', $user->id)
           ->values();
 
+        $privateChatPartner = $conversation->type === 'private'
+          ? $this->getPrivateChatPartner($conversation, $user->id)
+          : null;
+
         return [
           'id' => $conversation->id,
           'type' => $conversation->type,
           'name' => $conversation->type === 'group' ? $conversation->name : null,
+          'display_name' => $conversation->type === 'private'
+            ? ($privateChatPartner?->profile->profile_name ?? $privateChatPartner?->username ?? 'Người dùng')
+            : ($conversation->name ?? 'Nhóm'),
+          'display_avatar_url' => $conversation->type === 'private'
+            ? ($privateChatPartner?->username
+              ? config('app.url') . "/v1.0/users/{$privateChatPartner->username}/avatar"
+              : null)
+            : null,
           'participants' => $otherParticipants->map(function ($participant) {
-            return [
-              'id' => $participant->id,
-              'username' => $participant->username,
-              'profile_name' => $participant->profile->profile_name ?? $participant->username,
-              'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
-            ];
+            return $this->formatParticipant($participant);
           }),
           'latest_message' => $conversation->latestMessage ? [
             'content' => $conversation->latestMessage->content,
             'type' => $conversation->latestMessage->type,
             'sender' => $conversation->latestMessage->user ? $conversation->latestMessage->user->username : ($conversation->latestMessage->guest_name ?? 'Ẩn danh'),
+            'sender_display_name' => $conversation->latestMessage->user
+              ? ($conversation->latestMessage->user->profile->profile_name ?? $conversation->latestMessage->user->username)
+              : ($conversation->latestMessage->guest_name ?? 'Ẩn danh'),
             'is_myself' => $conversation->latestMessage->user_id === $user->id,
             'created_at' => $conversation->latestMessage->created_at ? $conversation->latestMessage->created_at->toISOString() : null,
             'created_at_human' => $conversation->latestMessage->created_at ? $conversation->latestMessage->created_at->diffForHumans() : null,
@@ -93,12 +127,7 @@ class ChatController extends Controller
       if (!$publicChatExists) {
         // Get all participants (for public chat, we don't exclude the current user)
         $allParticipants = $publicChat->participants->map(function ($participant) {
-          return [
-            'id' => $participant->id,
-            'username' => $participant->username,
-            'profile_name' => $participant->profile->profile_name ?? $participant->username,
-            'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
-          ];
+          return $this->formatParticipant($participant);
         });
 
         // Add public chat to conversations
@@ -106,11 +135,16 @@ class ChatController extends Controller
           'id' => $publicChat->id,
           'type' => $publicChat->type,
           'name' => $publicChat->name,
+          'display_name' => $publicChat->name,
+          'display_avatar_url' => null,
           'participants' => $allParticipants,
           'latest_message' => $publicChat->latestMessage ? [
             'content' => $publicChat->latestMessage->content,
             'type' => $publicChat->latestMessage->type,
             'sender' => $publicChat->latestMessage->user ? $publicChat->latestMessage->user->username : ($publicChat->latestMessage->guest_name ?? 'Ẩn danh'),
+            'sender_display_name' => $publicChat->latestMessage->user
+              ? ($publicChat->latestMessage->user->profile->profile_name ?? $publicChat->latestMessage->user->username)
+              : ($publicChat->latestMessage->guest_name ?? 'Ẩn danh'),
             'is_myself' => $publicChat->latestMessage->user_id === $user->id,
             'created_at' => $publicChat->latestMessage->created_at ? $publicChat->latestMessage->created_at->toISOString() : null,
             'created_at_human' => $publicChat->latestMessage->created_at ? $publicChat->latestMessage->created_at->diffForHumans() : null,
@@ -212,6 +246,11 @@ class ChatController extends Controller
           'is_myself' => $isMyself,
           'is_guest' => $isGuest,
           'sender' => $senderData,
+          'conversation_display_name' => $conversation->type === 'private'
+            ? ($this->getPrivateChatPartner($conversation, $user->id)?->profile->profile_name
+              ?? $this->getPrivateChatPartner($conversation, $user->id)?->username
+              ?? 'Người dùng')
+            : ($conversation->name ?? 'Nhóm'),
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
@@ -387,6 +426,11 @@ class ChatController extends Controller
       'is_edited' => $message->is_edited,
       'is_myself' => $message->user_id === $user->id,
       'sender' => $senderData,
+      'conversation_display_name' => $conversation->type === 'private'
+        ? ($this->getPrivateChatPartner($conversation, $user->id)?->profile->profile_name
+          ?? $this->getPrivateChatPartner($conversation, $user->id)?->username
+          ?? 'Người dùng')
+        : ($conversation->name ?? 'Nhóm'),
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
       'read_at' => $message->read_at?->toISOString(),
