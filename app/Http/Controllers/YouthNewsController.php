@@ -79,6 +79,7 @@ class YouthNewsController extends Controller
         'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
       ],
       'created_at' => Carbon::parse($post->created_at)->diffForHumans(),
+      'is_edited' => $post->is_edited,
       'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
       'view_count' => $post->views_count,
       'is_saved' => $isSaved,

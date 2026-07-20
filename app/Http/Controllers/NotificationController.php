@@ -517,6 +517,16 @@ class NotificationController extends Controller
   private function formatNotification(Notification $notification): array
   {
     $actor = $notification->actor;
+    $isAnonymous = false;
+
+    // Check if the notification should hide the actor due to anonymity
+    if ($notification->notifiable) {
+      if ($notification->notifiable instanceof \App\Models\TopicComment && $notification->notifiable->is_anonymous) {
+        $isAnonymous = true;
+      } elseif ($notification->notifiable instanceof \App\Models\Topic && $notification->notifiable->anonymous) {
+        $isAnonymous = true;
+      }
+    }
 
     return [
       'id' => $notification->id,
@@ -526,12 +536,17 @@ class NotificationController extends Controller
       'created_at' => $notification->created_at->toISOString(),
       'created_at_human' => $notification->created_at->diffForHumans(),
       'is_read' => $notification->isRead(),
-      'actor' => $actor ? [
+      'actor' => ($actor && !$isAnonymous) ? [
         'id' => $actor->id,
         'username' => $actor->username,
         'profile_name' => $actor->profile->profile_name ?? $actor->username,
         'avatar_url' => config('app.url') . "/v1.0/users/{$actor->username}/avatar",
-      ] : null,
+      ] : ($isAnonymous ? [
+        'id' => null,
+        'username' => 'Ẩn danh',
+        'profile_name' => 'Người dùng ẩn danh',
+        'avatar_url' => null,
+      ] : null),
     ];
   }
 }

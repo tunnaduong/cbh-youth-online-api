@@ -40,6 +40,7 @@ class SavedPostsController extends Controller
           'description' => $topic->description,
           'image_urls' => $topic->getImageUrls(),
           'anonymous' => $topic->anonymous,
+          'is_edited' => $topic->is_edited,
           'author' => [
             'username' => $topic->author->username,
             'profile_name' => $topic->author->profile->profile_name ?? null,

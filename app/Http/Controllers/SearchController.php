@@ -114,6 +114,7 @@ class SearchController extends Controller
             return config('app.url') . Storage::url($content->file_path);
           })->all(),
           'created_at' => $post->created_at->diffForHumans(),
+          'is_edited' => $post->is_edited,
           'author' => [
             'id' => $post->user->id,
             'username' => $post->user->username,
