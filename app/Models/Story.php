@@ -58,7 +58,8 @@ class Story extends Model
         'privacy',
         'expires_at',
         'duration',
-        'pinned'
+        'pinned',
+        'is_muted'
     ];
 
     /**
@@ -70,7 +71,8 @@ class Story extends Model
         'text_position' => 'array',
         'expires_at' => 'datetime',
         'duration' => 'integer',
-        'pinned' => 'boolean'
+        'pinned' => 'boolean',
+        'is_muted' => 'boolean'
     ];
 
     /**

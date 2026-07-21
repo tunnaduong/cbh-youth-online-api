@@ -115,7 +115,7 @@ class StoryController extends Controller
       'privacy' => 'required|in:public,followers,private',
       'duration' => 'nullable|integer|min:1|max:30',
       'expires_at' => 'nullable|date',
-      'is_muted' => 'nullable|boolean'
+      'is_muted' => 'nullable'
     ];
 
     // Add media-specific validation based on media_type
@@ -142,7 +142,22 @@ class StoryController extends Controller
 
     $data = $request->all();
     $data['user_id'] = Auth::id();
-    $data['is_muted'] = $request->boolean('is_muted', false);
+
+    if ($request->has('is_muted')) {
+      $rawMuted = $request->input('is_muted');
+
+      if (is_bool($rawMuted)) {
+        $data['is_muted'] = $rawMuted;
+      } elseif (is_string($rawMuted)) {
+        $data['is_muted'] = in_array(strtolower($rawMuted), ['1', 'true', 'yes', 'on'], true);
+      } elseif (is_int($rawMuted)) {
+        $data['is_muted'] = (bool) $rawMuted;
+      } else {
+        $data['is_muted'] = false;
+      }
+    } else {
+      $data['is_muted'] = false;
+    }
 
     // Set expires_at only if not provided
     if (!isset($data['expires_at'])) {
