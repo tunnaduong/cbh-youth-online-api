@@ -75,6 +75,7 @@ class StoryController extends Controller
               'expires_at' => $story->expires_at,
               'user_id' => $story->user_id,
               'pinned' => $story->pinned,  // Add pinned status
+              'is_muted' => $story->is_muted,
               'viewers' => $story->viewers,
               'reactions' => $story->reactions->map(function ($reaction) {
                 return [
