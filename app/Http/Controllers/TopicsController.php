@@ -172,6 +172,7 @@ class TopicsController extends Controller
           ],
           'anonymous' => $topic->anonymous,
           'is_edited' => $topic->is_edited,
+          'is_muted' => $topic->is_muted,
           'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
           'comments' => $topic->comments_count,  // Comment count in '05+' format (already formatted by accessor)
           'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,  // Ensure numeric value
@@ -408,6 +409,7 @@ class TopicsController extends Controller
         'view_count' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,
         'created_at' => $topic->created_at->diffForHumans(),
         'is_edited' => $topic->is_edited,
+        'is_muted' => $topic->is_muted,
         'author' => $topic->anonymous ? [
           'username' => 'Ẩn danh',
           'profile_name' => 'Người dùng ẩn danh',
@@ -483,6 +485,7 @@ class TopicsController extends Controller
       'visibility' => 'nullable|integer|in:0,1',  // 0: public, 1: private (for hidden field)
       'privacy' => 'nullable|string|in:public,followers,private',  // public, followers, private
       'anonymous' => 'nullable|boolean',  // Anonymous posting
+      'is_muted' => 'nullable|boolean',  // Video muted status
     ]);
 
     $cdnImageIds = [];
@@ -594,6 +597,7 @@ class TopicsController extends Controller
       'hidden' => $request->visibility,
       'privacy' => $request->privacy ?? 'public',  // Default to public if not provided
       'anonymous' => $request->boolean('anonymous', false),  // Default to false if not provided
+      'is_muted' => $request->boolean('is_muted', false),  // Default to false if not provided
     ]);
 
     // Debug: Log the created topic
@@ -642,6 +646,7 @@ class TopicsController extends Controller
         'anonymous' => $topic->anonymous,
         'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // You can dynamically calculate the time difference if needed
         'is_edited' => false,
+        'is_muted' => $topic->is_muted,
         'comments' => '00+',  // Adjust this based on actual comment count if necessary
         'views' => 0,  // Initialize view count as 0 or load actual views
         'votes' => [],  // Initialize empty votes array or load actual votes
@@ -680,6 +685,7 @@ class TopicsController extends Controller
       'visibility' => 'nullable|integer|in:0,1',
       'privacy' => 'nullable|string|in:public,followers,private',
       'anonymous' => 'nullable|boolean',
+      'is_muted' => 'nullable|boolean',
     ]);
 
     // Initialize ID arrays from request 'kept_ids' (allows deletion)
