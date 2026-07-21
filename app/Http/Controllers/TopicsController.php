@@ -819,7 +819,20 @@ class TopicsController extends Controller
    */
   public function getVotes($topicId)
   {
-    $votes = TopicVote::where('topic_id', $topicId)->get();
+    $votes = TopicVote::with('user.profile')
+      ->where('topic_id', $topicId)
+      ->get()
+      ->map(function ($vote) {
+        $user = $vote->user;
+        return [
+          'user_id' => $user->id,
+          'username' => $user->username,
+          'profile_name' => $user->profile->profile_name ?? null,
+          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'vote_value' => $vote->vote_value,
+        ];
+      });
+
     return response()->json($votes);
   }
 
