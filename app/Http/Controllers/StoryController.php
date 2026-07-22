@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Events\MessageSent;
-use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Story;
@@ -13,670 +12,719 @@ use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Symfony\Component\Process\Process;
 
 /**
  * Handles the logic for creating, viewing, and interacting with user stories.
  */
 class StoryController extends Controller
 {
-  /**
-   * Get all active stories, grouped by user.
-   * For authenticated users, it shows public and followers' stories.
-   * For non-authenticated users, it shows only public stories.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @return \Illuminate\Http\JsonResponse
-   */
-  public function index(Request $request)
-  {
-    // For logged-out users, only show public stories
-    // For authenticated users, show public and followers stories
-    $privacyLevels = $request->user() ? ['public', 'followers'] : ['public'];
+    /**
+     * Get all active stories, grouped by user.
+     * For authenticated users, it shows public and followers' stories.
+     * For non-authenticated users, it shows only public stories.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index(Request $request)
+    {
+        // For logged-out users, only show public stories
+        // For authenticated users, show public and followers stories
+        $privacyLevels = $request->user() ? ['public', 'followers'] : ['public'];
 
-    $query = Story::with(['user', 'viewers', 'reactions'])
-      ->active()
-      ->whereIn('privacy', $privacyLevels);
+        $query = Story::with(['user', 'viewers', 'reactions'])
+            ->active()
+            ->whereIn('privacy', $privacyLevels);
 
-    if ($request->user()) {
-      $blockedUserIds = \App\Models\UserBlock::where('user_id', $request->user()->id)
-        ->pluck('blocked_user_id')
-        ->toArray();
-      $query->whereNotIn('user_id', $blockedUserIds);
-    }
+        if ($request->user()) {
+            $blockedUserIds = \App\Models\UserBlock::where('user_id', $request->user()->id)
+                ->pluck('blocked_user_id')
+                ->toArray();
+            $query->whereNotIn('user_id', $blockedUserIds);
+        }
 
-    $stories = $query
-      ->orderByDesc('pinned')  // Order by pinned first
-      ->orderBy('created_at', 'asc')  // Order by oldest first so latest stories appear at end
-      ->get()
-      ->groupBy('user_id')
-      ->map(function ($userStories, $userId) {
-        $firstStory = $userStories->first();
-        $user = $firstStory->user;
+        $stories = $query
+            ->orderByDesc('pinned')  // Order by pinned first
+            ->orderBy('created_at', 'asc')  // Order by oldest first so latest stories appear at end
+            ->get()
+            ->groupBy('user_id')
+            ->map(function ($userStories, $userId) {
+                $firstStory = $userStories->first();
+                $user = $firstStory->user;
 
-        return [
-          'id' => $user->id,
-          'username' => $user->username,
-          'name' => $user->profile->profile_name ?? $user->username,
-          'stories' => $userStories->map(function ($story) {
-            return [
-              'id' => (string) $story->id,
-              'media_url' => $story->media_url,
-              'text_content' => $story->content,
-              'type' => $story->media_type,
-              'background_color' => $story->background_color,
-              'font_style' => $story->font_style,
-              'text_position' => $story->text_position,
-              'created_at' => $story->created_at ? $story->created_at->toISOString() : null,
-              'created_at_human' => $story->created_at->diffForHumans(),
-              'duration' => $story->duration ?? 10,
-              'expires_at' => $story->expires_at,
-              'user_id' => $story->user_id,
-              'pinned' => $story->pinned,  // Add pinned status
-              'is_muted' => $story->is_muted,
-              'viewers' => $story->viewers,
-              'reactions' => $story->reactions->map(function ($reaction) {
                 return [
-                  'type' => $reaction->reaction_type,
-                  'user' => $reaction->user->username
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'name' => $user->profile->profile_name ?? $user->username,
+                    'stories' => $userStories->map(function ($story) {
+                        return [
+                            'id' => (string) $story->id,
+                            'media_url' => $story->media_url,
+                            'video_first_frame_url' => $story->video_first_frame_url,
+                            'text_content' => $story->content,
+                            'type' => $story->media_type,
+                            'background_color' => $story->background_color,
+                            'font_style' => $story->font_style,
+                            'text_position' => $story->text_position,
+                            'created_at' => $story->created_at ? $story->created_at->toISOString() : null,
+                            'created_at_human' => $story->created_at->diffForHumans(),
+                            'duration' => $story->duration ?? 10,
+                            'expires_at' => $story->expires_at,
+                            'user_id' => $story->user_id,
+                            'pinned' => $story->pinned,  // Add pinned status
+                            'is_muted' => $story->is_muted,
+                            'viewers' => $story->viewers,
+                            'reactions' => $story->reactions->map(function ($reaction) {
+                                return [
+                                    'type' => $reaction->reaction_type,
+                                    'user' => $reaction->user->username,
+                                ];
+                            }),
+                        ];
+                    })->values()->toArray(),
                 ];
-              })
-            ];
-          })->values()->toArray()
+            })
+            ->values();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $stories,
+            ]);
+        }
+
+        // For Inertia requests, return JSON with proper structure
+        return response()->json($stories);
+    }
+
+    /**
+     * Store a newly created story in storage.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function store(Request $request)
+    {
+        // Base validation rules
+        $rules = [
+            'content' => 'nullable|string',
+            'media_type' => 'required|in:image,video,audio,text',
+            'privacy' => 'required|in:public,followers,private',
+            'duration' => 'nullable|integer|min:1|max:30',
+            'expires_at' => 'nullable|date',
+            'is_muted' => 'nullable',
         ];
-      })
-      ->values();
 
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'data' => $stories
-      ]);
+        // Add media-specific validation based on media_type
+        if ($request->media_type === 'text') {
+            $rules['background_color'] = 'nullable|string';
+            $rules['font_style'] = 'nullable|string';
+            $rules['text_position'] = 'nullable|json';
+        } else {
+            $rules['media_file'] = 'required|file|mimes:jpeg,png,jpg,gif,mp4,mov,mp3,wav|max:100240';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $validator->errors(),
+                ], 422);
+            }
+
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $data = $request->all();
+        $data['user_id'] = Auth::id();
+
+        if ($request->has('is_muted')) {
+            $rawMuted = $request->input('is_muted');
+
+            if (is_bool($rawMuted)) {
+                $data['is_muted'] = $rawMuted;
+            } elseif (is_string($rawMuted)) {
+                $data['is_muted'] = in_array(strtolower($rawMuted), ['1', 'true', 'yes', 'on'], true);
+            } elseif (is_int($rawMuted)) {
+                $data['is_muted'] = (bool) $rawMuted;
+            } else {
+                $data['is_muted'] = false;
+            }
+        } else {
+            $data['is_muted'] = false;
+        }
+
+        // Set expires_at only if not provided
+        if (! isset($data['expires_at'])) {
+            $data['expires_at'] = Carbon::now()->addHours(24);
+        }
+
+        // Handle data conversion for database storage
+        if (isset($data['background_color']) && is_array($data['background_color'])) {
+            $data['background_color'] = json_encode($data['background_color']);
+        }
+
+        if (isset($data['text_position']) && is_array($data['text_position'])) {
+            $data['text_position'] = json_encode($data['text_position']);
+        }
+
+        // Handle media upload if present
+        if ($request->hasFile('media_file')) {
+            $file = $request->file('media_file');
+            $path = $file->store('stories', 'public');
+            $data['media_url'] = Storage::url($path);
+
+            if ($request->media_type === 'video') {
+                $data['video_first_frame_url'] = $this->createVideoFirstFrame($path);
+            }
+        }
+
+        $story = Story::create($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $story->load(['user', 'viewers', 'reactions']),
+            ], 201);
+        }
+
+        return back()->with('success', 'Story created successfully!');
     }
 
-    // For Inertia requests, return JSON with proper structure
-    return response()->json($stories);
-  }
+    private function createVideoFirstFrame(string $videoPath): ?string
+    {
+        $disk = Storage::disk('public');
+        $framePath = 'stories/video-frames/'.Str::uuid().'.jpg';
+        $inputPath = $disk->path($videoPath);
+        $outputPath = $disk->path($framePath);
 
-  /**
-   * Store a newly created story in storage.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function store(Request $request)
-  {
-    // Base validation rules
-    $rules = [
-      'content' => 'nullable|string',
-      'media_type' => 'required|in:image,video,audio,text',
-      'privacy' => 'required|in:public,followers,private',
-      'duration' => 'nullable|integer|min:1|max:30',
-      'expires_at' => 'nullable|date',
-      'is_muted' => 'nullable'
-    ];
+        $disk->makeDirectory('stories/video-frames');
 
-    // Add media-specific validation based on media_type
-    if ($request->media_type === 'text') {
-      $rules['background_color'] = 'nullable|string';
-      $rules['font_style'] = 'nullable|string';
-      $rules['text_position'] = 'nullable|json';
-    } else {
-      $rules['media_file'] = 'required|file|mimes:jpeg,png,jpg,gif,mp4,mov,mp3,wav|max:100240';
+        try {
+            $process = new Process([
+                env('FFMPEG_BINARY', 'ffmpeg'),
+                '-y',
+                '-i',
+                $inputPath,
+                '-frames:v',
+                '1',
+                '-q:v',
+                '2',
+                $outputPath,
+            ]);
+            $process->setTimeout(120);
+            $process->run();
+
+            if (! $process->isSuccessful() || ! $disk->exists($framePath)) {
+                Log::warning('Unable to create first frame for story video', [
+                    'video_path' => $videoPath,
+                    'error' => trim($process->getErrorOutput()),
+                ]);
+
+                return null;
+            }
+
+            return Storage::url($framePath);
+        } catch (\Throwable $exception) {
+            Log::warning('Error creating first frame for story video', [
+                'video_path' => $videoPath,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
-    $validator = Validator::make($request->all(), $rules);
+    /**
+     * Display the specified story.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function show(Request $request, Story $story)
+    {
+        if ($story->hasExpired()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story has expired',
+                ], 404);
+            }
 
-    if ($validator->fails()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => $validator->errors()
-        ], 422);
-      }
+            return back()->with('error', 'Story has expired');
+        }
 
-      return back()->withErrors($validator)->withInput();
+        $story->load(['user', 'viewers', 'reactions']);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $story,
+            ]);
+        }
+
+        // For web requests, redirect to home with story parameter
+        return redirect()->route('home', ['story' => $story->id]);
     }
 
-    $data = $request->all();
-    $data['user_id'] = Auth::id();
+    /**
+     * Remove the specified story from storage.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function destroy(Request $request, Story $story)
+    {
+        if ($story->user_id !== Auth::id()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized',
+                ], 403);
+            }
 
-    if ($request->has('is_muted')) {
-      $rawMuted = $request->input('is_muted');
+            return back()->with('error', 'Unauthorized');
+        }
 
-      if (is_bool($rawMuted)) {
-        $data['is_muted'] = $rawMuted;
-      } elseif (is_string($rawMuted)) {
-        $data['is_muted'] = in_array(strtolower($rawMuted), ['1', 'true', 'yes', 'on'], true);
-      } elseif (is_int($rawMuted)) {
-        $data['is_muted'] = (bool) $rawMuted;
-      } else {
-        $data['is_muted'] = false;
-      }
-    } else {
-      $data['is_muted'] = false;
+        // Delete associated media file if exists
+        if ($story->media_url) {
+            $filePath = str_replace('/storage/', '', $story->media_url);
+            Storage::disk('public')->delete($filePath);
+        }
+
+        if ($story->video_first_frame_url) {
+            $framePath = str_replace('/storage/', '', $story->video_first_frame_url);
+            Storage::disk('public')->delete($framePath);
+        }
+
+        $story->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Story deleted successfully',
+            ]);
+        }
+
+        return back();
     }
 
-    // Set expires_at only if not provided
-    if (!isset($data['expires_at'])) {
-      $data['expires_at'] = Carbon::now()->addHours(24);
+    /**
+     * Mark a story as viewed by the authenticated user.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function markAsViewed(Request $request, Story $story)
+    {
+        if ($story->hasExpired()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story has expired',
+                ], 404);
+            }
+
+            return back()->with('error', 'Story has expired');
+        }
+
+        StoryViewer::firstOrCreate([
+            'story_id' => $story->id,
+            'user_id' => Auth::id(),
+        ], [
+            'viewed_at' => now(),
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Story marked as viewed',
+            ]);
+        }
+
+        return back();
     }
 
-    // Handle data conversion for database storage
-    if (isset($data['background_color']) && is_array($data['background_color'])) {
-      $data['background_color'] = json_encode($data['background_color']);
+    /**
+     * Add or update a reaction to a story.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function react(Request $request, Story $story)
+    {
+        $validator = Validator::make($request->all(), [
+            'reaction_type' => 'required|in:like,love,haha,wow,sad,angry',
+        ]);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $validator->errors(),
+                ], 422);
+            }
+
+            return back()->withErrors($validator);
+        }
+
+        if ($story->hasExpired()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story has expired',
+                ], 404);
+            }
+
+            return back()->with('error', 'Story has expired');
+        }
+
+        $reaction = StoryReaction::updateOrCreate(
+            [
+                'story_id' => $story->id,
+                'user_id' => Auth::id(),
+            ],
+            [
+                'reaction_type' => $request->reaction_type,
+            ]
+        );
+
+        // Create notification for story reaction
+        // Only notify if user is reacting to someone else's story
+        if ($story->user_id !== Auth::id()) {
+            NotificationService::createStoryReactionNotification($story, Auth::id(), $request->reaction_type);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $reaction,
+            ]);
+        }
+
+        return back();
     }
 
-    if (isset($data['text_position']) && is_array($data['text_position'])) {
-      $data['text_position'] = json_encode($data['text_position']);
+    /**
+     * Remove a reaction from a story.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function removeReaction(Request $request, Story $story)
+    {
+        $reaction = StoryReaction::where([
+            'story_id' => $story->id,
+            'user_id' => Auth::id(),
+        ])->first();
+
+        if ($reaction) {
+            $reaction->delete();
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Reaction removed successfully',
+            ]);
+        }
+
+        return back();
     }
 
-    // Handle media upload if present
-    if ($request->hasFile('media_file')) {
-      $file = $request->file('media_file');
-      $path = $file->store('stories', 'public');
-      $data['media_url'] = Storage::url($path);
-    }
+    /**
+     * Reply to a story by sending a message to the story owner.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function reply(Request $request, Story $story)
+    {
+        $validator = Validator::make($request->all(), [
+            'content' => 'required|string|max:5000',
+        ]);
 
-    $story = Story::create($data);
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $validator->errors(),
+                ], 422);
+            }
 
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'data' => $story->load(['user', 'viewers', 'reactions'])
-      ], 201);
-    }
+            return back()->withErrors($validator);
+        }
 
-    return back()->with('success', 'Story created successfully!');
-  }
+        if ($story->hasExpired()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story has expired',
+                ], 404);
+            }
 
-  /**
-   * Display the specified story.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  \App\Models\Story  $story
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function show(Request $request, Story $story)
-  {
-    if ($story->hasExpired()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => 'Story has expired'
-        ], 404);
-      }
-      return back()->with('error', 'Story has expired');
-    }
+            return back()->with('error', 'Story has expired');
+        }
 
-    $story->load(['user', 'viewers', 'reactions']);
+        $user = Auth::user();
+        $storyOwnerId = $story->user_id;
 
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'data' => $story
-      ]);
-    }
+        // Don't allow replying to your own story
+        if ($user->id === $storyOwnerId) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Cannot reply to your own story',
+                ], 400);
+            }
 
-    // For web requests, redirect to home with story parameter
-    return redirect()->route('home', ['story' => $story->id]);
-  }
+            return back()->with('error', 'Cannot reply to your own story');
+        }
 
-  /**
-   * Remove the specified story from storage.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  \App\Models\Story  $story
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function destroy(Request $request, Story $story)
-  {
-    if ($story->user_id !== Auth::id()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => 'Unauthorized'
-        ], 403);
-      }
-      return back()->with('error', 'Unauthorized');
-    }
+        // Load story owner information
+        $story->load('user.profile');
+        $storyOwner = $story->user;
+        $storyOwnerName = $storyOwner->profile->profile_name ?? $storyOwner->username;
 
-    // Delete associated media file if exists
-    if ($story->media_url) {
-      $filePath = str_replace('/storage/', '', $story->media_url);
-      Storage::disk('public')->delete($filePath);
-    }
+        // Find or create conversation between current user and story owner
+        $conversation = Conversation::whereHas('participants', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })->whereHas('participants', function ($query) use ($storyOwnerId) {
+            $query->where('user_id', $storyOwnerId);
+        })->where('type', 'private')->first();
 
-    $story->delete();
+        if (! $conversation) {
+            // Create new conversation
+            $conversation = Conversation::create(['type' => 'private']);
+            $conversation->participants()->attach([$user->id, $storyOwnerId]);
+        }
 
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'message' => 'Story deleted successfully'
-      ]);
-    }
+        // Create message with story reference in content
+        $messageContent = $request->content;
 
-    return back();
-  }
+        // Create the message with metadata for story reply
+        $message = Message::create([
+            'conversation_id' => $conversation->id,
+            'user_id' => $user->id,
+            'content' => $messageContent,
+            'type' => 'text',
+            'metadata' => [
+                'story_reply' => true,
+                'story_id' => $story->id,
+                'story_owner_id' => $storyOwnerId,
+                'story_owner_name' => $storyOwnerName,
+                'story_owner_username' => $storyOwner->username,
+            ],
+        ]);
 
-  /**
-   * Mark a story as viewed by the authenticated user.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  \App\Models\Story  $story
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function markAsViewed(Request $request, Story $story)
-  {
-    if ($story->hasExpired()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => 'Story has expired'
-        ], 404);
-      }
-      return back()->with('error', 'Story has expired');
-    }
+        // Update conversation's updated_at timestamp
+        $conversation->touch();
 
-    StoryViewer::firstOrCreate([
-      'story_id' => $story->id,
-      'user_id' => Auth::id(),
-    ], [
-      'viewed_at' => now()
-    ]);
+        // Load relationships for the response
+        $message->load('user.profile');
 
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'message' => 'Story marked as viewed'
-      ]);
-    }
+        // Prepare message data for broadcasting (similar to ChatController)
+        $senderData = [
+            'id' => $message->user->id,
+            'username' => $message->user->username ?? 'Ẩn danh',
+            'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
+            'avatar_url' => config('app.url')."/v1.0/users/{$message->user->username}/avatar",
+        ];
 
-    return back();
-  }
-
-  /**
-   * Add or update a reaction to a story.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  \App\Models\Story  $story
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function react(Request $request, Story $story)
-  {
-    $validator = Validator::make($request->all(), [
-      'reaction_type' => 'required|in:like,love,haha,wow,sad,angry'
-    ]);
-
-    if ($validator->fails()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => $validator->errors()
-        ], 422);
-      }
-      return back()->withErrors($validator);
-    }
-
-    if ($story->hasExpired()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => 'Story has expired'
-        ], 404);
-      }
-      return back()->with('error', 'Story has expired');
-    }
-
-    $reaction = StoryReaction::updateOrCreate(
-      [
-        'story_id' => $story->id,
-        'user_id' => Auth::id(),
-      ],
-      [
-        'reaction_type' => $request->reaction_type
-      ]
-    );
-
-    // Create notification for story reaction
-    // Only notify if user is reacting to someone else's story
-    if ($story->user_id !== Auth::id()) {
-      NotificationService::createStoryReactionNotification($story, Auth::id(), $request->reaction_type);
-    }
-
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'data' => $reaction
-      ]);
-    }
-
-    return back();
-  }
-
-  /**
-   * Remove a reaction from a story.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  \App\Models\Story  $story
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function removeReaction(Request $request, Story $story)
-  {
-    $reaction = StoryReaction::where([
-      'story_id' => $story->id,
-      'user_id' => Auth::id(),
-    ])->first();
-
-    if ($reaction) {
-      $reaction->delete();
-    }
-
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'message' => 'Reaction removed successfully'
-      ]);
-    }
-
-    return back();
-  }
-
-  /**
-   * Reply to a story by sending a message to the story owner.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  \App\Models\Story  $story
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function reply(Request $request, Story $story)
-  {
-    $validator = Validator::make($request->all(), [
-      'content' => 'required|string|max:5000',
-    ]);
-
-    if ($validator->fails()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => $validator->errors()
-        ], 422);
-      }
-      return back()->withErrors($validator);
-    }
-
-    if ($story->hasExpired()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => 'Story has expired'
-        ], 404);
-      }
-      return back()->with('error', 'Story has expired');
-    }
-
-    $user = Auth::user();
-    $storyOwnerId = $story->user_id;
-
-    // Don't allow replying to your own story
-    if ($user->id === $storyOwnerId) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => 'Cannot reply to your own story'
-        ], 400);
-      }
-      return back()->with('error', 'Cannot reply to your own story');
-    }
-
-    // Load story owner information
-    $story->load('user.profile');
-    $storyOwner = $story->user;
-    $storyOwnerName = $storyOwner->profile->profile_name ?? $storyOwner->username;
-
-    // Find or create conversation between current user and story owner
-    $conversation = Conversation::whereHas('participants', function ($query) use ($user) {
-      $query->where('user_id', $user->id);
-    })->whereHas('participants', function ($query) use ($storyOwnerId) {
-      $query->where('user_id', $storyOwnerId);
-    })->where('type', 'private')->first();
-
-    if (!$conversation) {
-      // Create new conversation
-      $conversation = Conversation::create(['type' => 'private']);
-      $conversation->participants()->attach([$user->id, $storyOwnerId]);
-    }
-
-    // Create message with story reference in content
-    $messageContent = $request->content;
-
-    // Create the message with metadata for story reply
-    $message = Message::create([
-      'conversation_id' => $conversation->id,
-      'user_id' => $user->id,
-      'content' => $messageContent,
-      'type' => 'text',
-      'metadata' => [
-        'story_reply' => true,
-        'story_id' => $story->id,
-        'story_owner_id' => $storyOwnerId,
-        'story_owner_name' => $storyOwnerName,
-        'story_owner_username' => $storyOwner->username,
-      ],
-    ]);
-
-    // Update conversation's updated_at timestamp
-    $conversation->touch();
-
-    // Load relationships for the response
-    $message->load('user.profile');
-
-    // Prepare message data for broadcasting (similar to ChatController)
-    $senderData = [
-      'id' => $message->user->id,
-      'username' => $message->user->username ?? 'Ẩn danh',
-      'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-      'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
-    ];
-
-    $messageData = [
-      'id' => $message->id,
-      'content' => $message->content,
-      'type' => $message->type,
-      'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
-      'is_edited' => $message->is_edited,
-      'is_myself' => false,  // For the recipient, this is not their own message
-      'sender' => $senderData,
-      'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
-      'created_at_human' => $message->created_at->diffForHumans(),
-      'read_at' => $message->read_at?->toISOString(),
-      'metadata' => $message->metadata,  // Include metadata for story reply
-    ];
-
-    // Broadcast the message to other participants
-    broadcast(new MessageSent($conversation->id, $messageData))->toOthers();
-
-    // Create notification for story reply (after message is created and broadcasted)
-    NotificationService::createStoryReplyNotification($story, $message, Auth::id());
-
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'data' => [
-          'message' => [
+        $messageData = [
             'id' => $message->id,
             'content' => $message->content,
             'type' => $message->type,
-            'conversation_id' => $conversation->id,
-            'metadata' => $message->metadata,
-            'sender' => [
-              'id' => $message->user->id,
-              'username' => $message->user->username,
-              'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
-              'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
-            ],
+            'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+            'is_edited' => $message->is_edited,
+            'is_myself' => false,  // For the recipient, this is not their own message
+            'sender' => $senderData,
             'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
-          ],
-          'conversation_id' => $conversation->id,
-        ]
-      ], 201);
+            'created_at_human' => $message->created_at->diffForHumans(),
+            'read_at' => $message->read_at?->toISOString(),
+            'metadata' => $message->metadata,  // Include metadata for story reply
+        ];
+
+        // Broadcast the message to other participants
+        broadcast(new MessageSent($conversation->id, $messageData))->toOthers();
+
+        // Create notification for story reply (after message is created and broadcasted)
+        NotificationService::createStoryReplyNotification($story, $message, Auth::id());
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'message' => [
+                        'id' => $message->id,
+                        'content' => $message->content,
+                        'type' => $message->type,
+                        'conversation_id' => $conversation->id,
+                        'metadata' => $message->metadata,
+                        'sender' => [
+                            'id' => $message->user->id,
+                            'username' => $message->user->username,
+                            'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
+                            'avatar_url' => config('app.url')."/v1.0/users/{$message->user->username}/avatar",
+                        ],
+                        'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
+                    ],
+                    'conversation_id' => $conversation->id,
+                ],
+            ], 201);
+        }
+
+        return back();
     }
 
-    return back();
-  }
+    /**
+     * Get list of viewers for a story.
+     * Only the story owner can view the list of viewers.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function getViewers(Request $request, Story $story)
+    {
+        // Only story owner can view the list of viewers
+        if ($story->user_id !== Auth::id()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized',
+                ], 403);
+            }
 
-  /**
-   * Get list of viewers for a story.
-   * Only the story owner can view the list of viewers.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @param  \App\Models\Story  $story
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function getViewers(Request $request, Story $story)
-  {
-    // Only story owner can view the list of viewers
-    if ($story->user_id !== Auth::id()) {
-      if ($request->expectsJson()) {
-        return response()->json([
-          'status' => 'error',
-          'message' => 'Unauthorized'
-        ], 403);
-      }
-      return back()->with('error', 'Unauthorized');
-    }
+            return back()->with('error', 'Unauthorized');
+        }
 
-    // Get all viewers (excluding current user)
-    $viewersData = StoryViewer::where('story_id', $story->id)
-      ->where('user_id', '!=', Auth::id())
-      ->with(['user.profile'])
-      ->orderBy('viewed_at', 'desc')
-      ->get();
+        // Get all viewers (excluding current user)
+        $viewersData = StoryViewer::where('story_id', $story->id)
+            ->where('user_id', '!=', Auth::id())
+            ->with(['user.profile'])
+            ->orderBy('viewed_at', 'desc')
+            ->get();
 
-    // Get all reactions for the story
-    $reactionsData = StoryReaction::where('story_id', $story->id)
-      ->with(['user.profile'])
-      ->orderBy('created_at', 'desc')
-      ->get();
+        // Get all reactions for the story
+        $reactionsData = StoryReaction::where('story_id', $story->id)
+            ->with(['user.profile'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-    // Group reactions by user_id
-    $reactionsByUser = $reactionsData->groupBy('user_id');
+        // Group reactions by user_id
+        $reactionsByUser = $reactionsData->groupBy('user_id');
 
-    // Merge viewers with their reactions
-    $viewers = $viewersData->map(function ($viewer) use ($reactionsByUser) {
-      $userReactions = $reactionsByUser->get($viewer->user_id, collect());
+        // Merge viewers with their reactions
+        $viewers = $viewersData->map(function ($viewer) use ($reactionsByUser) {
+            $userReactions = $reactionsByUser->get($viewer->user_id, collect());
 
-      return [
-        'id' => $viewer->user->id,
-        'username' => $viewer->user->username,
-        'profile_name' => $viewer->user->profile->profile_name ?? $viewer->user->username,
-        'profile_picture' => config('app.url') . "/v1.0/users/{$viewer->user->username}/avatar",
-        'viewed_at' => $viewer->viewed_at ? $viewer->viewed_at->toISOString() : null,
-        'viewed_at_human' => $viewer->viewed_at ? $viewer->viewed_at->diffForHumans() : null,
-        'reactions' => $userReactions->map(function ($reaction) {
-          return [
-            'type' => $reaction->reaction_type,
-            'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
-          ];
-        })->toArray(),
-      ];
-    });
-
-    // Also include users who only reacted but didn't view (if any)
-    $reactionOnlyUsers = $reactionsData
-      ->filter(function ($reaction) use ($viewersData) {
-        return !$viewersData->contains('user_id', $reaction->user_id);
-      })
-      ->groupBy('user_id')
-      ->map(function ($userReactions, $userId) {
-        $firstReaction = $userReactions->first();
-        $user = $firstReaction->user;
-
-        return [
-          'id' => $user->id,
-          'username' => $user->username,
-          'profile_name' => $user->profile->profile_name ?? $user->username,
-          'profile_picture' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
-          'viewed_at' => null,
-          'viewed_at_human' => null,
-          'reactions' => $userReactions->map(function ($reaction) {
             return [
-              'type' => $reaction->reaction_type,
-              'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
+                'id' => $viewer->user->id,
+                'username' => $viewer->user->username,
+                'profile_name' => $viewer->user->profile->profile_name ?? $viewer->user->username,
+                'profile_picture' => config('app.url')."/v1.0/users/{$viewer->user->username}/avatar",
+                'viewed_at' => $viewer->viewed_at ? $viewer->viewed_at->toISOString() : null,
+                'viewed_at_human' => $viewer->viewed_at ? $viewer->viewed_at->diffForHumans() : null,
+                'reactions' => $userReactions->map(function ($reaction) {
+                    return [
+                        'type' => $reaction->reaction_type,
+                        'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
+                    ];
+                })->toArray(),
             ];
-          })->toArray(),
-        ];
-      });
+        });
 
-    // Merge both lists
-    $allViewers = $viewers->merge($reactionOnlyUsers)->values();
+        // Also include users who only reacted but didn't view (if any)
+        $reactionOnlyUsers = $reactionsData
+            ->filter(function ($reaction) use ($viewersData) {
+                return ! $viewersData->contains('user_id', $reaction->user_id);
+            })
+            ->groupBy('user_id')
+            ->map(function ($userReactions, $userId) {
+                $firstReaction = $userReactions->first();
+                $user = $firstReaction->user;
 
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'data' => [
-          'story_id' => $story->id,
-          'viewers_count' => $allViewers->count(),
-          'viewers' => $allViewers
-        ]
-      ]);
+                return [
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'profile_name' => $user->profile->profile_name ?? $user->username,
+                    'profile_picture' => config('app.url')."/v1.0/users/{$user->username}/avatar",
+                    'viewed_at' => null,
+                    'viewed_at_human' => null,
+                    'reactions' => $userReactions->map(function ($reaction) {
+                        return [
+                            'type' => $reaction->reaction_type,
+                            'created_at' => $reaction->created_at ? $reaction->created_at->toISOString() : null,
+                        ];
+                    })->toArray(),
+                ];
+            });
+
+        // Merge both lists
+        $allViewers = $viewers->merge($reactionOnlyUsers)->values();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'story_id' => $story->id,
+                    'viewers_count' => $allViewers->count(),
+                    'viewers' => $allViewers,
+                ],
+            ]);
+        }
+
+        return back();
     }
 
-    return back();
-  }
+    /**
+     * Get archived stories for the authenticated user.
+     * Returns all stories (active and expired) created by the user.
+     *
+     * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
+     */
+    public function getArchive(Request $request)
+    {
+        $stories = Story::where('user_id', Auth::id())
+            ->with(['viewers', 'reactions'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($story) {
+                return [
+                    'id' => $story->id,
+                    'media_url' => $story->media_url,
+                    'text_content' => $story->content,
+                    'type' => $story->media_type,
+                    'background_color' => $story->background_color,
+                    'font_style' => $story->font_style,
+                    'text_position' => $story->text_position,
+                    'created_at' => $story->created_at ? $story->created_at->toISOString() : null,
+                    'created_at_human' => $story->created_at->diffForHumans(),
+                    'expires_at' => $story->expires_at ? $story->expires_at->toISOString() : null,
+                    'is_expired' => $story->hasExpired(),
+                    'viewers_count' => $story->viewers->count(),
+                    'reactions_count' => $story->reactions->count(),
+                ];
+            })
+            ->groupBy(function ($story) {
+                // Group by date (YYYY-MM-DD)
+                return Carbon::parse($story['created_at'])->format('Y-m-d');
+            })
+            ->map(function ($stories, $date) {
+                return [
+                    'date' => $date,
+                    'date_human' => Carbon::parse($date)->format('d/m/Y'),
+                    'stories' => $stories,
+                ];
+            })
+            ->values();
 
-  /**
-   * Get archived stories for the authenticated user.
-   * Returns all stories (active and expired) created by the user.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
-   */
-  public function getArchive(Request $request)
-  {
-    $stories = Story::where('user_id', Auth::id())
-      ->with(['viewers', 'reactions'])
-      ->orderBy('created_at', 'desc')
-      ->get()
-      ->map(function ($story) {
-        return [
-          'id' => $story->id,
-          'media_url' => $story->media_url,
-          'text_content' => $story->content,
-          'type' => $story->media_type,
-          'background_color' => $story->background_color,
-          'font_style' => $story->font_style,
-          'text_position' => $story->text_position,
-          'created_at' => $story->created_at ? $story->created_at->toISOString() : null,
-          'created_at_human' => $story->created_at->diffForHumans(),
-          'expires_at' => $story->expires_at ? $story->expires_at->toISOString() : null,
-          'is_expired' => $story->hasExpired(),
-          'viewers_count' => $story->viewers->count(),
-          'reactions_count' => $story->reactions->count(),
-        ];
-      })
-      ->groupBy(function ($story) {
-        // Group by date (YYYY-MM-DD)
-        return Carbon::parse($story['created_at'])->format('Y-m-d');
-      })
-      ->map(function ($stories, $date) {
-        return [
-          'date' => $date,
-          'date_human' => Carbon::parse($date)->format('d/m/Y'),
-          'stories' => $stories
-        ];
-      })
-      ->values();
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $stories,
+            ]);
+        }
 
-    if ($request->expectsJson()) {
-      return response()->json([
-        'status' => 'success',
-        'data' => $stories
-      ]);
+        return back();
     }
-
-    return back();
-  }
 }

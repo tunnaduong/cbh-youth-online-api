@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Represents a user's story.
@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $content
  * @property string $media_type
  * @property string|null $media_url
+ * @property string|null $video_first_frame_url
  * @property string|null $background_color
  * @property string|null $font_style
  * @property array|null $text_position
@@ -52,6 +53,7 @@ class Story extends Model
         'content',
         'media_type',
         'media_url',
+        'video_first_frame_url',
         'background_color',
         'font_style',
         'text_position',
@@ -59,7 +61,7 @@ class Story extends Model
         'expires_at',
         'duration',
         'pinned',
-        'is_muted'
+        'is_muted',
     ];
 
     /**
@@ -72,7 +74,7 @@ class Story extends Model
         'expires_at' => 'datetime',
         'duration' => 'integer',
         'pinned' => 'boolean',
-        'is_muted' => 'boolean'
+        'is_muted' => 'boolean',
     ];
 
     /**
@@ -81,13 +83,11 @@ class Story extends Model
      * @var array<int, string>
      */
     protected $hidden = [
-        'deleted_at'
+        'deleted_at',
     ];
 
     /**
      * Get the user that owns the story.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function user(): BelongsTo
     {
@@ -96,8 +96,6 @@ class Story extends Model
 
     /**
      * Get the viewers for the story.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function viewers(): HasMany
     {
@@ -106,8 +104,6 @@ class Story extends Model
 
     /**
      * Get the reactions for the story.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function reactions(): HasMany
     {
@@ -116,14 +112,13 @@ class Story extends Model
 
     /**
      * Check if the story has expired.
-     *
-     * @return bool
      */
     public function hasExpired(): bool
     {
         if ($this->pinned) {
             return false;
         }
+
         return $this->expires_at ? $this->expires_at->isPast() : false;
     }
 
