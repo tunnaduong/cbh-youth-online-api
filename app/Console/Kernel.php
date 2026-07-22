@@ -21,7 +21,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('newsletter:send-weekly')
+            ->weeklyOn(1, '08:00')
+            ->timezone(config('app.timezone'))
+            ->withoutOverlapping();
     }
 
     /**

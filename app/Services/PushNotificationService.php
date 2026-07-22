@@ -513,6 +513,7 @@ class PushNotificationService
         'to' => $tokens->pluck('expo_push_token')->toArray(),
         'title' => $title,
         'body' => $body,
+        'channelId' => 'default',
         'data' => empty($data) ? (object) [] : $data,
         'sound' => 'default',
         'badge' => null,  // Will be set by app based on unread count
@@ -556,6 +557,7 @@ class PushNotificationService
     $payload = [
       'title' => $message,
       'body' => $data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? '',
+      'channelId' => 'default',
       'sound' => 'default',
       'badge' => null,  // Will be set by app based on unread count
       'data' => [
