@@ -15,7 +15,7 @@ class StudyMaterialRatedMail extends Mailable
 
   public $material;
   public $rater;
-  public $rating;
+  public $studyMaterialRating;
 
   /**
    * Create a new message instance.
@@ -24,7 +24,7 @@ class StudyMaterialRatedMail extends Mailable
   {
     $this->material = $material;
     $this->rater = $rater;
-    $this->rating = $rating;
+    $this->studyMaterialRating = $rating;
   }
 
   /**
@@ -47,8 +47,8 @@ class StudyMaterialRatedMail extends Mailable
       with: [
         'materialTitle' => $this->material->title,
         'raterName' => $this->rater->profile->profile_name ?? $this->rater->username,
-        'rating' => $this->rating->rating->rating,
-        'comment' => $this->rating->comment,
+        'rating' => $this->studyMaterialRating->rating,
+        'comment' => $this->studyMaterialRating->comment,
         'url' => env('APP_UI_URL', 'http://localhost:3000') . '/explore/study-materials/' . $this->material->id,
       ],
     );
