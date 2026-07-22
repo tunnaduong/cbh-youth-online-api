@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Mail\StudyMaterialPurchasedMail;
 use App\Mail\StudyMaterialRatedMail;
+use App\Mail\ForumInteractionMail;
 use App\Models\Message;
 use App\Models\Notification;
 use App\Models\NotificationSettings;
@@ -38,9 +39,43 @@ class NotificationService
           'error' => $e->getMessage(),
         ]);
       }
+
+      self::sendInteractionEmail($notification);
     }
 
     return $notification;
+  }
+
+  private static function sendInteractionEmail(Notification $notification): void
+  {
+    $socialTypes = [
+      'topic_liked', 'topic_downvoted', 'comment_liked', 'comment_downvoted',
+      'topic_commented', 'comment_replied', 'mentioned', 'followed',
+    ];
+    $contactTypes = ['direct_message'];
+    $setting = in_array($notification->type, $contactTypes, true)
+      ? 'notify_email_contact'
+      : (in_array($notification->type, $socialTypes, true) ? 'notify_email_social' : null);
+
+    if (!$setting) {
+      return;
+    }
+
+    $recipient = $notification->user;
+    $settings = NotificationSettings::where('user_id', $recipient->id)->first();
+    if (($settings && !$settings->{$setting}) || !$recipient->email) {
+      return;
+    }
+
+    try {
+      \Illuminate\Support\Facades\Mail::to($recipient->email)
+        ->queue(new ForumInteractionMail($notification, $recipient));
+    } catch (\Throwable $e) {
+      \Illuminate\Support\Facades\Log::error('Failed to send forum interaction email', [
+        'notification_id' => $notification->id,
+        'error' => $e->getMessage(),
+      ]);
+    }
   }
 
   /**
@@ -80,26 +115,28 @@ class NotificationService
    * @param int $actorId User who liked the topic
    * @return Notification|null
    */
-  public static function createTopicLikedNotification(Topic $topic, int $actorId): ?Notification
+  public static function createTopicLikedNotification(Topic $topic, int $actorId, int $voteValue = 1): ?Notification
   {
     // Don't notify if user likes their own topic
     if ($topic->user_id === $actorId) {
       return null;
     }
 
-    if (!self::shouldNotify($topic->user_id, 'topic_liked')) {
+    $type = $voteValue === -1 ? 'topic_downvoted' : 'topic_liked';
+    if (!self::shouldNotify($topic->user_id, $type)) {
       return null;
     }
 
     return self::createAndPushNotification([
       'user_id' => $topic->user_id,
       'actor_id' => $actorId,
-      'type' => 'topic_liked',
+      'type' => $type,
       'notifiable_type' => Topic::class,
       'notifiable_id' => $topic->id,
       'data' => [
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
+        'vote_value' => $voteValue,
         'url' => "/topics/{$topic->id}",
       ],
     ]);
@@ -112,14 +149,15 @@ class NotificationService
    * @param int $actorId User who liked the comment
    * @return Notification|null
    */
-  public static function createCommentLikedNotification(TopicComment $comment, int $actorId): ?Notification
+  public static function createCommentLikedNotification(TopicComment $comment, int $actorId, int $voteValue = 1): ?Notification
   {
     // Don't notify if user likes their own comment
     if ($comment->user_id === $actorId) {
       return null;
     }
 
-    if (!self::shouldNotify($comment->user_id, 'comment_liked')) {
+    $type = $voteValue === -1 ? 'comment_downvoted' : 'comment_liked';
+    if (!self::shouldNotify($comment->user_id, $type)) {
       return null;
     }
 
@@ -129,7 +167,7 @@ class NotificationService
     return self::createAndPushNotification([
       'user_id' => $comment->user_id,
       'actor_id' => $actorId,
-      'type' => 'comment_liked',
+      'type' => $type,
       'notifiable_type' => TopicComment::class,
       'notifiable_id' => $comment->id,
       'data' => [
@@ -137,6 +175,7 @@ class NotificationService
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
         'comment_excerpt' => $commentExcerpt,
+        'vote_value' => $voteValue,
         'url' => "/topics/{$topic->id}#comment-{$comment->id}",
       ],
     ]);
@@ -214,6 +253,44 @@ class NotificationService
         'topic_title' => $topic->title,
         'comment_excerpt' => $commentExcerpt,
         'url' => "/topics/{$topic->id}#comment-{$comment->id}",
+      ],
+    ]);
+  }
+
+  public static function createFollowedNotification(int $followedUserId, int $actorId): ?Notification
+  {
+    if ($followedUserId === $actorId || !self::shouldNotify($followedUserId, 'followed')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $followedUserId,
+      'actor_id' => $actorId,
+      'type' => 'followed',
+      'notifiable_type' => \App\Models\AuthAccount::class,
+      'notifiable_id' => $actorId,
+      'data' => [
+        'url' => '/profile',
+      ],
+    ]);
+  }
+
+  public static function createDirectMessageNotification(Message $message, int $recipientId): ?Notification
+  {
+    if ($recipientId === $message->user_id || !self::shouldNotify($recipientId, 'direct_message')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $recipientId,
+      'actor_id' => $message->user_id,
+      'type' => 'direct_message',
+      'notifiable_type' => Message::class,
+      'notifiable_id' => $message->id,
+      'data' => [
+        'conversation_id' => $message->conversation_id,
+        'message_excerpt' => mb_substr($message->content ?? '', 0, 100),
+        'url' => "/chat?conversation={$message->conversation_id}",
       ],
     ]);
   }

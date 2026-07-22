@@ -874,10 +874,10 @@ class TopicsController extends Controller
     }
 
     // Create notification for topic like (only for upvote)
-    if ($request->input('vote_value') == 1) {
+    if ((int) $request->input('vote_value') !== 0) {
       $topic = Topic::find($topicId);
       if ($topic) {
-        NotificationService::createTopicLikedNotification($topic, $user->id);
+        NotificationService::createTopicLikedNotification($topic, $user->id, (int) $request->input('vote_value'));
       }
     }
 
@@ -1126,10 +1126,10 @@ class TopicsController extends Controller
     }
 
     // Create notification for comment like (only for upvote)
-    if ($request->input('vote_value') == 1) {
+    if ((int) $request->input('vote_value') !== 0) {
       $comment = TopicComment::find($commentId);
       if ($comment) {
-        NotificationService::createCommentLikedNotification($comment, auth()->id());
+        NotificationService::createCommentLikedNotification($comment, auth()->id(), (int) $request->input('vote_value'));
       }
     }
 

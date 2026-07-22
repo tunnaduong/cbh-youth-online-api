@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Follower;
 use App\Models\AuthAccount;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
 /**
@@ -41,6 +42,8 @@ class FollowController extends Controller
             'follower_id' => $followerId,
             'followed_id' => $followedId,
         ]);
+
+        NotificationService::createFollowedNotification($followedId, $followerId);
 
         return response()->json([
             'message' => 'Theo dõi thành công.',
