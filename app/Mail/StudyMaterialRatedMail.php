@@ -47,7 +47,7 @@ class StudyMaterialRatedMail extends Mailable
       with: [
         'materialTitle' => $this->material->title,
         'raterName' => $this->rater->profile->profile_name ?? $this->rater->username,
-        'rating' => $this->rating->rating,
+        'rating' => $this->rating->rating->rating,
         'comment' => $this->rating->comment,
         'url' => env('APP_UI_URL', 'http://localhost:3000') . '/explore/study-materials/' . $this->material->id,
       ],
