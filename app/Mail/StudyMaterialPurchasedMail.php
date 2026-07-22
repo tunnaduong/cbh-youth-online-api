@@ -8,6 +8,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use App\Services\NewsletterSubscriptionService;
 
 class StudyMaterialPurchasedMail extends Mailable
 {
@@ -47,6 +48,7 @@ class StudyMaterialPurchasedMail extends Mailable
         'buyerName' => $this->buyer->profile->profile_name ?? $this->buyer->username,
         'price' => $this->material->price,
         'url' => env('APP_UI_URL', 'http://localhost:3000') . '/explore/study-materials/' . $this->material->id,
+        'unsubscribeUrl' => NewsletterSubscriptionService::unsubscribeUrl($this->material->user),
       ],
     );
   }

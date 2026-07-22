@@ -5,6 +5,7 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use App\Services\NewsletterSubscriptionService;
 
 /**
  * Mailable class for sending a password reset email.
@@ -51,6 +52,7 @@ class ResetPasswordMail extends Mailable
             ->subject('Thiết lập lại mật khẩu của bạn')
             ->with([
                 'url' => $this->resetUrl(),
+                'unsubscribeUrl' => NewsletterSubscriptionService::unsubscribeUrlForEmail($this->email),
             ]);
     }
 

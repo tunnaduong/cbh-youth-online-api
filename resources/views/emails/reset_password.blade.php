@@ -26,9 +26,17 @@
 
         .footer {
             margin-top: 20px;
+            padding-top: 16px;
             text-align: center;
             font-size: 12px;
             color: #777;
+        }
+
+        .footer a {
+            color: #3869d4;
+            padding: 0;
+            margin: 0;
+            background-color: transparent;
         }
 
         a {
@@ -54,6 +62,13 @@
         <p>Nếu bạn không yêu cầu thiết lập lại mật khẩu, hãy bỏ qua email này.</p>
         <div class="footer">
             <p>Trân trọng,<br>Đội ngũ CBH Youth Online</p>
+            <p>Bạn nhận email này vì đã đăng ký nhận bản tin từ CBH Youth Online.<br>
+                @if(!empty($unsubscribeUrl))
+                <a href="{{ $unsubscribeUrl }}">Hủy nhận bản tin</a>
+                @endif
+                &nbsp;|&nbsp;
+                <a href="{{ rtrim(env('APP_UI_URL', 'http://localhost:3000'), '/') . '/settings' }}">Cài đặt thông báo</a>
+            </p>
         </div>
     </div>
 </body>

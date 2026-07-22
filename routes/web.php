@@ -17,6 +17,7 @@ use App\Http\Controllers\StoryController;
 use App\Http\Controllers\TopicsController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\YouthNewsController;
+use App\Http\Controllers\NewsletterSubscriptionController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -37,6 +38,9 @@ Route::get('/preview-mail', function () {
   $material = App\Models\StudyMaterial::first();
   return new App\Mail\StudyMaterialPurchasedMail($material, $user);
 });
+
+Route::get('/unsubscribe/{account}', [NewsletterSubscriptionController::class, 'unsubscribe'])
+  ->name('newsletter.unsubscribe');
 
 // --- Facebook Webhook Routes ---
 // These routes handle Facebook Messenger Webhook

@@ -1,4 +1,4 @@
-<x-mail::message>
+<x-mail::message :unsubscribe-url="$unsubscribeUrl">
 # Xin chào!
 
 Tài liệu **{{ $materialTitle }}** của bạn vừa được một thành viên mua.

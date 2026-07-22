@@ -97,6 +97,14 @@
         <div class="footer">
             <p>Trân trọng,</p>
             <p>Đội ngũ CBH Youth Online</p>
+            <p>Bạn nhận email này vì đã đăng ký nhận bản tin từ CBH Youth Online.</p>
+            <p>
+                @if(!empty($unsubscribeUrl))
+                <a href="{{ $unsubscribeUrl }}">Hủy nhận bản tin</a>
+                @endif
+                &nbsp;|&nbsp;
+                <a href="{{ rtrim(env('APP_UI_URL', 'http://localhost:3000'), '/') . '/settings' }}">Cài đặt thông báo</a>
+            </p>
         </div>
     </div>
 </body>
