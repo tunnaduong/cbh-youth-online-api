@@ -111,14 +111,22 @@ class UserReportController extends Controller
       ], 400);
     }
 
-    // Check for duplicate reports
-    $existingReport = UserReport::where([
-      'user_id' => Auth::id(),
-      'reported_user_id' => $reportedUserId,
-      'topic_id' => $request->topic_id,
-      'story_id' => $request->story_id,
-      'status' => 'pending'
-    ])->first();
+    $duplicateQuery = UserReport::where('user_id', Auth::id())
+      ->where('reported_user_id', $reportedUserId)
+      ->where('status', 'pending');
+
+    if ($request->topic_id) {
+      $duplicateQuery->where('topic_id', $request->topic_id)
+        ->whereNull('story_id');
+    } elseif ($request->story_id) {
+      $duplicateQuery->where('story_id', $request->story_id)
+        ->whereNull('topic_id');
+    } else {
+      $duplicateQuery->whereNull('topic_id')
+        ->whereNull('story_id');
+    }
+
+    $existingReport = $duplicateQuery->first();
 
     if ($existingReport) {
       return response()->json([
