@@ -181,7 +181,7 @@ class StoryController extends Controller
             $data['media_url'] = Storage::url($path);
 
             if ($request->media_type === 'video') {
-                $data['video_first_frame_url'] = $this->createVideoFirstFrame($path);
+                $data['video_first_frame_url'] = $this->createVideoPreviewGif($path);
             }
         }
 
@@ -197,10 +197,10 @@ class StoryController extends Controller
         return back()->with('success', 'Story created successfully!');
     }
 
-    private function createVideoFirstFrame(string $videoPath): ?string
+    private function createVideoPreviewGif(string $videoPath): ?string
     {
         $disk = Storage::disk('public');
-        $framePath = 'stories/video-frames/'.Str::uuid().'.jpg';
+        $framePath = 'stories/video-frames/'.Str::uuid().'.gif';
         $inputPath = $disk->path($videoPath);
         $outputPath = $disk->path($framePath);
 
@@ -212,17 +212,19 @@ class StoryController extends Controller
                 '-y',
                 '-i',
                 $inputPath,
-                '-frames:v',
-                '1',
-                '-q:v',
-                '2',
+                '-t',
+                '3',
+                '-vf',
+                'fps=10,scale=480:-1:flags=lanczos',
+                '-loop',
+                '0',
                 $outputPath,
             ]);
             $process->setTimeout(120);
             $process->run();
 
             if (! $process->isSuccessful() || ! $disk->exists($framePath)) {
-                Log::warning('Unable to create first frame for story video', [
+                Log::warning('Unable to create preview GIF for story video', [
                     'video_path' => $videoPath,
                     'error' => trim($process->getErrorOutput()),
                 ]);
@@ -232,7 +234,7 @@ class StoryController extends Controller
 
             return Storage::url($framePath);
         } catch (\Throwable $exception) {
-            Log::warning('Error creating first frame for story video', [
+            Log::warning('Error creating preview GIF for story video', [
                 'video_path' => $videoPath,
                 'error' => $exception->getMessage(),
             ]);
