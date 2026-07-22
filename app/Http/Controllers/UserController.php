@@ -170,6 +170,32 @@ class UserController extends Controller
    * @param  string  $username
    * @return \Illuminate\Http\JsonResponse
    */
+  public function getCurrentPoints(Request $request)
+  {
+    $user = $request->user();
+
+    if (!$user) {
+      return response()->json(['message' => 'Bạn chưa đăng nhập'], 401);
+    }
+
+    $userPoints = $user->getPoints();
+    $rank = AuthAccount::where('role', '!=', 'admin')
+      ->where('points', '>', $userPoints)
+      ->count() + 1;
+
+    return response()->json([
+      'id' => $user->id,
+      'username' => $user->username,
+      'profile_name' => $user->profile->profile_name ?? null,
+      'current_points' => $userPoints,
+      'total_points' => $userPoints,
+      'rank' => $rank,
+      'stats' => [
+        'activity_points' => $userPoints,
+      ],
+    ]);
+  }
+
   public function getProfile($username)
   {
     // Find the user by username

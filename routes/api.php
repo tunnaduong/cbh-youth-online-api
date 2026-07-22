@@ -197,6 +197,7 @@ Route::prefix('v1.0')->group(function () {
         'rank' => $rank,
       ]);
     });
+    Route::get('/user/current-points', [UserController::class, 'getCurrentPoints']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/user/delete-account', [UserController::class, 'deleteAccount']);
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
