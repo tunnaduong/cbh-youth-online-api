@@ -152,12 +152,13 @@ class ChatController extends Controller
       ->messages()
       ->whereNotIn('user_id', $blockedUserIds)
       ->count();
-    $lastPage = ceil($totalMessages / $perPage);
+    $lastPage = (int) max(1, ceil($totalMessages / $perPage));
     $page = (int) request()->get('page', 1);
+    $page = max(1, min($page, $lastPage));
 
     // Calculate the offset from the end
     $offset = max(0, $totalMessages - ($page * $perPage));
-    $limit = min($perPage, $totalMessages - (($page - 1) * $perPage));
+    $limit = max(0, min($perPage, $totalMessages - (($page - 1) * $perPage)));
 
     $messages = $conversation
       ->messages()
