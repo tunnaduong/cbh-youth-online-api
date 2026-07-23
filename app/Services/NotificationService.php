@@ -275,26 +275,6 @@ class NotificationService
     ]);
   }
 
-  public static function createDirectMessageNotification(Message $message, int $recipientId): ?Notification
-  {
-    if ($recipientId === $message->user_id || !self::shouldNotify($recipientId, 'direct_message')) {
-      return null;
-    }
-
-    return self::createAndPushNotification([
-      'user_id' => $recipientId,
-      'actor_id' => $message->user_id,
-      'type' => 'direct_message',
-      'notifiable_type' => Message::class,
-      'notifiable_id' => $message->id,
-      'data' => [
-        'conversation_id' => $message->conversation_id,
-        'message_excerpt' => mb_substr($message->content ?? '', 0, 100),
-        'url' => "/chat?conversation={$message->conversation_id}",
-      ],
-    ]);
-  }
-
   /**
    * Create a notification for a user being mentioned.
    *

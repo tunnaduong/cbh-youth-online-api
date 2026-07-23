@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Events\MessageDeleted;
 use App\Events\MessageRead;
 use App\Events\MessageSent;
-use App\Services\NotificationService;
 use App\Models\AuthAccount;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -399,15 +398,6 @@ class ChatController extends Controller
 
     // Send push notifications to other participants
     $this->sendChatPushNotifications($conversation, $messageData, $user->id);
-
-    if ($conversation->type === 'private') {
-      $recipient = $conversation->participants()
-        ->where('cyo_auth_accounts.id', '!=', $user->id)
-        ->first();
-      if ($recipient) {
-        NotificationService::createDirectMessageNotification($message, $recipient->id);
-      }
-    }
 
     return response()->json($messageData, 201);
   }
