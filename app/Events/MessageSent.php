@@ -2,43 +2,19 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
+use Illuminate\Broadcasting\PrivateChannel; // <-- Updated to PrivateChannel
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-/**
- * Event broadcast when a new message is sent.
- */
 class MessageSent implements ShouldBroadcast
 {
-    use Dispatchable;
-    use InteractsWithSockets;
-    use SerializesModels;
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    /**
-     * The ID of the conversation.
-     *
-     * @var int
-     */
     public $conversationId;
-
-    /**
-     * The message that was sent.
-     *
-     * @var mixed
-     */
     public $message;
 
-    /**
-     * Create a new event instance.
-     *
-     * @param  int  $conversationId
-     * @param  mixed  $message
-     * @return void
-     */
     public function __construct($conversationId, $message)
     {
         $this->conversationId = $conversationId;
@@ -46,22 +22,29 @@ class MessageSent implements ShouldBroadcast
     }
 
     /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return \Illuminate\Broadcasting\Channel|\Illuminate\Broadcasting\Channel[]
+     * Broadcast on a private channel matching routes/channels.php
      */
     public function broadcastOn()
     {
-        return new PresenceChannel('chat.' . $this->conversationId);
+        return new PrivateChannel('chat.' . $this->conversationId);
     }
 
     /**
-     * The event's broadcast name.
-     *
-     * @return string
+     * Event name listened by the client
      */
     public function broadcastAs()
     {
         return 'message.sent';
+    }
+
+    /**
+     * Custom payload sent over the WebSocket
+     */
+    public function broadcastWith()
+    {
+        return [
+            'conversation_id' => $this->conversationId,
+            'message' => $this->message,
+        ];
     }
 }
