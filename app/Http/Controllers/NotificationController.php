@@ -519,13 +519,18 @@ class NotificationController extends Controller
     $actor = $notification->actor;
     $isAnonymous = false;
 
-    // Check if the notification should hide the actor due to anonymity
-    if ($notification->notifiable) {
-      if ($notification->notifiable instanceof \App\Models\TopicComment && $notification->notifiable->is_anonymous) {
-        $isAnonymous = true;
-      } elseif ($notification->notifiable instanceof \App\Models\Topic && $notification->notifiable->anonymous) {
-        $isAnonymous = true;
-      }
+    // Only mask the actor when the notifiable content was authored by the
+    // actor themselves (e.g. their own reply/comment posted anonymously).
+    // The anonymity of the *original* post/comment being liked or voted on
+    // reflects the recipient's own choice, not the actor's, and must never
+    // be used to hide who liked/voted on it.
+    $anonymousActorTypes = ['comment_replied', 'topic_commented'];
+    if (
+      in_array($notification->type, $anonymousActorTypes, true) &&
+      $notification->notifiable instanceof \App\Models\TopicComment &&
+      $notification->notifiable->is_anonymous
+    ) {
+      $isAnonymous = true;
     }
 
     return [
