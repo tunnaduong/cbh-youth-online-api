@@ -13,6 +13,7 @@
         "inertiajs/inertia-laravel": "^0.6.3",
         "intervention/image": "^2.7",
         "laravel/framework": "^10.10",
+        "laravel/octane": "^2.18",
         "laravel/reverb": "^1.11",
         "laravel/sanctum": "^3.2",
         "laravel/socialite": "^5.23",
@@ -23,6 +24,8 @@
         "pusher/pusher-php-server": "^7.2",
         "sepayvn/laravel-sepay": "^1.2",
         "spatie/laravel-backup": "^9.3",
+        "spiral/roadrunner-cli": "^2.6.0",
+        "spiral/roadrunner-http": "^3.3.0",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {
