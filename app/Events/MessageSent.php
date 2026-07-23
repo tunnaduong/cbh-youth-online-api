@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PrivateChannel; // <-- Updated to PrivateChannel
+use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -22,11 +22,12 @@ class MessageSent implements ShouldBroadcast
     }
 
     /**
-     * Broadcast on a private channel matching routes/channels.php
+     * Broadcast on the same presence channel as MessageRead/MessageDeleted so a single
+     * Echo.join('chat.{id}') subscription receives all three chat events.
      */
     public function broadcastOn()
     {
-        return new PrivateChannel('chat.' . $this->conversationId);
+        return new PresenceChannel('chat.' . $this->conversationId);
     }
 
     /**
