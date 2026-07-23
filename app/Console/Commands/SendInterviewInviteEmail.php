@@ -11,7 +11,8 @@ class SendInterviewInviteEmail extends Command
 {
     protected $signature = 'email:send-interview-invite
         {email : Recipient email address}
-        {team? : Team name (e.g. Ban Truyền Thông, Ban Design, Ban Developer)}
+        {recipientName? : Recipient name to display in the greeting}
+        {--team=Ban Truyền Thông : Team name (e.g. Ban Truyền Thông, Ban Design, Ban Developer)}
         {--date=21h45-23h00 : Interview time}
         {--format=Online (Google Meet) : Interview format}
         {--deadline=DD/MM/YYYY : Deadline to schedule the interview}
@@ -22,19 +23,18 @@ class SendInterviewInviteEmail extends Command
     public function handle(): int
     {
         $recipientEmail = $this->argument('email');
-        $teamName = $this->argument('team');
+        $recipientName = $this->argument('recipientName');
+        $teamName = $this->option('team');
         $date = $this->option('date');
         $format = $this->option('format');
         $deadline = $this->option('deadline');
         $meetingLink = $this->option('meeting-link');
 
-        if (!$teamName) {
-            $teamName = 'Ban Truyền Thông';
+        if (!$recipientName) {
+            $recipientName = AuthAccount::where('email', $recipientEmail)->first()?->profile?->profile_name
+                ?? AuthAccount::where('email', $recipientEmail)->first()?->username
+                ?? explode('@', $recipientEmail)[0];
         }
-
-        $recipientName = AuthAccount::where('email', $recipientEmail)->first()?->profile?->profile_name
-            ?? AuthAccount::where('email', $recipientEmail)->first()?->username
-            ?? explode('@', $recipientEmail)[0];
 
         $this->info("Sending interview invite to {$recipientEmail}...");
 
