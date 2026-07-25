@@ -234,7 +234,10 @@ class TopicsController extends Controller
       return $this->index($request);
     }
 
-    $orderedIds = Cache::store('redis')->remember(
+    // Redis temporarily disabled (server has neither the phpredis extension
+    // nor predis/predis installed yet) — using the default cache driver instead.
+    // Switch back to Cache::store('redis') once Redis is set up.
+    $orderedIds = Cache::remember(
       "feed_scores_user_{$userId}",
       now()->addMinutes(5),
       fn() => $this->buildPersonalizedFeedOrder($userId)
