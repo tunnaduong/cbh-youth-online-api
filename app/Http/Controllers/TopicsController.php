@@ -234,7 +234,7 @@ class TopicsController extends Controller
       return $this->index($request);
     }
 
-    $orderedIds = Cache::remember(
+    $orderedIds = Cache::store('redis')->remember(
       "feed_scores_user_{$userId}",
       now()->addMinutes(5),
       fn() => $this->buildPersonalizedFeedOrder($userId)
@@ -274,8 +274,7 @@ class TopicsController extends Controller
   /**
    * Build the ranked list of topic IDs for a user's personalized feed.
    *
-   * Candidate pool: the 200 most recent topics that the user is allowed
-   * to see. Affinity is derived from follows and
+   * Candidate pool: every topic the user is allowed to see. Affinity is derived from follows and
    * from the user's historical voting/commenting behavior toward authors
    * and subforums (there is no separate "follow a subforum" feature yet).
    *
@@ -300,12 +299,9 @@ class TopicsController extends Controller
             $sub->where('privacy', 'followers')->where('hidden', 0)->whereIn('user_id', $followingIds);
           });
       })
-      // No hard date cutoff here: the LIMIT below already bounds query cost,
-      // and time-decay in the scoring step naturally deprioritizes old posts.
       ->withSum('votes', 'vote_value')
       ->withCount(['comments as comments_total'])  // aliased to avoid Topic::getCommentsCountAttribute() formatting it into a "05+" string
       ->orderBy('created_at', 'desc')
-      ->limit(200)
       ->get();
 
     if ($candidates->isEmpty()) {
