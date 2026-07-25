@@ -65,7 +65,11 @@ class ForumInteractionMail extends Mailable implements ShouldQueue
   private function message(): string
   {
     $data = $this->notification->data ?? [];
-    $isAnonymous = !empty($data['is_anonymous']);
+    // Only mask the actor when they authored the anonymous content themselves
+    // (e.g. their own reply/comment). Voters/likers are never anonymous, and
+    // the anonymity of the post/comment being voted on must not hide them.
+    $anonymousActorTypes = ['comment_replied', 'topic_commented'];
+    $isAnonymous = !empty($data['is_anonymous']) && in_array($this->notification->type, $anonymousActorTypes, true);
     $actorName = $isAnonymous ? 'Người dùng ẩn danh' : ($this->notification->actor?->profile?->profile_name
       ?: ($this->notification->actor?->username ?: 'Một người dùng'));
 

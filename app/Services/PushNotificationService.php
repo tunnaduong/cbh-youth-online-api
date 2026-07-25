@@ -156,7 +156,7 @@ class PushNotificationService
   {
     $actor = $notification->actor;
     $data = $notification->data ?? [];
-    $isAnonymous = !empty($data['is_anonymous']);
+    $isAnonymous = self::isAnonymousActor($notification);
 
     // Build notification message based on type
     $message = self::getNotificationMessage($notification);
@@ -193,6 +193,24 @@ class PushNotificationService
   }
 
   /**
+   * Determine whether the actor's identity should be masked.
+   *
+   * Only mask when the actor authored the anonymous content themselves
+   * (e.g. their own reply/comment). Voters/likers are never anonymous, and
+   * the anonymity of the post/comment being voted on must not hide them.
+   *
+   * @param \App\Models\Notification $notification
+   * @return bool
+   */
+  private static function isAnonymousActor(Notification $notification): bool
+  {
+    $data = $notification->data ?? [];
+    $anonymousActorTypes = ['comment_replied', 'topic_commented'];
+
+    return !empty($data['is_anonymous']) && in_array($notification->type, $anonymousActorTypes, true);
+  }
+
+  /**
    * Get notification message based on type.
    *
    * @param \App\Models\Notification $notification
@@ -201,8 +219,7 @@ class PushNotificationService
   private static function getNotificationMessage(Notification $notification): string
   {
     $actor = $notification->actor;
-    $data = $notification->data ?? [];
-    $isAnonymous = !empty($data['is_anonymous']);
+    $isAnonymous = self::isAnonymousActor($notification);
     $actorName = $isAnonymous ? 'Người dùng ẩn danh' : ($actor ? ($actor->profile->profile_name ?? $actor->username) : 'Ai đó');
 
     $messages = [
@@ -553,7 +570,7 @@ class PushNotificationService
   {
     $actor = $notification->actor;
     $data = $notification->data ?? [];
-    $isAnonymous = !empty($data['is_anonymous']);
+    $isAnonymous = self::isAnonymousActor($notification);
 
     // Build notification message based on type
     $message = self::getNotificationMessage($notification);
