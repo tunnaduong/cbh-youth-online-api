@@ -65,8 +65,9 @@ class ForumInteractionMail extends Mailable implements ShouldQueue
   private function message(): string
   {
     $data = $this->notification->data ?? [];
-    $actorName = $this->notification->actor?->profile?->profile_name
-      ?: ($this->notification->actor?->username ?: 'Một người dùng');
+    $isAnonymous = !empty($data['is_anonymous']);
+    $actorName = $isAnonymous ? 'Người dùng ẩn danh' : ($this->notification->actor?->profile?->profile_name
+      ?: ($this->notification->actor?->username ?: 'Một người dùng'));
 
     return match ($this->notification->type) {
       'topic_liked' => "{$actorName} đã upvote bài viết \"{$data['topic_title']}\" của bạn.",
