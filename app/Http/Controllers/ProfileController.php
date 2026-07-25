@@ -108,6 +108,7 @@ class ProfileController extends Controller
         'profile_name' => $user->profile->profile_name ?? null,
         'bio' => $user->profile->bio ?? null,
         'avatar' => route('user.avatar', ['username' => $user->username]),
+        'cover_photo_url' => $user->profile->cover_photo ? (config('app.url') . "/v1.0/users/{$user->username}/cover") : null,
         'joined_at' => ucfirst($user->created_at->translatedFormat('F Y')),
         'location' => $user->profile->location ?? null,
         'posts' => $this->getUserPosts($user, $username),

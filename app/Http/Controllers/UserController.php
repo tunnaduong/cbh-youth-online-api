@@ -77,6 +77,95 @@ class UserController extends Controller
   }
 
   /**
+   * Get the cover photo for a specific user.
+   */
+  public function getCoverPhoto($username)
+  {
+    try {
+      $user = AuthAccount::where('username', $username)->firstOrFail();
+      $userProfile = $user->profile;
+
+      if ($userProfile && $userProfile->cover_photo) {
+        $userContent = UserContent::find($userProfile->cover_photo);
+
+        if ($userContent) {
+          $imagePath = storage_path('app/public/' . $userContent->file_path);
+
+          if (file_exists($imagePath)) {
+            return response()->file($imagePath, [
+              'Content-Type' => $userContent->file_type,
+            ]);
+          }
+
+          return response()->json(['message' => 'Ảnh không tồn tại.'], 404);
+        }
+      }
+
+      return response()->json(['message' => 'Người dùng chưa có ảnh bìa.'], 404);
+    } catch (ModelNotFoundException $e) {
+      return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
+    }
+  }
+
+  /**
+   * Update the cover photo for a specific user.
+   */
+  public function updateCoverPhoto(Request $request, $username)
+  {
+    $authenticatedUser = Auth::user();
+
+    if ($authenticatedUser->username !== $username) {
+      return response()->json(['message' => 'Bạn không có quyền thay đổi ảnh bìa của người khác.'], 403);
+    }
+
+    $request->validate([
+      'cover_photo' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+    ]);
+
+    $user = AuthAccount::where('username', $username)->firstOrFail();
+
+    if ($request->hasFile('cover_photo')) {
+      $file = $request->file('cover_photo');
+      $fileName = time() . '_cover_' . $file->getClientOriginalName();
+
+      $image = Image::make($file->getRealPath());
+      // Resize to max width 1500px, keep aspect ratio
+      $image->resize(1500, null, function ($constraint) {
+        $constraint->aspectRatio();
+        $constraint->upsize();
+      });
+
+      $filePath = 'covers/' . $fileName;
+      Storage::disk('public')->put($filePath, (string) $image->encode());
+
+      $userContent = UserContent::create([
+        'user_id' => $user->id,
+        'file_name' => $fileName,
+        'file_path' => $filePath,
+        'file_type' => $file->getClientMimeType(),
+        'file_size' => Storage::disk('public')->size($filePath),
+      ]);
+
+      $user->load('profile');
+
+      if (!$user->profile) {
+        return response()->json(['message' => 'Trang cá nhân người dùng không tồn tại.'], 404);
+      }
+
+      $user->profile->cover_photo = $userContent->id;
+      $user->profile->save();
+
+      return response()->json([
+        'message' => 'Cập nhật ảnh bìa thành công.',
+        'cover_photo_url' => config('app.url') . "/v1.0/users/{$user->username}/cover",
+        'cover_photo_id' => $userContent->id,
+      ], 200);
+    }
+
+    return response()->json(['message' => 'Không có file nào được upload.'], 400);
+  }
+
+  /**
    * Update the avatar for a specific user.
    *
    * @param  \Illuminate\Http\Request  $request
@@ -329,6 +418,7 @@ class UserController extends Controller
       'profile' => [
         'profile_name' => $user->profile->profile_name ?? null,
         'profile_picture' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+        'cover_photo_url' => $user->profile->cover_photo ? config('app.url') . "/v1.0/users/{$user->username}/cover" : null,
         'bio' => $user->profile->bio ?? null,
         'birthday' => $user->profile->birthday ? Carbon::parse($user->profile->birthday)->locale('vi')->format('d \T\h\á\n\g m Y') : null,
         'birthday_raw' => $user->profile->birthday ?? null,

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $profile_username
  * @property string|null $bio
  * @property int|null $profile_picture
+ * @property int|null $cover_photo
  * @property string|null $oauth_profile_picture
  * @property \Illuminate\Support\Carbon|null $birthday
  * @property string|null $gender
@@ -42,7 +43,7 @@ class UserProfile extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'verified', 'last_username_change'];
+    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'cover_photo', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'verified', 'last_username_change'];
 
     /**
      * Get the user account that owns the profile.
