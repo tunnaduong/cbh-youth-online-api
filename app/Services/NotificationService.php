@@ -176,6 +176,7 @@ class NotificationService
         'topic_title' => $topic->title,
         'comment_excerpt' => $commentExcerpt,
         'vote_value' => $voteValue,
+        'is_anonymous' => (bool) $comment->is_anonymous,
         'url' => "/topics/{$topic->id}#comment-{$comment->id}",
       ],
     ]);
@@ -314,6 +315,7 @@ class NotificationService
         'comment_id' => $mentionable->id,
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
+        'is_anonymous' => (bool) $mentionable->is_anonymous,
         'url' => "/topics/{$topic->id}#comment-{$mentionable->id}",
       ];
       $notifiableType = TopicComment::class;
