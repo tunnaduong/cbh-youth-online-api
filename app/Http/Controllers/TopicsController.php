@@ -304,7 +304,7 @@ class TopicsController extends Controller
         $q->where('pinned', 1)->orWhere('created_at', '>=', now()->subDays(14));
       })
       ->withSum('votes', 'vote_value')
-      ->withCount('comments')
+      ->withCount(['comments as comments_total'])  // aliased to avoid Topic::getCommentsCountAttribute() formatting it into a "05+" string
       ->orderBy('created_at', 'desc')
       ->limit(200)
       ->get();
@@ -356,7 +356,7 @@ class TopicsController extends Controller
       $affinity += min(10, $authorCommentAffinity[$topic->user_id] ?? 0) * 2;
       $affinity += min(10, $subforumAffinity[$topic->subforum_id] ?? 0) * 0.5;
 
-      $engagement = ($topic->votes_sum_vote_value ?? 0) * 1 + ($topic->comments_count ?? 0) * 3;
+      $engagement = ($topic->votes_sum_vote_value ?? 0) * 1 + ($topic->comments_total ?? 0) * 3;
 
       $hoursOld = max(0, now()->diffInHours($topic->created_at));
       $decay = 1 / pow($hoursOld + 2, $gamma);
