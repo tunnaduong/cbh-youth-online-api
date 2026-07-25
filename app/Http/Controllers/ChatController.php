@@ -204,7 +204,17 @@ class ChatController extends Controller
           }
         }
 
-        return [
+        $metadata = $message->metadata ?? [];
+        $storyOwner = null;
+        if ($message->type === 'story_reply' && !empty($metadata['story_owner_id'])) {
+          $storyOwner = [
+            'id' => $metadata['story_owner_id'],
+            'username' => $metadata['story_owner_username'] ?? null,
+            'profile_name' => $metadata['story_owner_name'] ?? null,
+          ];
+        }
+
+        $item = [
           'id' => $message->id,
           'content' => $message->content,
           'type' => $message->type,
@@ -216,8 +226,14 @@ class ChatController extends Controller
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
-          'metadata' => $message->metadata,  // Include metadata for story reply and other features
+          'metadata' => $metadata,
         ];
+
+        if ($storyOwner !== null) {
+          $item['story_owner'] = $storyOwner;
+        }
+
+        return $item;
       });
 
     // Calculate pagination data
