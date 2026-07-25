@@ -940,6 +940,7 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
+      ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
       ->orderBy('created_at', 'desc')
       ->take(10);
 
@@ -974,6 +975,7 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
+      ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
       ->withCount('views')
       ->orderBy('views_count', 'desc')
       ->take(10);
@@ -1009,6 +1011,7 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
+      ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
       ->withCount(['comments', 'votes'])
       ->orderByRaw('(comments_count + votes_count) DESC')
       ->take(10);
