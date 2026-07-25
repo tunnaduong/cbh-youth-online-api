@@ -156,6 +156,7 @@ class PushNotificationService
   {
     $actor = $notification->actor;
     $data = $notification->data ?? [];
+    $isAnonymous = !empty($data['is_anonymous']);
 
     // Build notification message based on type
     $message = self::getNotificationMessage($notification);
@@ -163,14 +164,14 @@ class PushNotificationService
     $payload = [
       'title' => $message,
       'body' => $data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? '',
-      'icon' => $actor ? (config('app.url') . "/v1.0/users/{$actor->username}/avatar") : '/images/icon.png',
+      'icon' => (!$isAnonymous && $actor) ? (config('app.url') . "/v1.0/users/{$actor->username}/avatar") : '/images/icon.png',
       'badge' => '/images/badge.png',
       'tag' => "notification-{$notification->id}",
       'data' => [
         'notification_id' => $notification->id,
         'type' => $notification->type,
         'url' => $data['url'] ?? '/',
-        'actor' => $actor ? [
+        'actor' => (!$isAnonymous && $actor) ? [
           'id' => $actor->id,
           'username' => $actor->username,
           'profile_name' => $actor->profile->profile_name ?? $actor->username,
@@ -200,7 +201,9 @@ class PushNotificationService
   private static function getNotificationMessage(Notification $notification): string
   {
     $actor = $notification->actor;
-    $actorName = $actor ? ($actor->profile->profile_name ?? $actor->username) : 'Ai đó';
+    $data = $notification->data ?? [];
+    $isAnonymous = !empty($data['is_anonymous']);
+    $actorName = $isAnonymous ? 'Người dùng ẩn danh' : ($actor ? ($actor->profile->profile_name ?? $actor->username) : 'Ai đó');
 
     $messages = [
       'topic_liked' => "{$actorName} đã thích bài viết của bạn",
@@ -550,6 +553,7 @@ class PushNotificationService
   {
     $actor = $notification->actor;
     $data = $notification->data ?? [];
+    $isAnonymous = !empty($data['is_anonymous']);
 
     // Build notification message based on type
     $message = self::getNotificationMessage($notification);
@@ -564,7 +568,7 @@ class PushNotificationService
         'notification_id' => $notification->id,
         'type' => $notification->type,
         'url' => $data['url'] ?? '/',
-        'actor' => $actor ? [
+        'actor' => (!$isAnonymous && $actor) ? [
           'id' => $actor->id,
           'username' => $actor->username,
           'profile_name' => $actor->profile->profile_name ?? $actor->username,

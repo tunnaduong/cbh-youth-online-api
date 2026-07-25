@@ -215,6 +215,7 @@ class NotificationService
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
         'reply_excerpt' => $replyExcerpt,
+        'is_anonymous' => (bool) $reply->is_anonymous,
         'url' => "/topics/{$topic->id}#comment-{$reply->id}",
       ],
     ]);
@@ -252,6 +253,7 @@ class NotificationService
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
         'comment_excerpt' => $commentExcerpt,
+        'is_anonymous' => (bool) $comment->is_anonymous,
         'url' => "/topics/{$topic->id}#comment-{$comment->id}",
       ],
     ]);
