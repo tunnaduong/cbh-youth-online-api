@@ -162,6 +162,7 @@ Route::prefix('v1.0')->group(function () {
       ]);
     });
     Route::get('/topics', [TopicsController::class, 'index']);
+    Route::get('/topics/feed', [TopicsController::class, 'feed']);
     Route::get('/topics/{id}', [TopicsController::class, 'show']);
     Route::get('/comments/{commentId}/replies', [TopicsController::class, 'getReplies']);
     Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);

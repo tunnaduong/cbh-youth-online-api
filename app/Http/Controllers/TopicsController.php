@@ -13,6 +13,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -136,72 +137,281 @@ class TopicsController extends Controller
 
     $topics = $query
       ->paginate(10)  // Paginate with 10 items per page
-      ->through(function ($topic) use ($request) {
-        // Check if user is moderator/admin (you may need to adjust this logic based on your role system)
-        $isModerator = $request->user() && (
-          $request->user()->hasRole('admin') ||
-          $request->user()->hasRole('moderator') ||
-          $request->user()->id === 1  // Assuming user ID 1 is admin, adjust as needed
-        );
-
-        $topicData = [
-          'id' => $topic->id,
-          'title' => $topic->title,
-          'content' => $topic->content_html,
-          'image_urls' => $topic->getImageUrls()->map(function ($content) {
-            return config('app.url') . Storage::url($content->file_path);
-          })->all(),
-          'document_urls' => $topic->getDocuments()->map(function ($content) {
-            return config('app.url') . Storage::url($content->file_path);
-          })->all(),
-          'document_sizes' => $topic->getDocuments()->map(function ($content) {
-            return $content->file_size;
-          })->all(),
-          'author' => $topic->anonymous && !$isModerator ? [
-            'id' => null,
-            'username' => 'Ẩn danh',
-            'email' => null,
-            'profile_name' => 'Người dùng ẩn danh',
-            'verified' => false,
-          ] : [
-            'id' => $topic->user->id,
-            'username' => $topic->user->username,
-            'email' => $topic->user->email,
-            'profile_name' => $topic->user->profile->profile_name ?? null,
-            'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
-          ],
-          'anonymous' => $topic->anonymous,
-          'is_edited' => $topic->is_edited,
-          'is_muted' => $topic->is_muted,
-          'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
-          'comments' => $topic->comments_count,  // Comment count in '05+' format (already formatted by accessor)
-          'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,  // Ensure numeric value
-          'votes' => $topic->votes->map(function ($vote) {
-            return [
-              'username' => $vote->user->username,  // Assuming votes relation includes the user
-              'vote_value' => $vote->vote_value,
-              'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
-              'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
-            ];
-          }),
-        ];
-
-        // Check if the user is authenticated
-        $isOwner = false;
-        if ($request->user()) {
-          $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
-          $isOwner = $request->user()->id === $topic->user_id;
-        } else {
-          $topicData['saved'] = false;
-        }
-
-        $topicData['is_owner'] = $isOwner;
-
-        return $topicData;
-      });
+      ->through(fn($topic) => $this->formatTopicForList($topic, $request));
 
     // Return the paginated topics as a JSON response
     return response()->json($topics);
+  }
+
+  /**
+   * Format a topic model into the array shape used by the feed list endpoints.
+   *
+   * @param  \App\Models\Topic  $topic
+   * @param  \Illuminate\Http\Request  $request
+   * @return array
+   */
+  private function formatTopicForList(Topic $topic, Request $request): array
+  {
+    // Check if user is moderator/admin (you may need to adjust this logic based on your role system)
+    $isModerator = $request->user() && (
+      $request->user()->hasRole('admin') ||
+      $request->user()->hasRole('moderator') ||
+      $request->user()->id === 1  // Assuming user ID 1 is admin, adjust as needed
+    );
+
+    $topicData = [
+      'id' => $topic->id,
+      'title' => $topic->title,
+      'content' => $topic->content_html,
+      'image_urls' => $topic->getImageUrls()->map(function ($content) {
+        return config('app.url') . Storage::url($content->file_path);
+      })->all(),
+      'document_urls' => $topic->getDocuments()->map(function ($content) {
+        return config('app.url') . Storage::url($content->file_path);
+      })->all(),
+      'document_sizes' => $topic->getDocuments()->map(function ($content) {
+        return $content->file_size;
+      })->all(),
+      'author' => $topic->anonymous && !$isModerator ? [
+        'id' => null,
+        'username' => 'Ẩn danh',
+        'email' => null,
+        'profile_name' => 'Người dùng ẩn danh',
+        'verified' => false,
+      ] : [
+        'id' => $topic->user->id,
+        'username' => $topic->user->username,
+        'email' => $topic->user->email,
+        'profile_name' => $topic->user->profile->profile_name ?? null,
+        'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
+      ],
+      'anonymous' => $topic->anonymous,
+      'is_edited' => $topic->is_edited,
+      'is_muted' => $topic->is_muted,
+      'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
+      'comments' => $topic->comments_count,  // Comment count in '05+' format (already formatted by accessor)
+      'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,  // Ensure numeric value
+      'votes' => $topic->votes->map(function ($vote) {
+        return [
+          'username' => $vote->user->username,  // Assuming votes relation includes the user
+          'vote_value' => $vote->vote_value,
+          'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
+          'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
+        ];
+      }),
+    ];
+
+    // Check if the user is authenticated
+    $isOwner = false;
+    if ($request->user()) {
+      $topicData['saved'] = $topic->isSavedByUser($request->user()->id);
+      $isOwner = $request->user()->id === $topic->user_id;
+    } else {
+      $topicData['saved'] = false;
+    }
+
+    $topicData['is_owner'] = $isOwner;
+
+    return $topicData;
+  }
+
+  /**
+   * Get a personalized, scored newsfeed for the authenticated user.
+   * Falls back to the plain reverse-chronological feed for guests.
+   *
+   * Scoring = (W_affinity * affinity + W_engage * engagement) * time_decay,
+   * with pinned topics always floated to the top and same-author
+   * results de-duplicated so they don't appear back-to-back.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function feed(Request $request)
+  {
+    $userId = auth()->id();
+
+    if (!$userId) {
+      return $this->index($request);
+    }
+
+    $orderedIds = Cache::remember(
+      "feed_scores_user_{$userId}",
+      now()->addMinutes(5),
+      fn() => $this->buildPersonalizedFeedOrder($userId)
+    );
+
+    $perPage = 10;
+    $page = max(1, (int) $request->query('page', 1));
+    $pageIds = array_slice($orderedIds, ($page - 1) * $perPage, $perPage);
+
+    $formatted = collect();
+
+    if (!empty($pageIds)) {
+      $topicsById = Topic::whereIn('id', $pageIds)
+        ->withCount(['views', 'comments'])
+        ->with(['user.profile', 'votes.user', 'cdnUserContent'])
+        ->get()
+        ->keyBy('id');
+
+      $formatted = collect($pageIds)
+        ->map(fn($id) => $topicsById->get($id))
+        ->filter()
+        ->map(fn($topic) => $this->formatTopicForList($topic, $request))
+        ->values();
+    }
+
+    $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+      $formatted,
+      count($orderedIds),
+      $perPage,
+      $page,
+      ['path' => $request->url(), 'query' => $request->query()]
+    );
+
+    return response()->json($paginator);
+  }
+
+  /**
+   * Build the ranked list of topic IDs for a user's personalized feed.
+   *
+   * Candidate pool: topics from the last 14 days (plus anything pinned)
+   * that the user is allowed to see. Affinity is derived from follows and
+   * from the user's historical voting/commenting behavior toward authors
+   * and subforums (there is no separate "follow a subforum" feature yet).
+   *
+   * @param  int  $userId
+   * @return array<int>
+   */
+  private function buildPersonalizedFeedOrder(int $userId): array
+  {
+    $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)->pluck('blocked_user_id')->toArray();
+    $followingIds = \App\Models\Follower::where('follower_id', $userId)->pluck('followed_id')->toArray();
+
+    $candidates = Topic::select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
+      ->where('hidden', 0)
+      ->whereNotIn('user_id', $blockedUserIds)
+      ->where(function ($q) use ($userId, $followingIds) {
+        $q
+          ->where(function ($sub) {
+            $sub->where('privacy', 'public')->where('hidden', 0);
+          })
+          ->orWhere('user_id', $userId)
+          ->orWhere(function ($sub) use ($followingIds) {
+            $sub->where('privacy', 'followers')->where('hidden', 0)->whereIn('user_id', $followingIds);
+          });
+      })
+      ->where(function ($q) {
+        $q->where('pinned', 1)->orWhere('created_at', '>=', now()->subDays(14));
+      })
+      ->withSum('votes', 'vote_value')
+      ->withCount('comments')
+      ->orderBy('created_at', 'desc')
+      ->limit(200)
+      ->get();
+
+    if ($candidates->isEmpty()) {
+      return [];
+    }
+
+    // Affinity signals: how much the user has historically engaged with each author / subforum.
+    // (No dedicated "follow a subforum" table exists yet, so subforum affinity is inferred from history.)
+    $authorVoteAffinity = DB::table('cyo_topic_votes')
+      ->join('cyo_topics', 'cyo_topic_votes.topic_id', '=', 'cyo_topics.id')
+      ->where('cyo_topic_votes.user_id', $userId)
+      ->selectRaw('cyo_topics.user_id as author_id, COUNT(*) as cnt')
+      ->groupBy('cyo_topics.user_id')
+      ->pluck('cnt', 'author_id');
+
+    $authorCommentAffinity = DB::table('cyo_topic_comments')
+      ->join('cyo_topics', 'cyo_topic_comments.topic_id', '=', 'cyo_topics.id')
+      ->where('cyo_topic_comments.user_id', $userId)
+      ->selectRaw('cyo_topics.user_id as author_id, COUNT(*) as cnt')
+      ->groupBy('cyo_topics.user_id')
+      ->pluck('cnt', 'author_id');
+
+    $subforumAffinity = DB::table('cyo_topic_votes')
+      ->join('cyo_topics', 'cyo_topic_votes.topic_id', '=', 'cyo_topics.id')
+      ->where('cyo_topic_votes.user_id', $userId)
+      ->whereNotNull('cyo_topics.subforum_id')
+      ->selectRaw('cyo_topics.subforum_id, COUNT(*) as cnt')
+      ->groupBy('cyo_topics.subforum_id')
+      ->pluck('cnt', 'subforum_id');
+
+    $wAffinity = 2.0;
+    $wEngage = 1.0;
+    $gamma = 1.6;  // time-decay exponent: higher = older posts drop off faster
+
+    $scored = $candidates->map(function ($topic) use (
+      $followingIds,
+      $authorVoteAffinity,
+      $authorCommentAffinity,
+      $subforumAffinity,
+      $wAffinity,
+      $wEngage,
+      $gamma
+    ) {
+      $affinity = 0;
+      $affinity += in_array($topic->user_id, $followingIds) ? 5 : 0;
+      $affinity += min(10, $authorVoteAffinity[$topic->user_id] ?? 0) * 1.5;
+      $affinity += min(10, $authorCommentAffinity[$topic->user_id] ?? 0) * 2;
+      $affinity += min(10, $subforumAffinity[$topic->subforum_id] ?? 0) * 0.5;
+
+      $engagement = ($topic->votes_sum_vote_value ?? 0) * 1 + ($topic->comments_count ?? 0) * 3;
+
+      $hoursOld = max(0, now()->diffInHours($topic->created_at));
+      $decay = 1 / pow($hoursOld + 2, $gamma);
+
+      $score = ($wAffinity * $affinity + $wEngage * $engagement) * $decay;
+
+      // Pinned posts always float to the top regardless of score.
+      if ($topic->pinned) {
+        $score += 1_000_000;
+      }
+
+      return ['id' => $topic->id, 'user_id' => $topic->user_id, 'score' => $score];
+    });
+
+    $ranked = $scored->sortByDesc('score')->values()->all();
+
+    return $this->dedupeAdjacentAuthors($ranked);
+  }
+
+  /**
+   * Reorder a ranked list of ['id' => ..., 'user_id' => ...] items so the
+   * same author never appears twice in a row, without changing overall
+   * relative order any more than necessary.
+   *
+   * @param  array<array{id:int,user_id:int}>  $ranked
+   * @return array<int>
+   */
+  private function dedupeAdjacentAuthors(array $ranked): array
+  {
+    $result = [];
+    $lastAuthor = null;
+
+    while (!empty($ranked)) {
+      $pickedIndex = null;
+
+      foreach ($ranked as $i => $item) {
+        if ($item['user_id'] !== $lastAuthor) {
+          $pickedIndex = $i;
+          break;
+        }
+      }
+
+      // Every remaining item is by the same author as the last pick; just take the next one.
+      if ($pickedIndex === null) {
+        $pickedIndex = array_key_first($ranked);
+      }
+
+      $picked = $ranked[$pickedIndex];
+      $result[] = $picked['id'];
+      $lastAuthor = $picked['user_id'];
+      unset($ranked[$pickedIndex]);
+      $ranked = array_values($ranked);
+    }
+
+    return $result;
   }
 
   /**
