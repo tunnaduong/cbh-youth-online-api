@@ -6,6 +6,7 @@ use App\Models\Story;
 use App\Models\Topic;
 use App\Models\Follower;
 use App\Models\AuthAccount;
+use App\Models\Hashtag;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -44,6 +45,9 @@ class SearchController extends Controller
         break;
       case 'posts':
         $results = $this->searchPosts($query, $limit);
+        break;
+      case 'hashtag':
+        $results = $this->searchByHashtag($query, $limit);
         break;
       default:
         // Search all content types
@@ -105,27 +109,66 @@ class SearchController extends Controller
       ->orderBy('created_at', 'desc')
       ->limit($limit)
       ->get()
-      ->map(function ($post) {
-        return [
-          'id' => $post->id,
-          'title' => $post->title,
-          'content_preview' => Str::limit(strip_tags($post->content), 150),
-          'image_urls' => $post->getImageUrls()->map(function ($content) {
-            return config('app.url') . Storage::url($content->file_path);
-          })->all(),
-          'created_at' => $post->created_at->diffForHumans(),
-          'is_edited' => $post->is_edited,
-          'author' => [
-            'id' => $post->user->id,
-            'username' => $post->user->username,
-            'profile_name' => $post->user->profile->profile_name ?? $post->user->username,
-          ],
-          'stats' => [
-            'views' => $post->views_count,
-            'comments' => $post->comments_count,
-            'likes' => $post->likes_count
-          ]
-        ];
-      });
+      ->map(fn ($post) => $this->formatPostForSearch($post));
+  }
+
+  /**
+   * Search for posts tagged with a specific hashtag.
+   *
+   * @param  string  $query
+   * @param  int  $limit
+   * @return array{posts: \Illuminate\Support\Collection, hashtag: string}
+   */
+  private function searchByHashtag($query, $limit)
+  {
+    $normalizedTag = mb_strtolower(ltrim(trim($query), '#'));
+
+    $hashtag = Hashtag::where('tag', $normalizedTag)->first();
+
+    $posts = $hashtag
+      ? Topic::whereHas('hashtags', function ($q) use ($hashtag) {
+        $q->where('cyo_hashtags.id', $hashtag->id);
+      })
+        ->with(['user.profile', 'cdnUserContent'])
+        ->orderBy('created_at', 'desc')
+        ->limit($limit)
+        ->get()
+        ->map(fn ($post) => $this->formatPostForSearch($post))
+      : collect();
+
+    return [
+      'posts' => $posts,
+      'hashtag' => $normalizedTag,
+    ];
+  }
+
+  /**
+   * Format a topic into the shape used by all search result lists.
+   *
+   * @param  \App\Models\Topic  $post
+   * @return array
+   */
+  private function formatPostForSearch($post)
+  {
+    return [
+      'id' => $post->id,
+      'title' => $post->title,
+      'content_preview' => Str::limit(strip_tags($post->content), 150),
+      'image_urls' => $post->getImageUrls()->map(function ($content) {
+        return config('app.url') . Storage::url($content->file_path);
+      })->all(),
+      'created_at' => $post->created_at->diffForHumans(),
+      'is_edited' => $post->is_edited,
+      'author' => [
+        'id' => $post->user->id,
+        'username' => $post->user->username,
+        'profile_name' => $post->user->profile->profile_name ?? $post->user->username,
+      ],
+      'stats' => [
+        'views' => $post->views_count,
+        'comments' => $post->comments_count,
+        'likes' => $post->likes_count
+      ]
+    ];
   }
 }

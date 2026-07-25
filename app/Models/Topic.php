@@ -172,6 +172,16 @@ class Topic extends Model
   }
 
   /**
+   * Get the hashtags attached to the topic.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+   */
+  public function hashtags()
+  {
+    return $this->belongsToMany(Hashtag::class, 'cyo_topic_hashtags', 'topic_id', 'hashtag_id')->withTimestamps();
+  }
+
+  /**
    * Check if the topic is saved by a specific user.
    *
    * @param  int  $userId

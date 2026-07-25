@@ -9,6 +9,7 @@ use App\Models\TopicView;
 use App\Models\TopicVote;
 use App\Models\UserContent;
 use App\Models\UserSavedTopic;
+use App\Services\HashtagService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -794,6 +795,10 @@ class TopicsController extends Controller
     // Convert markdown description to HTML
     $contentHtml = $this->convertMarkdownToHtml($request->description);
 
+    // Turn #hashtags into clickable links and collect them for the hashtag index
+    $hashtagResult = HashtagService::linkify($contentHtml);
+    $contentHtml = $hashtagResult['html'];
+
     $topic = Topic::create([
       'user_id' => auth()->id(),
       'title' => $request->title,
@@ -807,6 +812,8 @@ class TopicsController extends Controller
       'anonymous' => $request->boolean('anonymous', false),  // Default to false if not provided
       'is_muted' => $request->boolean('is_muted', false),  // Default to false if not provided
     ]);
+
+    HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
 
     // Debug: Log the created topic
     \Log::info('Topic created successfully:', [
@@ -967,6 +974,10 @@ class TopicsController extends Controller
     // Convert markdown to HTML
     $contentHtml = $this->convertMarkdownToHtml($request->description);
 
+    // Turn #hashtags into clickable links and collect them for the hashtag index
+    $hashtagResult = HashtagService::linkify($contentHtml);
+    $contentHtml = $hashtagResult['html'];
+
     $topic->title = $request->title;
     $topic->description = $request->description;
     $topic->content_html = $contentHtml;
@@ -978,6 +989,8 @@ class TopicsController extends Controller
     $topic->anonymous = $request->boolean('anonymous', false);
 
     $topic->save();
+
+    HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
 
     return response()->json([
       'message' => 'Bài viết đã được cập nhật thành công',
