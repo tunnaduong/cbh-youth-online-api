@@ -228,6 +228,7 @@ class PushNotificationService
       'comment_replied' => "{$actorName} đã trả lời bình luận của bạn",
       'topic_commented' => "{$actorName} đã bình luận bài viết của bạn",
       'mentioned' => "{$actorName} đã nhắc đến bạn",
+      'message_reacted' => "{$actorName} đã bày tỏ cảm xúc " . ($notification->data['reaction_emoji'] ?? '👍') . ' với tin nhắn của bạn',
       'topic_pinned' => 'Bài viết của bạn đã được ghim',
       'topic_moved' => 'Bài viết của bạn đã được chuyển',
       'topic_closed' => 'Bài viết của bạn đã bị đóng',

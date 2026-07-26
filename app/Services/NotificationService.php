@@ -594,6 +594,7 @@ class NotificationService
         'conversation_id' => $message->conversation_id,
         'reaction_type' => $reactionType,
         'reaction_emoji' => $reactionEmojis[$reactionType] ?? '👍',
+        'message_content' => $message->content ? \Illuminate\Support\Str::limit($message->content, 100) : null,
         'url' => '/chat?conversation=' . $message->conversation_id,
       ],
     ]);
