@@ -509,8 +509,9 @@ class StoryController extends Controller
             'conversation_id' => $conversation->id,
             'user_id' => $user->id,
             'content' => $messageContent,
-            'type' => 'story_reply',
+            'type' => 'text',
             'metadata' => [
+                'story_reply' => true,
                 'story_id' => $story->id,
                 'story_owner_id' => $storyOwnerId,
                 'story_owner_name' => $storyOwnerName,
@@ -540,15 +541,10 @@ class StoryController extends Controller
             'is_edited' => $message->is_edited,
             'is_myself' => false,  // For the recipient, this is not their own message
             'sender' => $senderData,
-            'story_owner' => [
-                'id' => $storyOwnerId,
-                'username' => $storyOwner->username,
-                'profile_name' => $storyOwnerName,
-            ],
             'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
             'created_at_human' => $message->created_at->diffForHumans(),
             'read_at' => $message->read_at?->toISOString(),
-            'metadata' => $message->metadata,
+            'metadata' => $message->metadata,  // Include metadata for story reply
         ];
 
         // Broadcast the message to other participants
@@ -566,20 +562,14 @@ class StoryController extends Controller
                         'content' => $message->content,
                         'type' => $message->type,
                         'conversation_id' => $conversation->id,
-                        'is_myself' => true,
+                        'metadata' => $message->metadata,
                         'sender' => [
                             'id' => $message->user->id,
                             'username' => $message->user->username,
                             'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
                             'avatar_url' => config('app.url')."/v1.0/users/{$message->user->username}/avatar",
                         ],
-                        'story_owner' => [
-                            'id' => $storyOwnerId,
-                            'username' => $storyOwner->username,
-                            'profile_name' => $storyOwnerName,
-                        ],
                         'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
-                        'metadata' => $message->metadata,
                     ],
                     'conversation_id' => $conversation->id,
                 ],

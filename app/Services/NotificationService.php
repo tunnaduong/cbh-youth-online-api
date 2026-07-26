@@ -555,6 +555,51 @@ class NotificationService
   }
 
   /**
+   * Create a notification for a chat message being reacted to.
+   *
+   * @param Message $message
+   * @param int $actorId User who reacted to the message
+   * @param string $reactionType Type of reaction (like, love, haha, wow, sad, angry)
+   * @return Notification|null
+   */
+  public static function createMessageReactionNotification(Message $message, int $actorId, string $reactionType): ?Notification
+  {
+    // Don't notify if user reacts to their own message, or the message has no owner (guest message)
+    if (!$message->user_id || $message->user_id === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($message->user_id, 'message_reacted')) {
+      return null;
+    }
+
+    // Map reaction types to emoji for display
+    $reactionEmojis = [
+      'like' => '👍',
+      'love' => '❤️',
+      'haha' => '😆',
+      'wow' => '😮',
+      'sad' => '😢',
+      'angry' => '😡',
+    ];
+
+    return self::createAndPushNotification([
+      'user_id' => $message->user_id,
+      'actor_id' => $actorId,
+      'type' => 'message_reacted',
+      'notifiable_type' => Message::class,
+      'notifiable_id' => $message->id,
+      'data' => [
+        'message_id' => $message->id,
+        'conversation_id' => $message->conversation_id,
+        'reaction_type' => $reactionType,
+        'reaction_emoji' => $reactionEmojis[$reactionType] ?? '👍',
+        'url' => '/chat?conversation=' . $message->conversation_id,
+      ],
+    ]);
+  }
+
+  /**
    * Create a notification for a story being replied to.
    *
    * @param Story $story

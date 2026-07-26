@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Represents a single message within a conversation.
@@ -84,6 +85,16 @@ class Message extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(AuthAccount::class, 'user_id');
+    }
+
+    /**
+     * Get the reactions on this message.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(MessageReaction::class, 'message_id');
     }
 
     /**
