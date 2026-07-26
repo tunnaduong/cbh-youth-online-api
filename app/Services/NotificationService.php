@@ -137,7 +137,7 @@ class NotificationService
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
         'vote_value' => $voteValue,
-        'url' => "/topics/{$topic->id}",
+        'url' => $topic->getUrl(),
       ],
     ]);
   }
@@ -177,7 +177,7 @@ class NotificationService
         'comment_excerpt' => $commentExcerpt,
         'vote_value' => $voteValue,
         'is_anonymous' => (bool) $comment->is_anonymous,
-        'url' => "/topics/{$topic->id}#comment-{$comment->id}",
+        'url' => $topic->getUrl() . "#comment-{$comment->id}",
       ],
     ]);
   }
@@ -217,7 +217,7 @@ class NotificationService
         'topic_title' => $topic->title,
         'reply_excerpt' => $replyExcerpt,
         'is_anonymous' => (bool) $reply->is_anonymous,
-        'url' => "/topics/{$topic->id}#comment-{$reply->id}",
+        'url' => $topic->getUrl() . "#comment-{$reply->id}",
       ],
     ]);
   }
@@ -255,7 +255,7 @@ class NotificationService
         'topic_title' => $topic->title,
         'comment_excerpt' => $commentExcerpt,
         'is_anonymous' => (bool) $comment->is_anonymous,
-        'url' => "/topics/{$topic->id}#comment-{$comment->id}",
+        'url' => $topic->getUrl() . "#comment-{$comment->id}",
       ],
     ]);
   }
@@ -305,7 +305,7 @@ class NotificationService
       $data = [
         'topic_id' => $mentionable->id,
         'topic_title' => $mentionable->title,
-        'url' => "/topics/{$mentionable->id}",
+        'url' => $mentionable->getUrl(),
       ];
       $notifiableType = Topic::class;
       $notifiableId = $mentionable->id;
@@ -316,7 +316,7 @@ class NotificationService
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
         'is_anonymous' => (bool) $mentionable->is_anonymous,
-        'url' => "/topics/{$topic->id}#comment-{$mentionable->id}",
+        'url' => $topic->getUrl() . "#comment-{$mentionable->id}",
       ];
       $notifiableType = TopicComment::class;
       $notifiableId = $mentionable->id;
@@ -353,7 +353,7 @@ class NotificationService
       'data' => [
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
-        'url' => "/topics/{$topic->id}",
+        'url' => $topic->getUrl(),
       ],
     ]);
   }
@@ -383,7 +383,7 @@ class NotificationService
         'topic_title' => $topic->title,
         'old_subforum' => $oldSubforumName,
         'new_subforum' => $newSubforumName,
-        'url' => "/topics/{$topic->id}",
+        'url' => $topic->getUrl(),
       ],
     ]);
   }
@@ -409,7 +409,7 @@ class NotificationService
       'data' => [
         'topic_id' => $topic->id,
         'topic_title' => $topic->title,
-        'url' => "/topics/{$topic->id}",
+        'url' => $topic->getUrl(),
       ],
     ]);
   }
@@ -458,13 +458,13 @@ class NotificationService
     if ($content instanceof Topic) {
       $data['topic_id'] = $content->id;
       $data['topic_title'] = $content->title;
-      $data['url'] = "/topics/{$content->id}";
+      $data['url'] = $content->getUrl();
     } elseif ($content instanceof TopicComment) {
       $topic = $content->topic;
       $data['comment_id'] = $content->id;
       $data['topic_id'] = $topic->id;
       $data['topic_title'] = $topic->title;
-      $data['url'] = "/topics/{$topic->id}#comment-{$content->id}";
+      $data['url'] = $topic->getUrl() . "#comment-{$content->id}";
     }
 
     return self::createAndPushNotification([
