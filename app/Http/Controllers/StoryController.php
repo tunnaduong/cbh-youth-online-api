@@ -694,6 +694,7 @@ class StoryController extends Controller
                 return [
                     'id' => $story->id,
                     'media_url' => $story->media_url,
+                    'video_first_frame_url' => $story->video_first_frame_url,
                     'text_content' => $story->content,
                     'type' => $story->media_type,
                     'background_color' => $story->background_color,
