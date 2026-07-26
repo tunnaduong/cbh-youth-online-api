@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 /**
  * Handles all chat-related functionalities, including conversations and messages.
@@ -358,6 +360,13 @@ class ChatController extends Controller
       $file = $request->file('file');
       $path = $file->store('chat_files', 'public');
       $messageData['file_url'] = $path;
+
+      if ($request->type === 'video') {
+        $thumbnailUrl = $this->createVideoFirstFrame($path);
+        if ($thumbnailUrl) {
+          $messageData['metadata'] = ['thumbnail_url' => $thumbnailUrl];
+        }
+      }
     }
 
     $message = Message::create($messageData);
@@ -419,6 +428,56 @@ class ChatController extends Controller
     $this->sendChatPushNotifications($conversation, $messageData, $user->id);
 
     return response()->json($messageData, 201);
+  }
+
+  /**
+   * Extract the first frame of an uploaded chat video as a static JPG thumbnail.
+   *
+   * @param  string  $videoPath
+   * @return string|null
+   */
+  private function createVideoFirstFrame(string $videoPath): ?string
+  {
+    $disk = Storage::disk('public');
+    $framePath = 'chat_files/video-frames/' . Str::uuid() . '.jpg';
+    $inputPath = $disk->path($videoPath);
+    $outputPath = $disk->path($framePath);
+
+    $disk->makeDirectory('chat_files/video-frames');
+
+    try {
+      $process = new Process([
+        env('FFMPEG_BINARY', 'ffmpeg'),
+        '-y',
+        '-i',
+        $inputPath,
+        '-vframes',
+        '1',
+        '-vf',
+        'scale=480:-1:flags=lanczos',
+        $outputPath,
+      ]);
+      $process->setTimeout(60);
+      $process->run();
+
+      if (!$process->isSuccessful() || !$disk->exists($framePath)) {
+        Log::warning('Unable to create first-frame thumbnail for chat video', [
+          'video_path' => $videoPath,
+          'error' => trim($process->getErrorOutput()),
+        ]);
+
+        return null;
+      }
+
+      return Storage::url($framePath);
+    } catch (\Throwable $exception) {
+      Log::warning('Error creating first-frame thumbnail for chat video', [
+        'video_path' => $videoPath,
+        'error' => $exception->getMessage(),
+      ]);
+
+      return null;
+    }
   }
 
   /**
