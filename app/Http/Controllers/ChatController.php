@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Events\MessageDeleted;
+use App\Events\MessageReacted;
 use App\Events\MessageRead;
 use App\Events\MessageSent;
 use App\Models\AuthAccount;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\MessageReaction;
 use App\Models\UserBlock;
+use App\Services\NotificationService;
 use App\Services\PushNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -163,7 +166,7 @@ class ChatController extends Controller
     $messages = $conversation
       ->messages()
       ->whereNotIn('user_id', $blockedUserIds)
-      ->with('user.profile')
+      ->with(['user.profile', 'reactions.user.profile'])
       ->orderBy('created_at', 'asc')
       ->skip($offset)
       ->take($limit)
@@ -217,6 +220,7 @@ class ChatController extends Controller
           'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
           'metadata' => $message->metadata,  // Include metadata for story reply and other features
+          'reactions' => $this->formatReactions($message, $user->id),
         ];
       });
 
@@ -296,10 +300,23 @@ class ChatController extends Controller
    */
   public function sendMessage(Request $request, $conversationId)
   {
+    $type = $request->input('type');
+
+    $fileRules = ['nullable', 'file'];
+    if ($type === 'video') {
+      $fileRules[] = 'max:102400';  // 100MB max for video
+      $fileRules[] = 'mimes:mp4,mov,avi,webm';
+    } elseif ($type === 'image') {
+      $fileRules[] = 'max:10240';  // 10MB max for image
+      $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp';
+    } else {
+      $fileRules[] = 'max:10240';  // 10MB max for other files
+    }
+
     $request->validate([
       'content' => 'required_without:file|string',
-      'file' => 'nullable|file|max:10240',  // 10MB max
-      'type' => 'required|in:text,image,file'
+      'type' => 'required|in:text,image,video,file',
+      'file' => $fileRules,
     ]);
 
     $user = Auth::user();
@@ -392,6 +409,7 @@ class ChatController extends Controller
       'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
       'read_at' => $message->read_at?->toISOString(),
       'metadata' => $message->metadata,  // Include metadata for story reply and other features
+      'reactions' => $this->formatReactions($message, $user->id),
     ];
 
     // Broadcast the message to other participants
@@ -472,6 +490,132 @@ class ChatController extends Controller
     broadcast(new MessageDeleted($message->conversation_id, $messageId))->toOthers();
 
     return response()->json(['message' => 'Message deleted']);
+  }
+
+  /**
+   * Add or update the authenticated user's reaction to a message.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $messageId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function reactToMessage(Request $request, $messageId)
+  {
+    $request->validate([
+      'reaction_type' => 'required|in:like,love,haha,wow,sad,angry',
+    ]);
+
+    $user = Auth::user();
+    $message = Message::findOrFail($messageId);
+    $conversation = $message->conversation;
+
+    if (!$conversation || !$conversation->hasParticipant($user->id)) {
+      $isPublicChat = $conversation && $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+      if (!$isPublicChat) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+      }
+    }
+
+    MessageReaction::updateOrCreate(
+      [
+        'message_id' => $message->id,
+        'user_id' => $user->id,
+      ],
+      [
+        'reaction_type' => $request->reaction_type,
+      ]
+    );
+
+    NotificationService::createMessageReactionNotification($message, $user->id, $request->reaction_type);
+
+    $reactions = $this->formatReactions($message->fresh('reactions.user.profile'), $user->id);
+
+    // Broadcast the updated reactions to other participants
+    broadcast(new MessageReacted($message->conversation_id, $message->id, $reactions))->toOthers();
+
+    return response()->json([
+      'message_id' => $message->id,
+      'reactions' => $reactions,
+    ]);
+  }
+
+  /**
+   * Remove the authenticated user's reaction from a message.
+   *
+   * @param  int  $messageId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function removeMessageReaction($messageId)
+  {
+    $user = Auth::user();
+    $message = Message::findOrFail($messageId);
+    $conversation = $message->conversation;
+
+    if (!$conversation || !$conversation->hasParticipant($user->id)) {
+      $isPublicChat = $conversation && $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+      if (!$isPublicChat) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+      }
+    }
+
+    MessageReaction::where('message_id', $message->id)
+      ->where('user_id', $user->id)
+      ->delete();
+
+    $reactions = $this->formatReactions($message->fresh('reactions.user.profile'), $user->id);
+
+    // Broadcast the updated reactions to other participants
+    broadcast(new MessageReacted($message->conversation_id, $message->id, $reactions))->toOthers();
+
+    return response()->json([
+      'message_id' => $message->id,
+      'reactions' => $reactions,
+    ]);
+  }
+
+  /**
+   * Build a reaction summary for a message: counts per type, total, the
+   * current user's reaction (if any), and the list of reactors.
+   *
+   * @param  \App\Models\Message  $message
+   * @param  int  $currentUserId
+   * @return array
+   */
+  private function formatReactions(Message $message, int $currentUserId): array
+  {
+    $reactions = $message->relationLoaded('reactions') ? $message->reactions : $message->reactions()->with('user.profile')->get();
+
+    $summary = [];
+    $myReaction = null;
+
+    foreach ($reactions as $reaction) {
+      $type = $reaction->reaction_type;
+
+      if (!isset($summary[$type])) {
+        $summary[$type] = [
+          'type' => $type,
+          'count' => 0,
+          'users' => [],
+        ];
+      }
+
+      $summary[$type]['count']++;
+      $summary[$type]['users'][] = [
+        'id' => $reaction->user_id,
+        'username' => $reaction->user->username ?? 'Ẩn danh',
+        'profile_name' => $reaction->user->profile->profile_name ?? ($reaction->user->username ?? 'Ẩn danh'),
+      ];
+
+      if ($reaction->user_id === $currentUserId) {
+        $myReaction = $type;
+      }
+    }
+
+    return [
+      'summary' => array_values($summary),
+      'total' => $reactions->count(),
+      'my_reaction' => $myReaction,
+    ];
   }
 
   /**
@@ -710,6 +854,9 @@ class ChatController extends Controller
    */
   public function getPublicChatMessages(Request $request)
   {
+    // Try to get authenticated user (optional) so we can flag their own reaction
+    $currentUser = Auth::guard('sanctum')->user() ?? Auth::user();
+
     // Find public chat by name and type instead of fixed ID
     $conversation = Conversation::where('name', 'Tán gẫu linh tinh')
       ->where('type', 'group')
@@ -737,13 +884,13 @@ class ChatController extends Controller
       ->messages()
       ->where('conversation_id', $conversation->id)
       ->whereNull('deleted_at')
-      ->with('user.profile')
+      ->with(['user.profile', 'reactions.user.profile'])
       ->orderBy('created_at', 'desc')  // Newest first
       ->skip($offset)
       ->take($perPage)
       ->get()
       ->reverse()  // Reverse to show oldest to newest within the page
-      ->map(function ($message) {
+      ->map(function ($message) use ($currentUser) {
         $isGuest = $message->user_id === null;
 
         return [
@@ -772,6 +919,7 @@ class ChatController extends Controller
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at->diffForHumans(),
           'read_at' => $message->read_at?->toISOString(),
+          'reactions' => $this->formatReactions($message, $currentUser->id ?? 0),
         ];
       });
 
@@ -827,11 +975,24 @@ class ChatController extends Controller
       'is_guest' => $isGuest,
     ]);
 
+    $type = $request->input('type');
+
+    $fileRules = ['nullable', 'file'];
+    if ($type === 'video') {
+      $fileRules[] = 'max:102400';  // 100MB max for video
+      $fileRules[] = 'mimes:mp4,mov,avi,webm';
+    } elseif ($type === 'image') {
+      $fileRules[] = 'max:10240';  // 10MB max for image
+      $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp';
+    } else {
+      $fileRules[] = 'max:10240';  // 10MB max for other files
+    }
+
     // Validation rules - guest_name is only required for guests
     $rules = [
       'content' => 'required_without:file|string|max:5000',
-      'file' => 'nullable|file|max:10240',  // 10MB max
-      'type' => 'required|in:text,image,file',
+      'file' => $fileRules,
+      'type' => 'required|in:text,image,video,file',
     ];
 
     // Only require guest_name if user is not authenticated (no valid token)
@@ -930,6 +1091,7 @@ class ChatController extends Controller
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at->diffForHumans(),
       'read_at' => $message->read_at?->toISOString(),
+      'reactions' => $this->formatReactions($message, $user->id ?? 0),
     ];
 
     // Broadcast the message to other participants
