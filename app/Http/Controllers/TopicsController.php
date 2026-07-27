@@ -89,6 +89,7 @@ class TopicsController extends Controller
       'anonymous',
       'cdn_image_id',
       'cdn_document_id',
+      'cdn_video_id',
       'deleted_at'
     ])
       ->withCount(['views', 'comments'])
@@ -172,6 +173,9 @@ class TopicsController extends Controller
       })->all(),
       'document_sizes' => $topic->getDocuments()->map(function ($content) {
         return $content->file_size;
+      })->all(),
+      'video_urls' => $topic->getVideos()->map(function ($content) {
+        return config('app.url') . Storage::url($content->file_path);
       })->all(),
       'author' => $topic->anonymous && !$isModerator ? [
         'id' => null,
@@ -606,6 +610,9 @@ class TopicsController extends Controller
         'document_sizes' => $topic->getDocuments()->map(function ($content) {
           return $content->file_size;
         })->all(),
+        'video_urls' => $topic->getVideos()->map(function ($content) {
+          return config('app.url') . Storage::url($content->file_path);
+        })->all(),
         'votes' => $topic->votes->map(function ($vote) {
           return [
             'username' => $vote->user->username,
@@ -644,6 +651,12 @@ class TopicsController extends Controller
             'url' => config('app.url') . \Illuminate\Support\Facades\Storage::url($doc->file_path),
             'name' => $doc->file_name,
             'size' => $doc->file_size
+          ];
+        }),
+        'videos' => \App\Models\UserContent::whereIn('id', !empty($topic->cdn_video_id) ? explode(',', $topic->cdn_video_id) : [])->get()->map(function ($vid) {
+          return [
+            'id' => $vid->id,
+            'url' => config('app.url') . \Illuminate\Support\Facades\Storage::url($vid->file_path)
           ];
         }),
       ],
@@ -691,6 +704,9 @@ class TopicsController extends Controller
       'document_files' => 'nullable|array',
       'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600',  // 25MB max for each document
       'cdn_document_id' => 'nullable|string',  // For mobile app: comma-separated IDs of already uploaded documents
+      'video_files' => 'nullable|array',
+      'video_files.*' => 'file|mimes:mp4,mov,avi,webm,mkv|max:102400',  // 100MB max for each video
+      'cdn_video_id' => 'nullable|string',  // For mobile app: comma-separated IDs of already uploaded videos
       'visibility' => 'nullable|integer|in:0,1',  // 0: public, 1: private (for hidden field)
       'privacy' => 'nullable|string|in:public,followers,private',  // public, followers, private
       'anonymous' => 'nullable|boolean',  // Anonymous posting
@@ -792,6 +808,52 @@ class TopicsController extends Controller
 
     $cdnDocumentId = !empty($cdnDocumentIds) ? implode(',', $cdnDocumentIds) : null;
 
+    $cdnVideoIds = [];
+    $cdnVideoId = null;
+
+    // Handle multiple video uploads if present (for web app)
+    if ($request->hasFile('video_files')) {
+      $files = $request->file('video_files');
+
+      foreach ($files as $file) {
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs('videos', $fileName, 'public');
+
+        // Create UserContent record for each video
+        $userContent = UserContent::create([
+          'user_id' => auth()->id(),
+          'file_name' => $fileName,
+          'file_path' => $path,
+          'file_type' => $file->getMimeType(),
+          'file_size' => $file->getSize(),
+        ]);
+
+        $cdnVideoIds[] = $userContent->id;
+      }
+
+      $cdnVideoId = !empty($cdnVideoIds) ? implode(',', $cdnVideoIds) : null;
+    }
+    // Handle cdn_video_id from mobile app (already uploaded videos)
+    elseif ($request->has('cdn_video_id') && !empty($request->cdn_video_id)) {
+      $cdnVideoId = $request->cdn_video_id;
+
+      // Validate that all IDs exist and belong to the authenticated user
+      $videoIds = array_filter(explode(',', $cdnVideoId));
+      if (!empty($videoIds)) {
+        $validIds = UserContent::where('user_id', auth()->id())
+          ->whereIn('id', $videoIds)
+          ->pluck('id')
+          ->toArray();
+
+        if (count($validIds) !== count($videoIds)) {
+          return response()->json([
+            'message' => 'Một số video không hợp lệ hoặc không thuộc về bạn'
+          ], 400);
+        }
+      }
+    }
+
     // Convert markdown description to HTML
     $contentHtml = $this->convertMarkdownToHtml($request->description);
 
@@ -807,6 +869,7 @@ class TopicsController extends Controller
       'subforum_id' => $request->subforum_id,  // Gán giá trị cho subforum_id
       'cdn_image_id' => $cdnImageId,
       'cdn_document_id' => $cdnDocumentId,
+      'cdn_video_id' => $cdnVideoId,
       'hidden' => $request->visibility,
       'privacy' => $request->privacy ?? 'public',  // Default to public if not provided
       'anonymous' => $request->boolean('anonymous', false),  // Default to false if not provided
@@ -845,6 +908,9 @@ class TopicsController extends Controller
         })->all(),
         'document_sizes' => $topic->getDocuments()->map(function ($content) {
           return $content->file_size;
+        })->all(),
+        'video_urls' => $topic->getVideos()->map(function ($content) {
+          return config('app.url') . Storage::url($content->file_path);
         })->all(),
         'author' => $topic->anonymous ? [
           'id' => null,
@@ -897,6 +963,8 @@ class TopicsController extends Controller
       'image_files.*' => 'file|image|max:10240',
       'document_files' => 'nullable|array',
       'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600',
+      'video_files' => 'nullable|array',
+      'video_files.*' => 'file|mimes:mp4,mov,avi,webm,mkv|max:102400',
       'visibility' => 'nullable|integer|in:0,1',
       'privacy' => 'nullable|string|in:public,followers,private',
       'anonymous' => 'nullable|boolean',
@@ -923,9 +991,16 @@ class TopicsController extends Controller
       $cdnDocumentIds = !empty($topic->cdn_document_id) ? explode(',', $topic->cdn_document_id) : [];
     }
 
+    if ($request->has('kept_video_ids')) {
+      $cdnVideoIds = !empty($request->kept_video_ids) ? explode(',', $request->kept_video_ids) : [];
+    } else {
+      $cdnVideoIds = !empty($topic->cdn_video_id) ? explode(',', $topic->cdn_video_id) : [];
+    }
+
     // Filter out any empty values
     $cdnImageIds = array_filter($cdnImageIds);
     $cdnDocumentIds = array_filter($cdnDocumentIds);
+    $cdnVideoIds = array_filter($cdnVideoIds);
 
     // Handle new image uploads
     if ($request->hasFile('image_files')) {
@@ -971,6 +1046,28 @@ class TopicsController extends Controller
       }
     }
 
+    // Handle new video uploads
+    if ($request->hasFile('video_files')) {
+      $files = $request->file('video_files');
+
+      foreach ($files as $file) {
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs('videos', $fileName, 'public');
+
+        // Create UserContent record for each video
+        $userContent = UserContent::create([
+          'user_id' => auth()->id(),
+          'file_name' => $fileName,
+          'file_path' => $path,
+          'file_type' => $file->getMimeType(),
+          'file_size' => $file->getSize(),
+        ]);
+
+        $cdnVideoIds[] = $userContent->id;
+      }
+    }
+
     // Convert markdown to HTML
     $contentHtml = $this->convertMarkdownToHtml($request->description);
 
@@ -984,6 +1081,7 @@ class TopicsController extends Controller
     $topic->subforum_id = $request->subforum_id;
     $topic->cdn_image_id = !empty($cdnImageIds) ? implode(',', $cdnImageIds) : null;
     $topic->cdn_document_id = !empty($cdnDocumentIds) ? implode(',', $cdnDocumentIds) : null;
+    $topic->cdn_video_id = !empty($cdnVideoIds) ? implode(',', $cdnVideoIds) : null;
     $topic->hidden = $request->visibility ?? 0;
     $topic->privacy = $request->privacy ?? 'public';
     $topic->anonymous = $request->boolean('anonymous', false);
@@ -1430,6 +1528,9 @@ class TopicsController extends Controller
           'is_edited' => $savedTopic->topic->is_edited,
           'pinned' => $savedTopic->topic->pinned,
           'image_urls' => $savedTopic->topic->getImageUrls()->map(function ($content) {
+            return config('app.url') . Storage::url($content->file_path);
+          })->all(),
+          'video_urls' => $savedTopic->topic->getVideos()->map(function ($content) {
             return config('app.url') . Storage::url($content->file_path);
           })->all(),
           'author' => [
