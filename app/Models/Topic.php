@@ -394,7 +394,8 @@ class Topic extends Model
    */
   public function getUrl()
   {
-    return "/{$this->user->username}/posts/{$this->id}-" . $this->getSlug();
+    $username = $this->user?->username ?? 'unknown';
+    return "/{$username}/posts/{$this->id}-" . $this->getSlug();
   }
 
   /**
