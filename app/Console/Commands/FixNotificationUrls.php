@@ -15,7 +15,7 @@ class FixNotificationUrls extends Command
     {
         $dryRun = $this->option('dry-run');
 
-        $notifications = Notification::whereRaw("data::text LIKE '%/topics/%'")->get();
+        $notifications = Notification::whereRaw("CAST(data AS CHAR) LIKE '%/topics/%'")->get();
 
         if ($notifications->isEmpty()) {
             $this->info('No notifications with old URL format found.');
