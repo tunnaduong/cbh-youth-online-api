@@ -130,7 +130,7 @@ class UserController extends Controller
 
       $image = Image::make($file->getRealPath());
       // Resize to max width 1500px, keep aspect ratio
-      $image->resize(1500, null, function ($constraint) {
+      $image->resize(2000, null, function ($constraint) {
         $constraint->aspectRatio();
         $constraint->upsize();
       });
