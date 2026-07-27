@@ -132,6 +132,11 @@ class TopicComment extends Model
     // Deduct points when a comment is deleted (-2 points)
     static::deleted(function ($comment) {
       PointsService::onCommentDeleted($comment->user_id);
+
+      // Remove any notifications that were sent referencing this comment
+      Notification::where('notifiable_type', TopicComment::class)
+        ->where('notifiable_id', $comment->id)
+        ->delete();
     });
   }
 }

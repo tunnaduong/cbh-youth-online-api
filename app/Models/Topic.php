@@ -480,9 +480,27 @@ class Topic extends Model
       PointsService::onPostCreated($topic->user_id);
     });
 
+    // Capture comment IDs before deletion, since the DB cascades comment
+    // deletion for us and TopicComment::deleted won't fire for them.
+    static::deleting(function ($topic) {
+      $topic->commentIdsPendingDeletion = TopicComment::where('topic_id', $topic->id)->pluck('id')->all();
+    });
+
     // Deduct points when a topic is deleted (-10 points)
     static::deleted(function ($topic) {
       PointsService::onPostDeleted($topic->user_id);
+
+      // Remove any notifications that were sent referencing this topic
+      Notification::where('notifiable_type', Topic::class)
+        ->where('notifiable_id', $topic->id)
+        ->delete();
+
+      // Remove any notifications referencing comments that were cascade-deleted with it
+      if (!empty($topic->commentIdsPendingDeletion)) {
+        Notification::where('notifiable_type', TopicComment::class)
+          ->whereIn('notifiable_id', $topic->commentIdsPendingDeletion)
+          ->delete();
+      }
     });
   }
 
