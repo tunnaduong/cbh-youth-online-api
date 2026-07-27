@@ -21,6 +21,7 @@ use App\Services\PointsService;
  * @property string|null $content_html The rendered HTML content.
  * @property bool $pinned
  * @property string|null $cdn_image_id Comma-separated string of UserContent IDs.
+ * @property string|null $cdn_video_id Comma-separated string of UserContent IDs (videos).
  * @property bool $hidden
  * @property bool $anonymous
  * @property string $privacy
@@ -83,6 +84,7 @@ class Topic extends Model
     'anonymous',
     'privacy',
     'is_muted',
+    'cdn_video_id',
   ];
 
   /**
@@ -99,7 +101,7 @@ class Topic extends Model
    *
    * @var array<int, string>
    */
-  protected $appends = ['content', 'document_urls', 'is_edited'];
+  protected $appends = ['content', 'document_urls', 'video_urls', 'is_edited'];
 
   /**
    * Get the user that owns the topic.
@@ -278,6 +280,37 @@ class Topic extends Model
   public function getDocumentUrlsAttribute()
   {
     return $this->getDocuments()->map(function ($content) {
+      return config('app.url') . Storage::url($content->file_path);
+    })->all();
+  }
+
+  /**
+   * Helper method to get an ordered collection of video models.
+   *
+   * @return \Illuminate\Database\Eloquent\Collection
+   */
+  public function getVideos()
+  {
+    if (empty($this->cdn_video_id)) {
+      return collect([]);
+    }
+
+    $videoIds = array_filter(explode(',', $this->cdn_video_id));
+    return UserContent::whereIn('id', $videoIds)
+      ->orderByRaw("CASE id " . implode(' ', array_map(function ($id, $index) {
+        return "WHEN {$id} THEN {$index}";
+      }, $videoIds, array_keys($videoIds))) . " END")
+      ->get();
+  }
+
+  /**
+   * Get the video URLs for the topic.
+   *
+   * @return array
+   */
+  public function getVideoUrlsAttribute()
+  {
+    return $this->getVideos()->map(function ($content) {
       return config('app.url') . Storage::url($content->file_path);
     })->all();
   }
