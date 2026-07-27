@@ -147,4 +147,29 @@ class Story extends Model
     {
         return $query->where('pinned', true);
     }
+
+    /**
+     * The "booted" method of the model.
+     *
+     * @return void
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Remove any notifications that were sent referencing this story,
+        // whether it was deleted by its owner or soft-deleted as expired.
+        static::deleted(function ($story) {
+            Notification::where('notifiable_type', Story::class)
+                ->where('notifiable_id', $story->id)
+                ->delete();
+
+            // "Someone replied to your story" notifications are stored against
+            // the reply Message (notifiable_type = Message::class), with the
+            // story only referenced inside the data JSON payload.
+            Notification::where('type', 'story_replied')
+                ->where('data->story_id', $story->id)
+                ->delete();
+        });
+    }
 }

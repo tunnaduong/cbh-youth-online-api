@@ -25,6 +25,10 @@ class Kernel extends ConsoleKernel
             ->weeklyOn(1, '08:00')
             ->timezone(config('app.timezone'))
             ->withoutOverlapping();
+
+        $schedule->command('stories:cleanup-expired')
+            ->hourly()
+            ->withoutOverlapping();
     }
 
     /**
