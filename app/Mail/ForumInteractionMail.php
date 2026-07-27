@@ -57,6 +57,7 @@ class ForumInteractionMail extends Mailable implements ShouldQueue
       'topic_commented', 'comment_replied' => 'Bài viết của bạn vừa có bình luận mới',
       'followed' => 'Bạn vừa có người theo dõi mới',
       'direct_message' => 'Bạn vừa nhận được tin nhắn mới',
+      'message_replied' => 'Tin nhắn của bạn vừa được trả lời',
       'mentioned' => 'Bạn vừa được nhắc đến trên diễn đàn',
       default => 'Bạn có thông báo mới trên diễn đàn',
     };
@@ -82,6 +83,7 @@ class ForumInteractionMail extends Mailable implements ShouldQueue
       'comment_replied' => "{$actorName} đã trả lời bình luận của bạn trong bài viết \"{$data['topic_title']}\".",
       'followed' => "{$actorName} đã bắt đầu theo dõi bạn.",
       'direct_message' => "{$actorName} đã gửi cho bạn một tin nhắn mới.",
+      'message_replied' => "{$actorName} đã trả lời tin nhắn của bạn.",
       'mentioned' => "{$actorName} đã nhắc đến bạn trong bài viết hoặc bình luận.",
       default => 'Bạn có một tương tác mới trên diễn đàn.',
     };

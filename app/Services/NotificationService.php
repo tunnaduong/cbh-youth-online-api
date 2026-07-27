@@ -52,7 +52,7 @@ class NotificationService
       'topic_liked', 'topic_downvoted', 'comment_liked', 'comment_downvoted',
       'topic_commented', 'comment_replied', 'mentioned', 'followed',
     ];
-    $contactTypes = ['direct_message'];
+    $contactTypes = ['direct_message', 'message_replied'];
     $setting = in_array($notification->type, $contactTypes, true)
       ? 'notify_email_contact'
       : (in_array($notification->type, $socialTypes, true) ? 'notify_email_social' : null);
@@ -596,6 +596,42 @@ class NotificationService
         'reaction_emoji' => $reactionEmojis[$reactionType] ?? '👍',
         'message_content' => $message->content ? \Illuminate\Support\Str::limit($message->content, 100) : null,
         'url' => '/chat?conversation=' . $message->conversation_id,
+      ],
+    ]);
+  }
+
+  /**
+   * Create a notification when someone replies to a user's message in a conversation.
+   *
+   * @param Message $originalMessage The message being replied to
+   * @param Message $replyMessage The new reply message
+   * @param int $actorId User who sent the reply
+   * @return Notification|null
+   */
+  public static function createMessageReplyNotification(Message $originalMessage, Message $replyMessage, int $actorId): ?Notification
+  {
+    // Don't notify if user replies to their own message or original has no owner (guest)
+    if (!$originalMessage->user_id || $originalMessage->user_id === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($originalMessage->user_id, 'message_replied')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $originalMessage->user_id,
+      'actor_id' => $actorId,
+      'type' => 'message_replied',
+      'notifiable_type' => Message::class,
+      'notifiable_id' => $replyMessage->id,
+      'data' => [
+        'reply_message_id' => $replyMessage->id,
+        'original_message_id' => $originalMessage->id,
+        'conversation_id' => $originalMessage->conversation_id,
+        'original_content' => $originalMessage->content ? \Illuminate\Support\Str::limit($originalMessage->content, 100) : null,
+        'reply_content' => $replyMessage->content ? \Illuminate\Support\Str::limit($replyMessage->content, 100) : null,
+        'url' => '/chat?conversation=' . $originalMessage->conversation_id,
       ],
     ]);
   }

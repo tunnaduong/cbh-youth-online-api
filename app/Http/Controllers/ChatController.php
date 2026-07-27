@@ -168,7 +168,7 @@ class ChatController extends Controller
     $messages = $conversation
       ->messages()
       ->whereNotIn('user_id', $blockedUserIds)
-      ->with(['user.profile', 'reactions.user.profile'])
+      ->with(['user.profile', 'reactions.user.profile', 'replyTo.user.profile'])
       ->orderBy('created_at', 'asc')
       ->skip($offset)
       ->take($limit)
@@ -221,7 +221,8 @@ class ChatController extends Controller
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
-          'metadata' => $message->metadata,  // Include metadata for story reply and other features
+          'metadata' => $message->metadata,
+          'reply_to' => $this->formatReplyTo($message->replyTo),
           'reactions' => $this->formatReactions($message, $user->id),
         ];
       });
@@ -319,6 +320,7 @@ class ChatController extends Controller
       'content' => 'required_without:file|string',
       'type' => 'required|in:text,image,video,file',
       'file' => $fileRules,
+      'reply_to_message_id' => 'nullable|integer|exists:cyo_conversation_messages,id',
     ]);
 
     $user = Auth::user();
@@ -348,11 +350,20 @@ class ChatController extends Controller
       ]);
     }
 
+    // Validate that reply_to message belongs to the same conversation
+    if ($request->reply_to_message_id) {
+      $replyTarget = Message::find($request->reply_to_message_id);
+      if (!$replyTarget || (int) $replyTarget->conversation_id !== (int) $conversationId) {
+        return response()->json(['message' => 'Tin nhắn được trả lời không thuộc cuộc trò chuyện này.'], 422);
+      }
+    }
+
     $messageData = [
       'conversation_id' => $conversationId,
       'user_id' => $user->id,
       'content' => $request->content,
-      'type' => $request->type
+      'type' => $request->type,
+      'reply_to_message_id' => $request->reply_to_message_id,
     ];
 
     // Handle file upload
@@ -375,7 +386,7 @@ class ChatController extends Controller
     $conversation->touch();
 
     // Load relationships for the response
-    $message->load('user.profile');
+    $message->load('user.profile', 'replyTo.user.profile');
 
     // Prepare message data for broadcasting
     $senderData = [
@@ -417,7 +428,8 @@ class ChatController extends Controller
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
       'read_at' => $message->read_at?->toISOString(),
-      'metadata' => $message->metadata,  // Include metadata for story reply and other features
+      'metadata' => $message->metadata,
+      'reply_to' => $this->formatReplyTo($message->replyTo),
       'reactions' => $this->formatReactions($message, $user->id),
     ];
 
@@ -426,6 +438,11 @@ class ChatController extends Controller
 
     // Send push notifications to other participants
     $this->sendChatPushNotifications($conversation, $messageData, $user->id);
+
+    // Notify the author of the original message if this is a reply
+    if ($message->reply_to_message_id && $message->replyTo) {
+      NotificationService::createMessageReplyNotification($message->replyTo, $message, $user->id);
+    }
 
     return response()->json($messageData, 201);
   }
@@ -630,6 +647,55 @@ class ChatController extends Controller
       'message_id' => $message->id,
       'reactions' => $reactions,
     ]);
+  }
+
+  /**
+   * Format the replied-to message for inclusion in a response.
+   *
+   * @param  \App\Models\Message|null  $message
+   * @return array|null
+   */
+  private function formatReplyTo(?Message $message): ?array
+  {
+    if (!$message) {
+      return null;
+    }
+
+    $isGuest = $message->user_id === null;
+
+    if ($isGuest) {
+      $sender = [
+        'id' => null,
+        'username' => $message->guest_name ?? 'Ẩn danh',
+        'profile_name' => $message->guest_name ?? 'Ẩn danh',
+        'avatar_url' => null,
+      ];
+    } elseif ($message->user) {
+      $profile = $message->user->profile ?? null;
+      $sender = [
+        'id' => $message->user->id,
+        'username' => $message->user->username ?? 'Ẩn danh',
+        'profile_name' => ($profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
+        'avatar_url' => $message->user->username
+          ? config('app.url') . "/v1.0/users/{$message->user->username}/avatar"
+          : null,
+      ];
+    } else {
+      $sender = [
+        'id' => null,
+        'username' => 'Ẩn danh',
+        'profile_name' => 'Ẩn danh',
+        'avatar_url' => null,
+      ];
+    }
+
+    return [
+      'id' => $message->id,
+      'content' => $message->content,
+      'type' => $message->type,
+      'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+      'sender' => $sender,
+    ];
   }
 
   /**
@@ -943,7 +1009,7 @@ class ChatController extends Controller
       ->messages()
       ->where('conversation_id', $conversation->id)
       ->whereNull('deleted_at')
-      ->with(['user.profile', 'reactions.user.profile'])
+      ->with(['user.profile', 'reactions.user.profile', 'replyTo.user.profile'])
       ->orderBy('created_at', 'desc')  // Newest first
       ->skip($offset)
       ->take($perPage)
@@ -978,6 +1044,7 @@ class ChatController extends Controller
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at->diffForHumans(),
           'read_at' => $message->read_at?->toISOString(),
+          'reply_to' => $this->formatReplyTo($message->replyTo),
           'reactions' => $this->formatReactions($message, $currentUser->id ?? 0),
         ];
       });
@@ -1052,6 +1119,7 @@ class ChatController extends Controller
       'content' => 'required_without:file|string|max:5000',
       'file' => $fileRules,
       'type' => 'required|in:text,image,video,file',
+      'reply_to_message_id' => 'nullable|integer|exists:cyo_conversation_messages,id',
     ];
 
     // Only require guest_name if user is not authenticated (no valid token)
@@ -1082,12 +1150,21 @@ class ChatController extends Controller
       }
     }
 
+    // Validate that reply_to message belongs to this public conversation
+    if ($request->reply_to_message_id) {
+      $replyTarget = Message::find($request->reply_to_message_id);
+      if (!$replyTarget || (int) $replyTarget->conversation_id !== (int) $conversation->id) {
+        return response()->json(['message' => 'Tin nhắn được trả lời không tồn tại trong cuộc trò chuyện này.'], 422);
+      }
+    }
+
     $messageData = [
       'conversation_id' => $conversation->id,
       'user_id' => $user ? $user->id : null,
       'guest_name' => $isGuest ? $request->guest_name : null,
       'content' => $request->content,
-      'type' => $request->type
+      'type' => $request->type,
+      'reply_to_message_id' => $request->reply_to_message_id,
     ];
 
     // Handle file upload
@@ -1111,16 +1188,19 @@ class ChatController extends Controller
       }
     }
 
-    // Load relationships for the response (only if not guest)
+    // Load relationships for the response
     if (!$isGuest && $message->user_id) {
       // Reload with relationships
-      $message = Message::with('user.profile')->find($message->id);
+      $message = Message::with('user.profile', 'replyTo.user.profile')->find($message->id);
       if (!$message->user) {
         \Log::warning('[PublicChat] sendPublicMessage: User not found after reload', [
           'message_id' => $message->id,
           'user_id' => $message->user_id,
         ]);
       }
+    } else {
+      // Guest: still load replyTo for the response
+      $message->load('replyTo.user.profile');
     }
 
     // Prepare message data for broadcasting
@@ -1150,6 +1230,7 @@ class ChatController extends Controller
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at->diffForHumans(),
       'read_at' => $message->read_at?->toISOString(),
+      'reply_to' => $this->formatReplyTo($message->replyTo),
       'reactions' => $this->formatReactions($message, $user->id ?? 0),
     ];
 
@@ -1159,6 +1240,11 @@ class ChatController extends Controller
     // Send push notifications to other participants (only for authenticated users)
     if (!$isGuest && $user) {
       $this->sendChatPushNotifications($conversation, $messageData, $user->id);
+    }
+
+    // Notify the author of the original message if this is a reply (only authenticated users)
+    if (!$isGuest && $user && $message->reply_to_message_id && $message->replyTo) {
+      NotificationService::createMessageReplyNotification($message->replyTo, $message, $user->id);
     }
 
     return response()->json($messageData, 201);

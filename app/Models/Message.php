@@ -51,6 +51,7 @@ class Message extends Model
         'is_edited',
         'read_at',
         'metadata',
+        'reply_to_message_id',
     ];
 
     /**
@@ -95,6 +96,26 @@ class Message extends Model
     public function reactions(): HasMany
     {
         return $this->hasMany(MessageReaction::class, 'message_id');
+    }
+
+    /**
+     * Get the message this message is replying to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(Message::class, 'reply_to_message_id');
+    }
+
+    /**
+     * Get replies to this message.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function replies(): HasMany
+    {
+        return $this->hasMany(Message::class, 'reply_to_message_id');
     }
 
     /**
