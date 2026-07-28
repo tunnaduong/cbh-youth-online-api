@@ -41,7 +41,9 @@ class ProcessImageCompression implements ShouldQueue
             $img = Image::make($inputPath);
 
             if ($img->width() > 1470) {
-                $img->resize(1470, null, fn($c) => $c->aspectRatio()->upsize());
+                $img->resize(1470, null, function ($c) {
+                    $c->aspectRatio();
+                });
             }
 
             $img->save($inputPath, 85);
