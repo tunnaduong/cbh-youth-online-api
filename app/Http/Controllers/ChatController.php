@@ -1037,9 +1037,9 @@ class ChatController extends Controller
     $users = $conversation->participants()
       ->where('cyo_auth_accounts.id', '!=', $user->id)
       ->where(function ($q) use ($query) {
-        $q->whereRaw('LOWER(username) LIKE ?', [strtolower($query) . '%'])
+        $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
           ->orWhereHas('profile', function ($q2) use ($query) {
-            $q2->whereRaw('LOWER(profile_name) LIKE ?', [strtolower($query) . '%']);
+            $q2->whereRaw('LOWER(profile_name) LIKE ?', ['%' . strtolower($query) . '%']);
           });
       })
       ->with('profile')
