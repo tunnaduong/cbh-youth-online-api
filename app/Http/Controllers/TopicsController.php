@@ -1798,9 +1798,9 @@ class TopicsController extends Controller
     $users = AuthAccount::query()
       ->when($currentUserId, fn($q) => $q->where('id', '!=', $currentUserId))
       ->where(function ($q) use ($query) {
-        $q->whereRaw('LOWER(username) LIKE ?', [strtolower($query) . '%'])
+        $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
           ->orWhereHas('profile', function ($q2) use ($query) {
-            $q2->whereRaw('LOWER(profile_name) LIKE ?', [strtolower($query) . '%']);
+            $q2->whereRaw('LOWER(profile_name) LIKE ?', ['%' . strtolower($query) . '%']);
           });
       })
       ->with('profile')
