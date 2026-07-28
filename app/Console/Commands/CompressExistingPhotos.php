@@ -8,19 +8,23 @@ use Illuminate\Console\Command;
 
 class CompressExistingPhotos extends Command
 {
-    protected $signature = 'photos:compress-existing {--queue : Dispatch to queue instead of running inline}';
+    protected $signature = 'photos:compress-existing {--queue : Dispatch to queue instead of running inline} {--force : Recompress all photos including already completed ones}';
     protected $description = 'Compress all existing photos that have not been processed yet';
 
     public function handle(): int
     {
         $imageMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
 
-        $photos = UserContent::whereIn('file_type', $imageMimeTypes)
-            ->where(function ($q) {
+        $query = UserContent::whereIn('file_type', $imageMimeTypes);
+
+        if (!$this->option('force')) {
+            $query->where(function ($q) {
                 $q->whereNull('photo_status')
                   ->orWhere('photo_status', 'failed');
-            })
-            ->get();
+            });
+        }
+
+        $photos = $query->get();
 
         if ($photos->isEmpty()) {
             $this->info('No photos to compress.');
