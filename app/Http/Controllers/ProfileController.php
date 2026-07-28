@@ -192,7 +192,7 @@ class ProfileController extends Controller
     }
 
     return $query->get()->each(function ($post) {
-      $post->append(['image_urls', 'created_at_human']);
+      $post->append(['image_urls', 'video_urls', 'created_at_human']);
 
       // Ghi đè relation "votes"
       $post->setRelation('votes', $post->votes->map(function ($vote) {
