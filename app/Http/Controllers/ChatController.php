@@ -732,15 +732,24 @@ class ChatController extends Controller
       }
 
       $summary[$type]['count']++;
-      $summary[$type]['users'][] = [
-        'id' => $reaction->user_id,
-        'username' => $reaction->user->username ?? 'Ẩn danh',
-        'profile_name' => $reaction->user->profile->profile_name ?? ($reaction->user->username ?? 'Ẩn danh'),
-      ];
+      $uid = $reaction->user_id;
+      if (!isset($summary[$type]['users'][$uid])) {
+        $summary[$type]['users'][$uid] = [
+          'id' => $uid,
+          'username' => $reaction->user->username ?? 'Ẩn danh',
+          'profile_name' => $reaction->user->profile->profile_name ?? ($reaction->user->username ?? 'Ẩn danh'),
+          'count' => 0,
+        ];
+      }
+      $summary[$type]['users'][$uid]['count']++;
 
       if ($reaction->user_id === $currentUserId) {
         $myReactions[] = $type;
       }
+    }
+
+    foreach ($summary as &$entry) {
+      $entry['users'] = array_values($entry['users']);
     }
 
     return [
