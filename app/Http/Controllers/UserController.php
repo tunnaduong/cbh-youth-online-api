@@ -369,6 +369,9 @@ class UserController extends Controller
         'image_urls' => $post->getImageUrls()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
         })->all(),
+        'video_urls' => $post->getVideos()->map(function ($content) {
+          return config('app.url') . Storage::url($content->file_path);
+        })->all(),
         'time' => $post->created_at->diffForHumans(),
         'is_edited' => $post->is_edited,
         'comments' => $this->roundToNearestFive($post->comments_count),
