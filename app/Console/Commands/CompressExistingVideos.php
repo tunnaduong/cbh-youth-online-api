@@ -31,9 +31,9 @@ class CompressExistingVideos extends Command
 
         foreach ($videos as $video) {
             if ($this->option('queue')) {
-                ProcessVideoCompression::dispatch($video->id, $video->file_path);
+                ProcessVideoCompression::dispatch($video->file_path, $video->id);
             } else {
-                ProcessVideoCompression::dispatchSync($video->id, $video->file_path);
+                ProcessVideoCompression::dispatchSync($video->file_path, $video->id);
             }
             $bar->advance();
         }

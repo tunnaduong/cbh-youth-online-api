@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Events\MessageSent;
+use App\Jobs\ProcessImageCompression;
+use App\Jobs\ProcessVideoCompression;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Story;
@@ -181,7 +183,10 @@ class StoryController extends Controller
             $data['media_url'] = Storage::url($path);
 
             if ($request->media_type === 'video') {
+                ProcessVideoCompression::dispatch($path);
                 $data['video_first_frame_url'] = $this->createVideoPreviewGif($path);
+            } elseif ($request->media_type === 'image') {
+                ProcessImageCompression::dispatch($path);
             }
         }
 

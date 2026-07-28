@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessImageCompression;
 use App\Jobs\ProcessVideoCompression;
 use App\Models\UserContent;
 use Illuminate\Http\Request;
@@ -25,15 +26,12 @@ class FileUploadController extends Controller
    */
   public function show($id)
   {
-    // Fetch the user content based on the provided ID
     $content = UserContent::find($id);
 
-    // Check if the content exists and belongs to the authenticated user
     if (!$content) {
       return response()->json(['error' => 'Content not found'], 404);
     }
 
-    // Return the content
     return response()->json($content, 200);
   }
 
@@ -45,17 +43,15 @@ class FileUploadController extends Controller
    */
   public function upload(Request $request)
   {
-    // Validate the file input
     $request->validate([
-      'file' => 'required|file|max:102400',  // Adjust the max size as needed
+      'file' => 'required|file|max:102400',
       'uid' => 'required|integer',
     ]);
 
     $file = $request->file('file');
-    $extension = $file->getClientOriginalExtension();
-    $folder = 'others';  // Default folder
+    $extension = strtolower($file->getClientOriginalExtension());
+    $folder = 'others';
 
-    // Determine the folder based on the file type
     switch ($extension) {
       case 'jpg':
       case 'jpeg':
@@ -91,34 +87,31 @@ class FileUploadController extends Controller
     $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
     $fileName = time() . '_' . Str::slug($originalName) . '.' . $extension;
 
-    // Store the file in the appropriate folder
     $path = $file->storeAs($folder, $fileName, 'public');
 
-    // Get file details
-    $fileType = $file->getMimeType();
-    $fileSize = $file->getSize();
-    $userId = $request->uid;  // Get the authenticated user's ID
+    $userId = $request->uid;
     if (!$userId) {
       return response()->json(['error' => 'User not authenticated'], 401);
     }
 
     $isVideo = $folder === 'videos';
+    $isImage = $folder === 'images';
 
     $data = [
       'user_id'      => $userId,
       'file_name'    => $fileName,
       'file_path'    => $path,
-      'file_type'    => $fileType,
-      'file_size'    => $fileSize,
+      'file_type'    => $file->getMimeType(),
+      'file_size'    => $file->getSize(),
       'video_status' => $isVideo ? 'pending' : null,
     ];
 
     $userContent = UserContent::create($data);
 
     if ($isVideo) {
-      ProcessVideoCompression::dispatch($userContent->id, $path);
+      ProcessVideoCompression::dispatch($path, $userContent->id);
 
-      // Refresh to get updated path/status after job runs (sync queue runs inline)
+      // Refresh to get updated size/status after job runs (sync queue runs inline)
       $userContent->refresh();
 
       return response()->json([
@@ -131,7 +124,17 @@ class FileUploadController extends Controller
       ], 201);
     }
 
-    return response()->json(['message' => 'Upload ảnh thành công!', 'id' => $userContent->id, 'path' => Storage::url($path)], 201);
+    if ($isImage) {
+      ProcessImageCompression::dispatch($path, $userContent->id);
+
+      $userContent->refresh();
+    }
+
+    return response()->json([
+      'message' => 'Upload ảnh thành công!',
+      'id'      => $userContent->id,
+      'path'    => Storage::url($userContent->file_path),
+    ], 201);
   }
 
   /**

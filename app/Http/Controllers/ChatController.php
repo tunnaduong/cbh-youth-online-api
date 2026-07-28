@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Events\MessageDeleted;
 use App\Events\MessageEdited;
+use App\Jobs\ProcessImageCompression;
+use App\Jobs\ProcessVideoCompression;
 use App\Events\MessageReacted;
 use App\Events\MessageRead;
 use App\Events\MessageRecalled;
@@ -379,10 +381,13 @@ class ChatController extends Controller
       $messageData['file_url'] = $path;
 
       if ($request->type === 'video') {
+        ProcessVideoCompression::dispatch($path);
         $thumbnailUrl = $this->createVideoFirstFrame($path);
         if ($thumbnailUrl) {
           $messageData['metadata'] = ['thumbnail_url' => $thumbnailUrl];
         }
+      } elseif ($request->type === 'image') {
+        ProcessImageCompression::dispatch($path);
       }
     }
 
