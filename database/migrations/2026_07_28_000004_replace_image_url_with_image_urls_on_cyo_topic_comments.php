@@ -9,23 +9,27 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('cyo_topic_comments', function (Blueprint $table) {
-            $table->json('image_urls')->nullable()->after('image_url');
-        });
+        if (!Schema::hasColumn('cyo_topic_comments', 'image_urls')) {
+            Schema::table('cyo_topic_comments', function (Blueprint $table) {
+                $table->json('image_urls')->nullable()->after('image_url');
+            });
+        }
 
         // Migrate existing single image_url into image_urls array
-        DB::table('cyo_topic_comments')
-            ->whereNotNull('image_url')
-            ->orderBy('id')
-            ->each(function ($row) {
-                DB::table('cyo_topic_comments')
-                    ->where('id', $row->id)
-                    ->update(['image_urls' => json_encode([$row->image_url])]);
-            });
+        if (Schema::hasColumn('cyo_topic_comments', 'image_url')) {
+            DB::table('cyo_topic_comments')
+                ->whereNotNull('image_url')
+                ->orderBy('id')
+                ->each(function ($row) {
+                    DB::table('cyo_topic_comments')
+                        ->where('id', $row->id)
+                        ->update(['image_urls' => json_encode([$row->image_url])]);
+                });
 
-        Schema::table('cyo_topic_comments', function (Blueprint $table) {
-            $table->dropColumn('image_url');
-        });
+            Schema::table('cyo_topic_comments', function (Blueprint $table) {
+                $table->dropColumn('image_url');
+            });
+        }
     }
 
     public function down(): void
