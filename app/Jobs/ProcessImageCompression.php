@@ -29,11 +29,18 @@ class ProcessImageCompression implements ShouldQueue
 
     public function handle(): void
     {
+        if ($this->contentId) {
+            UserContent::where('id', $this->contentId)->update(['photo_status' => 'processing']);
+        }
+
         $disk = Storage::disk('public');
         $inputPath = $disk->path($this->filePath);
 
         if (!file_exists($inputPath)) {
             Log::error("ProcessImageCompression: input file not found: {$inputPath}");
+            if ($this->contentId) {
+                UserContent::where('id', $this->contentId)->update(['photo_status' => 'failed']);
+            }
             return;
         }
 
@@ -52,13 +59,19 @@ class ProcessImageCompression implements ShouldQueue
                 'file'  => $this->filePath,
                 'error' => $e->getMessage(),
             ]);
+            if ($this->contentId) {
+                UserContent::where('id', $this->contentId)->update(['photo_status' => 'failed']);
+            }
             return;
         }
 
         $newSize = filesize($inputPath);
 
         if ($this->contentId) {
-            UserContent::where('id', $this->contentId)->update(['file_size' => $newSize]);
+            UserContent::where('id', $this->contentId)->update([
+                'file_size'    => $newSize,
+                'photo_status' => 'completed',
+            ]);
         }
 
         Log::info('ProcessImageCompression: completed', [

@@ -33,5 +33,5 @@ class UserContent extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = ['user_id', 'file_name', 'file_path', 'file_type', 'file_size', 'video_status'];
+    protected $fillable = ['user_id', 'file_name', 'file_path', 'file_type', 'file_size', 'video_status', 'photo_status'];
 }

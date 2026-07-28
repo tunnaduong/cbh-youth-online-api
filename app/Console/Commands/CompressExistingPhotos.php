@@ -15,7 +15,12 @@ class CompressExistingPhotos extends Command
     {
         $imageMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
 
-        $photos = UserContent::whereIn('file_type', $imageMimeTypes)->get();
+        $photos = UserContent::whereIn('file_type', $imageMimeTypes)
+            ->where(function ($q) {
+                $q->whereNull('photo_status')
+                  ->orWhere('photo_status', 'failed');
+            })
+            ->get();
 
         if ($photos->isEmpty()) {
             $this->info('No photos to compress.');
