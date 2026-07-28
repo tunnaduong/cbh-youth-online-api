@@ -12,6 +12,7 @@ use App\Models\AuthAccount;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageReaction;
+use App\Models\Notification;
 use App\Models\UserBlock;
 use App\Services\NotificationService;
 use App\Services\PushNotificationService;
@@ -815,6 +816,16 @@ class ChatController extends Controller
       'file_url' => null,
       'metadata' => null,
     ]);
+
+    // Delete notifications directly tied to this message (reactions, reply-sent notifications)
+    Notification::where('notifiable_type', Message::class)
+      ->where('notifiable_id', $message->id)
+      ->delete();
+
+    // Delete reply notifications sent to this message's owner (original_message_id in data)
+    Notification::where('type', 'message_replied')
+      ->where('data->original_message_id', $message->id)
+      ->delete();
 
     broadcast(new MessageRecalled($message->conversation_id, $message->id))->toOthers();
 
