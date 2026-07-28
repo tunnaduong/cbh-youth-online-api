@@ -63,6 +63,7 @@ class TopicComment extends Model
     'user_id',
     'comment',
     'comment_html',
+    'image_url',
     'is_anonymous',
     'deleted_parent_username',
   ];
