@@ -16,6 +16,7 @@ return new class extends Migration
         // Migrate existing single image_url into image_urls array
         DB::table('cyo_topic_comments')
             ->whereNotNull('image_url')
+            ->orderBy('id')
             ->each(function ($row) {
                 DB::table('cyo_topic_comments')
                     ->where('id', $row->id)
@@ -36,6 +37,7 @@ return new class extends Migration
         // Restore first image back to image_url
         DB::table('cyo_topic_comments')
             ->whereNotNull('image_urls')
+            ->orderBy('id')
             ->each(function ($row) {
                 $urls = json_decode($row->image_urls, true);
                 if (!empty($urls)) {
