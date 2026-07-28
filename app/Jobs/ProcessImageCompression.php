@@ -10,7 +10,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManagerStatic as Image;
 
 class ProcessImageCompression implements ShouldQueue
 {
@@ -18,10 +17,6 @@ class ProcessImageCompression implements ShouldQueue
 
     public int $timeout = 120;
 
-    /**
-     * @param string   $filePath   Relative path on the public disk
-     * @param int|null $contentId  UserContent ID to update file_size (optional)
-     */
     public function __construct(
         private string $filePath,
         private ?int $contentId = null,
@@ -44,26 +39,30 @@ class ProcessImageCompression implements ShouldQueue
             return;
         }
 
-        try {
-            $img = Image::make($inputPath);
+        $tmpPath = $inputPath . '.tmp';
 
-            if ($img->width() > 1470) {
-                $img->resize(1470, null, function ($c) {
-                    $c->aspectRatio();
-                });
-            }
+        // Resize if wider than 1470px, then compress at quality 85
+        $cmd = sprintf(
+            'convert %s -resize "1470>" -quality 85 %s 2>&1',
+            escapeshellarg($inputPath),
+            escapeshellarg($tmpPath)
+        );
 
-            $img->save($inputPath, 85);
-        } catch (\Exception $e) {
-            Log::error('ProcessImageCompression: failed', [
-                'file'  => $this->filePath,
-                'error' => $e->getMessage(),
+        exec($cmd, $output, $returnCode);
+
+        if ($returnCode !== 0 || !file_exists($tmpPath)) {
+            Log::error('ProcessImageCompression: imagemagick failed', [
+                'file'   => $this->filePath,
+                'output' => implode("\n", $output),
             ]);
+            @unlink($tmpPath);
             if ($this->contentId) {
                 UserContent::where('id', $this->contentId)->update(['photo_status' => 'failed']);
             }
             return;
         }
+
+        rename($tmpPath, $inputPath);
 
         $newSize = filesize($inputPath);
 
