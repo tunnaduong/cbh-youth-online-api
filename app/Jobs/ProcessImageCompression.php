@@ -41,9 +41,35 @@ class ProcessImageCompression implements ShouldQueue
 
         $tmpPath = $inputPath . '.tmp';
 
-        // Resize if wider than 1470px, then compress at quality 85
+        // Check if the image width is already under 1470px
+        $imageInfo = @getimagesize($inputPath);
+        if ($imageInfo) {
+            $width = $imageInfo[0];
+            if (function_exists('exif_read_data')) {
+                $exif = @exif_read_data($inputPath);
+                if (!empty($exif['Orientation']) && in_array($exif['Orientation'], [5, 6, 7, 8])) {
+                    $width = $imageInfo[1]; // Swap width and height for rotated images
+                }
+            }
+
+            if ($width <= 1470) {
+                if ($this->contentId) {
+                    UserContent::where('id', $this->contentId)->update([
+                        'file_size'    => filesize($inputPath),
+                        'photo_status' => 'completed',
+                    ]);
+                }
+                Log::info('ProcessImageCompression: skipped because width is <= 1470px', [
+                    'file'  => $this->filePath,
+                    'width' => $width,
+                ]);
+                return;
+            }
+        }
+
+        // Auto-orient to correct EXIF rotation, resize to max 1470px width, and compress
         $cmd = sprintf(
-            'convert %s -resize "1470>" -quality 85 %s 2>&1',
+            'convert %s -auto-orient -resize "1470x>" -quality 85 %s 2>&1',
             escapeshellarg($inputPath),
             escapeshellarg($tmpPath)
         );
