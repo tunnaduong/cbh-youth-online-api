@@ -603,7 +603,7 @@ class ChatController extends Controller
       }
     }
 
-    MessageReaction::firstOrCreate([
+    MessageReaction::create([
       'message_id' => $message->id,
       'user_id' => $user->id,
       'reaction_type' => $request->reaction_type,
@@ -628,12 +628,8 @@ class ChatController extends Controller
    * @param  int  $messageId
    * @return \Illuminate\Http\JsonResponse
    */
-  public function removeMessageReaction(Request $request, $messageId)
+  public function removeMessageReaction($messageId)
   {
-    $request->validate([
-      'reaction_type' => 'nullable|in:like,love,haha,wow,sad,angry',
-    ]);
-
     $user = Auth::user();
     $message = Message::findOrFail($messageId);
     $conversation = $message->conversation;
@@ -645,14 +641,9 @@ class ChatController extends Controller
       }
     }
 
-    $query = MessageReaction::where('message_id', $message->id)
-      ->where('user_id', $user->id);
-
-    if ($request->filled('reaction_type')) {
-      $query->where('reaction_type', $request->reaction_type);
-    }
-
-    $query->delete();
+    MessageReaction::where('message_id', $message->id)
+      ->where('user_id', $user->id)
+      ->delete();
 
     $reactions = $this->formatReactions($message->fresh('reactions.user.profile'), $user->id);
 
