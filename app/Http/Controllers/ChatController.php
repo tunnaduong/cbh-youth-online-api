@@ -812,9 +812,6 @@ class ChatController extends Controller
 
     $message->update([
       'is_recalled' => true,
-      'content' => null,
-      'file_url' => null,
-      'metadata' => null,
     ]);
 
     // Delete notifications directly tied to this message (reactions, reply-sent notifications)
