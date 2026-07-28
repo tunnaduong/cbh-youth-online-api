@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessImageCompression;
 use App\Models\Topic;
 use App\Models\TopicComment;
 use App\Models\TopicCommentVote;
@@ -1360,6 +1361,7 @@ class TopicsController extends Controller
     $imagePath = null;
     if ($request->hasFile('image')) {
       $imagePath = $request->file('image')->store('comment_images', 'public');
+      ProcessImageCompression::dispatch($imagePath);
     }
 
     $comment = TopicComment::create([
