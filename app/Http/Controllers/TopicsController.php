@@ -11,6 +11,7 @@ use App\Models\TopicVote;
 use App\Models\UserContent;
 use App\Models\UserSavedTopic;
 use App\Services\HashtagService;
+use App\Models\AuthAccount;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -1778,5 +1779,40 @@ class TopicsController extends Controller
     });
 
     return response()->json($formattedTopics);
+  }
+
+  /**
+   * Suggest users to mention (@) in forum comments/topics.
+   * Searches across all users by username or profile name.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function mentionSuggestions(Request $request)
+  {
+    $request->validate(['q' => 'required|string|min:1|max:50']);
+
+    $currentUserId = auth()->id();
+    $query = $request->input('q');
+
+    $users = AuthAccount::query()
+      ->when($currentUserId, fn($q) => $q->where('id', '!=', $currentUserId))
+      ->where(function ($q) use ($query) {
+        $q->whereRaw('LOWER(username) LIKE ?', [strtolower($query) . '%'])
+          ->orWhereHas('profile', function ($q2) use ($query) {
+            $q2->whereRaw('LOWER(profile_name) LIKE ?', [strtolower($query) . '%']);
+          });
+      })
+      ->with('profile')
+      ->limit(10)
+      ->get()
+      ->map(fn($u) => [
+        'id' => $u->id,
+        'username' => $u->username,
+        'profile_name' => $u->profile->profile_name ?? $u->username,
+        'avatar_url' => config('app.url') . "/v1.0/users/{$u->username}/avatar",
+      ]);
+
+    return response()->json(['suggestions' => $users]);
   }
 }

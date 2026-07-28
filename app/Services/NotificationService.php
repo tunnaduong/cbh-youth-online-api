@@ -333,6 +333,39 @@ class NotificationService
   }
 
   /**
+   * Create a notification for a user being mentioned in a chat message.
+   *
+   * @param int $mentionedUserId
+   * @param Message $message The message where mention occurred
+   * @param int $actorId User who mentioned
+   * @return Notification|null
+   */
+  public static function createMentionedInMessageNotification(int $mentionedUserId, Message $message, int $actorId): ?Notification
+  {
+    if ($mentionedUserId === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($mentionedUserId, 'mentioned')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $mentionedUserId,
+      'actor_id' => $actorId,
+      'type' => 'mentioned',
+      'notifiable_type' => Message::class,
+      'notifiable_id' => $message->id,
+      'data' => [
+        'message_id' => $message->id,
+        'conversation_id' => $message->conversation_id,
+        'content_excerpt' => $message->content ? \Illuminate\Support\Str::limit($message->content, 100) : null,
+        'url' => '/chat?conversation=' . $message->conversation_id,
+      ],
+    ]);
+  }
+
+  /**
    * Create a notification for a topic being pinned.
    *
    * @param Topic $topic

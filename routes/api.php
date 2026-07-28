@@ -79,6 +79,9 @@ Route::prefix('v1.0')->group(function () {
   Route::post('/topics/{id}/views', [TopicsController::class, 'registerView']);
   Route::get('/post-url', [ForumController::class, 'getPostUrl']);
 
+  // Mention suggestions (accessible with optional auth)
+  Route::get('/mention-suggestions', [TopicsController::class, 'mentionSuggestions']);
+
   // User Information
   Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
   Route::get('/users/top-active', [UserController::class, 'getTop8ActiveUsers']);
@@ -306,6 +309,7 @@ Route::prefix('v1.0')->group(function () {
       Route::post('groups/{conversationId}/participants', [ChatController::class, 'addGroupParticipants']);
       Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
       Route::get('search/users', [ChatController::class, 'searchUserForChat']);
+      Route::get('conversations/{conversationId}/mention-suggestions', [ChatController::class, 'mentionSuggestions']);
     });
 
     // Study Materials

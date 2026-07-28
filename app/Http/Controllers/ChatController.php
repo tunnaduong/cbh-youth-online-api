@@ -455,6 +455,17 @@ class ChatController extends Controller
       NotificationService::createMessageReplyNotification($message->replyTo, $message, $user->id);
     }
 
+    // Handle @mentions in message content
+    if ($message->content) {
+      $mentions = NotificationService::parseMentions($message->content);
+      foreach ($mentions as $mentionedUsername) {
+        $mentionedUser = AuthAccount::where('username', $mentionedUsername)->first();
+        if ($mentionedUser && $conversation->hasParticipant($mentionedUser->id)) {
+          NotificationService::createMentionedInMessageNotification($mentionedUser->id, $message, $user->id);
+        }
+      }
+    }
+
     return response()->json($messageData, 201);
   }
 
@@ -999,6 +1010,52 @@ class ChatController extends Controller
   }
 
   /**
+  /**
+   * Suggest users to mention (@) in a conversation.
+   * For group/public conversations: search among participants.
+   * For private conversations: return the other participant if query matches.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function mentionSuggestions(Request $request, $conversationId)
+  {
+    $request->validate(['q' => 'required|string|min:1|max:50']);
+
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    $isPublicChat = $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+
+    if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $query = $request->input('q');
+
+    $users = $conversation->participants()
+      ->where('cyo_auth_accounts.id', '!=', $user->id)
+      ->where(function ($q) use ($query) {
+        $q->whereRaw('LOWER(username) LIKE ?', [strtolower($query) . '%'])
+          ->orWhereHas('profile', function ($q2) use ($query) {
+            $q2->whereRaw('LOWER(profile_name) LIKE ?', [strtolower($query) . '%']);
+          });
+      })
+      ->with('profile')
+      ->limit(10)
+      ->get()
+      ->map(fn($u) => [
+        'id' => $u->id,
+        'username' => $u->username,
+        'profile_name' => $u->profile->profile_name ?? $u->username,
+        'avatar_url' => config('app.url') . "/v1.0/users/{$u->username}/avatar",
+      ]);
+
+    return response()->json(['suggestions' => $users]);
+  }
+
+  /**
    * Search for a user by username to start a new conversation.
    *
    * @param  \Illuminate\Http\Request  $request
@@ -1315,6 +1372,17 @@ class ChatController extends Controller
     // Notify the author of the original message if this is a reply (only authenticated users)
     if (!$isGuest && $user && $message->reply_to_message_id && $message->replyTo) {
       NotificationService::createMessageReplyNotification($message->replyTo, $message, $user->id);
+    }
+
+    // Handle @mentions in public message content (only authenticated users)
+    if (!$isGuest && $user && $message->content) {
+      $mentions = NotificationService::parseMentions($message->content);
+      foreach ($mentions as $mentionedUsername) {
+        $mentionedUser = AuthAccount::where('username', $mentionedUsername)->first();
+        if ($mentionedUser) {
+          NotificationService::createMentionedInMessageNotification($mentionedUser->id, $message, $user->id);
+        }
+      }
     }
 
     return response()->json($messageData, 201);
