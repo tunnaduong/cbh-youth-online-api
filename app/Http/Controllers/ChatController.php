@@ -603,15 +603,11 @@ class ChatController extends Controller
       }
     }
 
-    MessageReaction::updateOrCreate(
-      [
-        'message_id' => $message->id,
-        'user_id' => $user->id,
-      ],
-      [
-        'reaction_type' => $request->reaction_type,
-      ]
-    );
+    MessageReaction::firstOrCreate([
+      'message_id' => $message->id,
+      'user_id' => $user->id,
+      'reaction_type' => $request->reaction_type,
+    ]);
 
     NotificationService::createMessageReactionNotification($message, $user->id, $request->reaction_type);
 
@@ -632,8 +628,12 @@ class ChatController extends Controller
    * @param  int  $messageId
    * @return \Illuminate\Http\JsonResponse
    */
-  public function removeMessageReaction($messageId)
+  public function removeMessageReaction(Request $request, $messageId)
   {
+    $request->validate([
+      'reaction_type' => 'nullable|in:like,love,haha,wow,sad,angry',
+    ]);
+
     $user = Auth::user();
     $message = Message::findOrFail($messageId);
     $conversation = $message->conversation;
@@ -645,9 +645,14 @@ class ChatController extends Controller
       }
     }
 
-    MessageReaction::where('message_id', $message->id)
-      ->where('user_id', $user->id)
-      ->delete();
+    $query = MessageReaction::where('message_id', $message->id)
+      ->where('user_id', $user->id);
+
+    if ($request->filled('reaction_type')) {
+      $query->where('reaction_type', $request->reaction_type);
+    }
+
+    $query->delete();
 
     $reactions = $this->formatReactions($message->fresh('reactions.user.profile'), $user->id);
 
@@ -722,7 +727,7 @@ class ChatController extends Controller
     $reactions = $message->relationLoaded('reactions') ? $message->reactions : $message->reactions()->with('user.profile')->get();
 
     $summary = [];
-    $myReaction = null;
+    $myReactions = [];
 
     foreach ($reactions as $reaction) {
       $type = $reaction->reaction_type;
@@ -743,14 +748,14 @@ class ChatController extends Controller
       ];
 
       if ($reaction->user_id === $currentUserId) {
-        $myReaction = $type;
+        $myReactions[] = $type;
       }
     }
 
     return [
       'summary' => array_values($summary),
       'total' => $reactions->count(),
-      'my_reaction' => $myReaction,
+      'my_reactions' => $myReactions,
     ];
   }
 
