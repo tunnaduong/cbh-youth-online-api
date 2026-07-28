@@ -49,6 +49,7 @@ class Message extends Model
         'type',
         'file_url',
         'is_edited',
+        'is_recalled',
         'read_at',
         'metadata',
         'reply_to_message_id',
@@ -61,6 +62,7 @@ class Message extends Model
      */
     protected $casts = [
         'is_edited' => 'boolean',
+        'is_recalled' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'read_at' => 'datetime',

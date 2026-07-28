@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Events\MessageDeleted;
+use App\Events\MessageEdited;
 use App\Events\MessageReacted;
 use App\Events\MessageRead;
+use App\Events\MessageRecalled;
 use App\Events\MessageSent;
 use App\Models\AuthAccount;
 use App\Models\Conversation;
@@ -211,17 +213,18 @@ class ChatController extends Controller
 
         return [
           'id' => $message->id,
-          'content' => $message->content,
+          'content' => $message->is_recalled ? null : $message->content,
           'type' => $message->type,
-          'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+          'file_url' => ($message->is_recalled || !$message->file_url) ? null : Storage::url($message->file_url),
           'is_edited' => $message->is_edited,
+          'is_recalled' => (bool) $message->is_recalled,
           'is_myself' => $isMyself,
           'is_guest' => $isGuest,
           'sender' => $senderData,
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at ? $message->created_at->diffForHumans() : null,
           'read_at' => $message->read_at?->toISOString(),
-          'metadata' => $message->metadata,
+          'metadata' => $message->is_recalled ? null : $message->metadata,
           'reply_to' => $this->formatReplyTo($message->replyTo),
           'reactions' => $this->formatReactions($message, $user->id),
         ];
@@ -763,14 +766,61 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    if ($message->is_recalled) {
+      return response()->json(['message' => 'Không thể sửa tin nhắn đã bị thu hồi.'], 422);
+    }
+
     $message->edit($request->content);
 
-    return response()->json([
+    $responseData = [
       'id' => $message->id,
       'content' => $message->content,
       'is_edited' => true,
       'updated_at' => $message->updated_at ? $message->updated_at->toISOString() : null,
       'updated_at_human' => $message->updated_at->diffForHumans(),
+    ];
+
+    broadcast(new MessageEdited(
+      $message->conversation_id,
+      $message->id,
+      $message->content,
+      $message->updated_at->toISOString()
+    ))->toOthers();
+
+    return response()->json($responseData);
+  }
+
+  /**
+   * Recall (unsend) a message — replaces content with a recall notice visible to all participants.
+   *
+   * @param  int  $messageId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function recallMessage($messageId)
+  {
+    $user = Auth::user();
+    $message = Message::findOrFail($messageId);
+
+    if ($message->user_id !== $user->id) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    if ($message->is_recalled) {
+      return response()->json(['message' => 'Tin nhắn đã được thu hồi trước đó.'], 422);
+    }
+
+    $message->update([
+      'is_recalled' => true,
+      'content' => null,
+      'file_url' => null,
+      'metadata' => null,
+    ]);
+
+    broadcast(new MessageRecalled($message->conversation_id, $message->id))->toOthers();
+
+    return response()->json([
+      'id' => $message->id,
+      'is_recalled' => true,
     ]);
   }
 

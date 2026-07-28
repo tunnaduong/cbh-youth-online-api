@@ -298,6 +298,7 @@ Route::prefix('v1.0')->group(function () {
       Route::post('conversations/{conversationId}/read', [ChatController::class, 'markAsRead']);
       Route::delete('messages/{messageId}', [ChatController::class, 'deleteMessage']);
       Route::put('messages/{messageId}', [ChatController::class, 'editMessage']);
+      Route::post('messages/{messageId}/recall', [ChatController::class, 'recallMessage']);
       Route::post('messages/{messageId}/reactions', [ChatController::class, 'reactToMessage']);
       Route::delete('messages/{messageId}/reactions', [ChatController::class, 'removeMessageReaction']);
       Route::post('groups', [ChatController::class, 'createGroupConversation']);
