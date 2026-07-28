@@ -63,9 +63,13 @@ class TopicComment extends Model
     'user_id',
     'comment',
     'comment_html',
-    'image_url',
+    'image_urls',
     'is_anonymous',
     'deleted_parent_username',
+  ];
+
+  protected $casts = [
+    'image_urls' => 'array',
   ];
 
   /**

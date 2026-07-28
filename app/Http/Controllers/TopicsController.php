@@ -528,7 +528,9 @@ class TopicsController extends Controller
         'created_at' => $comment->created_at->diffForHumans(),
         'updated_at' => $comment->updated_at ? $comment->updated_at->diffForHumans() : null,
         'is_edited' => $comment->is_edited,
-        'image_url' => $comment->image_url ? config('app.url') . Storage::url($comment->image_url) : null,
+        'image_urls' => $comment->image_urls
+          ? array_map(fn($p) => config('app.url') . Storage::url($p), $comment->image_urls)
+          : [],
         'votes' => $comment->votes->map(fn($vote) => [
           'user_id' => $vote->user_id,
           'username' => $vote->user->username,
@@ -551,7 +553,9 @@ class TopicsController extends Controller
             'created_at' => $reply->created_at->diffForHumans(),
             'updated_at' => $reply->updated_at ? $reply->updated_at->diffForHumans() : null,
             'is_edited' => $reply->is_edited,
-            'image_url' => $reply->image_url ? config('app.url') . Storage::url($reply->image_url) : null,
+            'image_urls' => $reply->image_urls
+              ? array_map(fn($p) => config('app.url') . Storage::url($p), $reply->image_urls)
+              : [],
             'votes' => $reply->votes->map(fn($vote) => [
               'user_id' => $vote->user_id,
               'username' => $vote->user->username,
@@ -574,7 +578,9 @@ class TopicsController extends Controller
                 'created_at' => $subReply->created_at->diffForHumans(),
                 'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
                 'is_edited' => $subReply->is_edited,
-                'image_url' => $subReply->image_url ? config('app.url') . Storage::url($subReply->image_url) : null,
+                'image_urls' => $subReply->image_urls
+                  ? array_map(fn($p) => config('app.url') . Storage::url($p), $subReply->image_urls)
+                  : [],
                 'votes' => $subReply->votes->map(fn($vote) => [
                   'user_id' => $vote->user_id,
                   'username' => $vote->user->username,
@@ -1351,17 +1357,21 @@ class TopicsController extends Controller
   public function addComment(Request $request)
   {
     $request->validate([
-      'comment' => 'required_without:image|nullable|string',
-      'image' => 'nullable|file|image|max:10240|mimes:jpeg,png,jpg,gif,webp',
+      'comment' => 'required_without:images|nullable|string',
+      'images' => 'nullable|array|max:10',
+      'images.*' => 'file|image|max:10240|mimes:jpeg,png,jpg,gif,webp',
       'replying_to' => 'nullable|exists:cyo_topic_comments,id',
       'topic_id' => 'required|exists:cyo_topics,id',
       'is_anonymous' => 'nullable|boolean',
     ]);
 
-    $imagePath = null;
-    if ($request->hasFile('image')) {
-      $imagePath = $request->file('image')->store('comment_images', 'public');
-      ProcessImageCompression::dispatch($imagePath);
+    $imagePaths = [];
+    if ($request->hasFile('images')) {
+      foreach ($request->file('images') as $image) {
+        $path = $image->store('comment_images', 'public');
+        ProcessImageCompression::dispatch($path);
+        $imagePaths[] = $path;
+      }
     }
 
     $comment = TopicComment::create([
@@ -1370,7 +1380,7 @@ class TopicsController extends Controller
       'user_id' => auth()->id(),
       'comment' => $request->comment ?? '',
       'comment_html' => $request->comment ? $this->convertMarkdownToHtml($request->comment) : '',
-      'image_url' => $imagePath,
+      'image_urls' => !empty($imagePaths) ? $imagePaths : null,
       'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
@@ -1415,7 +1425,9 @@ class TopicsController extends Controller
       ],
       'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
       'is_edited' => false,
-      'image_url' => $comment->image_url ? config('app.url') . Storage::url($comment->image_url) : null,
+      'image_urls' => $comment->image_urls
+        ? array_map(fn($p) => config('app.url') . Storage::url($p), $comment->image_urls)
+        : [],
       'votes' => [],
     ];
 
