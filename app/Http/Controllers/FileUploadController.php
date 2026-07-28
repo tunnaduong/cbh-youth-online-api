@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessVideoCompression;
 use App\Models\UserContent;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -66,6 +67,8 @@ class FileUploadController extends Controller
       case 'mp4':
       case 'avi':
       case 'mov':
+      case 'mkv':
+      case 'webm':
         $folder = 'videos';
         break;
 
@@ -99,17 +102,35 @@ class FileUploadController extends Controller
       return response()->json(['error' => 'User not authenticated'], 401);
     }
 
+    $isVideo = $folder === 'videos';
+
     $data = [
-      'user_id' => $userId,
-      'file_name' => $fileName,
-      'file_path' => $path,
-      'file_type' => $fileType,
-      'file_size' => $fileSize,
+      'user_id'      => $userId,
+      'file_name'    => $fileName,
+      'file_path'    => $path,
+      'file_type'    => $fileType,
+      'file_size'    => $fileSize,
+      'video_status' => $isVideo ? 'pending' : null,
     ];
 
     $userContent = UserContent::create($data);
 
-    // Optionally return the path or success response
+    if ($isVideo) {
+      ProcessVideoCompression::dispatch($userContent->id, $path);
+
+      // Refresh to get updated path/status after job runs (sync queue runs inline)
+      $userContent->refresh();
+
+      return response()->json([
+        'message'      => $userContent->video_status === 'completed'
+          ? 'Upload video thành công!'
+          : 'Upload video thành công! Video đang được xử lý.',
+        'id'           => $userContent->id,
+        'path'         => Storage::url($userContent->file_path),
+        'video_status' => $userContent->video_status,
+      ], 201);
+    }
+
     return response()->json(['message' => 'Upload ảnh thành công!', 'id' => $userContent->id, 'path' => Storage::url($path)], 201);
   }
 
