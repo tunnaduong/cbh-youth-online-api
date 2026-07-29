@@ -356,11 +356,19 @@ class TopicsController extends Controller
    */
   private function buildPersonalizedFeedOrder(int $userId): array
   {
+    // Limit the candidate pool to the last 90 days so the query stays fast
+    // regardless of total post count. Pinned posts are included unconditionally.
+    $cutoff = now()->subDays(90);
+
     $candidates = $this->visibleTopicsQuery($userId)
       ->select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
       ->withSum('votes', 'vote_value')
-      ->withCount(['comments as comments_total'])  // aliased to avoid Topic::getCommentsCountAttribute() formatting it into a "05+" string
+      ->withCount(['comments as comments_total'])
+      ->where(function ($q) use ($cutoff) {
+        $q->where('created_at', '>=', $cutoff)->orWhere('pinned', 1);
+      })
       ->orderBy('created_at', 'desc')
+      ->limit(500)
       ->get();
 
     if ($candidates->isEmpty()) {
