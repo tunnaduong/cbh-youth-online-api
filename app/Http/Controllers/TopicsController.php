@@ -76,68 +76,27 @@ class TopicsController extends Controller
    */
   public function index(Request $request)
   {
-    // Fetch topics from the database with pagination
-    $query = Topic::select([
-      'id',
-      'subforum_id',
-      'user_id',
-      'title',
-      'content_html',
-      'created_at',
-      'updated_at',
-      'privacy',
-      'hidden',
-      'pinned',
-      'anonymous',
-      'cdn_image_id',
-      'cdn_document_id',
-      'cdn_video_id',
-      'deleted_at'
-    ])
+    $query = $this->visibleTopicsQuery(auth()->id())
+      ->select([
+        'id',
+        'subforum_id',
+        'user_id',
+        'title',
+        'content_html',
+        'created_at',
+        'updated_at',
+        'privacy',
+        'hidden',
+        'pinned',
+        'anonymous',
+        'cdn_image_id',
+        'cdn_document_id',
+        'cdn_video_id',
+        'deleted_at'
+      ])
       ->withCount(['views', 'comments'])
-      ->where('hidden', 0)
       ->orderBy('created_at', 'desc')
       ->with(['user', 'votes.user', 'cdnUserContent']);
-
-    // Filter by privacy based on authentication and following status
-    if (auth()->check()) {
-      $userId = auth()->id();
-
-      // Get list of user IDs that the current user is following
-      $followingIds = \App\Models\Follower::where('follower_id', $userId)
-        ->pluck('followed_id')
-        ->toArray();
-
-      // Get list of blocked user IDs
-      $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)
-        ->pluck('blocked_user_id')
-        ->toArray();
-
-      $query->whereNotIn('user_id', $blockedUserIds);
-
-      $query->where(function ($q) use ($userId, $followingIds) {
-        $q
-          ->where(function ($subQ) {
-            // Public posts (privacy = public AND hidden = 0)
-            $subQ
-              ->where('privacy', 'public')
-              ->where('hidden', 0);
-          })
-          ->orWhere('user_id', $userId)  // User's own posts (including private ones)
-          ->orWhere(function ($subQ) use ($followingIds) {
-            // Followers posts (privacy = followers AND hidden = 0)
-            $subQ
-              ->where('privacy', 'followers')
-              ->where('hidden', 0)
-              ->whereIn('user_id', $followingIds);
-          });
-      });
-    } else {
-      // For non-authenticated users, only show public posts
-      $query
-        ->where('privacy', 'public')
-        ->where('hidden', 0);
-    }
 
     $topics = $query
       ->paginate(10)  // Paginate with 10 items per page
@@ -145,6 +104,50 @@ class TopicsController extends Controller
 
     // Return the paginated topics as a JSON response
     return response()->json($topics);
+  }
+
+  /**
+   * Build the base query of topics a user (or guest, if null) is allowed to see:
+   * not hidden, not by a blocked user, and public / own / followers-only-from-followed.
+   * Shared by index(), the personalized feed, the "latest" fallback, and the
+   * new-posts refresh check so the visibility rules never drift apart.
+   *
+   * @param  int|null  $userId
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  private function visibleTopicsQuery(?int $userId)
+  {
+    $query = Topic::where('hidden', 0);
+
+    if (!$userId) {
+      return $query->where('privacy', 'public')->where('hidden', 0);
+    }
+
+    $followingIds = \App\Models\Follower::where('follower_id', $userId)
+      ->pluck('followed_id')
+      ->toArray();
+
+    $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)
+      ->pluck('blocked_user_id')
+      ->toArray();
+
+    $query->whereNotIn('user_id', $blockedUserIds);
+
+    $query->where(function ($q) use ($userId, $followingIds) {
+      $q
+        ->where(function ($subQ) {
+          $subQ->where('privacy', 'public')->where('hidden', 0);
+        })
+        ->orWhere('user_id', $userId)
+        ->orWhere(function ($subQ) use ($followingIds) {
+          $subQ
+            ->where('privacy', 'followers')
+            ->where('hidden', 0)
+            ->whereIn('user_id', $followingIds);
+        });
+    });
+
+    return $query;
   }
 
   /**
@@ -241,17 +244,29 @@ class TopicsController extends Controller
       return $this->index($request);
     }
 
+    $perPage = 10;
+    $page = max(1, (int) $request->query('page', 1));
+
+    if ($request->query('mode') === 'latest') {
+      return $this->latestFeed($request, $userId, $page, $perPage);
+    }
+
     // Redis temporarily disabled (server has neither the phpredis extension
     // nor predis/predis installed yet) — using the default cache driver instead.
     // Switch back to Cache::store('redis') once Redis is set up.
-    $orderedIds = Cache::remember(
+    // TTL is generous (30 min) because freshness is now handled explicitly by
+    // feedRefreshCheck(), which prepends new posts without disturbing this
+    // cached order — a short TTL would otherwise reshuffle a user's feed mid-scroll.
+    $cached = Cache::remember(
       "feed_scores_user_{$userId}",
-      now()->addMinutes(5),
-      fn() => $this->buildPersonalizedFeedOrder($userId)
+      now()->addMinutes(30),
+      fn() => [
+        'ids' => $this->buildPersonalizedFeedOrder($userId),
+        'generated_at' => now()->toDateTimeString(),
+      ]
     );
 
-    $perPage = 10;
-    $page = max(1, (int) $request->query('page', 1));
+    $orderedIds = $cached['ids'];
     $pageIds = array_slice($orderedIds, ($page - 1) * $perPage, $perPage);
 
     $formatted = collect();
@@ -278,7 +293,98 @@ class TopicsController extends Controller
       ['path' => $request->url(), 'query' => $request->query()]
     );
 
-    return response()->json($paginator);
+    $exhausted = ($page * $perPage) >= count($orderedIds);
+
+    return response()->json(array_merge($paginator->toArray(), ['exhausted' => $exhausted]));
+  }
+
+  /**
+   * Chronological fallback feed, used once the client has paginated through the
+   * entire personalized ranked list. Independently paginated from the personalized
+   * feed (its own `page` counter) — the client is expected to dedupe against IDs
+   * it has already rendered.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $userId
+   * @param  int  $page
+   * @param  int  $perPage
+   * @return \Illuminate\Http\JsonResponse
+   */
+  private function latestFeed(Request $request, int $userId, int $page, int $perPage)
+  {
+    $topics = $this->visibleTopicsQuery($userId)
+      ->withCount(['views', 'comments'])
+      ->orderBy('created_at', 'desc')
+      ->with(['user', 'votes.user', 'cdnUserContent'])
+      ->paginate($perPage, ['*'], 'page', $page)
+      ->through(fn($topic) => $this->formatTopicForList($topic, $request));
+
+    return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'latest']));
+  }
+
+  /**
+   * Check for posts created since the user's personalized feed was last generated,
+   * without disturbing the cached ranked order (and therefore without shifting or
+   * duplicating anything the client has already paginated through). New posts found
+   * are prepended to the cached order so subsequent `?page=N` calls stay consistent.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function feedRefreshCheck(Request $request)
+  {
+    $userId = auth()->id();
+    $empty = ['has_new' => false, 'new_count' => 0, 'new_posts' => []];
+
+    if (!$userId) {
+      return response()->json($empty);
+    }
+
+    $cacheKey = "feed_scores_user_{$userId}";
+    $cached = Cache::get($cacheKey);
+
+    if (!is_array($cached) || !isset($cached['ids'], $cached['generated_at'])) {
+      return response()->json($empty);
+    }
+
+    $candidates = $this->visibleTopicsQuery($userId)
+      ->select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
+      ->where('created_at', '>', $cached['generated_at'])
+      ->whereNotIn('id', $cached['ids'])
+      ->withSum('votes', 'vote_value')
+      ->withCount(['comments as comments_total'])
+      ->orderBy('created_at', 'desc')
+      ->get();
+
+    if ($candidates->isEmpty()) {
+      return response()->json($empty);
+    }
+
+    $scored = collect($this->scoreTopics($candidates, $userId))->sortByDesc('score')->values()->all();
+    $newIds = $this->dedupeAdjacentAuthors($scored);
+
+    Cache::put($cacheKey, [
+      'ids' => array_merge($newIds, $cached['ids']),
+      'generated_at' => now()->toDateTimeString(),
+    ], now()->addMinutes(30));
+
+    $topicsById = Topic::whereIn('id', $newIds)
+      ->withCount(['views', 'comments'])
+      ->with(['user.profile', 'votes.user', 'cdnUserContent'])
+      ->get()
+      ->keyBy('id');
+
+    $newPosts = collect($newIds)
+      ->map(fn($id) => $topicsById->get($id))
+      ->filter()
+      ->map(fn($topic) => $this->formatTopicForList($topic, $request))
+      ->values();
+
+    return response()->json([
+      'has_new' => true,
+      'new_count' => $newPosts->count(),
+      'new_posts' => $newPosts,
+    ]);
   }
 
   /**
@@ -293,22 +399,8 @@ class TopicsController extends Controller
    */
   private function buildPersonalizedFeedOrder(int $userId): array
   {
-    $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)->pluck('blocked_user_id')->toArray();
-    $followingIds = \App\Models\Follower::where('follower_id', $userId)->pluck('followed_id')->toArray();
-
-    $candidates = Topic::select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
-      ->where('hidden', 0)
-      ->whereNotIn('user_id', $blockedUserIds)
-      ->where(function ($q) use ($userId, $followingIds) {
-        $q
-          ->where(function ($sub) {
-            $sub->where('privacy', 'public')->where('hidden', 0);
-          })
-          ->orWhere('user_id', $userId)
-          ->orWhere(function ($sub) use ($followingIds) {
-            $sub->where('privacy', 'followers')->where('hidden', 0)->whereIn('user_id', $followingIds);
-          });
-      })
+    $candidates = $this->visibleTopicsQuery($userId)
+      ->select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
       ->withSum('votes', 'vote_value')
       ->withCount(['comments as comments_total'])  // aliased to avoid Topic::getCommentsCountAttribute() formatting it into a "05+" string
       ->orderBy('created_at', 'desc')
@@ -318,8 +410,27 @@ class TopicsController extends Controller
       return [];
     }
 
-    // Affinity signals: how much the user has historically engaged with each author / subforum.
-    // (No dedicated "follow a subforum" table exists yet, so subforum affinity is inferred from history.)
+    $scored = collect($this->scoreTopics($candidates, $userId))->sortByDesc('score')->values()->all();
+
+    return $this->dedupeAdjacentAuthors($scored);
+  }
+
+  /**
+   * Score a collection of candidate topics for a user's personalized feed.
+   * Candidates must already have `votes_sum_vote_value` and `comments_total`
+   * loaded (via withSum('votes','vote_value') / withCount(['comments as comments_total'])).
+   *
+   * Affinity signals: how much the user has historically engaged with each author / subforum.
+   * (No dedicated "follow a subforum" table exists yet, so subforum affinity is inferred from history.)
+   *
+   * @param  \Illuminate\Support\Collection|\Illuminate\Database\Eloquent\Collection  $candidates
+   * @param  int  $userId
+   * @return array<array{id:int,user_id:int,score:float}>
+   */
+  private function scoreTopics($candidates, int $userId): array
+  {
+    $followingIds = \App\Models\Follower::where('follower_id', $userId)->pluck('followed_id')->toArray();
+
     $authorVoteAffinity = DB::table('cyo_topic_votes')
       ->join('cyo_topics', 'cyo_topic_votes.topic_id', '=', 'cyo_topics.id')
       ->where('cyo_topic_votes.user_id', $userId)
@@ -346,7 +457,7 @@ class TopicsController extends Controller
     $wEngage = 1.0;
     $gamma = 1.6;  // time-decay exponent: higher = older posts drop off faster
 
-    $scored = $candidates->map(function ($topic) use (
+    return $candidates->map(function ($topic) use (
       $followingIds,
       $authorVoteAffinity,
       $authorCommentAffinity,
@@ -374,11 +485,7 @@ class TopicsController extends Controller
       }
 
       return ['id' => $topic->id, 'user_id' => $topic->user_id, 'score' => $score];
-    });
-
-    $ranked = $scored->sortByDesc('score')->values()->all();
-
-    return $this->dedupeAdjacentAuthors($ranked);
+    })->all();
   }
 
   /**
