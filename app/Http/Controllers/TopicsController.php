@@ -1476,7 +1476,7 @@ class TopicsController extends Controller
       $parsedMentionUsernames = NotificationService::parseMentions($request->comment ?? '');
       $resolvedMentions = [];
       if (!empty($parsedMentionUsernames)) {
-        foreach (\\App\\Models\\AuthAccount::whereIn('username', $parsedMentionUsernames)->select('id', 'username')->get() as $u) {
+        foreach (\App\Models\AuthAccount::whereIn('username', $parsedMentionUsernames)->select('id', 'username')->get() as $u) {
           $resolvedMentions[] = ['username' => $u->username, 'user_id' => $u->id];
         }
       }
