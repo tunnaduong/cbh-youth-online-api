@@ -1498,11 +1498,21 @@ class TopicsController extends Controller
    */
   public function getVotesForComment(Request $request, $id)
   {
-    // Use findOrFail to retrieve the comment by its ID
     $comment = TopicComment::findOrFail($id);
 
-    // Fetch votes for the comment
-    $votes = TopicCommentVote::where('comment_id', $comment->id)->get();
+    $votes = TopicCommentVote::with('user.profile')
+      ->where('comment_id', $comment->id)
+      ->get()
+      ->map(function ($vote) {
+        $user = $vote->user;
+        return [
+          'user_id' => $user->id,
+          'username' => $user->username,
+          'profile_name' => $user->profile->profile_name ?? null,
+          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'vote_value' => $vote->vote_value,
+        ];
+      });
 
     $data = [
       'comment_id' => $comment->id,
