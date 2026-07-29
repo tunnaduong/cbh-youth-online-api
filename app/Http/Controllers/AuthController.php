@@ -467,9 +467,12 @@ class AuthController extends Controller
       }
 
       if (!$user) {
-        // Create username (fallback to provider id when email missing)
+        // Prefer email prefix (e.g. tunnaduong from tunnaduong@gmail.com), then
+        // display name, then provider id as a last resort.
         $fallbackId = $providerId !== '' ? substr($providerId, -6) : Str::random(6);
-        $baseUsername = Str::slug($name ?: ($provider . '-' . $fallbackId), '_');
+        $emailPrefix = $email ? Str::slug(explode('@', $email)[0], '_') : '';
+        $baseUsername = $emailPrefix
+          ?: Str::slug($name ?: ($provider . '-' . $fallbackId), '_');
         if ($baseUsername === '') {
           $baseUsername = $provider . '_' . substr($providerId ?: Str::random(8), -8);
         }
