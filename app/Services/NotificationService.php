@@ -544,6 +544,34 @@ class NotificationService
   }
 
   /**
+   * Resolve @mention tokens in text to validated user records.
+   *
+   * @param string $text Raw message/comment text
+   * @param array|null $allowedUserIds If set, only users whose IDs are in this list are returned (e.g. conversation participants)
+   * @return array<array{username:string,user_id:int}> Valid mentioned users
+   */
+  public static function resolveMentions(string $text, ?array $allowedUserIds = null): array
+  {
+    $usernames = self::parseMentions($text);
+    if (empty($usernames)) {
+      return [];
+    }
+
+    $query = \App\Models\AuthAccount::whereIn('username', $usernames)
+      ->with('profile')
+      ->select('id', 'username');
+
+    if ($allowedUserIds !== null) {
+      $query->whereIn('id', $allowedUserIds);
+    }
+
+    return $query->get()->map(fn($u) => [
+      'username' => $u->username,
+      'user_id'  => $u->id,
+    ])->values()->all();
+  }
+
+  /**
    * Create a notification for a story being reacted to.
    *
    * @param Story $story

@@ -156,6 +156,9 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    // For participant-restricted mention resolution (private/group, non-public)
+    $participantIds = $isPublicChat ? null : $conversation->participants()->pluck('cyo_auth_accounts.id')->toArray();
+
     // Get blocked user IDs
     $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
 
@@ -172,15 +175,37 @@ class ChatController extends Controller
     $offset = max(0, $totalMessages - ($page * $perPage));
     $limit = max(0, min($perPage, $totalMessages - (($page - 1) * $perPage)));
 
-    $messages = $conversation
+    $rawMessages = $conversation
       ->messages()
       ->whereNotIn('user_id', $blockedUserIds)
       ->with(['user.profile', 'reactions.user.profile', 'replyTo.user.profile'])
       ->orderBy('created_at', 'asc')
       ->skip($offset)
       ->take($limit)
-      ->get()
-      ->map(function ($message) use ($user) {
+      ->get();
+
+    // Batch-resolve @mentions for all messages in one DB query
+    $allMentionedUsernames = [];
+    foreach ($rawMessages as $msg) {
+      if ($msg->content && !$msg->is_recalled) {
+        foreach (NotificationService::parseMentions($msg->content) as $un) {
+          $allMentionedUsernames[] = $un;
+        }
+      }
+    }
+    $allMentionedUsernames = array_unique($allMentionedUsernames);
+    $resolvedUsers = [];
+    if (!empty($allMentionedUsernames)) {
+      $q = \App\Models\AuthAccount::whereIn('username', $allMentionedUsernames)->select('id', 'username');
+      if ($participantIds !== null) {
+        $q->whereIn('id', $participantIds);
+      }
+      foreach ($q->get() as $u) {
+        $resolvedUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
+      }
+    }
+
+    $messages = $rawMessages->map(function ($message) use ($user, $resolvedUsers) {
         $isGuest = $message->guest_name !== null || $message->user_id === null;
         $isMyself = !$isGuest && $message->user_id !== null && $message->user_id === $user->id;
 
@@ -216,6 +241,17 @@ class ChatController extends Controller
           }
         }
 
+        // Resolve mentions for this message from the pre-fetched map
+        $msgMentions = [];
+        if (!$message->is_recalled && $message->content) {
+          foreach (NotificationService::parseMentions($message->content) as $un) {
+            $key = strtolower($un);
+            if (isset($resolvedUsers[$key])) {
+              $msgMentions[] = $resolvedUsers[$key];
+            }
+          }
+        }
+
         return [
           'id' => $message->id,
           'content' => $message->is_recalled ? null : $message->content,
@@ -232,6 +268,7 @@ class ChatController extends Controller
           'metadata' => $message->is_recalled ? null : $message->metadata,
           'reply_to' => $this->formatReplyTo($message->replyTo),
           'reactions' => $this->formatReactions($message, $user->id),
+          'mentions' => $msgMentions,
         ];
       });
 
@@ -456,15 +493,16 @@ class ChatController extends Controller
     }
 
     // Handle @mentions in message content
+    $resolvedMentions = [];
     if ($message->content) {
-      $mentions = NotificationService::parseMentions($message->content);
-      foreach ($mentions as $mentionedUsername) {
-        $mentionedUser = AuthAccount::where('username', $mentionedUsername)->first();
-        if ($mentionedUser && $conversation->hasParticipant($mentionedUser->id)) {
-          NotificationService::createMentionedInMessageNotification($mentionedUser->id, $message, $user->id);
-        }
+      $convParticipantIds = $conversation->participants()->pluck('cyo_auth_accounts.id')->toArray();
+      $resolvedMentions = NotificationService::resolveMentions($message->content, $convParticipantIds);
+      foreach ($resolvedMentions as $m) {
+        NotificationService::createMentionedInMessageNotification($m['user_id'], $message, $user->id);
       }
     }
+
+    $messageData['mentions'] = $resolvedMentions;
 
     return response()->json($messageData, 201);
   }
@@ -1375,15 +1413,16 @@ class ChatController extends Controller
     }
 
     // Handle @mentions in public message content (only authenticated users)
+    $resolvedPublicMentions = [];
     if (!$isGuest && $user && $message->content) {
-      $mentions = NotificationService::parseMentions($message->content);
-      foreach ($mentions as $mentionedUsername) {
-        $mentionedUser = AuthAccount::where('username', $mentionedUsername)->first();
-        if ($mentionedUser) {
-          NotificationService::createMentionedInMessageNotification($mentionedUser->id, $message, $user->id);
-        }
+      // Public chat: any valid user can be mentioned (no participant restriction)
+      $resolvedPublicMentions = NotificationService::resolveMentions($message->content);
+      foreach ($resolvedPublicMentions as $m) {
+        NotificationService::createMentionedInMessageNotification($m['user_id'], $message, $user->id);
       }
     }
+
+    $messageData['mentions'] = $resolvedPublicMentions;
 
     return response()->json($messageData, 201);
   }

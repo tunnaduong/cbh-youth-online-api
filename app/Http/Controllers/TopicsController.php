@@ -512,7 +512,39 @@ class TopicsController extends Controller
       ->orderBy('created_at', 'desc')
       ->get();
 
-    $formattedComments = $comments->map(function ($comment) {
+    // Batch-resolve @mentions across all comments/replies in one DB query
+    $allCommentTexts = [];
+    foreach ($comments as $c) {
+      if ($c->comment) $allCommentTexts[] = $c->comment;
+      foreach ($c->replies as $r) {
+        if ($r->comment) $allCommentTexts[] = $r->comment;
+        foreach ($r->replies as $sr) {
+          if ($sr->comment) $allCommentTexts[] = $sr->comment;
+        }
+      }
+    }
+    $allCommentUsernames = empty($allCommentTexts) ? [] : array_unique(array_merge(
+      ...array_map(fn($t) => \App\Services\NotificationService::parseMentions($t), $allCommentTexts)
+    ));
+    $resolvedCommentUsers = [];
+    if (!empty($allCommentUsernames)) {
+      foreach (\App\Models\AuthAccount::whereIn('username', $allCommentUsernames)->select('id', 'username')->get() as $u) {
+        $resolvedCommentUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
+      }
+    }
+
+    $resolveMentionsFromText = function (string $text) use ($resolvedCommentUsers): array {
+      $result = [];
+      foreach (\App\Services\NotificationService::parseMentions($text) as $un) {
+        $key = strtolower($un);
+        if (isset($resolvedCommentUsers[$key])) {
+          $result[] = $resolvedCommentUsers[$key];
+        }
+      }
+      return $result;
+    };
+
+    $formattedComments = $comments->map(function ($comment) use ($resolveMentionsFromText) {
       return [
         'id' => $comment->id,
         'content' => $comment->comment,
@@ -537,7 +569,8 @@ class TopicsController extends Controller
           'username' => $vote->user->username,
           'vote_value' => $vote->vote_value,
         ]),
-        'replies' => $comment->replies->map(function ($reply) {
+        'mentions' => $comment->comment ? $resolveMentionsFromText($comment->comment) : [],
+        'replies' => $comment->replies->map(function ($reply) use ($resolveMentionsFromText) {
           return [
             'id' => $reply->id,
             'content' => $reply->comment,
@@ -562,7 +595,8 @@ class TopicsController extends Controller
               'username' => $vote->user->username,
               'vote_value' => $vote->vote_value,
             ]),
-            'replies' => $reply->replies->map(function ($subReply) {
+            'mentions' => $reply->comment ? $resolveMentionsFromText($reply->comment) : [],
+            'replies' => $reply->replies->map(function ($subReply) use ($resolveMentionsFromText) {
               return [
                 'id' => $subReply->id,
                 'content' => $subReply->comment,
@@ -587,6 +621,7 @@ class TopicsController extends Controller
                   'username' => $vote->user->username,
                   'vote_value' => $vote->vote_value,
                 ]),
+                'mentions' => $subReply->comment ? $resolveMentionsFromText($subReply->comment) : [],
               ];
             }),
           ];
