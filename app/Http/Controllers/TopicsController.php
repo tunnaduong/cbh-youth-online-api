@@ -1380,8 +1380,30 @@ class TopicsController extends Controller
     $comments = TopicComment::with(['user', 'user.profile'])
       ->where('topic_id', $topicId)
       ->orderBy('created_at', 'desc')
-      ->get()
-      ->map(function ($comment) {
+      ->get();
+
+    // Batch-resolve @mentions so we avoid N+1 lookups
+    $allTexts = $comments->pluck('comment')->filter()->all();
+    $allUsernames = empty($allTexts) ? [] : array_unique(array_merge(
+      ...array_map(fn($t) => \App\Services\NotificationService::parseMentions($t), $allTexts)
+    ));
+    $resolvedUsers = [];
+    if (!empty($allUsernames)) {
+      foreach (\App\Models\AuthAccount::whereIn('username', $allUsernames)->select('id', 'username')->get() as $u) {
+        $resolvedUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
+      }
+    }
+    $resolveMentions = function (?string $text) use ($resolvedUsers): array {
+      if (!$text) return [];
+      $result = [];
+      foreach (\App\Services\NotificationService::parseMentions($text) as $un) {
+        $key = strtolower($un);
+        if (isset($resolvedUsers[$key])) $result[] = $resolvedUsers[$key];
+      }
+      return $result;
+    };
+
+    $mapped = $comments->map(function ($comment) use ($resolveMentions) {
         $isOwner = auth()->check() && $comment->user_id === auth()->id();
 
         return [
@@ -1394,6 +1416,7 @@ class TopicsController extends Controller
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
           'is_edited' => $comment->is_edited,
+          'mentions' => $resolveMentions($comment->comment),
           'author' => $comment->is_anonymous ? [
             'id' => null,
             'username' => 'Người dùng ẩn danh',
@@ -1411,10 +1434,10 @@ class TopicsController extends Controller
       });
 
     if ($request->wantsJson()) {
-      return response()->json($comments);
+      return response()->json($mapped);
     }
 
-    return $comments;
+    return $mapped;
   }
 
   /**
@@ -1449,11 +1472,21 @@ class TopicsController extends Controller
       // Load the comment's author profile details
       $author = $comment->user()->with('profile')->first();
 
+      // Resolve @mentions in the updated text so clients can render them immediately
+      $parsedMentionUsernames = NotificationService::parseMentions($request->comment ?? '');
+      $resolvedMentions = [];
+      if (!empty($parsedMentionUsernames)) {
+        foreach (\\App\\Models\\AuthAccount::whereIn('username', $parsedMentionUsernames)->select('id', 'username')->get() as $u) {
+          $resolvedMentions[] = ['username' => $u->username, 'user_id' => $u->id];
+        }
+      }
+
       return response()->json([
         'id' => $comment->id,
         'content' => $comment->comment,  // Return raw markdown for editing
         'comment' => $comment->comment_html,  // Return HTML for display
         'is_owner' => true,  // Updated comment is always owned by updater
+        'mentions' => $resolvedMentions,  // Resolved @mention targets for immediate rendering
         'author' => [
           'id' => $author->id,
           'username' => $author->username,
@@ -1538,14 +1571,16 @@ class TopicsController extends Controller
       NotificationService::createTopicCommentedNotification($topic, $comment, auth()->id());
     }
 
-    // Handle mentions in comment
-    $mentions = NotificationService::parseMentions($request->comment);
-    if (!empty($mentions) && $topic) {
-      foreach ($mentions as $mentionedUsername) {
-        $mentionedUser = \App\Models\AuthAccount::where('username', $mentionedUsername)->first();
-        if ($mentionedUser) {
-          NotificationService::createMentionedNotification($mentionedUser->id, $comment, auth()->id());
-        }
+    // Handle mentions in comment — resolve usernames to {username, user_id} pairs for the response
+    $parsedMentionUsernames = NotificationService::parseMentions($request->comment ?? '');
+    $resolvedMentions = [];
+    if (!empty($parsedMentionUsernames) && $topic) {
+      $mentionedUsers = \App\Models\AuthAccount::whereIn('username', $parsedMentionUsernames)
+        ->select('id', 'username')
+        ->get();
+      foreach ($mentionedUsers as $mentionedUser) {
+        NotificationService::createMentionedNotification($mentionedUser->id, $comment, auth()->id());
+        $resolvedMentions[] = ['username' => $mentionedUser->username, 'user_id' => $mentionedUser->id];
       }
     }
 
@@ -1555,6 +1590,7 @@ class TopicsController extends Controller
       'comment' => $comment->comment_html,  // Return HTML for display
       'is_anonymous' => $comment->is_anonymous,
       'is_owner' => true,  // New comment is always owned by creator
+      'mentions' => $resolvedMentions,  // Resolved @mention targets for immediate rendering
       'author' => $comment->is_anonymous ? [
         'id' => null,
         'username' => 'Người dùng ẩn danh',
