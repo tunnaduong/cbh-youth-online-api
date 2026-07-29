@@ -539,7 +539,7 @@ class NotificationService
    */
   public static function parseMentions(string $text): array
   {
-    preg_match_all('/@(\w+)/', $text, $matches);
+    preg_match_all('/@([\w-]+)/', $text, $matches);
     return array_unique($matches[1] ?? []);
   }
 
