@@ -533,6 +533,14 @@ class NotificationController extends Controller
       $isAnonymous = true;
     }
 
+    // For "mentioned" notifications inside an anonymous comment, hide the actor
+    if (
+      $notification->type === 'mentioned' &&
+      !empty($notification->data['is_anonymous'])
+    ) {
+      $isAnonymous = true;
+    }
+
     return [
       'id' => $notification->id,
       'type' => $notification->type,
