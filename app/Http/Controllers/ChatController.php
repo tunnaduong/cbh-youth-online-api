@@ -1170,7 +1170,7 @@ class ChatController extends Controller
     // Order by created_at DESC to get newest first
     $offset = ($page - 1) * $perPage;
 
-    $messages = $conversation
+    $rawPublicMessages = $conversation
       ->messages()
       ->where('conversation_id', $conversation->id)
       ->whereNull('deleted_at')
@@ -1179,9 +1179,37 @@ class ChatController extends Controller
       ->skip($offset)
       ->take($perPage)
       ->get()
-      ->reverse()  // Reverse to show oldest to newest within the page
-      ->map(function ($message) use ($currentUser) {
+      ->reverse();  // Reverse to show oldest to newest within the page
+
+    // Batch-resolve @mentions for all public messages in one query (no participant filter)
+    $publicMentionUsernames = [];
+    foreach ($rawPublicMessages as $msg) {
+      if ($msg->content) {
+        foreach (NotificationService::parseMentions($msg->content) as $un) {
+          $publicMentionUsernames[] = $un;
+        }
+      }
+    }
+    $publicMentionUsernames = array_unique($publicMentionUsernames);
+    $resolvedPublicUsers = [];
+    if (!empty($publicMentionUsernames)) {
+      foreach (AuthAccount::whereIn('username', $publicMentionUsernames)->select('id', 'username')->get() as $u) {
+        $resolvedPublicUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
+      }
+    }
+
+    $messages = $rawPublicMessages->map(function ($message) use ($currentUser, $resolvedPublicUsers) {
         $isGuest = $message->user_id === null;
+
+        $msgMentions = [];
+        if ($message->content) {
+          foreach (NotificationService::parseMentions($message->content) as $un) {
+            $key = strtolower($un);
+            if (isset($resolvedPublicUsers[$key])) {
+              $msgMentions[] = $resolvedPublicUsers[$key];
+            }
+          }
+        }
 
         return [
           'id' => $message->id,
@@ -1211,6 +1239,7 @@ class ChatController extends Controller
           'read_at' => $message->read_at?->toISOString(),
           'reply_to' => $this->formatReplyTo($message->replyTo),
           'reactions' => $this->formatReactions($message, $currentUser->id ?? 0),
+          'mentions' => $msgMentions,
         ];
       });
 
