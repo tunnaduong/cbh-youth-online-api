@@ -253,8 +253,9 @@ class TopicsController extends Controller
 
     // Redis temporarily disabled — using the default cache driver instead.
     // Switch back to Cache::store('redis') once Redis is set up.
+    $cacheKey = "feed_scores_v2_user_{$userId}";  // v2 to avoid stale format from previous cache shape
     $orderedIds = Cache::remember(
-      "feed_scores_user_{$userId}",
+      $cacheKey,
       now()->addMinutes(30),
       fn() => $this->buildPersonalizedFeedOrder($userId)
     );
