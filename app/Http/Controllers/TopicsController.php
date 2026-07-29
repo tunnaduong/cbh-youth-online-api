@@ -251,22 +251,13 @@ class TopicsController extends Controller
       return $this->latestFeed($request, $userId, $page, $perPage);
     }
 
-    // Redis temporarily disabled (server has neither the phpredis extension
-    // nor predis/predis installed yet) — using the default cache driver instead.
+    // Redis temporarily disabled — using the default cache driver instead.
     // Switch back to Cache::store('redis') once Redis is set up.
-    // TTL is generous (30 min) because freshness is now handled explicitly by
-    // feedRefreshCheck(), which prepends new posts without disturbing this
-    // cached order — a short TTL would otherwise reshuffle a user's feed mid-scroll.
-    $cached = Cache::remember(
+    $orderedIds = Cache::remember(
       "feed_scores_user_{$userId}",
       now()->addMinutes(30),
-      fn() => [
-        'ids' => $this->buildPersonalizedFeedOrder($userId),
-        'generated_at' => now()->toDateTimeString(),
-      ]
+      fn() => $this->buildPersonalizedFeedOrder($userId)
     );
-
-    $orderedIds = $cached['ids'];
     $pageIds = array_slice($orderedIds, ($page - 1) * $perPage, $perPage);
 
     $formatted = collect();
@@ -320,71 +311,6 @@ class TopicsController extends Controller
       ->through(fn($topic) => $this->formatTopicForList($topic, $request));
 
     return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'latest']));
-  }
-
-  /**
-   * Check for posts created since the user's personalized feed was last generated,
-   * without disturbing the cached ranked order (and therefore without shifting or
-   * duplicating anything the client has already paginated through). New posts found
-   * are prepended to the cached order so subsequent `?page=N` calls stay consistent.
-   *
-   * @param  \Illuminate\Http\Request  $request
-   * @return \Illuminate\Http\JsonResponse
-   */
-  public function feedRefreshCheck(Request $request)
-  {
-    $userId = auth()->id();
-    $empty = ['has_new' => false, 'new_count' => 0, 'new_posts' => []];
-
-    if (!$userId) {
-      return response()->json($empty);
-    }
-
-    $cacheKey = "feed_scores_user_{$userId}";
-    $cached = Cache::get($cacheKey);
-
-    if (!is_array($cached) || !isset($cached['ids'], $cached['generated_at'])) {
-      return response()->json($empty);
-    }
-
-    $candidates = $this->visibleTopicsQuery($userId)
-      ->select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
-      ->where('created_at', '>', $cached['generated_at'])
-      ->whereNotIn('id', $cached['ids'])
-      ->withSum('votes', 'vote_value')
-      ->withCount(['comments as comments_total'])
-      ->orderBy('created_at', 'desc')
-      ->get();
-
-    if ($candidates->isEmpty()) {
-      return response()->json($empty);
-    }
-
-    $scored = collect($this->scoreTopics($candidates, $userId))->sortByDesc('score')->values()->all();
-    $newIds = $this->dedupeAdjacentAuthors($scored);
-
-    Cache::put($cacheKey, [
-      'ids' => array_merge($newIds, $cached['ids']),
-      'generated_at' => now()->toDateTimeString(),
-    ], now()->addMinutes(30));
-
-    $topicsById = Topic::whereIn('id', $newIds)
-      ->withCount(['views', 'comments'])
-      ->with(['user.profile', 'votes.user', 'cdnUserContent'])
-      ->get()
-      ->keyBy('id');
-
-    $newPosts = collect($newIds)
-      ->map(fn($id) => $topicsById->get($id))
-      ->filter()
-      ->map(fn($topic) => $this->formatTopicForList($topic, $request))
-      ->values();
-
-    return response()->json([
-      'has_new' => true,
-      'new_count' => $newPosts->count(),
-      'new_posts' => $newPosts,
-    ]);
   }
 
   /**

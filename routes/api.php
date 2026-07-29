@@ -178,8 +178,6 @@ Route::prefix('v1.0')->group(function () {
   // --- AUTHENTICATION REQUIRED ROUTES ---
   // These routes require a valid Sanctum authentication token.
   Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/topics/feed/refresh-check', [TopicsController::class, 'feedRefreshCheck']);
-
     // User & Profile
     Route::get('/user', function (Request $request) {
       $user = $request->user()->load('profile');
