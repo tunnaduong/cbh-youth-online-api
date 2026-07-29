@@ -80,7 +80,7 @@ class StoryController extends Controller
                             'user_id' => $story->user_id,
                             'pinned' => $story->pinned,  // Add pinned status
                             'is_muted' => $story->is_muted,
-                            'viewers' => $story->viewers,
+                            'viewers' => $story->viewers->where('user_id', '!=', $story->user_id)->values(),
                             'reactions' => $story->reactions->map(function ($reaction) {
                                 return [
                                     'type' => $reaction->reaction_type,
@@ -338,12 +338,14 @@ class StoryController extends Controller
             return back()->with('error', 'Story has expired');
         }
 
-        StoryViewer::firstOrCreate([
-            'story_id' => $story->id,
-            'user_id' => Auth::id(),
-        ], [
-            'viewed_at' => now(),
-        ]);
+        if ($story->user_id !== Auth::id()) {
+            StoryViewer::firstOrCreate([
+                'story_id' => $story->id,
+                'user_id' => Auth::id(),
+            ], [
+                'viewed_at' => now(),
+            ]);
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -709,7 +711,7 @@ class StoryController extends Controller
                     'created_at_human' => $story->created_at->diffForHumans(),
                     'expires_at' => $story->expires_at ? $story->expires_at->toISOString() : null,
                     'is_expired' => $story->hasExpired(),
-                    'viewers_count' => $story->viewers->count(),
+                    'viewers_count' => $story->viewers->where('user_id', '!=', $story->user_id)->count(),
                     'reactions_count' => $story->reactions->count(),
                 ];
             })
