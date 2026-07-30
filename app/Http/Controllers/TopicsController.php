@@ -253,7 +253,11 @@ class TopicsController extends Controller
 
     // Redis temporarily disabled — using the default cache driver instead.
     // Switch back to Cache::store('redis') once Redis is set up.
-    $cacheKey = "feed_scores_v2_user_{$userId}";  // v2 to avoid stale format from previous cache shape
+    // Cache key includes the global feed version so it's invalidated for everyone
+    // as soon as a new topic is created (see bumpFeedVersion()), instead of only
+    // expiring after the 30-minute TTL.
+    $feedVersion = Cache::get('feed_version', 1);
+    $cacheKey = "feed_scores_v2_user_{$userId}_v{$feedVersion}";  // v2 to avoid stale format from previous cache shape
     $orderedIds = Cache::remember(
       $cacheKey,
       now()->addMinutes(30),
@@ -312,6 +316,20 @@ class TopicsController extends Controller
       ->through(fn($topic) => $this->formatTopicForList($topic, $request));
 
     return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'latest']));
+  }
+
+  /**
+   * Invalidate every user's cached personalized feed order by bumping the
+   * global feed version used in the feed() cache key. Called whenever a new
+   * topic is created so it shows up immediately instead of waiting out the
+   * 30-minute feed_scores_v2 cache TTL.
+   */
+  private function bumpFeedVersion(): void
+  {
+    if (!Cache::has('feed_version')) {
+      Cache::forever('feed_version', 1);
+    }
+    Cache::increment('feed_version');
   }
 
   /**
@@ -957,6 +975,8 @@ class TopicsController extends Controller
     ]);
 
     HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
+
+    $this->bumpFeedVersion();
 
     // Debug: Log the created topic
     \Log::info('Topic created successfully:', [
