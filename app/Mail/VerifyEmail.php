@@ -5,7 +5,6 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
-use App\Services\NewsletterSubscriptionService;
 
 /**
  * Mailable class for sending an email verification link.
@@ -56,7 +55,6 @@ class VerifyEmail extends Mailable
                 'account' => $this->account,
                 'verificationCode' => $this->verificationCode,
                 'verificationUrl' => $verificationUrl,
-                'unsubscribeUrl' => NewsletterSubscriptionService::unsubscribeUrl($this->account),
             ]);
     }
 }

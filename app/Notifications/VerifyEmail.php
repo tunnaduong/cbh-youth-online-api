@@ -45,14 +45,4 @@ class VerifyEmail extends BaseVerifyEmail
       ->line('Nếu bạn không tạo tài khoản, bạn có thể bỏ qua email này.')
       ->salutation("Trân trọng,  \r\nĐội ngũ CBH Youth Online");
   }
-
-  public function toMail($notifiable)
-  {
-    $verificationUrl = $this->verificationUrl($notifiable);
-
-    return $this->buildMailMessage($verificationUrl)
-      ->with([
-        'unsubscribeUrl' => \App\Services\NewsletterSubscriptionService::unsubscribeUrl($notifiable),
-      ]);
-  }
 }
