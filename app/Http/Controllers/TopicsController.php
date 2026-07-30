@@ -251,18 +251,27 @@ class TopicsController extends Controller
       return $this->latestFeed($request, $userId, $page, $perPage);
     }
 
+    // Optional per-visit shuffle seed ("slot machine"): the client generates a new
+    // random seed on every page load, so the same ranked list is re-dealt into a
+    // different order each visit while one seed keeps pagination stable within a visit.
+    $seed = $request->query('seed');
+    $seed = is_numeric($seed) ? ((int) abs($seed) % 2147483647) : null;
+
     // Redis temporarily disabled — using the default cache driver instead.
     // Switch back to Cache::store('redis') once Redis is set up.
     // Cache key includes the global feed version so it's invalidated for everyone
     // as soon as a new topic is created (see bumpFeedVersion()), instead of only
     // expiring after the 30-minute TTL.
     $feedVersion = Cache::get('feed_version', 1);
-    $cacheKey = "feed_scores_v2_user_{$userId}_v{$feedVersion}";  // v2 to avoid stale format from previous cache shape
-    $orderedIds = Cache::remember(
+    $cacheKey = "feed_scores_v3_user_{$userId}_v{$feedVersion}";  // v3: caches the ranked list, shuffling happens per request
+    $ranked = Cache::remember(
       $cacheKey,
       now()->addMinutes(30),
       fn() => $this->buildPersonalizedFeedOrder($userId)
     );
+
+    $total = count($ranked);
+    $orderedIds = $this->arrangeFeedOrder($ranked, $seed, $page * $perPage);
     $pageIds = array_slice($orderedIds, ($page - 1) * $perPage, $perPage);
 
     $formatted = collect();
@@ -283,13 +292,13 @@ class TopicsController extends Controller
 
     $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
       $formatted,
-      count($orderedIds),
+      $total,
       $perPage,
       $page,
       ['path' => $request->url(), 'query' => $request->query()]
     );
 
-    $exhausted = ($page * $perPage) >= count($orderedIds);
+    $exhausted = ($page * $perPage) >= $total;
 
     return response()->json(array_merge($paginator->toArray(), ['exhausted' => $exhausted]));
   }
@@ -333,14 +342,17 @@ class TopicsController extends Controller
   }
 
   /**
-   * Build the ranked list of topic IDs for a user's personalized feed.
+   * Build the ranked list of topics for a user's personalized feed, best score first.
    *
    * Candidate pool: every topic the user is allowed to see. Affinity is derived from follows and
    * from the user's historical voting/commenting behavior toward authors
    * and subforums (there is no separate "follow a subforum" feature yet).
    *
+   * The result is cached as-is; the final ordering (author de-duplication and the
+   * optional per-visit shuffle) is applied per request by arrangeFeedOrder().
+   *
    * @param  int  $userId
-   * @return array<int>
+   * @return array<array{id:int,user_id:int,pinned:bool}>
    */
   private function buildPersonalizedFeedOrder(int $userId): array
   {
@@ -355,9 +367,11 @@ class TopicsController extends Controller
       return [];
     }
 
-    $scored = collect($this->scoreTopics($candidates, $userId))->sortByDesc('score')->values()->all();
-
-    return $this->dedupeAdjacentAuthors($scored);
+    return collect($this->scoreTopics($candidates, $userId))
+      ->sortByDesc('score')
+      ->map(fn($item) => ['id' => $item['id'], 'user_id' => $item['user_id'], 'pinned' => $item['pinned']])
+      ->values()
+      ->all();
   }
 
   /**
@@ -429,46 +443,131 @@ class TopicsController extends Controller
         $score += 1_000_000;
       }
 
-      return ['id' => $topic->id, 'user_id' => $topic->user_id, 'score' => $score];
+      return [
+        'id' => $topic->id,
+        'user_id' => $topic->user_id,
+        'pinned' => (bool) $topic->pinned,
+        'score' => $score,
+      ];
     })->all();
   }
 
   /**
-   * Reorder a ranked list of ['id' => ..., 'user_id' => ...] items so the
-   * same author never appears twice in a row, without changing overall
-   * relative order any more than necessary.
+   * Turn the scored ranking into the IDs actually served, up to $limit items.
    *
-   * @param  array<array{id:int,user_id:int}>  $ranked
+   * Walks the ranking front to back and, for each slot, looks at a small window of
+   * the best remaining candidates:
+   *   - pinned topics are taken straight away, so they always lead the feed;
+   *   - candidates by the previous slot's author are skipped, so the same person
+   *     never appears twice in a row;
+   *   - with a $seed, the pick inside the window is randomized with an
+   *     exponentially decaying weight (best candidate most likely), which is what
+   *     makes a reload deal a visibly different feed while keeping the ranking's
+   *     bias intact. Without a seed the best eligible candidate always wins, i.e.
+   *     the plain deterministic order.
+   *
+   * Deterministic for a given ($ranked, $seed) pair, so page N+1 continues exactly
+   * where page N stopped as long as the client keeps sending the same seed.
+   *
+   * @param  array<array{id:int,user_id:int,pinned:bool}>  $ranked
+   * @param  int|null  $seed
+   * @param  int  $limit
    * @return array<int>
    */
-  private function dedupeAdjacentAuthors(array $ranked): array
+  private function arrangeFeedOrder(array $ranked, ?int $seed, int $limit): array
   {
+    $count = count($ranked);
+
+    if ($count === 0 || $limit <= 0) {
+      return [];
+    }
+
+    $window = 18;  // how far down the ranking a single slot may reach
+    $decay = 0.85;  // weight ratio between consecutive candidates in the window
+
+    // Small self-contained LCG: the shuffle depends only on the seed and never
+    // touches (nor is disturbed by) PHP's global mt_rand state.
+    $state = $seed === null ? 0 : max(1, $seed);
+    $random = function () use (&$state) {
+      $state = ($state * 1103515245 + 12345) % 2147483648;
+      return $state / 2147483648;
+    };
+
+    $used = [];
     $result = [];
+    $cursor = 0;
     $lastAuthor = null;
 
-    while (!empty($ranked)) {
-      $pickedIndex = null;
+    while (count($result) < $limit) {
+      while ($cursor < $count && isset($used[$cursor])) {
+        $cursor++;
+      }
 
-      foreach ($ranked as $i => $item) {
-        if ($item['user_id'] !== $lastAuthor) {
-          $pickedIndex = $i;
-          break;
+      if ($cursor >= $count) {
+        break;
+      }
+
+      $candidates = [];
+      for ($i = $cursor; $i < $count && count($candidates) < $window; $i++) {
+        if (!isset($used[$i])) {
+          $candidates[] = $i;
         }
       }
 
-      // Every remaining item is by the same author as the last pick; just take the next one.
-      if ($pickedIndex === null) {
-        $pickedIndex = array_key_first($ranked);
+      if ($ranked[$candidates[0]]['pinned']) {
+        $picked = $candidates[0];
+      } else {
+        $eligible = array_values(array_filter(
+          $candidates,
+          fn($i) => $ranked[$i]['user_id'] !== $lastAuthor
+        ));
+
+        // Everything in the window is by the last author; take the best one anyway.
+        if (empty($eligible)) {
+          $eligible = $candidates;
+        }
+
+        $picked = $seed === null ? $eligible[0] : $this->weightedPick($eligible, $decay, $random);
       }
 
-      $picked = $ranked[$pickedIndex];
-      $result[] = $picked['id'];
-      $lastAuthor = $picked['user_id'];
-      unset($ranked[$pickedIndex]);
-      $ranked = array_values($ranked);
+      $used[$picked] = true;
+      $result[] = $ranked[$picked]['id'];
+      $lastAuthor = $ranked[$picked]['user_id'];
     }
 
     return $result;
+  }
+
+  /**
+   * Pick one entry from an ordered candidate list, weighting position $i by
+   * $decay ** $i so earlier (better ranked) candidates win more often.
+   *
+   * @param  array<int>  $candidates  ranked-list indexes, best first
+   * @param  float  $decay
+   * @param  callable(): float  $random  returns a float in [0, 1)
+   * @return int
+   */
+  private function weightedPick(array $candidates, float $decay, callable $random): int
+  {
+    $weights = [];
+    $sum = 0.0;
+
+    foreach ($candidates as $slot => $_) {
+      $weight = pow($decay, $slot);
+      $weights[$slot] = $weight;
+      $sum += $weight;
+    }
+
+    $roll = $random() * $sum;
+
+    foreach ($weights as $slot => $weight) {
+      $roll -= $weight;
+      if ($roll <= 0) {
+        return $candidates[$slot];
+      }
+    }
+
+    return $candidates[array_key_last($candidates)];
   }
 
   /**
