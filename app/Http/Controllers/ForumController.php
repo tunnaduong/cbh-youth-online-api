@@ -937,7 +937,7 @@ class ForumController extends Controller
   // Lấy tất cả bài viết mới nhất trong tất cả các danh mục
   private function getLatestPosts()
   {
-    $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
+    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
       ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
@@ -953,17 +953,17 @@ class ForumController extends Controller
 
       $query->where(function ($q) use ($userId, $followingIds) {
         $q
-          ->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
+          ->where('privacy', 'public')
+          ->orWhere('user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
             $subQ
-              ->where('cyo_topics.privacy', 'followers')
-              ->whereIn('cyo_topics.user_id', $followingIds);
+              ->where('privacy', 'followers')
+              ->whereIn('user_id', $followingIds);
           });
       });
     } else {
-      $query->where('cyo_topics.privacy', 'public');
+      $query->where('privacy', 'public');
     }
 
     return $query->get();
@@ -972,7 +972,7 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem nhiều nhất
   private function getMostViewedPosts()
   {
-    $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
+    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
       ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
@@ -989,17 +989,17 @@ class ForumController extends Controller
 
       $query->where(function ($q) use ($userId, $followingIds) {
         $q
-          ->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
+          ->where('privacy', 'public')
+          ->orWhere('user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
             $subQ
-              ->where('cyo_topics.privacy', 'followers')
-              ->whereIn('cyo_topics.user_id', $followingIds);
+              ->where('privacy', 'followers')
+              ->whereIn('user_id', $followingIds);
           });
       });
     } else {
-      $query->where('cyo_topics.privacy', 'public');
+      $query->where('privacy', 'public');
     }
 
     return $query->get();
@@ -1008,7 +1008,7 @@ class ForumController extends Controller
   // Lấy các bài viết có lượt xem và lượt tương tác (bình luận, like) nhiều nhất
   private function getMostEngagedPosts()
   {
-    $query = Topic::select(['id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
+    $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
       ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
@@ -1025,17 +1025,17 @@ class ForumController extends Controller
 
       $query->where(function ($q) use ($userId, $followingIds) {
         $q
-          ->where('cyo_topics.privacy', 'public')
-          ->orWhere('cyo_topics.user_id', $userId)  // User's own posts (including private ones)
+          ->where('privacy', 'public')
+          ->orWhere('user_id', $userId)  // User's own posts (including private ones)
           ->orWhere(function ($subQ) use ($followingIds) {
             // Followers posts
             $subQ
-              ->where('cyo_topics.privacy', 'followers')
-              ->whereIn('cyo_topics.user_id', $followingIds);
+              ->where('privacy', 'followers')
+              ->whereIn('user_id', $followingIds);
           });
       });
     } else {
-      $query->where('cyo_topics.privacy', 'public');
+      $query->where('privacy', 'public');
     }
 
     return $query->get();
