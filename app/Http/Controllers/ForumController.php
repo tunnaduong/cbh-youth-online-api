@@ -940,7 +940,14 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
-      ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
+      // Loại trừ bài viết Tin tức Đoàn. Phải xét NULL riêng vì bài đăng ở
+      // Bảng tin không thuộc subforum nào, mà NULL != 32 trong SQL là NULL
+      // (không phải TRUE) nên sẽ bị WHERE loại bỏ.
+      ->where(function ($q) {
+        $q
+          ->whereNull('subforum_id')
+          ->orWhere('subforum_id', '!=', 32);
+      })
       ->orderBy('created_at', 'desc')
       ->take(10);
 
@@ -975,7 +982,14 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
-      ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
+      // Loại trừ bài viết Tin tức Đoàn. Phải xét NULL riêng vì bài đăng ở
+      // Bảng tin không thuộc subforum nào, mà NULL != 32 trong SQL là NULL
+      // (không phải TRUE) nên sẽ bị WHERE loại bỏ.
+      ->where(function ($q) {
+        $q
+          ->whereNull('subforum_id')
+          ->orWhere('subforum_id', '!=', 32);
+      })
       ->withCount('views')
       ->orderBy('views_count', 'desc')
       ->take(10);
@@ -1011,7 +1025,14 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
-      ->where('subforum_id', '!=', 32) // Loại trừ bài viết Tin tức Đoàn
+      // Loại trừ bài viết Tin tức Đoàn. Phải xét NULL riêng vì bài đăng ở
+      // Bảng tin không thuộc subforum nào, mà NULL != 32 trong SQL là NULL
+      // (không phải TRUE) nên sẽ bị WHERE loại bỏ.
+      ->where(function ($q) {
+        $q
+          ->whereNull('subforum_id')
+          ->orWhere('subforum_id', '!=', 32);
+      })
       ->withCount(['comments', 'votes'])
       ->orderByRaw('(comments_count + votes_count) DESC')
       ->take(10);
