@@ -802,7 +802,10 @@ class ForumController extends Controller
    */
   public function getPinnedTopics()
   {
-    return Topic::where('pinned', true)->get();
+    return Topic::where('pinned', true)
+      ->visibleToCurrentUser()
+      ->where('hidden', false)
+      ->get();
   }
 
   /**

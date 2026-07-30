@@ -105,6 +105,8 @@ class SearchController extends Controller
       $q->where('title', 'LIKE', "%{$query}%")
         ->orWhere('description', 'LIKE', "%{$query}%");
     })
+      ->visibleToCurrentUser()
+      ->where('hidden', 0)
       ->with(['user.profile', 'cdnUserContent'])
       ->orderBy('created_at', 'desc')
       ->limit($limit)
@@ -129,6 +131,8 @@ class SearchController extends Controller
       ? Topic::whereHas('hashtags', function ($q) use ($hashtag) {
         $q->where('cyo_hashtags.id', $hashtag->id);
       })
+        ->visibleToCurrentUser()
+        ->where('hidden', 0)
         ->with(['user.profile', 'cdnUserContent'])
         ->orderBy('created_at', 'desc')
         ->limit($limit)

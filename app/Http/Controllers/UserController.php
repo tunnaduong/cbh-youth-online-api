@@ -354,7 +354,10 @@ class UserController extends Controller
 
     // Transform recent posts - only show anonymous posts to the owner
     $isOwnProfile = auth()->check() && auth()->id() === $user->id;
-    $recentPostsQuery = $user->posts()->latest()->withCount(['comments', 'views', 'votes']);
+    $recentPostsQuery = $user->posts()
+      ->visibleToCurrentUser()  // public / own / followers-only when the viewer follows the author
+      ->latest()
+      ->withCount(['comments', 'views', 'votes']);
 
     // Hide anonymous posts if not viewing own profile
     if (!$isOwnProfile) {
@@ -405,10 +408,13 @@ class UserController extends Controller
     // Check if the user is online
     $isOnline = $user->last_activity > now()->subMinutes(5);
 
-    // Adjust posts_count if not viewing own profile - exclude anonymous posts from count
+    // Adjust posts_count if not viewing own profile - exclude anonymous and non-visible posts from count
     $displayedPostsCount = $user->posts_count;
     if (!$isOwnProfile) {
-      $displayedPostsCount = $user->posts()->where('anonymous', false)->count();
+      $displayedPostsCount = $user->posts()
+        ->visibleToCurrentUser()
+        ->where('anonymous', false)
+        ->count();
     }
 
     // Return the user data, including the profile data, stats, followers, and following

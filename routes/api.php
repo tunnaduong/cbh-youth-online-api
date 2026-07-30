@@ -87,9 +87,11 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/users/top-active', [UserController::class, 'getTop8ActiveUsers']);
   Route::get('/users/ranking', [PointsController::class, 'getTopUsers']);
 
-  // Search & Stories
-  Route::get('search', [SearchController::class, 'search']);
-  Route::get('stories', [StoryController::class, 'index']);
+  // Search & Stories (optional auth so followers-only content stays visible to followers)
+  Route::middleware('optional.auth')->group(function () {
+    Route::get('search', [SearchController::class, 'search']);
+    Route::get('stories', [StoryController::class, 'index']);
+  });
 
   // Study Materials (public routes with optional auth to detect purchases)
   Route::match(['get', 'head'], '/study-materials/documents/view', [StudyMaterialController::class, 'viewDocument']);
