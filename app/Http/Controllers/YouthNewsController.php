@@ -46,7 +46,7 @@ class YouthNewsController extends Controller
       ->withCount(['comments as reply_count', 'views'])
       ->orderBy('created_at', 'desc')
       ->where('hidden', false)
-      ->where('subforum_id', 32);
+      ->inNewsSubforum();
   }
 
   /**

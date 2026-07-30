@@ -462,6 +462,45 @@ class Topic extends Model
   }
 
   /**
+   * ID của subforum Tin tức Đoàn (config/forum.php).
+   *
+   * @return int
+   */
+  public static function newsSubforumId()
+  {
+    return (int) config('forum.news_subforum_id');
+  }
+
+  /**
+   * Scope a query to exclude topics in the "Tin tức Đoàn" subforum.
+   *
+   * Phải xét NULL riêng vì bài đăng ở Bảng tin không thuộc subforum nào,
+   * mà NULL != <id> trong SQL cho ra NULL (không phải TRUE) nên sẽ bị
+   * WHERE loại bỏ.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeExcludingNewsSubforum($query)
+  {
+    return $query->where(function ($q) {
+      $q->whereNull('subforum_id')
+        ->orWhere('subforum_id', '!=', static::newsSubforumId());
+    });
+  }
+
+  /**
+   * Scope a query to only include topics in the "Tin tức Đoàn" subforum.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeInNewsSubforum($query)
+  {
+    return $query->where('subforum_id', static::newsSubforumId());
+  }
+
+  /**
    * The "booted" method of the model.
    *
    * @return void
