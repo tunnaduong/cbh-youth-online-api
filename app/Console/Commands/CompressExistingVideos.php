@@ -29,7 +29,20 @@ class CompressExistingVideos extends Command
         $bar = $this->output->createProgressBar($videos->count());
         $bar->start();
 
-        foreach ($videos as $video) {
+        foreach ($videos as $index => $video) {
+            $percent = $videos->count() > 0 ? (int) round((($index + 1) / $videos->count()) * 100) : 100;
+            $size = $this->formatFileSize((int) $video->file_size);
+
+            if ($this->output->isVerbose()) {
+                $this->line(sprintf(
+                    'Processing %s [%s] (%s) - %d%% complete',
+                    $video->file_name ?? $video->file_path,
+                    $video->file_type,
+                    $size,
+                    $percent
+                ));
+            }
+
             if ($this->option('queue')) {
                 ProcessVideoCompression::dispatch($video->file_path, $video->id);
             } else {
@@ -43,5 +56,18 @@ class CompressExistingVideos extends Command
         $this->info('Done!');
 
         return self::SUCCESS;
+    }
+
+    private function formatFileSize(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $index = 0;
+
+        while ($bytes >= 1024 && $index < count($units) - 1) {
+            $bytes /= 1024;
+            $index++;
+        }
+
+        return sprintf('size: %.2f %s', $bytes, $units[$index]);
     }
 }

@@ -1,0 +1,334 @@
+# FOR AI AND DEVELOPERER: THIS IS ENDPOINT LIST FOR THE API, UPDATED 30/7/2026
+
+
+  GET|HEAD        / .......................................................................................................................................... home › ForumController@index
+  GET|HEAD        __clockwork ......................................................................................................... Clockwork\Support › ClockworkController@webRedirect
+  GET|HEAD        __clockwork/app ........................................................................................................ Clockwork\Support › ClockworkController@webIndex
+  POST            __clockwork/auth ................................................................................................... Clockwork\Support › ClockworkController@authenticate
+  PUT             __clockwork/{id} ..................................................................................................... Clockwork\Support › ClockworkController@updateData
+  GET|HEAD        __clockwork/{id}/extended ....................................................................................... Clockwork\Support › ClockworkController@getExtendedData
+  GET|HEAD        __clockwork/{id}/{direction?}/{count?} .................................................................................. Clockwork\Support › ClockworkController@getData
+  GET|HEAD        __clockwork/{path} ..................................................................................................... Clockwork\Support › ClockworkController@webAsset
+  POST            _ignition/execute-solution ................................................................ ignition.executeSolution › Spatie\LaravelIgnition › ExecuteSolutionController
+  GET|HEAD        _ignition/health-check ............................................................................ ignition.healthCheck › Spatie\LaravelIgnition › HealthCheckController
+  POST            _ignition/update-config ......................................................................... ignition.updateConfig › Spatie\LaravelIgnition › UpdateConfigController
+  GET|HEAD        about ................................................................................................................................ about › HelpCenterController@about
+  GET|HEAD        admin ....................................................................................................... filament.admin.pages.dashboard › Filament\Pages › Dashboard
+  GET|HEAD        admin/categories ..................................................................................... admin.admin.categories.index › Admin\ForumCategoryController@index
+  POST            admin/categories ..................................................................................... admin.admin.categories.store › Admin\ForumCategoryController@store
+  GET|HEAD        admin/categories/create ............................................................................ admin.admin.categories.create › Admin\ForumCategoryController@create
+  PUT|PATCH       admin/categories/{category} ........................................................................ admin.admin.categories.update › Admin\ForumCategoryController@update
+  DELETE          admin/categories/{category} ...................................................................... admin.admin.categories.destroy › Admin\ForumCategoryController@destroy
+  GET|HEAD        admin/categories/{category}/edit ....................................................................... admin.admin.categories.edit › Admin\ForumCategoryController@edit
+  GET|HEAD        admin/classes ........................................................................................................ admin.classes.index › AdminController@classesIndex
+  POST            admin/classes .......................................................................................................... admin.classes.store › AdminController@storeClass
+  GET|HEAD        admin/classes/create ................................................................................................. admin.classes.create › AdminController@createClass
+  PUT             admin/classes/{id} ................................................................................................... admin.classes.update › AdminController@updateClass
+  DELETE          admin/classes/{id} ................................................................................................. admin.classes.destroy › AdminController@destroyClass
+  GET|HEAD        admin/classes/{id}/edit .................................................................................................. admin.classes.edit › AdminController@editClass
+  GET|HEAD        admin/dashboard ....................................................................................................... admin.dashboard › Admin\DashboardController@index
+  GET|HEAD        admin/login .......................................................................................................... filament.admin.auth.login › Filament\Pages › Login
+  POST            admin/logout .............................................................................................. filament.admin.auth.logout › Filament\Http › LogoutController
+  GET|HEAD        admin/monitor-reports ................................................................................. admin.monitor-reports.index › AdminController@monitorReportsIndex
+  POST            admin/monitor-reports .................................................................................. admin.monitor-reports.store › AdminController@storeMonitorReport
+  GET|HEAD        admin/monitor-reports/create ......................................................................... admin.monitor-reports.create › AdminController@createMonitorReport
+  PUT             admin/monitor-reports/{id} ........................................................................... admin.monitor-reports.update › AdminController@updateMonitorReport
+  DELETE          admin/monitor-reports/{id} ......................................................................... admin.monitor-reports.destroy › AdminController@destroyMonitorReport
+  GET|HEAD        admin/monitor-reports/{id}/edit .......................................................................... admin.monitor-reports.edit › AdminController@editMonitorReport
+  GET|HEAD        admin/posts .............................................................................................................. admin.posts.index › AdminController@postsIndex
+  POST            admin/posts ............................................................................................................... admin.posts.store › AdminController@storePost
+  GET|HEAD        admin/posts/create ...................................................................................................... admin.posts.create › AdminController@createPost
+  PUT             admin/posts/{id} ........................................................................................................ admin.posts.update › AdminController@updatePost
+  DELETE          admin/posts/{id} ...................................................................................................... admin.posts.destroy › AdminController@destroyPost
+  GET|HEAD        admin/posts/{id}/edit ....................................................................................................... admin.posts.edit › AdminController@editPost
+  PUT             admin/posts/{id}/lock ................................................................................................. admin.posts.lock › AdminController@toggleLockPost
+  PUT             admin/posts/{id}/pin .................................................................................................... admin.posts.pin › AdminController@togglePinPost
+  GET|HEAD        admin/schedules .................................................................................................. admin.schedules.index › AdminController@schedulesIndex
+  POST            admin/schedules ................................................................................................... admin.schedules.store › AdminController@storeSchedule
+  GET|HEAD        admin/schedules/create .......................................................................................... admin.schedules.create › AdminController@createSchedule
+  PUT             admin/schedules/{id} ............................................................................................ admin.schedules.update › AdminController@updateSchedule
+  DELETE          admin/schedules/{id} .......................................................................................... admin.schedules.destroy › AdminController@destroySchedule
+  GET|HEAD        admin/schedules/{id}/edit ........................................................................................... admin.schedules.edit › AdminController@editSchedule
+  GET|HEAD        admin/shop-categories ........................... filament.admin.resources.shop-categories.index › App\Filament\Resources\ShopCategoryResource\Pages\ManageShopCategories
+  GET|HEAD        admin/shop-orders ............................................ filament.admin.resources.shop-orders.index › App\Filament\Resources\ShopOrderResource\Pages\ListShopOrders
+  GET|HEAD        admin/shop-orders/create ................................... filament.admin.resources.shop-orders.create › App\Filament\Resources\ShopOrderResource\Pages\CreateShopOrder
+  GET|HEAD        admin/shop-orders/{record} ..................................... filament.admin.resources.shop-orders.view › App\Filament\Resources\ShopOrderResource\Pages\ViewShopOrder
+  GET|HEAD        admin/shop-orders/{record}/edit ................................ filament.admin.resources.shop-orders.edit › App\Filament\Resources\ShopOrderResource\Pages\EditShopOrder
+  GET|HEAD        admin/shop-products .................................... filament.admin.resources.shop-products.index › App\Filament\Resources\ShopProductResource\Pages\ListShopProducts
+  GET|HEAD        admin/shop-products/create ........................... filament.admin.resources.shop-products.create › App\Filament\Resources\ShopProductResource\Pages\CreateShopProduct
+  GET|HEAD        admin/shop-products/{record}/edit ........................ filament.admin.resources.shop-products.edit › App\Filament\Resources\ShopProductResource\Pages\EditShopProduct
+  GET|HEAD        admin/subforums ....................................................................................... admin.admin.subforums.index › Admin\ForumSubforumController@index
+  POST            admin/subforums ....................................................................................... admin.admin.subforums.store › Admin\ForumSubforumController@store
+  GET|HEAD        admin/subforums/create .............................................................................. admin.admin.subforums.create › Admin\ForumSubforumController@create
+  PUT|PATCH       admin/subforums/{subforum} .......................................................................... admin.admin.subforums.update › Admin\ForumSubforumController@update
+  DELETE          admin/subforums/{subforum} ........................................................................ admin.admin.subforums.destroy › Admin\ForumSubforumController@destroy
+  GET|HEAD        admin/subforums/{subforum}/edit ......................................................................... admin.admin.subforums.edit › Admin\ForumSubforumController@edit
+  GET|HEAD        admin/users .............................................................................................................. admin.users.index › AdminController@usersIndex
+  POST            admin/users ............................................................................................................... admin.users.store › AdminController@storeUser
+  GET|HEAD        admin/users/create ...................................................................................................... admin.users.create › AdminController@createUser
+  PUT             admin/users/{id} ........................................................................................................ admin.users.update › AdminController@updateUser
+  DELETE          admin/users/{id} ...................................................................................................... admin.users.destroy › AdminController@destroyUser
+  GET|HEAD        admin/users/{id}/edit ....................................................................................................... admin.users.edit › AdminController@editUser
+  GET|HEAD        admin/violations ............................................................................................... admin.violations.index › AdminController@violationsIndex
+  POST            admin/violations ................................................................................................ admin.violations.store › AdminController@storeViolation
+  GET|HEAD        admin/violations/create ....................................................................................... admin.violations.create › AdminController@createViolation
+  PUT             admin/violations/{id} ......................................................................................... admin.violations.update › AdminController@updateViolation
+  DELETE          admin/violations/{id} ....................................................................................... admin.violations.destroy › AdminController@destroyViolation
+  GET|HEAD        admin/violations/{id}/edit ........................................................................................ admin.violations.edit › AdminController@editViolation
+  GET|HEAD        ads ...................................................................................................................................... ads › HelpCenterController@ads
+  GET|HEAD        api/feed ............................................................................................................................. feed.api › ForumController@feedApi
+  ANY             api/sepay/webhook ................................................................................................. sepay.webhook › SePay\SePay › SePayController@webhook
+  GET|HEAD        api/stories ................................................................................................................... api.stories.index › StoryController@index
+  POST            api/stories ................................................................................................................... api.stories.store › StoryController@store
+  GET|HEAD        api/stories/{story} ............................................................................................................. api.stories.show › StoryController@show
+  DELETE          api/stories/{story} ....................................................................................................... api.stories.destroy › StoryController@destroy
+  POST            api/stories/{story}/react ..................................................................................................... api.stories.react › StoryController@react
+  DELETE          api/stories/{story}/react ..................................................................................... api.stories.react.remove › StoryController@removeReaction
+  POST            api/stories/{story}/view ................................................................................................ api.stories.view › StoryController@markAsViewed
+  GET|HEAD        api/youth-news ........................................................................................................ youth-news.api › YouthNewsController@youthNewsApi
+  GET|POST|HEAD   broadcasting/auth ............................................................................................ Illuminate\Broadcasting › BroadcastController@authenticate
+  GET|HEAD        chinh-sach/chinh-sach-bao-mat ............................................................................................................................ policy.privacy
+  GET|HEAD        chinh-sach/dieu-khoan-su-dung .............................................................................................................................. policy.terms
+  GET|HEAD        chinh-sach/noi-quy-dien-dan .......................................................................................................................... policy.forum-rules
+  GET|HEAD        clockwork ........................................................................................................... Clockwork\Support › ClockworkController@webRedirect
+  GET|HEAD        clockwork/app .......................................................................................................... Clockwork\Support › ClockworkController@webIndex
+  GET|HEAD        clockwork/{path} ....................................................................................................... Clockwork\Support › ClockworkController@webAsset
+  GET|HEAD        confirm-password ............................................................................................. password.confirm › Auth\ConfirmablePasswordController@show
+  POST            confirm-password ............................................................................................................... Auth\ConfirmablePasswordController@store
+  GET|HEAD        contact .......................................................................................................................... contact › HelpCenterController@contact
+  GET|HEAD        dashboard ..................................................................................................................................................... dashboard
+  GET|HEAD        docs/api ............................................................................................................................................... scramble.docs.ui
+  GET|HEAD        docs/api.json .................................................................................................................................... scramble.docs.document
+  POST            email/verification-notification .................................................................. verification.send › Auth\EmailVerificationNotificationController@store
+  GET|HEAD        feed ........................................................................................................................................ feed › ForumController@feed
+  GET|HEAD        filament/exports/{export}/download ........................................................................ filament.exports.download › Filament\Actions › DownloadExport
+  GET|HEAD        filament/imports/{import}/failed-rows/download ...................................... filament.imports.failed-rows.download › Filament\Actions › DownloadImportFailureCsv
+  GET|HEAD        forgot-password .............................................................................................. password.request › Auth\PasswordResetLinkController@create
+  POST            forgot-password ................................................................................................. password.email › Auth\PasswordResetLinkController@store
+  GET|HEAD        forum ............................................................................................................................... forum.index › ForumController@index
+  POST            forum/comments ............................................................................................................. comments.store › TopicsController@addComment
+  PUT             forum/comments/{comment} ............................................................................................... comments.update › TopicsController@updateComment
+  DELETE          forum/comments/{comment} ............................................................................................. comments.destroy › TopicsController@destroyComment
+  POST            forum/comments/{comment}/vote ............................................................................................ comments.vote › TopicsController@voteOnComment
+  PUT             forum/reply/{reply} .................................................................................................... forum.reply.update › ForumController@updateReply
+  DELETE          forum/reply/{reply} .................................................................................................. forum.reply.destroy › ForumController@destroyReply
+  GET|HEAD        forum/topic/create/{subforum} .......................................................................................... forum.topic.create › ForumController@createTopic
+  POST            forum/topic/store ........................................................................................................ forum.topic.store › ForumController@storeTopic
+  GET|HEAD        forum/topic/{topic} ........................................................................................................ forum.topic.show › ForumController@showTopic
+  PUT             forum/topic/{topic} .................................................................................................... forum.topic.update › ForumController@updateTopic
+  DELETE          forum/topic/{topic} .................................................................................................. forum.topic.destroy › ForumController@destroyTopic
+  GET|HEAD        forum/topic/{topic}/edit ................................................................................................... forum.topic.edit › ForumController@editTopic
+  POST            forum/topic/{topic}/reply ................................................................................................ forum.reply.store › ForumController@storeReply
+  POST            forum/topics/{topic}/view ................................................................................................... topics.view › TopicsController@registerView
+  POST            forum/topics/{topic}/vote ................................................................................................... topics.vote › TopicsController@registerVote
+  GET|HEAD        forum/{category} .............................................................................................................. forum.category › ForumController@category
+  GET|HEAD        forum/{category}/{subforum} ................................................................................................... forum.subforum › ForumController@subforum
+  GET|HEAD        help ............................................................................................................................ help.index › HelpCenterController@index
+  GET|HEAD        help/{category}/{article} ......................................................................................................... help.show › HelpCenterController@show
+  GET|HEAD        huong-dan/cach-su-dung-markdown .......................................................................................................................... guide.markdown
+  GET|HEAD        huong-dan/cach-tinh-diem-xep-hang-thanh-vien ............................................................................................................... guide.points
+  GET|HEAD        jobs ................................................................................................................................... jobs › HelpCenterController@jobs
+  GET|HEAD        livewire/livewire.js ........................................................................................ Livewire\Mechanisms › FrontendAssets@returnJavaScriptAsFile
+  GET|HEAD        livewire/livewire.min.js.map .................................................................................................. Livewire\Mechanisms › FrontendAssets@maps
+  GET|HEAD        livewire/preview-file/{filename} ............................................................... livewire.preview-file › Livewire\Features › FilePreviewController@handle
+  POST            livewire/update ............................................................................. default.livewire.update › Livewire\Mechanisms › HandleRequests@handleUpdate
+  POST            livewire/upload-file ............................................................................. livewire.upload-file › Livewire\Features › FileUploadController@handle
+  GET|HEAD        login ................................................................................................................ login › Auth\AuthenticatedSessionController@create
+  POST            login ......................................................................................................................... Auth\AuthenticatedSessionController@store
+  GET|HEAD        login/{provider} ......................................................................................... social.redirect › Auth\SocialAuthController@redirectToProvider
+  GET|HEAD        login/{provider}/callback ............................................................................ social.callback › Auth\SocialAuthController@handleProviderCallback
+  POST            logout ............................................................................................................. logout › Auth\AuthenticatedSessionController@destroy
+  PUT             password ............................................................................................................... password.update › Auth\PasswordController@update
+  GET|HEAD        preview-mail ............................................................................................................................................................ 
+  GET|HEAD        profile ........................................................................................................................... profile.edit › ProfileController@edit
+  PATCH           profile ....................................................................................................................... profile.update › ProfileController@update
+  DELETE          profile ..................................................................................................................... profile.destroy › ProfileController@destroy
+  GET|HEAD        recordings ................................................................................................................. recordings.index › RecordingController@index
+  POST            recordings ................................................................................................................. recordings.store › RecordingController@store
+  GET|HEAD        recordings/create ........................................................................................................ recordings.create › RecordingController@create
+  GET|HEAD        recordings/{recording} ....................................................................................................... recordings.show › RecordingController@show
+  DELETE          recordings/{recording} ................................................................................................. recordings.destroy › RecordingController@destroy
+  GET|HEAD        register ................................................................................................................ register › Auth\RegisteredUserController@create
+  POST            register ............................................................................................................................ Auth\RegisteredUserController@store
+  POST            reset-password ........................................................................................................ password.store › Auth\NewPasswordController@store
+  GET|HEAD        reset-password/{token} ............................................................................................... password.reset › Auth\NewPasswordController@create
+  GET|HEAD        sanctum/csrf-cookie ................................................................................... sanctum.csrf-cookie › Laravel\Sanctum › CsrfCookieController@show
+  GET|HEAD        saved .......................................................................................................................... saved.index › SavedPostsController@index
+  POST            saved .......................................................................................................................... saved.store › SavedPostsController@store
+  DELETE          saved/{savedPost} .......................................................................................................... saved.destroy › SavedPostsController@destroy
+  GET|HEAD        settings ...................................................................................................................... settings.index › SettingsController@index
+  POST            settings .................................................................................................................... settings.update › SettingsController@update
+  DELETE          settings/delete-account ...................................................................................... settings.delete-account › SettingsController@deleteAccount
+  POST            topics ............................................................................................................................ topics.store › TopicsController@store
+  GET|HEAD        unsubscribe/{account} ............................................................................. newsletter.unsubscribe › NewsletterSubscriptionController@unsubscribe
+  GET|HEAD        users/{username}/avatar .......................................................................................................... user.avatar › UserController@getAvatar
+  POST            users/{username}/follow ........................................................................................................... user.follow › FollowController@follow
+  DELETE          users/{username}/unfollow ..................................................................................................... user.unfollow › FollowController@unfollow
+  GET|HEAD        v1.0/activities ........................................................................................................................ ActivityController@getActivities
+  GET|HEAD        v1.0/activities/commented .......................................................................................................... ActivityController@getCommentedPosts
+  GET|HEAD        v1.0/activities/liked .................................................................................................................. ActivityController@getLikedPosts
+  GET|HEAD        v1.0/activities/posts ................................................................................................................ ActivityController@getCreatedPosts
+  GET|HEAD        v1.0/admin/withdrawal-requests/pending ............................................................................................ AdminController@getPendingWithdrawals
+  POST            v1.0/admin/withdrawal-requests/{id}/approve ........................................................................................... AdminController@approveWithdrawal
+  POST            v1.0/admin/withdrawal-requests/{id}/reject ............................................................................................. AdminController@rejectWithdrawal
+  GET|HEAD        v1.0/chat/conversations ................................................................................................................. ChatController@getConversations
+  POST            v1.0/chat/conversations ........................................................................................................ ChatController@createPrivateConversation
+  GET|HEAD        v1.0/chat/conversations/{conversationId}/mention-suggestions .......................................................................... ChatController@mentionSuggestions
+  GET|HEAD        v1.0/chat/conversations/{conversationId}/messages ............................................................................................ ChatController@getMessages
+  POST            v1.0/chat/conversations/{conversationId}/messages ............................................................................................ ChatController@sendMessage
+  POST            v1.0/chat/conversations/{conversationId}/read ................................................................................................. ChatController@markAsRead
+  POST            v1.0/chat/groups ................................................................................................................. ChatController@createGroupConversation
+  PUT             v1.0/chat/groups/{conversationId} ................................................................................................ ChatController@updateGroupConversation
+  POST            v1.0/chat/groups/{conversationId}/participants ...................................................................................... ChatController@addGroupParticipants
+  DELETE          v1.0/chat/groups/{conversationId}/participants/{userId} ........................................................................... ChatController@removeGroupParticipant
+  DELETE          v1.0/chat/messages/{messageId} ............................................................................................................. ChatController@deleteMessage
+  PUT             v1.0/chat/messages/{messageId} ............................................................................................................... ChatController@editMessage
+  POST            v1.0/chat/messages/{messageId}/reactions .................................................................................................. ChatController@reactToMessage
+  DELETE          v1.0/chat/messages/{messageId}/reactions ........................................................................................... ChatController@removeMessageReaction
+  POST            v1.0/chat/messages/{messageId}/recall ...................................................................................................... ChatController@recallMessage
+  GET|HEAD        v1.0/chat/public/messages .......................................................................................................... ChatController@getPublicChatMessages
+  POST            v1.0/chat/public/messages .............................................................................................................. ChatController@sendPublicMessage
+  GET|HEAD        v1.0/chat/public/participants .................................................................................................. ChatController@getPublicChatParticipants
+  GET|HEAD        v1.0/chat/search/users ................................................................................................................. ChatController@searchUserForChat
+  GET|HEAD        v1.0/comments/{commentId}/replies ........................................................................................................... TopicsController@getReplies
+  PUT             v1.0/comments/{id} ....................................................................................................................... TopicsController@updateComment
+  DELETE          v1.0/comments/{id} ...................................................................................................................... TopicsController@destroyComment
+  GET|HEAD        v1.0/comments/{id}/votes ............................................................................................................ TopicsController@getVotesForComment
+  POST            v1.0/comments/{id}/votes ................................................................................................................. TopicsController@voteOnComment
+  DELETE          v1.0/comments/{id}/votes ............................................................................................................ TopicsController@destroyCommentVote
+  POST            v1.0/email/resend-verification ............................................................................................................ VerificationController@resend
+  GET|HEAD        v1.0/email/verify/{verificationCode} ...................................................................................................... VerificationController@verify
+  GET|HEAD        v1.0/forum-data ......................................................................................................................................................... 
+  GET|HEAD        v1.0/forum/categories ..................................................................................................................... ForumController@getCategories
+  GET|HEAD        v1.0/forum/categories/{mainCategory}/subforums ............................................................................................. ForumController@getSubforums
+  GET|HEAD        v1.0/forum/subforums ................................................................................................................. ForumController@getSubforumsByRole
+  GET|HEAD        v1.0/forum/subforums/{subforum}/topics ................................................................................................. ForumController@getSubforumPosts
+  GET|HEAD        v1.0/home ......................................................................................................................................... ForumController@index
+  POST            v1.0/hooks/sepay-payment .......................................................................................................... SePay\SePay › SePayController@webhook
+  POST            v1.0/login ......................................................................................................................................... AuthController@login
+  POST            v1.0/login/oauth ....................................................................................................................... AuthController@loginWithProvider
+  POST            v1.0/logout ....................................................................................................................................... AuthController@logout
+  GET|HEAD        v1.0/mention-suggestions ............................................................................................................ TopicsController@mentionSuggestions
+  GET|HEAD        v1.0/notification-settings ................................................................................................... NotificationSettingsController@getSettings
+  PUT             v1.0/notification-settings ................................................................................................ NotificationSettingsController@updateSettings
+  GET|HEAD        v1.0/notifications ......................................................................................................................... NotificationController@index
+  POST            v1.0/notifications/expo/register ........................................................................................... NotificationController@registerExpoPushToken
+  GET|HEAD        v1.0/notifications/expo/tokens ................................................................................................. NotificationController@getExpoPushTokens
+  DELETE          v1.0/notifications/expo/unregister ....................................................................................... NotificationController@unregisterExpoPushToken
+  POST            v1.0/notifications/read-all ........................................................................................................ NotificationController@markAllAsRead
+  POST            v1.0/notifications/subscribe ........................................................................................................... NotificationController@subscribe
+  GET|HEAD        v1.0/notifications/subscriptions ................................................................................................ NotificationController@getSubscriptions
+  GET|HEAD        v1.0/notifications/unread-count ................................................................................................... NotificationController@getUnreadCount
+  DELETE          v1.0/notifications/unsubscribe ....................................................................................................... NotificationController@unsubscribe
+  GET|HEAD        v1.0/notifications/vapid-public-key ............................................................................................ NotificationController@getVapidPublicKey
+  DELETE          v1.0/notifications/{id} .................................................................................................................. NotificationController@destroy
+  POST            v1.0/notifications/{id}/read .......................................................................................................... NotificationController@markAsRead
+  GET|HEAD        v1.0/oauth/callback ........................................................................................................................ AuthController@oauthCallback
+  POST            v1.0/oauth/exchange .................................................................................................................... AuthController@exchangeOAuthCode
+  POST            v1.0/online-status ................................................................................................................ ActivityController@updateLastActivity
+  GET|HEAD        v1.0/online-users/max ................................................................................................................. OnlineUserController@getMaxOnline
+  GET|HEAD        v1.0/online-users/stats ................................................................................................................... OnlineUserController@getStats
+  POST            v1.0/online-users/track ...................................................................................................................... OnlineUserController@track
+  POST            v1.0/password/change ............................................................................................................. PasswordResetController@changePassword
+  POST            v1.0/password/email ......................................................................................................... ForgotPasswordController@sendResetLinkEmail
+  POST            v1.0/password/reset ...................................................................................................... ForgotPasswordController@sendResetLinkResponse
+  POST            v1.0/password/reset/verify ............................................................................................................... ForgotPasswordController@reset
+  GET|HEAD        v1.0/post-url ................................................................................................................................ ForumController@getPostUrl
+  PUT             v1.0/ratings/{id} .................................................................................................................. StudyMaterialRatingController@update
+  DELETE          v1.0/ratings/{id} ................................................................................................................. StudyMaterialRatingController@destroy
+  GET|HEAD        v1.0/recordings ............................................................................................................................... RecordingController@index
+  POST            v1.0/register ................................................................................................................................... AuthController@register
+  POST            v1.0/reports ................................................................................................................................. UserReportController@store
+  GET|HEAD        v1.0/reports ................................................................................................................................. UserReportController@index
+  GET|HEAD        v1.0/reports/stats ........................................................................................................................ UserReportController@getStats
+  POST            v1.0/reports/{report}/review ................................................................................................................ UserReportController@review
+  GET|HEAD        v1.0/search ..................................................................................................................................... SearchController@search
+  GET|HEAD        v1.0/shop/categories .......................................................................................................................... ShopController@categories
+  GET|HEAD        v1.0/shop/my-orders ............................................................................................................................. ShopController@myOrders
+  POST            v1.0/shop/orders .............................................................................................................................. ShopController@storeOrder
+  GET|HEAD        v1.0/shop/products ................................................................................................................................. ShopController@index
+  GET|HEAD        v1.0/shop/products/{id} ............................................................................................................................. ShopController@show
+  GET|HEAD        v1.0/stories ...................................................................................................................................... StoryController@index
+  POST            v1.0/stories ...................................................................................................................................... StoryController@store
+  GET|HEAD        v1.0/stories/archive ......................................................................................................................... StoryController@getArchive
+  GET|HEAD        v1.0/stories/{story} ............................................................................................................................... StoryController@show
+  DELETE          v1.0/stories/{story} ............................................................................................................................ StoryController@destroy
+  POST            v1.0/stories/{story}/react ........................................................................................................................ StoryController@react
+  DELETE          v1.0/stories/{story}/react ............................................................................................................... StoryController@removeReaction
+  POST            v1.0/stories/{story}/reply ........................................................................................................................ StoryController@reply
+  POST            v1.0/stories/{story}/view .................................................................................................................. StoryController@markAsViewed
+  GET|HEAD        v1.0/stories/{story}/viewers ................................................................................................................. StoryController@getViewers
+  GET|HEAD        v1.0/study-material-categories .................................................................................................... StudyMaterialCategoryController@index
+  POST            v1.0/study-material-categories .................................................................................................... StudyMaterialCategoryController@store
+  GET|HEAD        v1.0/study-material-categories/{id} ................................................................................................ StudyMaterialCategoryController@show
+  PUT             v1.0/study-material-categories/{id} .............................................................................................. StudyMaterialCategoryController@update
+  DELETE          v1.0/study-material-categories/{id} ............................................................................................. StudyMaterialCategoryController@destroy
+  GET|HEAD        v1.0/study-materials ...................................................................................................................... StudyMaterialController@index
+  POST            v1.0/study-materials ...................................................................................................................... StudyMaterialController@store
+  GET|HEAD        v1.0/study-materials/documents/view ................................................................................................ StudyMaterialController@viewDocument
+  GET|HEAD        v1.0/study-materials/{id} .................................................................................................................. StudyMaterialController@show
+  PUT             v1.0/study-materials/{id} ................................................................................................................ StudyMaterialController@update
+  DELETE          v1.0/study-materials/{id} ............................................................................................................... StudyMaterialController@destroy
+  GET|HEAD        v1.0/study-materials/{id}/download ..................................................................................................... StudyMaterialController@download
+  GET|HEAD        v1.0/study-materials/{id}/preview .................................................................................................... StudyMaterialController@getPreview
+  POST            v1.0/study-materials/{id}/purchase ..................................................................................................... StudyMaterialController@purchase
+  GET|HEAD        v1.0/study-materials/{id}/ratings .............................................................................................. StudyMaterialRatingController@getRatings
+  POST            v1.0/study-materials/{id}/ratings ................................................................................................... StudyMaterialRatingController@store
+  POST            v1.0/study-materials/{id}/view ............................................................................................................. StudyMaterialController@view
+  GET|HEAD        v1.0/topics ...................................................................................................................................... TopicsController@index
+  POST            v1.0/topics ...................................................................................................................................... TopicsController@store
+  GET|HEAD        v1.0/topics/feed .................................................................................................................................. TopicsController@feed
+  GET|HEAD        v1.0/topics/pinned ...................................................................................................................... ForumController@getPinnedTopics
+  GET|HEAD        v1.0/topics/sitemap ................................................................................................................... TopicsController@getSitemapTopics
+  GET|HEAD        v1.0/topics/{id} .................................................................................................................................. TopicsController@show
+  DELETE          v1.0/topics/{id} .......................................................................................................................... TopicsController@destroyTopic
+  PUT             v1.0/topics/{id} ................................................................................................................................ TopicsController@update
+  GET|HEAD        v1.0/topics/{id}/comments .................................................................................................................. TopicsController@getComments
+  POST            v1.0/topics/{id}/comments ................................................................................................................... TopicsController@addComment
+  GET|HEAD        v1.0/topics/{id}/views ........................................................................................................................ TopicsController@getViews
+  POST            v1.0/topics/{id}/views .................................................................................................................... TopicsController@registerView
+  GET|HEAD        v1.0/topics/{id}/votes ........................................................................................................................ TopicsController@getVotes
+  POST            v1.0/topics/{id}/votes .................................................................................................................... TopicsController@registerVote
+  DELETE          v1.0/topics/{id}/votes ................................................................................................................ TopicsController@destroyTopicVote
+  POST            v1.0/upload ................................................................................................................................. FileUploadController@upload
+  GET|HEAD        v1.0/user ............................................................................................................................................................... 
+  GET|HEAD        v1.0/user-content/{id} ........................................................................................................................ FileUploadController@show
+  DELETE          v1.0/user-content/{id} ..................................................................................................................... FileUploadController@destroy
+  GET|HEAD        v1.0/user/current-points ................................................................................................................ UserController@getCurrentPoints
+  POST            v1.0/user/delete-account ................................................................................................................... UserController@deleteAccount
+  GET|HEAD        v1.0/user/saved-topics .................................................................................................................. TopicsController@getSavedTopics
+  POST            v1.0/user/saved-topics ................................................................................................................ TopicsController@saveTopicForUser
+  DELETE          v1.0/user/saved-topics/{id} .......................................................................................................... TopicsController@destroySavedTopic
+  POST            v1.0/users/block .............................................................................................................................. UserBlockController@store
+  GET|HEAD        v1.0/users/blocked ............................................................................................................................ UserBlockController@index
+  GET|HEAD        v1.0/users/ranking ......................................................................................................................... PointsController@getTopUsers
+  GET|HEAD        v1.0/users/top-active ................................................................................................................. UserController@getTop8ActiveUsers
+  POST            v1.0/users/unblock .......................................................................................................................... UserBlockController@destroy
+  GET|HEAD        v1.0/users/{username}/avatar ................................................................................................................... UserController@getAvatar
+  POST            v1.0/users/{username}/avatar ................................................................................................................ UserController@updateAvatar
+  GET|HEAD        v1.0/users/{username}/cover ................................................................................................................ UserController@getCoverPhoto
+  POST            v1.0/users/{username}/cover ............................................................................................................. UserController@updateCoverPhoto
+  POST            v1.0/users/{username}/follow .................................................................................................................... FollowController@follow
+  GET|HEAD        v1.0/users/{username}/online-status ...................................................................................................... UserController@getOnlineStatus
+  GET|HEAD        v1.0/users/{username}/profile ................................................................................................................. UserController@getProfile
+  PUT             v1.0/users/{username}/profile .............................................................................................................. UserController@updateProfile
+  GET|HEAD        v1.0/users/{username}/study-materials .......................................................................................... StudyMaterialController@getUserMaterials
+  DELETE          v1.0/users/{username}/unfollow ................................................................................................................ FollowController@unfollow
+  GET|HEAD        v1.0/wallet/balance ......................................................................................................................... WalletController@getBalance
+  POST            v1.0/wallet/deposit-request ....................................................................................................... WalletController@createDepositRequest
+  GET|HEAD        v1.0/wallet/transactions ............................................................................................................... WalletController@getTransactions
+  GET|HEAD        v1.0/wallet/withdrawal-history .................................................................................................... WalletController@getWithdrawalHistory
+  POST            v1.0/wallet/withdrawal-request ....................................................................................................... WalletController@requestWithdrawal
+  GET|HEAD        v1.0/wallet/withdrawal-requests .................................................................................................. WalletController@getWithdrawalRequests
+  POST            v1.0/wallet/withdrawal-requests/{id}/cancel .................................................................................... WalletController@cancelWithdrawalRequest
+  POST            v1.0/webhooks/sepay ................................................................................................................ SEPayWebhookController@handleWebhook
+  GET|HEAD        v1.0/youth-news ............................................................................................................................... YouthNewsController@index
+  GET|HEAD        verify-email ............................................................................................... verification.notice › Auth\EmailVerificationPromptController
+  GET|HEAD        verify-email/{id}/{hash} ............................................................................................... verification.verify › Auth\VerifyEmailController
+  GET|HEAD        view-tracking-test ................................................................................................................................... view-tracking.test
+  GET|POST|HEAD   webhook/facebook ................................................................................................................ FacebookWebhookController@handleWebhook
+  GET|HEAD        youth-news ................................................................................................................. youth-news.index › YouthNewsController@index
+  GET|HEAD        {fallbackPlaceholder} ................................................................................................................................................... 
+  GET|HEAD        {username} ........................................................................................................................ profile.show › ProfileController@show
+  GET|HEAD        {username}/posts/{id} ................................................................................................................. posts.show › ForumController@show
+  GET|HEAD        {username}/{tab} ....................................................................................................... profile.show.tab › ProfileController@showWithTab
