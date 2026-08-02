@@ -15,7 +15,7 @@ Hãy nhớ kỹ những mốc thời gian quan trọng này nhé:
 
 - **Thời gian:** {{ $date }}
 - **Hình thức:** {{ $format }}
-- **Khung giờ phỏng vấn:** {{ $meetingLink ?? 'Google Meet' }}
+- **Link phỏng vấn:** @if($meetingLink) [{{ $meetingLink }}]({{ $meetingLink }}) @else Sẽ cập nhật sau @endif
 
 > Lưu ý: Bạn vui lòng điền lịch cho vòng Phỏng vấn trước **{{ $deadline }}**. Trong trường hợp bạn vào muộn quá 15 phút hoặc không tham gia Vòng phỏng vấn, chúng mình sẽ loại bạn khỏi danh sách ứng viên.
 
