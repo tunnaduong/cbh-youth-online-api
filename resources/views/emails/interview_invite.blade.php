@@ -17,7 +17,7 @@ Hãy nhớ kỹ những mốc thời gian quan trọng này nhé:
 - **Hình thức:** {{ $format }}
 - **Link phỏng vấn:** [{{ $meetingLink }}]({{ $meetingLink }})
 
-> **Lưu ý:** Bạn vui lòng điền lịch cho vòng Phỏng vấn tại: [https://tinyurl.com/2akhl9vv](https://tinyurl.com/2akhl9vv) trước **{{ $deadline }}**. Trong trường hợp bạn vào muộn quá 15 phút hoặc không tham gia Vòng phỏng vấn, chúng mình sẽ loại bạn khỏi danh sách ứng viên.
+> **Lưu ý:** Bạn vui lòng điền lịch cho vòng Phỏng vấn tại: [https://tunn.ad/LichPhongVan-CYO-Gen1.0](https://tunn.ad/LichPhongVan-CYO-Gen1.0) trước **{{ $deadline }}**. Trong trường hợp bạn vào muộn quá 15 phút hoặc không tham gia Vòng phỏng vấn, chúng mình sẽ loại bạn khỏi danh sách ứng viên.
 
 Chúng mình mong bạn có thể tham gia đúng giờ và chuẩn bị tai nghe/thiết bị có kết nối mạng ổn định để buổi phỏng vấn diễn ra suôn sẻ nhé.
 
