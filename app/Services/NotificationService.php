@@ -557,18 +557,30 @@ class NotificationService
       return [];
     }
 
-    $query = \App\Models\AuthAccount::whereIn('username', $usernames)
-      ->with('profile')
-      ->select('id', 'username');
+    $result = [];
 
-    if ($allowedUserIds !== null) {
-      $query->whereIn('id', $allowedUserIds);
+    // Handle @all as a special reserved mention
+    if (in_array('all', $usernames)) {
+      $result[] = ['username' => 'all', 'user_id' => null];
     }
 
-    return $query->get()->map(fn($u) => [
-      'username' => $u->username,
-      'user_id'  => $u->id,
-    ])->values()->all();
+    $regularUsernames = array_filter($usernames, fn($u) => $u !== 'all');
+
+    if (!empty($regularUsernames)) {
+      $query = \App\Models\AuthAccount::whereIn('username', $regularUsernames)
+        ->with('profile')
+        ->select('id', 'username');
+
+      if ($allowedUserIds !== null) {
+        $query->whereIn('id', $allowedUserIds);
+      }
+
+      foreach ($query->get() as $u) {
+        $result[] = ['username' => $u->username, 'user_id' => $u->id];
+      }
+    }
+
+    return $result;
   }
 
   /**

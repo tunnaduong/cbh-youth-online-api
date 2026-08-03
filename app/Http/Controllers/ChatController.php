@@ -195,8 +195,13 @@ class ChatController extends Controller
     }
     $allMentionedUsernames = array_unique($allMentionedUsernames);
     $resolvedUsers = [];
-    if (!empty($allMentionedUsernames)) {
-      $q = \App\Models\AuthAccount::whereIn('username', $allMentionedUsernames)->select('id', 'username');
+    // @all is a reserved virtual mention — always resolve it
+    if (in_array('all', $allMentionedUsernames)) {
+      $resolvedUsers['all'] = ['username' => 'all', 'user_id' => null];
+    }
+    $regularMentionedUsernames = array_filter($allMentionedUsernames, fn($u) => $u !== 'all');
+    if (!empty($regularMentionedUsernames)) {
+      $q = \App\Models\AuthAccount::whereIn('username', $regularMentionedUsernames)->select('id', 'username');
       if ($participantIds !== null) {
         $q->whereIn('id', $participantIds);
       }
@@ -497,8 +502,21 @@ class ChatController extends Controller
     if ($message->content) {
       $convParticipantIds = $conversation->participants()->pluck('cyo_auth_accounts.id')->toArray();
       $resolvedMentions = NotificationService::resolveMentions($message->content, $convParticipantIds);
+      $hasAllMention = false;
       foreach ($resolvedMentions as $m) {
+        if ($m['user_id'] === null) {
+          $hasAllMention = true;
+          continue;
+        }
         NotificationService::createMentionedInMessageNotification($m['user_id'], $message, $user->id);
+      }
+      // @all — notify every participant except the sender
+      if ($hasAllMention) {
+        foreach ($convParticipantIds as $pid) {
+          if ($pid !== $user->id) {
+            NotificationService::createMentionedInMessageNotification($pid, $message, $user->id);
+          }
+        }
       }
     }
 
@@ -1088,7 +1106,17 @@ class ChatController extends Controller
         'username' => $u->username,
         'profile_name' => $u->profile->profile_name ?? $u->username,
         'avatar_url' => config('app.url') . "/v1.0/users/{$u->username}/avatar",
+      ])->values()->all();
+
+    // Prepend @all if query matches (query is a prefix/substring of "all")
+    if (str_contains('all', strtolower($query))) {
+      array_unshift($users, [
+        'id' => null,
+        'username' => 'all',
+        'profile_name' => 'Mention everyone',
+        'avatar_url' => null,
       ]);
+    }
 
     return response()->json(['suggestions' => $users]);
   }
@@ -1192,8 +1220,12 @@ class ChatController extends Controller
     }
     $publicMentionUsernames = array_unique($publicMentionUsernames);
     $resolvedPublicUsers = [];
-    if (!empty($publicMentionUsernames)) {
-      foreach (AuthAccount::whereIn('username', $publicMentionUsernames)->select('id', 'username')->get() as $u) {
+    if (in_array('all', $publicMentionUsernames)) {
+      $resolvedPublicUsers['all'] = ['username' => 'all', 'user_id' => null];
+    }
+    $regularPublicMentions = array_filter($publicMentionUsernames, fn($u) => $u !== 'all');
+    if (!empty($regularPublicMentions)) {
+      foreach (AuthAccount::whereIn('username', $regularPublicMentions)->select('id', 'username')->get() as $u) {
         $resolvedPublicUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
       }
     }
@@ -1447,6 +1479,9 @@ class ChatController extends Controller
       // Public chat: any valid user can be mentioned (no participant restriction)
       $resolvedPublicMentions = NotificationService::resolveMentions($message->content);
       foreach ($resolvedPublicMentions as $m) {
+        if ($m['user_id'] === null) {
+          continue; // @all in public chat — skip individual notifications
+        }
         NotificationService::createMentionedInMessageNotification($m['user_id'], $message, $user->id);
       }
     }
