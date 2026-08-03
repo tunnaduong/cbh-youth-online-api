@@ -510,8 +510,8 @@ class ChatController extends Controller
         }
         NotificationService::createMentionedInMessageNotification($m['user_id'], $message, $user->id);
       }
-      // @all — notify every participant except the sender
-      if ($hasAllMention) {
+      // @all — notify every participant except the sender (group chats only)
+      if ($hasAllMention && $conversation->type !== 'private') {
         foreach ($convParticipantIds as $pid) {
           if ($pid !== $user->id) {
             NotificationService::createMentionedInMessageNotification($pid, $message, $user->id);
@@ -1108,13 +1108,13 @@ class ChatController extends Controller
         'avatar_url' => config('app.url') . "/v1.0/users/{$u->username}/avatar",
       ])->values()->all();
 
-    // Prepend @all if query matches (query is a prefix/substring of "all")
-    if (str_contains('all', strtolower($query))) {
+    // Prepend @all only in group/public chats, not in 1-on-1 private conversations
+    if ($conversation->type !== 'private' && str_contains('all', strtolower($query))) {
       array_unshift($users, [
         'id' => null,
         'username' => 'all',
         'profile_name' => 'Mention everyone',
-        'avatar_url' => null,
+        'avatar_url' => config('app.url') . '/images/megaphone.avif',
       ]);
     }
 
