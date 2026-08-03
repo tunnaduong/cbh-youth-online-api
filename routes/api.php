@@ -314,6 +314,7 @@ Route::prefix('v1.0')->group(function () {
       Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
       Route::post('groups/{conversationId}/leave', [ChatController::class, 'leaveGroupConversation']);
       Route::get('search/users', [ChatController::class, 'searchUserForChat']);
+      Route::get('search/user-suggestions', [ChatController::class, 'searchUserSuggestions']);
       Route::get('conversations/{conversationId}/mention-suggestions', [ChatController::class, 'mentionSuggestions']);
     });
 

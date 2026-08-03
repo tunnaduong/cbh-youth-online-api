@@ -1529,6 +1529,55 @@ class ChatController extends Controller
   }
 
   /**
+   * Suggest users by partial username or display name match — used for pickers like
+   * "create group" / "add participants", as opposed to mentionSuggestions() which only
+   * searches within an existing conversation's participants.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function searchUserSuggestions(Request $request)
+  {
+    $request->validate([
+      'q' => 'required|string|min:1|max:50',
+      'exclude_conversation_id' => 'nullable|integer|exists:cyo_conversations,id',
+    ]);
+
+    $user = Auth::user();
+    $query = $request->input('q');
+
+    // Never suggest yourself, anyone already in the target conversation (if given),
+    // or anyone with a mutual block against the current user.
+    $excludeIds = array_merge(
+      [$user->id],
+      UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray(),
+      UserBlock::where('blocked_user_id', $user->id)->pluck('user_id')->toArray()
+    );
+
+    if ($request->exclude_conversation_id) {
+      $conversation = Conversation::find($request->exclude_conversation_id);
+      if ($conversation) {
+        $excludeIds = array_merge($excludeIds, $conversation->participants()->pluck('cyo_auth_accounts.id')->toArray());
+      }
+    }
+
+    $users = AuthAccount::whereNotIn('id', array_unique($excludeIds))
+      ->where(function ($q) use ($query) {
+        $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
+          ->orWhereHas('profile', function ($q2) use ($query) {
+            $q2->whereRaw('LOWER(profile_name) LIKE ?', ['%' . strtolower($query) . '%']);
+          });
+      })
+      ->with('profile')
+      ->limit(10)
+      ->get()
+      ->map(fn($u) => $this->formatParticipant($u))
+      ->values();
+
+    return response()->json(['suggestions' => $users]);
+  }
+
+  /**
    * Get messages from the public chat room.
    *
    * @param  \Illuminate\Http\Request  $request
