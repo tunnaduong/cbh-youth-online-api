@@ -1505,6 +1505,7 @@ class ChatController extends Controller
       $conversation,
       sprintf('%s đã gỡ %s khỏi vai trò phó nhóm', $this->displayName($user), $this->displayName($target))
     );
+    NotificationService::createGroupRoleChangedNotification($userId, $conversation, $user->id, 'member');
 
     return response()->json(['message' => 'Đã gỡ phó nhóm thành công.']);
   }

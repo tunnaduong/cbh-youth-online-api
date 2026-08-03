@@ -232,9 +232,11 @@ class PushNotificationService
       'message_replied' => "{$actorName} đã trả lời tin nhắn của bạn",
       'added_to_group' => "{$actorName} đã thêm bạn vào nhóm " . ($notification->data['conversation_name'] ?? ''),
       'removed_from_group' => "{$actorName} đã xóa bạn khỏi nhóm " . ($notification->data['conversation_name'] ?? ''),
-      'group_role_changed' => ($notification->data['role'] ?? '') === 'owner'
-        ? "{$actorName} đã chuyển quyền trưởng nhóm " . ($notification->data['conversation_name'] ?? '') . ' cho bạn'
-        : "{$actorName} đã chỉ định bạn làm phó nhóm " . ($notification->data['conversation_name'] ?? ''),
+      'group_role_changed' => match ($notification->data['role'] ?? '') {
+        'owner' => "{$actorName} đã chuyển quyền trưởng nhóm " . ($notification->data['conversation_name'] ?? '') . ' cho bạn',
+        'member' => "{$actorName} đã gỡ vai trò phó nhóm của bạn trong nhóm " . ($notification->data['conversation_name'] ?? ''),
+        default => "{$actorName} đã chỉ định bạn làm phó nhóm " . ($notification->data['conversation_name'] ?? ''),
+      },
       'topic_pinned' => 'Bài viết của bạn đã được ghim',
       'topic_moved' => 'Bài viết của bạn đã được chuyển',
       'topic_closed' => 'Bài viết của bạn đã bị đóng',
