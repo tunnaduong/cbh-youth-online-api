@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\AuthAccount;
 use App\Models\UserProfile;
+use App\Services\MentionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
@@ -96,8 +97,11 @@ class SettingsController extends Controller
 
     // Update username if changed
     if ($user->username !== $validated['username']) {
+      $oldUsername = $user->username;
       $user->username = $validated['username'];
       $user->save();
+
+      MentionService::renameMentions($oldUsername, $validated['username']);
     }
 
     return redirect()->back()->with('success', 'Hồ sơ đã được cập nhật thành công!');

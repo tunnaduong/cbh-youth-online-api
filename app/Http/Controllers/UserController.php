@@ -8,6 +8,7 @@ use App\Models\Follower;
 use App\Models\TopicComment;
 use App\Models\UserContent;
 use App\Models\UserSavedTopic;
+use App\Services\MentionService;
 use App\Notifications\VerifyEmail;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -511,6 +512,7 @@ class UserController extends Controller
       }
 
       // Update username and set last_username_change timestamp
+      $oldUsername = $user->username;
       $user->username = $validatedData['username'];
       $user->save();
 
@@ -518,6 +520,9 @@ class UserController extends Controller
       $profile->profile_username = $validatedData['username'];
       $profile->last_username_change = now();
       $profile->save();
+
+      // Keep existing @mentions of this user valid across posts, comments, and messages
+      MentionService::renameMentions($oldUsername, $validatedData['username']);
 
       // Remove from validatedData so we don't try to update it in profile
       unset($validatedData['username']);
