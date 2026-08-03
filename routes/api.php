@@ -124,6 +124,10 @@ Route::prefix('v1.0')->group(function () {
     Route::get('participants', [ChatController::class, 'getPublicChatParticipants']);
   });
 
+  // Group invite link preview (accessible to everyone — the web landing page needs
+  // this before the visitor necessarily logs in; joining still requires auth below).
+  Route::middleware('optional.auth')->get('chat/groups/invite/{token}', [ChatController::class, 'getGroupInvitePreview']);
+
   // Online Users (Public)
   Route::get('/online-users/stats', [OnlineUserController::class, 'getStats']);
   Route::get('/online-users/max', [OnlineUserController::class, 'getMaxOnline']);
@@ -310,9 +314,17 @@ Route::prefix('v1.0')->group(function () {
       Route::post('groups', [ChatController::class, 'createGroupConversation']);
       Route::get('groups/{conversationId}', [ChatController::class, 'getGroupDetails']);
       Route::put('groups/{conversationId}', [ChatController::class, 'updateGroupConversation']);
+      Route::delete('groups/{conversationId}', [ChatController::class, 'deleteGroupConversation']);
+      Route::post('groups/{conversationId}/avatar', [ChatController::class, 'updateGroupAvatar']);
       Route::post('groups/{conversationId}/participants', [ChatController::class, 'addGroupParticipants']);
       Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
       Route::post('groups/{conversationId}/leave', [ChatController::class, 'leaveGroupConversation']);
+      Route::post('groups/{conversationId}/deputies', [ChatController::class, 'addGroupDeputy']);
+      Route::delete('groups/{conversationId}/deputies/{userId}', [ChatController::class, 'removeGroupDeputy']);
+      Route::post('groups/{conversationId}/transfer-ownership', [ChatController::class, 'transferGroupOwnership']);
+      Route::get('groups/{conversationId}/invite-link', [ChatController::class, 'getGroupInviteLink']);
+      Route::post('groups/{conversationId}/invite-link/regenerate', [ChatController::class, 'regenerateGroupInviteLink']);
+      Route::post('groups/invite/{token}/join', [ChatController::class, 'joinGroupViaInvite']);
       Route::get('search/users', [ChatController::class, 'searchUserForChat']);
       Route::get('search/user-suggestions', [ChatController::class, 'searchUserSuggestions']);
       Route::get('conversations/{conversationId}/mention-suggestions', [ChatController::class, 'mentionSuggestions']);

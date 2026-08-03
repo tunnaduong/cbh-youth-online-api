@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property string|null $name The name of the conversation, used for group chats.
  * @property int|null $created_by The user who created the group (null for private/legacy conversations).
  * @property bool $is_public True only for the single, app-wide public chat ("Tán gẫu linh tinh").
+ * @property string|null $avatar_url Group avatar storage path (groups only).
+ * @property string|null $invite_token Active invite-link token for this group, if any.
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Message[] $messages
@@ -40,6 +42,8 @@ class Conversation extends Model
         'name',
         'created_by',
         'is_public',
+        'avatar_url',
+        'invite_token',
     ];
 
     /**
@@ -117,6 +121,32 @@ class Conversation extends Model
         $participant = $this->participants()->where('user_id', $userId)->first();
 
         return $participant && $participant->pivot->role === 'owner';
+    }
+
+    /**
+     * Check if a user is a deputy (phó nhóm) of this group conversation.
+     *
+     * @param  int  $userId
+     * @return bool
+     */
+    public function isDeputy($userId): bool
+    {
+        $participant = $this->participants()->where('user_id', $userId)->first();
+
+        return $participant && $participant->pivot->role === 'deputy';
+    }
+
+    /**
+     * Check if a user can manage this group (owner or deputy) — i.e. kick members,
+     * assign/unassign deputies. Renaming/changing the avatar/adding members is open
+     * to every participant, so those don't use this check.
+     *
+     * @param  int  $userId
+     * @return bool
+     */
+    public function isManager($userId): bool
+    {
+        return $this->isOwner($userId) || $this->isDeputy($userId);
     }
 
     /**

@@ -429,6 +429,41 @@ class NotificationService
   }
 
   /**
+   * Create a notification for a user being promoted/transferred to a group leadership
+   * role (deputy or owner).
+   *
+   * @param int $userId The user whose role changed
+   * @param \App\Models\Conversation $conversation
+   * @param int $actorId User who made the change
+   * @param string $role 'deputy' or 'owner'
+   * @return Notification|null
+   */
+  public static function createGroupRoleChangedNotification(int $userId, \App\Models\Conversation $conversation, int $actorId, string $role): ?Notification
+  {
+    if ($userId === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($userId, 'group_role_changed')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $userId,
+      'actor_id' => $actorId,
+      'type' => 'group_role_changed',
+      'notifiable_type' => \App\Models\Conversation::class,
+      'notifiable_id' => $conversation->id,
+      'data' => [
+        'conversation_id' => $conversation->id,
+        'conversation_name' => $conversation->name,
+        'role' => $role,
+        'url' => '/chat?conversation=' . $conversation->id,
+      ],
+    ]);
+  }
+
+  /**
    * Create a notification for a topic being pinned.
    *
    * @param Topic $topic

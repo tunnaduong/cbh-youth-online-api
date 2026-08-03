@@ -68,6 +68,9 @@ class ChatController extends Controller
           'id' => $conversation->id,
           'type' => $conversation->type,
           'name' => $conversation->type === 'group' ? $conversation->name : null,
+          'avatar_url' => $conversation->type === 'group' && $conversation->avatar_url
+            ? Storage::url($conversation->avatar_url)
+            : null,
           'participants' => $otherParticipants->map(function ($participant) {
             return [
               'id' => $participant->id,
@@ -118,6 +121,7 @@ class ChatController extends Controller
           'id' => $publicChat->id,
           'type' => $publicChat->type,
           'name' => $publicChat->name,
+          'avatar_url' => null,
           'participants' => $allParticipants,
           'latest_message' => $publicChat->latestMessage ? [
             'content' => $publicChat->latestMessage->content,
@@ -1119,13 +1123,16 @@ class ChatController extends Controller
       'id' => $conversation->id,
       'name' => $conversation->name,
       'type' => 'group',
+      'avatar_url' => null,
       'created_by' => $conversation->created_by,
       'participants' => $conversation->participants->map(fn($p) => $this->formatParticipant($p, true)),
     ], 201);
   }
 
   /**
-   * Update group conversation details. Only the group owner may rename the group.
+   * Update group conversation details. Any participant may rename the group — renaming
+   * and changing the avatar are open to everyone; only kicking members, assigning
+   * deputies, and deleting the group are restricted to owner/deputy.
    *
    * @param  \Illuminate\Http\Request  $request
    * @param  int  $conversationId
@@ -1148,10 +1155,6 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    if (!$conversation->isOwner($user->id)) {
-      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể đổi tên nhóm.'], 403);
-    }
-
     $oldName = $conversation->name;
     $conversation->update([
       'name' => $request->name
@@ -1165,6 +1168,43 @@ class ChatController extends Controller
       'id' => $conversation->id,
       'name' => $conversation->name
     ]);
+  }
+
+  /**
+   * Update a group conversation's avatar. Open to any participant, same as renaming.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function updateGroupAvatar(Request $request, $conversationId)
+  {
+    $request->validate([
+      'avatar' => 'required|image|max:5120',
+    ]);
+
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->hasParticipant($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $oldAvatarPath = $conversation->avatar_url;
+    $path = $request->file('avatar')->store('group_avatars', 'public');
+    $conversation->update(['avatar_url' => $path]);
+
+    if ($oldAvatarPath) {
+      Storage::disk('public')->delete($oldAvatarPath);
+    }
+
+    $this->createSystemMessage($conversation, sprintf('%s đã đổi ảnh đại diện nhóm', $this->displayName($user)));
+
+    return response()->json(['avatar_url' => Storage::url($path)]);
   }
 
   /**
@@ -1192,9 +1232,12 @@ class ChatController extends Controller
       'id' => $conversation->id,
       'name' => $conversation->name,
       'type' => $conversation->type,
+      'avatar_url' => $conversation->avatar_url ? Storage::url($conversation->avatar_url) : null,
       'created_by' => $conversation->created_by,
       'created_at' => $conversation->created_at?->toISOString(),
       'is_owner' => $conversation->isOwner($user->id),
+      'is_deputy' => $conversation->isDeputy($user->id),
+      'can_manage' => $conversation->isManager($user->id),
       'participants' => $conversation->participants->map(fn($p) => $this->formatParticipant($p, true)),
     ]);
   }
@@ -1253,8 +1296,10 @@ class ChatController extends Controller
   }
 
   /**
-   * Remove a participant from a group conversation. Only the group owner may remove
-   * someone else; any participant may remove themselves (i.e. leave the group).
+   * Remove a participant from a group conversation. The owner or a deputy may remove
+   * a regular member; only the owner may remove a deputy; the owner can never be
+   * removed this way (they must leave, transfer ownership, or delete the group).
+   * Any participant may always remove themselves (i.e. leave the group).
    *
    * @param  int  $conversationId
    * @param  int  $userId
@@ -1275,8 +1320,16 @@ class ChatController extends Controller
 
     $isSelfLeave = (int) $userId === (int) $user->id;
 
-    if (!$isSelfLeave && !$conversation->isOwner($user->id)) {
-      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể xóa thành viên khác khỏi nhóm.'], 403);
+    if (!$isSelfLeave) {
+      if (!$conversation->isManager($user->id)) {
+        return response()->json(['message' => 'Chỉ trưởng nhóm hoặc phó nhóm mới có thể xóa thành viên khác khỏi nhóm.'], 403);
+      }
+      if ($conversation->isOwner($userId)) {
+        return response()->json(['message' => 'Không thể xóa trưởng nhóm khỏi nhóm.'], 403);
+      }
+      if (!$conversation->isOwner($user->id) && $conversation->isDeputy($userId)) {
+        return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể xóa phó nhóm khỏi nhóm.'], 403);
+      }
     }
 
     if (!$conversation->hasParticipant($userId)) {
@@ -1306,9 +1359,290 @@ class ChatController extends Controller
   }
 
   /**
+   * Delete a group conversation entirely (as opposed to just leaving it). Only the
+   * owner may do this — deputies can manage members but can't dissolve the group.
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function deleteGroupConversation($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->isOwner($user->id)) {
+      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể xóa nhóm.'], 403);
+    }
+
+    // Messages/participants cascade at the DB level.
+    $conversation->delete();
+
+    return response()->json(['message' => 'Đã xóa nhóm thành công.']);
+  }
+
+  /**
+   * Promote a participant to deputy (phó nhóm). Owner only. A group can have multiple
+   * deputies; deputies get the same management powers as the owner except deleting
+   * the group or assigning/removing other deputies.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function addGroupDeputy(Request $request, $conversationId)
+  {
+    $request->validate(['user_id' => 'required|integer|exists:cyo_auth_accounts,id']);
+
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->isOwner($user->id)) {
+      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể chỉ định phó nhóm.'], 403);
+    }
+
+    $targetId = (int) $request->user_id;
+
+    if (!$conversation->hasParticipant($targetId)) {
+      return response()->json(['message' => 'Người dùng không ở trong nhóm.'], 404);
+    }
+
+    if ($conversation->isOwner($targetId)) {
+      return response()->json(['message' => 'Trưởng nhóm đã có toàn quyền quản lý.'], 422);
+    }
+
+    if ($conversation->isDeputy($targetId)) {
+      return response()->json(['message' => 'Người dùng đã là phó nhóm.'], 422);
+    }
+
+    $conversation->participants()->updateExistingPivot($targetId, ['role' => 'deputy']);
+
+    $target = AuthAccount::with('profile')->find($targetId);
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã chỉ định %s làm phó nhóm', $this->displayName($user), $this->displayName($target))
+    );
+    NotificationService::createGroupRoleChangedNotification($targetId, $conversation, $user->id, 'deputy');
+
+    return response()->json(['message' => 'Đã chỉ định phó nhóm thành công.']);
+  }
+
+  /**
+   * Demote a deputy back to a regular member. Owner only.
+   *
+   * @param  int  $conversationId
+   * @param  int  $userId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function removeGroupDeputy($conversationId, $userId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->isOwner($user->id)) {
+      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể gỡ phó nhóm.'], 403);
+    }
+
+    if (!$conversation->isDeputy($userId)) {
+      return response()->json(['message' => 'Người dùng không phải là phó nhóm.'], 422);
+    }
+
+    $conversation->participants()->updateExistingPivot($userId, ['role' => 'member']);
+
+    $target = AuthAccount::with('profile')->find($userId);
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã gỡ %s khỏi vai trò phó nhóm', $this->displayName($user), $this->displayName($target))
+    );
+
+    return response()->json(['message' => 'Đã gỡ phó nhóm thành công.']);
+  }
+
+  /**
+   * Transfer group ownership to another participant. Owner only, and voluntary
+   * (as opposed to the random succession that kicks in when an owner leaves/is
+   * removed without nominating a successor). The previous owner becomes a regular
+   * member — they can be re-promoted to deputy afterwards if desired.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function transferGroupOwnership(Request $request, $conversationId)
+  {
+    $request->validate(['user_id' => 'required|integer|exists:cyo_auth_accounts,id']);
+
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->isOwner($user->id)) {
+      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể chuyển quyền trưởng nhóm.'], 403);
+    }
+
+    $newOwnerId = (int) $request->user_id;
+
+    if ($newOwnerId === $user->id) {
+      return response()->json(['message' => 'Bạn đã là trưởng nhóm.'], 422);
+    }
+
+    if (!$conversation->hasParticipant($newOwnerId)) {
+      return response()->json(['message' => 'Người dùng không ở trong nhóm.'], 404);
+    }
+
+    $newOwner = AuthAccount::with('profile')->find($newOwnerId);
+
+    $conversation->participants()->updateExistingPivot($user->id, ['role' => 'member']);
+    $conversation->participants()->updateExistingPivot($newOwnerId, ['role' => 'owner']);
+
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã chuyển quyền trưởng nhóm cho %s', $this->displayName($user), $this->displayName($newOwner))
+    );
+    NotificationService::createGroupRoleChangedNotification($newOwnerId, $conversation, $user->id, 'owner');
+
+    return response()->json(['message' => 'Đã chuyển quyền trưởng nhóm thành công.']);
+  }
+
+  /**
+   * Get (or lazily create) this group's invite link. Open to any participant.
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getGroupInviteLink($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->hasParticipant($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    if (!$conversation->invite_token) {
+      $conversation->update(['invite_token' => Str::random(32)]);
+    }
+
+    return response()->json($this->formatInviteLink($conversation));
+  }
+
+  /**
+   * Regenerate this group's invite link, invalidating the previous one. Open to any
+   * participant, same as renaming/changing the avatar.
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function regenerateGroupInviteLink($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->hasParticipant($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $conversation->update(['invite_token' => Str::random(32)]);
+
+    return response()->json($this->formatInviteLink($conversation));
+  }
+
+  /**
+   * Build the shareable invite-link payload for a group.
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @return array
+   */
+  private function formatInviteLink(Conversation $conversation): array
+  {
+    $baseUrl = rtrim(env('APP_UI_URL', 'https://chuyenbienhoa.com'), '/');
+
+    return [
+      'invite_token' => $conversation->invite_token,
+      'invite_url' => "{$baseUrl}/invite/{$conversation->invite_token}",
+    ];
+  }
+
+  /**
+   * Public preview of a group invite link (no auth required) — the web landing page
+   * needs enough info to render "You've been invited to join <name>" before the
+   * visitor necessarily logs in.
+   *
+   * @param  string  $token
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getGroupInvitePreview($token)
+  {
+    $conversation = Conversation::where('invite_token', $token)->first();
+
+    if (!$conversation) {
+      return response()->json(['message' => 'Liên kết mời không hợp lệ hoặc đã hết hạn.'], 404);
+    }
+
+    $user = Auth::guard('sanctum')->user() ?? Auth::user();
+
+    return response()->json([
+      'conversation_id' => $conversation->id,
+      'name' => $conversation->name,
+      'avatar_url' => $conversation->avatar_url ? Storage::url($conversation->avatar_url) : null,
+      'member_count' => $conversation->participants()->count(),
+      'already_member' => $user ? $conversation->hasParticipant($user->id) : false,
+    ]);
+  }
+
+  /**
+   * Join a group via its invite link. Requires auth. Idempotent — joining a group
+   * you're already a member of just reports success without duplicating anything.
+   *
+   * @param  string  $token
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function joinGroupViaInvite($token)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::where('invite_token', $token)->first();
+
+    if (!$conversation) {
+      return response()->json(['message' => 'Liên kết mời không hợp lệ hoặc đã hết hạn.'], 404);
+    }
+
+    if ($conversation->hasParticipant($user->id)) {
+      return response()->json(['conversation_id' => $conversation->id, 'already_member' => true]);
+    }
+
+    $conversation->participants()->attach($user->id, ['role' => 'member']);
+
+    $this->createSystemMessage($conversation, sprintf('%s đã tham gia nhóm qua lời mời', $this->displayName($user)));
+
+    return response()->json(['conversation_id' => $conversation->id, 'already_member' => false], 201);
+  }
+
+  /**
    * After a participant is detached from a group: delete the group if it's now empty,
    * otherwise post a system message, notify the removed user (if kicked), and promote
-   * a new owner if the one who left/was removed was the owner.
+   * a random remaining participant to owner if the one who left/was removed was the owner.
    *
    * @param  \App\Models\Conversation  $conversation
    * @param  \App\Models\AuthAccount|null  $removedUser
@@ -1341,8 +1675,9 @@ class ChatController extends Controller
     }
 
     if ($wasOwner) {
-      // The group must always have an owner — promote the longest-standing remaining member.
-      $newOwner = $remaining->sortBy('pivot.created_at')->first();
+      // The group must always have an owner — randomly draw one from whoever's left
+      // (deputies included; being a deputy doesn't give priority here).
+      $newOwner = $remaining->random();
       $conversation->participants()->updateExistingPivot($newOwner->id, ['role' => 'owner']);
       $this->createSystemMessage($conversation, sprintf('%s đã trở thành trưởng nhóm mới', $this->displayName($newOwner)));
     }
