@@ -12,11 +12,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property int $id
  * @property string $type Can be 'private' or 'group'.
  * @property string|null $name The name of the conversation, used for group chats.
+ * @property int|null $created_by The user who created the group (null for private/legacy conversations).
+ * @property bool $is_public True only for the single, app-wide public chat ("Tán gẫu linh tinh").
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Message[] $messages
  * @property-read \App\Models\Message|null $latestMessage
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\AuthAccount[] $participants
+ * @property-read \App\Models\AuthAccount|null $creator
  */
 class Conversation extends Model
 {
@@ -35,6 +38,8 @@ class Conversation extends Model
     protected $fillable = [
         'type',
         'name',
+        'created_by',
+        'is_public',
     ];
 
     /**
@@ -43,6 +48,7 @@ class Conversation extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'is_public' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -68,6 +74,16 @@ class Conversation extends Model
     }
 
     /**
+     * The user who created this conversation (groups only).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function creator()
+    {
+        return $this->belongsTo(AuthAccount::class, 'created_by');
+    }
+
+    /**
      * The participants that belong to the conversation.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
@@ -75,7 +91,7 @@ class Conversation extends Model
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(AuthAccount::class, 'cyo_conversation_participants', 'conversation_id', 'user_id')
-            ->withPivot('last_read_at')
+            ->withPivot('last_read_at', 'role')
             ->withTimestamps();
     }
 
@@ -88,6 +104,31 @@ class Conversation extends Model
     public function hasParticipant($userId): bool
     {
         return $this->participants()->where('user_id', $userId)->exists();
+    }
+
+    /**
+     * Check if a user is the owner of this group conversation.
+     *
+     * @param  int  $userId
+     * @return bool
+     */
+    public function isOwner($userId): bool
+    {
+        $participant = $this->participants()->where('user_id', $userId)->first();
+
+        return $participant && $participant->pivot->role === 'owner';
+    }
+
+    /**
+     * A user may access this conversation without being a participant only if it's the
+     * single app-wide public chat — everyone can read/post there.
+     *
+     * @param  int  $userId
+     * @return bool
+     */
+    public function isAccessibleBy($userId): bool
+    {
+        return $this->is_public || $this->hasParticipant($userId);
     }
 
     /**

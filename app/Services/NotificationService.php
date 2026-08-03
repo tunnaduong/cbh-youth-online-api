@@ -366,6 +366,69 @@ class NotificationService
   }
 
   /**
+   * Create a notification for a user being added to a group conversation.
+   *
+   * @param int $userId The user who was added
+   * @param \App\Models\Conversation $conversation
+   * @param int $actorId User who added them
+   * @return Notification|null
+   */
+  public static function createAddedToGroupNotification(int $userId, \App\Models\Conversation $conversation, int $actorId): ?Notification
+  {
+    if ($userId === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($userId, 'added_to_group')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $userId,
+      'actor_id' => $actorId,
+      'type' => 'added_to_group',
+      'notifiable_type' => \App\Models\Conversation::class,
+      'notifiable_id' => $conversation->id,
+      'data' => [
+        'conversation_id' => $conversation->id,
+        'conversation_name' => $conversation->name,
+        'url' => '/chat?conversation=' . $conversation->id,
+      ],
+    ]);
+  }
+
+  /**
+   * Create a notification for a user being removed from a group conversation.
+   *
+   * @param int $userId The user who was removed
+   * @param \App\Models\Conversation $conversation
+   * @param int $actorId User who removed them
+   * @return Notification|null
+   */
+  public static function createRemovedFromGroupNotification(int $userId, \App\Models\Conversation $conversation, int $actorId): ?Notification
+  {
+    if ($userId === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($userId, 'removed_from_group')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $userId,
+      'actor_id' => $actorId,
+      'type' => 'removed_from_group',
+      'notifiable_type' => \App\Models\Conversation::class,
+      'notifiable_id' => $conversation->id,
+      'data' => [
+        'conversation_id' => $conversation->id,
+        'conversation_name' => $conversation->name,
+      ],
+    ]);
+  }
+
+  /**
    * Create a notification for a topic being pinned.
    *
    * @param Topic $topic

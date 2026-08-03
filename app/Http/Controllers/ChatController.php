@@ -79,7 +79,9 @@ class ChatController extends Controller
           'latest_message' => $conversation->latestMessage ? [
             'content' => $conversation->latestMessage->content,
             'type' => $conversation->latestMessage->type,
-            'sender' => $conversation->latestMessage->user ? $conversation->latestMessage->user->username : ($conversation->latestMessage->guest_name ?? 'Ẩn danh'),
+            'sender' => $conversation->latestMessage->user
+              ? $conversation->latestMessage->user->username
+              : ($conversation->latestMessage->type === 'system' ? 'system' : ($conversation->latestMessage->guest_name ?? 'Ẩn danh')),
             'is_myself' => $conversation->latestMessage->user_id === $user->id,
             'is_recalled' => (bool) $conversation->latestMessage->is_recalled,
             'created_at' => $conversation->latestMessage->created_at ? $conversation->latestMessage->created_at->toISOString() : null,
@@ -90,8 +92,7 @@ class ChatController extends Controller
       });
 
     // Always include the public chat "Tán gẫu linh tinh" for all users
-    $publicChat = Conversation::where('name', 'Tán gẫu linh tinh')
-      ->where('type', 'group')
+    $publicChat = Conversation::where('is_public', true)
       ->with(['participants.profile', 'latestMessage.user.profile'])
       ->first();
 
@@ -150,7 +151,7 @@ class ChatController extends Controller
     $conversation = Conversation::findOrFail($conversationId);
 
     // Allow access to public chat "Tán gẫu linh tinh" even if user is not a participant
-    $isPublicChat = $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+    $isPublicChat = $conversation->is_public;
 
     if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
@@ -211,8 +212,9 @@ class ChatController extends Controller
     }
 
     $messages = $rawMessages->map(function ($message) use ($user, $resolvedUsers) {
-        $isGuest = $message->guest_name !== null || $message->user_id === null;
-        $isMyself = !$isGuest && $message->user_id !== null && $message->user_id === $user->id;
+        $isSystem = $message->type === 'system';
+        $isGuest = !$isSystem && ($message->guest_name !== null || $message->user_id === null);
+        $isMyself = !$isGuest && !$isSystem && $message->user_id !== null && $message->user_id === $user->id;
 
         // Determine sender information
         $senderData = [
@@ -222,7 +224,10 @@ class ChatController extends Controller
           'avatar_url' => null,
         ];
 
-        if ($isGuest) {
+        if ($isSystem) {
+          $senderData['username'] = 'system';
+          $senderData['profile_name'] = 'Hệ thống';
+        } elseif ($isGuest) {
           $senderData['username'] = $message->guest_name ?? 'Ẩn danh';
           $senderData['profile_name'] = $message->guest_name ?? 'Ẩn danh';
         } elseif ($message->user) {
@@ -264,6 +269,7 @@ class ChatController extends Controller
           'file_url' => ($message->is_recalled || !$message->file_url) ? null : Storage::url($message->file_url),
           'is_edited' => $message->is_edited,
           'is_recalled' => (bool) $message->is_recalled,
+          'is_forwarded' => (bool) $message->is_forwarded,
           'is_myself' => $isMyself,
           'is_guest' => $isGuest,
           'sender' => $senderData,
@@ -324,24 +330,34 @@ class ChatController extends Controller
     ]);
 
     $user = Auth::user();
-    $participantId = $request->participant_id;
+    $conversation = $this->findOrCreatePrivateConversation($user->id, (int) $request->participant_id);
 
-    // Check if conversation already exists
-    $existingConversation = Conversation::whereHas('participants', function ($query) use ($user) {
-      $query->where('user_id', $user->id);
-    })->whereHas('participants', function ($query) use ($participantId) {
-      $query->where('user_id', $participantId);
+    return response()->json(['conversation_id' => $conversation->id], $conversation->wasRecentlyCreated ? 201 : 200);
+  }
+
+  /**
+   * Find the existing 1-on-1 private conversation between two users, or create one.
+   *
+   * @param  int  $userAId
+   * @param  int  $userBId
+   * @return \App\Models\Conversation
+   */
+  private function findOrCreatePrivateConversation(int $userAId, int $userBId): Conversation
+  {
+    $existingConversation = Conversation::whereHas('participants', function ($query) use ($userAId) {
+      $query->where('user_id', $userAId);
+    })->whereHas('participants', function ($query) use ($userBId) {
+      $query->where('user_id', $userBId);
     })->where('type', 'private')->first();
 
     if ($existingConversation) {
-      return response()->json(['conversation_id' => $existingConversation->id]);
+      return $existingConversation;
     }
 
-    // Create new conversation
     $conversation = Conversation::create(['type' => 'private']);
-    $conversation->participants()->attach([$user->id, $participantId]);
+    $conversation->participants()->attach([$userAId, $userBId]);
 
-    return response()->json(['conversation_id' => $conversation->id], 201);
+    return $conversation;
   }
 
   /**
@@ -387,7 +403,7 @@ class ChatController extends Controller
     }
 
     // Allow access to public chat "Tán gẫu linh tinh" even if user is not a participant
-    $isPublicChat = $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+    $isPublicChat = $conversation->is_public;
 
     if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
@@ -435,6 +451,25 @@ class ChatController extends Controller
 
     $message = Message::create($messageData);
 
+    $messageData = $this->finalizeAndBroadcastMessage($conversation, $message, $user);
+
+    return response()->json($messageData, 201);
+  }
+
+  /**
+   * Shared post-processing for a newly created message, regardless of how it was created
+   * (typed by the user, or forwarded from another message): persists the conversation's
+   * updated_at timestamp, builds the API/broadcast representation, pushes the real-time
+   * event, sends push notifications, and resolves @mentions (including reply and @all
+   * notifications). Used by both sendMessage() and forwardMessage().
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @param  \App\Models\Message  $message
+   * @param  \App\Models\AuthAccount  $user  The sender
+   * @return array The API-shaped message data (includes 'mentions')
+   */
+  private function finalizeAndBroadcastMessage(Conversation $conversation, Message $message, AuthAccount $user): array
+  {
     // Update conversation's updated_at timestamp
     $conversation->touch();
 
@@ -476,6 +511,7 @@ class ChatController extends Controller
       'type' => $message->type,
       'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
       'is_edited' => $message->is_edited,
+      'is_forwarded' => (bool) $message->is_forwarded,
       'is_myself' => $message->user_id === $user->id,
       'sender' => $senderData,
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
@@ -522,7 +558,7 @@ class ChatController extends Controller
 
     $messageData['mentions'] = $resolvedMentions;
 
-    return response()->json($messageData, 201);
+    return $messageData;
   }
 
   /**
@@ -664,7 +700,7 @@ class ChatController extends Controller
     $conversation = $message->conversation;
 
     if (!$conversation || !$conversation->hasParticipant($user->id)) {
-      $isPublicChat = $conversation && $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+      $isPublicChat = $conversation && $conversation->is_public;
       if (!$isPublicChat) {
         return response()->json(['message' => 'Unauthorized'], 403);
       }
@@ -702,7 +738,7 @@ class ChatController extends Controller
     $conversation = $message->conversation;
 
     if (!$conversation || !$conversation->hasParticipant($user->id)) {
-      $isPublicChat = $conversation && $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+      $isPublicChat = $conversation && $conversation->is_public;
       if (!$isPublicChat) {
         return response()->json(['message' => 'Unauthorized'], 403);
       }
@@ -912,6 +948,131 @@ class ChatController extends Controller
   }
 
   /**
+   * Forward a message to one or more conversations and/or users. Forwarding to a
+   * user_id finds (or creates) the 1-on-1 private conversation with that user.
+   * Each target is processed independently — one failing target (e.g. blocked user,
+   * no longer a participant) doesn't stop the others from succeeding.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $messageId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function forwardMessage(Request $request, $messageId)
+  {
+    $request->validate([
+      'conversation_ids' => 'required_without:user_ids|array',
+      'conversation_ids.*' => 'integer|exists:cyo_conversations,id',
+      'user_ids' => 'required_without:conversation_ids|array',
+      'user_ids.*' => 'integer|exists:cyo_auth_accounts,id',
+    ]);
+
+    $user = Auth::user();
+    $message = Message::findOrFail($messageId);
+    $sourceConversation = $message->conversation;
+
+    if (!$sourceConversation || !$sourceConversation->isAccessibleBy($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    if ($message->is_recalled) {
+      return response()->json(['message' => 'Không thể chuyển tiếp tin nhắn đã bị thu hồi.'], 422);
+    }
+
+    if (!$message->content && !$message->file_url) {
+      return response()->json(['message' => 'Tin nhắn không có nội dung để chuyển tiếp.'], 422);
+    }
+
+    $conversationIds = array_map('intval', $request->input('conversation_ids', []));
+    $userIds = array_unique(array_map('intval', $request->input('user_ids', [])));
+
+    // Resolve target user_ids into (find-or-create) 1-on-1 private conversations
+    foreach ($userIds as $targetUserId) {
+      if ($targetUserId === $user->id) {
+        continue;
+      }
+      $conversationIds[] = $this->findOrCreatePrivateConversation($user->id, $targetUserId)->id;
+    }
+
+    $conversationIds = array_values(array_unique($conversationIds));
+
+    if (empty($conversationIds)) {
+      return response()->json(['message' => 'Vui lòng chọn ít nhất một cuộc trò chuyện hoặc người dùng để chuyển tiếp.'], 422);
+    }
+
+    if (count($conversationIds) > 20) {
+      return response()->json(['message' => 'Chỉ có thể chuyển tiếp đến tối đa 20 cuộc trò chuyện cùng lúc.'], 422);
+    }
+
+    // Snapshot the original sender's identity now, so the attribution shown on the
+    // forwarded copy survives even if the source message/conversation is later
+    // recalled, edited, or deleted.
+    $originalSenderName = $message->guest_name;
+    if ($message->user_id) {
+      $originalSender = $message->user ?: AuthAccount::with('profile')->find($message->user_id);
+      $originalSenderName = $originalSender ? $this->displayName($originalSender) : $originalSenderName;
+    }
+    $forwardedFrom = [
+      'message_id' => $message->id,
+      'conversation_id' => $message->conversation_id,
+      'sender_user_id' => $message->user_id,
+      'sender_name' => $originalSenderName,
+    ];
+
+    $results = [];
+
+    foreach ($conversationIds as $targetConversationId) {
+      $targetConversation = Conversation::find($targetConversationId);
+
+      if (!$targetConversation) {
+        $results[] = ['conversation_id' => $targetConversationId, 'status' => 'error', 'error' => 'Cuộc trò chuyện không tồn tại.'];
+        continue;
+      }
+
+      if (!$targetConversation->isAccessibleBy($user->id)) {
+        $results[] = ['conversation_id' => $targetConversationId, 'status' => 'error', 'error' => 'Bạn không phải thành viên của cuộc trò chuyện này.'];
+        continue;
+      }
+
+      if ($targetConversation->type === 'private') {
+        $otherParticipant = $targetConversation->participants()->where('cyo_auth_accounts.id', '!=', $user->id)->first();
+        if ($otherParticipant) {
+          $isBlocked = UserBlock::where('user_id', $user->id)->where('blocked_user_id', $otherParticipant->id)->exists()
+            || UserBlock::where('user_id', $otherParticipant->id)->where('blocked_user_id', $user->id)->exists();
+          if ($isBlocked) {
+            $results[] = ['conversation_id' => $targetConversationId, 'status' => 'error', 'error' => 'Không thể gửi tin nhắn cho người dùng này.'];
+            continue;
+          }
+        }
+      }
+
+      // Auto-join the public chat, mirroring sendMessage()'s behavior.
+      if ($targetConversation->is_public && !$targetConversation->hasParticipant($user->id)) {
+        $targetConversation->participants()->attach($user->id, ['last_read_at' => now()]);
+      }
+
+      $forwardedMessage = Message::create([
+        'conversation_id' => $targetConversation->id,
+        'user_id' => $user->id,
+        'content' => $message->content,
+        'type' => $message->type,
+        'file_url' => $message->file_url,
+        'metadata' => array_merge($message->metadata ?? [], ['forwarded_from' => $forwardedFrom]),
+        'is_forwarded' => true,
+      ]);
+
+      $forwardedMessageData = $this->finalizeAndBroadcastMessage($targetConversation, $forwardedMessage, $user);
+
+      $results[] = [
+        'conversation_id' => $targetConversation->id,
+        'status' => 'sent',
+        'message' => $forwardedMessageData,
+      ];
+    }
+
+    return response()->json(['results' => $results]);
+  }
+
+  /**
    * Create a new group conversation.
    *
    * @param  \Illuminate\Http\Request  $request
@@ -927,37 +1088,44 @@ class ChatController extends Controller
 
     $user = Auth::user();
 
+    $otherParticipantIds = array_values(array_diff(array_unique($request->participants), [$user->id]));
+
+    if (empty($otherParticipantIds)) {
+      return response()->json(['message' => 'Nhóm cần có ít nhất một thành viên khác ngoài bạn.'], 422);
+    }
+
     // Create new group conversation
     $conversation = Conversation::create([
       'type' => 'group',
       'name' => $request->name,
-      'created_by' => $user->id
+      'created_by' => $user->id,
     ]);
 
-    // Add all participants including the creator
-    $participants = array_unique(array_merge([$user->id], $request->participants));
-    $conversation->participants()->attach($participants);
+    // The creator is the owner; everyone else joins as a regular member
+    $conversation->participants()->attach($user->id, ['role' => 'owner']);
+    foreach ($otherParticipantIds as $participantId) {
+      $conversation->participants()->attach($participantId, ['role' => 'member']);
+    }
 
-    // Load the conversation with participants
     $conversation->load('participants.profile');
+
+    $this->createSystemMessage($conversation, sprintf('%s đã tạo nhóm "%s"', $this->displayName($user), $conversation->name));
+
+    foreach ($otherParticipantIds as $participantId) {
+      NotificationService::createAddedToGroupNotification($participantId, $conversation, $user->id);
+    }
 
     return response()->json([
       'id' => $conversation->id,
       'name' => $conversation->name,
       'type' => 'group',
-      'participants' => $conversation->participants->map(function ($participant) {
-        return [
-          'id' => $participant->id,
-          'username' => $participant->username,
-          'profile_name' => $participant->profile->profile_name ?? $participant->username,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
-        ];
-      })
+      'created_by' => $conversation->created_by,
+      'participants' => $conversation->participants->map(fn($p) => $this->formatParticipant($p, true)),
     ], 201);
   }
 
   /**
-   * Update group conversation details.
+   * Update group conversation details. Only the group owner may rename the group.
    *
    * @param  \Illuminate\Http\Request  $request
    * @param  int  $conversationId
@@ -972,19 +1140,26 @@ class ChatController extends Controller
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
 
-    // Check if user is in the conversation
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
     if (!$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    // Check if conversation is a group
-    if ($conversation->type !== 'group') {
-      return response()->json(['message' => 'This is not a group conversation'], 400);
+    if (!$conversation->isOwner($user->id)) {
+      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể đổi tên nhóm.'], 403);
     }
 
+    $oldName = $conversation->name;
     $conversation->update([
       'name' => $request->name
     ]);
+
+    if ($oldName !== $conversation->name) {
+      $this->createSystemMessage($conversation, sprintf('%s đã đổi tên nhóm thành "%s"', $this->displayName($user), $conversation->name));
+    }
 
     return response()->json([
       'id' => $conversation->id,
@@ -993,7 +1168,39 @@ class ChatController extends Controller
   }
 
   /**
-   * Add participants to a group conversation.
+   * Get details of a group conversation, including participants and their roles.
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getGroupDetails($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->hasParticipant($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $conversation->load('participants.profile');
+
+    return response()->json([
+      'id' => $conversation->id,
+      'name' => $conversation->name,
+      'type' => $conversation->type,
+      'created_by' => $conversation->created_by,
+      'created_at' => $conversation->created_at?->toISOString(),
+      'is_owner' => $conversation->isOwner($user->id),
+      'participants' => $conversation->participants->map(fn($p) => $this->formatParticipant($p, true)),
+    ]);
+  }
+
+  /**
+   * Add participants to a group conversation. Any current member may add new participants.
    *
    * @param  \Illuminate\Http\Request  $request
    * @param  int  $conversationId
@@ -1009,36 +1216,45 @@ class ChatController extends Controller
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
 
-    // Check if user is in the conversation
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
     if (!$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    // Check if conversation is a group
-    if ($conversation->type !== 'group') {
-      return response()->json(['message' => 'This is not a group conversation'], 400);
+    $existingIds = $conversation->participants()->pluck('cyo_auth_accounts.id')->toArray();
+    $newParticipantIds = array_values(array_diff(array_unique($request->participants), $existingIds));
+
+    if (empty($newParticipantIds)) {
+      return response()->json(['message' => 'Tất cả người dùng đã ở trong nhóm.'], 422);
     }
 
-    // Add new participants
-    $conversation->participants()->attach($request->participants);
+    foreach ($newParticipantIds as $participantId) {
+      $conversation->participants()->attach($participantId, ['role' => 'member']);
+    }
 
-    // Load updated participants
     $conversation->load('participants.profile');
 
+    $addedNames = $conversation->participants
+      ->whereIn('id', $newParticipantIds)
+      ->map(fn($p) => $this->displayName($p))
+      ->implode(', ');
+    $this->createSystemMessage($conversation, sprintf('%s đã thêm %s vào nhóm', $this->displayName($user), $addedNames));
+
+    foreach ($newParticipantIds as $participantId) {
+      NotificationService::createAddedToGroupNotification($participantId, $conversation, $user->id);
+    }
+
     return response()->json([
-      'participants' => $conversation->participants->map(function ($participant) {
-        return [
-          'id' => $participant->id,
-          'username' => $participant->username,
-          'profile_name' => $participant->profile->profile_name ?? $participant->username,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
-        ];
-      })
+      'participants' => $conversation->participants->map(fn($p) => $this->formatParticipant($p, true)),
     ]);
   }
 
   /**
-   * Remove a participant from a group conversation.
+   * Remove a participant from a group conversation. Only the group owner may remove
+   * someone else; any participant may remove themselves (i.e. leave the group).
    *
    * @param  int  $conversationId
    * @param  int  $userId
@@ -1049,23 +1265,171 @@ class ChatController extends Controller
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
 
-    // Check if user is in the conversation
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
     if (!$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    // Check if conversation is a group
-    if ($conversation->type !== 'group') {
-      return response()->json(['message' => 'This is not a group conversation'], 400);
+    $isSelfLeave = (int) $userId === (int) $user->id;
+
+    if (!$isSelfLeave && !$conversation->isOwner($user->id)) {
+      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể xóa thành viên khác khỏi nhóm.'], 403);
     }
 
-    // Remove participant
+    if (!$conversation->hasParticipant($userId)) {
+      return response()->json(['message' => 'Người dùng không ở trong nhóm.'], 404);
+    }
+
+    $removedUser = AuthAccount::with('profile')->find($userId);
+    $wasOwner = $conversation->isOwner($userId);
+
     $conversation->participants()->detach($userId);
+
+    $this->handlePostParticipantRemoval($conversation, $removedUser, $wasOwner, $isSelfLeave, $user);
 
     return response()->json(['message' => 'Participant removed successfully']);
   }
 
   /**
+   * Leave a group conversation. Thin convenience wrapper around removeGroupParticipant()
+   * that always targets the authenticated user.
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function leaveGroupConversation($conversationId)
+  {
+    return $this->removeGroupParticipant($conversationId, Auth::id());
+  }
+
+  /**
+   * After a participant is detached from a group: delete the group if it's now empty,
+   * otherwise post a system message, notify the removed user (if kicked), and promote
+   * a new owner if the one who left/was removed was the owner.
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @param  \App\Models\AuthAccount|null  $removedUser
+   * @param  bool  $wasOwner
+   * @param  bool  $isSelfLeave
+   * @param  \App\Models\AuthAccount  $actor
+   * @return void
+   */
+  private function handlePostParticipantRemoval(Conversation $conversation, ?AuthAccount $removedUser, bool $wasOwner, bool $isSelfLeave, AuthAccount $actor): void
+  {
+    $remaining = $conversation->participants()->with('profile')->get();
+
+    if ($remaining->isEmpty()) {
+      // No one left in the group — delete it (messages/participants cascade at the DB level).
+      $conversation->delete();
+      return;
+    }
+
+    if ($removedUser) {
+      $actorName = $this->displayName($actor);
+      $removedName = $this->displayName($removedUser);
+      $this->createSystemMessage(
+        $conversation,
+        $isSelfLeave ? "{$removedName} đã rời khỏi nhóm" : "{$actorName} đã xóa {$removedName} khỏi nhóm"
+      );
+
+      if (!$isSelfLeave) {
+        NotificationService::createRemovedFromGroupNotification($removedUser->id, $conversation, $actor->id);
+      }
+    }
+
+    if ($wasOwner) {
+      // The group must always have an owner — promote the longest-standing remaining member.
+      $newOwner = $remaining->sortBy('pivot.created_at')->first();
+      $conversation->participants()->updateExistingPivot($newOwner->id, ['role' => 'owner']);
+      $this->createSystemMessage($conversation, sprintf('%s đã trở thành trưởng nhóm mới', $this->displayName($newOwner)));
+    }
+  }
+
+  /**
+   * Format a participant (AuthAccount with loaded profile) for API responses.
+   *
+   * @param  \App\Models\AuthAccount  $participant
+   * @param  bool  $includeRole  Include the participant's group role (owner/member) from the pivot
+   * @return array
+   */
+  private function formatParticipant($participant, bool $includeRole = false): array
+  {
+    $data = [
+      'id' => $participant->id,
+      'username' => $participant->username,
+      'profile_name' => $participant->profile->profile_name ?? $participant->username,
+      'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
+    ];
+
+    if ($includeRole && isset($participant->pivot)) {
+      $data['role'] = $participant->pivot->role;
+    }
+
+    return $data;
+  }
+
+  /**
+   * Get the display name (profile name, falling back to username) for a user.
+   *
+   * @param  \App\Models\AuthAccount  $user
+   * @return string
+   */
+  private function displayName(AuthAccount $user): string
+  {
+    return $user->profile->profile_name ?? $user->username;
+  }
+
+  /**
+   * Post a system-authored message into a conversation (e.g. "X added Y to the group")
+   * and broadcast it like a regular message so all connected clients see it live.
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @param  string  $content
+   * @return \App\Models\Message
+   */
+  private function createSystemMessage(Conversation $conversation, string $content): Message
+  {
+    $message = Message::create([
+      'conversation_id' => $conversation->id,
+      'user_id' => null,
+      'content' => $content,
+      'type' => 'system',
+    ]);
+
+    $conversation->touch();
+
+    $messageData = [
+      'id' => $message->id,
+      'content' => $message->content,
+      'type' => 'system',
+      'file_url' => null,
+      'is_edited' => false,
+      'is_forwarded' => false,
+      'is_myself' => false,
+      'sender' => [
+        'id' => null,
+        'username' => 'system',
+        'profile_name' => 'Hệ thống',
+        'avatar_url' => null,
+      ],
+      'created_at' => $message->created_at?->toISOString(),
+      'created_at_human' => $message->created_at?->diffForHumans(),
+      'read_at' => null,
+      'metadata' => null,
+      'reply_to' => null,
+      'reactions' => ['summary' => [], 'total' => 0, 'my_reactions' => []],
+    ];
+
+    // Broadcast to everyone (including the acting user's own other sessions) — there is
+    // no optimistic client-side render for system messages, unlike user-sent messages.
+    broadcast(new MessageSent($conversation->id, $messageData));
+
+    return $message;
+  }
+
   /**
    * Suggest users to mention (@) in a conversation.
    * For group/public conversations: search among participants.
@@ -1082,7 +1446,7 @@ class ChatController extends Controller
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
 
-    $isPublicChat = $conversation->name === 'Tán gẫu linh tinh' && $conversation->type === 'group';
+    $isPublicChat = $conversation->is_public;
 
     if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
@@ -1175,9 +1539,8 @@ class ChatController extends Controller
     // Try to get authenticated user (optional) so we can flag their own reaction
     $currentUser = Auth::guard('sanctum')->user() ?? Auth::user();
 
-    // Find public chat by name and type instead of fixed ID
-    $conversation = Conversation::where('name', 'Tán gẫu linh tinh')
-      ->where('type', 'group')
+    // Find the single app-wide public chat
+    $conversation = Conversation::where('is_public', true)
       ->first();
 
     if (!$conversation) {
@@ -1359,9 +1722,8 @@ class ChatController extends Controller
 
     $request->validate($rules);
 
-    // Find public chat by name and type instead of fixed ID
-    $conversation = Conversation::where('name', 'Tán gẫu linh tinh')
-      ->where('type', 'group')
+    // Find the single app-wide public chat
+    $conversation = Conversation::where('is_public', true)
       ->first();
 
     if (!$conversation) {
@@ -1499,9 +1861,8 @@ class ChatController extends Controller
    */
   public function getPublicChatParticipants()
   {
-    // Find public chat by name and type instead of fixed ID
-    $conversation = Conversation::where('name', 'Tán gẫu linh tinh')
-      ->where('type', 'group')
+    // Find the single app-wide public chat
+    $conversation = Conversation::where('is_public', true)
       ->first();
 
     if (!$conversation) {

@@ -306,10 +306,13 @@ Route::prefix('v1.0')->group(function () {
       Route::post('messages/{messageId}/recall', [ChatController::class, 'recallMessage']);
       Route::post('messages/{messageId}/reactions', [ChatController::class, 'reactToMessage']);
       Route::delete('messages/{messageId}/reactions', [ChatController::class, 'removeMessageReaction']);
+      Route::post('messages/{messageId}/forward', [ChatController::class, 'forwardMessage']);
       Route::post('groups', [ChatController::class, 'createGroupConversation']);
+      Route::get('groups/{conversationId}', [ChatController::class, 'getGroupDetails']);
       Route::put('groups/{conversationId}', [ChatController::class, 'updateGroupConversation']);
       Route::post('groups/{conversationId}/participants', [ChatController::class, 'addGroupParticipants']);
       Route::delete('groups/{conversationId}/participants/{userId}', [ChatController::class, 'removeGroupParticipant']);
+      Route::post('groups/{conversationId}/leave', [ChatController::class, 'leaveGroupConversation']);
       Route::get('search/users', [ChatController::class, 'searchUserForChat']);
       Route::get('conversations/{conversationId}/mention-suggestions', [ChatController::class, 'mentionSuggestions']);
     });
