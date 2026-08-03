@@ -69,7 +69,7 @@ class ChatController extends Controller
           'type' => $conversation->type,
           'name' => $conversation->type === 'group' ? $conversation->name : null,
           'avatar_url' => $conversation->type === 'group' && $conversation->avatar_url
-            ? Storage::url($conversation->avatar_url)
+            ? $this->absoluteStorageUrl($conversation->avatar_url)
             : null,
           'participants' => $otherParticipants->map(function ($participant) {
             return [
@@ -270,7 +270,7 @@ class ChatController extends Controller
           'id' => $message->id,
           'content' => $message->is_recalled ? null : $message->content,
           'type' => $message->type,
-          'file_url' => ($message->is_recalled || !$message->file_url) ? null : Storage::url($message->file_url),
+          'file_url' => ($message->is_recalled || !$message->file_url) ? null : $this->absoluteStorageUrl($message->file_url),
           'is_edited' => $message->is_edited,
           'is_recalled' => (bool) $message->is_recalled,
           'is_forwarded' => (bool) $message->is_forwarded,
@@ -513,7 +513,7 @@ class ChatController extends Controller
       'id' => $message->id,
       'content' => $message->content,
       'type' => $message->type,
-      'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+      'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
       'is_edited' => $message->is_edited,
       'is_forwarded' => (bool) $message->is_forwarded,
       'is_myself' => $message->user_id === $user->id,
@@ -604,7 +604,7 @@ class ChatController extends Controller
         return null;
       }
 
-      return Storage::url($framePath);
+      return $this->absoluteStorageUrl($framePath);
     } catch (\Throwable $exception) {
       Log::warning('Error creating first-frame thumbnail for chat video', [
         'video_path' => $videoPath,
@@ -807,7 +807,7 @@ class ChatController extends Controller
       'id' => $message->id,
       'content' => $message->content,
       'type' => $message->type,
-      'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+      'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
       'sender' => $sender,
     ];
   }
@@ -1204,7 +1204,7 @@ class ChatController extends Controller
 
     $this->createSystemMessage($conversation, sprintf('%s đã đổi ảnh đại diện nhóm', $this->displayName($user)));
 
-    return response()->json(['avatar_url' => Storage::url($path)]);
+    return response()->json(['avatar_url' => $this->absoluteStorageUrl($path)]);
   }
 
   /**
@@ -1232,7 +1232,7 @@ class ChatController extends Controller
       'id' => $conversation->id,
       'name' => $conversation->name,
       'type' => $conversation->type,
-      'avatar_url' => $conversation->avatar_url ? Storage::url($conversation->avatar_url) : null,
+      'avatar_url' => $conversation->avatar_url ? $this->absoluteStorageUrl($conversation->avatar_url) : null,
       'created_by' => $conversation->created_by,
       'created_at' => $conversation->created_at?->toISOString(),
       'is_owner' => $conversation->isOwner($user->id),
@@ -1606,7 +1606,7 @@ class ChatController extends Controller
     return response()->json([
       'conversation_id' => $conversation->id,
       'name' => $conversation->name,
-      'avatar_url' => $conversation->avatar_url ? Storage::url($conversation->avatar_url) : null,
+      'avatar_url' => $conversation->avatar_url ? $this->absoluteStorageUrl($conversation->avatar_url) : null,
       'member_count' => $conversation->participants()->count(),
       'already_member' => $user ? $conversation->hasParticipant($user->id) : false,
     ]);
@@ -1715,6 +1715,38 @@ class ChatController extends Controller
   private function displayName(AuthAccount $user): string
   {
     return $user->profile->profile_name ?? $user->username;
+  }
+
+  /**
+   * Build an absolute URL for a file on the 'public' storage disk.
+   *
+   * Storage::url() only returns an absolute URL when the 'public' disk's own
+   * 'url' config (filesystems.php, derived from env('APP_URL')) is set — if
+   * APP_URL isn't picked up there, it silently falls back to a host-relative
+   * path like "/storage/...". Served from an API response, a relative path
+   * gets resolved by the browser against whatever page it's rendered on
+   * (e.g. the web frontend's own origin), not this API's — so always prefix
+   * config('app.url') explicitly here, the same way avatar URLs already do
+   * elsewhere in this controller, instead of trusting Storage::url() alone.
+   *
+   * @param  string|null  $path
+   * @return string|null
+   */
+  private function absoluteStorageUrl(?string $path): ?string
+  {
+    if (!$path) {
+      return null;
+    }
+
+    $url = Storage::url($path);
+
+    // Already absolute (e.g. a cloud disk, or a server where APP_URL is
+    // correctly picked up by the filesystem config) — don't double-prefix.
+    if (Str::startsWith($url, ['http://', 'https://'])) {
+      return $url;
+    }
+
+    return rtrim(config('app.url'), '/') . $url;
   }
 
   /**
@@ -1994,7 +2026,7 @@ class ChatController extends Controller
           'id' => $message->id,
           'content' => $message->content,
           'type' => $message->type,
-          'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+          'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
           'is_edited' => $message->is_edited,
           'is_guest' => $isGuest,
           'sender' => $isGuest ? [
@@ -2180,7 +2212,7 @@ class ChatController extends Controller
       'id' => $message->id,
       'content' => $message->content,
       'type' => $message->type,
-      'file_url' => $message->file_url ? Storage::url($message->file_url) : null,
+      'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
       'is_edited' => $message->is_edited,
       'is_guest' => $isGuest,
       'sender' => $isGuest ? [
