@@ -1243,6 +1243,46 @@ class ChatController extends Controller
   }
 
   /**
+   * Get read-receipt data for a group conversation: every other participant's
+   * last_read_at timestamp. The frontend derives "seen by" avatars from this by
+   * finding, per participant, the newest message whose created_at they've read
+   * past — there's no per-message read table, just like Messenger doesn't need
+   * one either (a single "read up to this point in time" timestamp is enough).
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getGroupSeenReceipts($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->hasParticipant($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $participants = $conversation->participants()
+      ->where('cyo_auth_accounts.id', '!=', $user->id)
+      ->with('profile')
+      ->get();
+
+    return response()->json([
+      'participants' => $participants->map(function ($p) {
+        $data = $this->formatParticipant($p);
+        $data['last_read_at'] = $p->pivot->last_read_at
+          ? Carbon::parse($p->pivot->last_read_at)->toISOString()
+          : null;
+
+        return $data;
+      })->values(),
+    ]);
+  }
+
+  /**
    * Add participants to a group conversation. Any current member may add new participants.
    *
    * @param  \Illuminate\Http\Request  $request

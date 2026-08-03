@@ -313,6 +313,7 @@ Route::prefix('v1.0')->group(function () {
       Route::post('messages/{messageId}/forward', [ChatController::class, 'forwardMessage']);
       Route::post('groups', [ChatController::class, 'createGroupConversation']);
       Route::get('groups/{conversationId}', [ChatController::class, 'getGroupDetails']);
+      Route::get('groups/{conversationId}/seen', [ChatController::class, 'getGroupSeenReceipts']);
       Route::put('groups/{conversationId}', [ChatController::class, 'updateGroupConversation']);
       Route::delete('groups/{conversationId}', [ChatController::class, 'deleteGroupConversation']);
       Route::post('groups/{conversationId}/avatar', [ChatController::class, 'updateGroupAvatar']);
