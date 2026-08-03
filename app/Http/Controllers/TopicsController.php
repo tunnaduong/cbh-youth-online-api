@@ -251,6 +251,10 @@ class TopicsController extends Controller
       return $this->latestFeed($request, $userId, $page, $perPage);
     }
 
+    if ($request->query('mode') === 'following') {
+      return $this->followingFeed($request, $userId, $page, $perPage);
+    }
+
     // Optional per-visit shuffle seed ("slot machine"): the client generates a new
     // random seed on every page load, so the same ranked list is re-dealt into a
     // different order each visit while one seed keeps pagination stable within a visit.
@@ -325,6 +329,50 @@ class TopicsController extends Controller
       ->through(fn($topic) => $this->formatTopicForList($topic, $request));
 
     return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'latest']));
+  }
+
+  /**
+   * Reverse-chronological feed restricted to people the authenticated user follows.
+   */
+  private function followingFeed(Request $request, int $userId, int $page, int $perPage)
+  {
+    $followingIds = \App\Models\Follower::where('follower_id', $userId)
+      ->pluck('followed_id')
+      ->toArray();
+
+    if (empty($followingIds)) {
+      return response()->json([
+        'data' => [],
+        'total' => 0,
+        'per_page' => $perPage,
+        'current_page' => $page,
+        'last_page' => 1,
+        'exhausted' => true,
+        'mode' => 'following',
+      ]);
+    }
+
+    $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)
+      ->pluck('blocked_user_id')
+      ->toArray();
+
+    $topics = Topic::where('hidden', 0)
+      ->whereIn('user_id', $followingIds)
+      ->whereNotIn('user_id', $blockedUserIds)
+      ->where(function ($q) use ($userId, $followingIds) {
+        $q->where('privacy', 'public')
+          ->orWhere('user_id', $userId)
+          ->orWhere(function ($sub) use ($followingIds) {
+            $sub->where('privacy', 'followers')->whereIn('user_id', $followingIds);
+          });
+      })
+      ->withCount(['views', 'comments'])
+      ->with(['user', 'votes.user', 'cdnUserContent'])
+      ->orderBy('created_at', 'desc')
+      ->paginate($perPage, ['*'], 'page', $page)
+      ->through(fn($topic) => $this->formatTopicForList($topic, $request));
+
+    return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'following']));
   }
 
   /**
