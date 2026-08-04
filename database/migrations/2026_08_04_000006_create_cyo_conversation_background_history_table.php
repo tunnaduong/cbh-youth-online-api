@@ -19,7 +19,7 @@ return new class extends Migration
             $table->timestamp('used_at');
             $table->timestamps();
 
-            $table->unique(['conversation_id', 'user_content_id']);
+            $table->unique(['conversation_id', 'user_content_id'], 'conv_bg_history_unique');
         });
     }
 
