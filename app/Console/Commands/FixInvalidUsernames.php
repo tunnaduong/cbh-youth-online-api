@@ -10,9 +10,9 @@ class FixInvalidUsernames extends Command
     protected $signature = 'users:fix-invalid-usernames
         {--dry-run : List offending accounts without changing data}';
 
-    protected $description = 'Sanitize usernames that violate the ^[a-zA-Z0-9_.-]{3,20}$ rule (and the reserved word "all")';
+    protected $description = 'Sanitize usernames that violate the ^[a-zA-Z0-9_.-]{3,21}$ rule (and the reserved word "all")';
 
-    private const PATTERN = '/^[a-zA-Z0-9_.-]{3,20}$/';
+    private const PATTERN = '/^[a-zA-Z0-9_.-]{3,21}$/';
 
     public function handle(): int
     {
@@ -81,7 +81,7 @@ class FixInvalidUsernames extends Command
             $clean = str_pad($clean, 3, '0');
         }
 
-        $clean = substr($clean, 0, 20);
+        $clean = substr($clean, 0, 21);
 
         // Resolve collisions (including with other accounts about to be renamed
         // in this same run) by appending the account id.
@@ -90,7 +90,7 @@ class FixInvalidUsernames extends Command
             AuthAccount::where('username', $clean)->where('id', '!=', $account->id)->exists()
         ) {
             $suffix = '_' . $account->id;
-            $clean = substr($base, 0, 20 - strlen($suffix)) . $suffix;
+            $clean = substr($base, 0, 21 - strlen($suffix)) . $suffix;
         }
 
         return $clean;

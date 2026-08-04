@@ -1130,7 +1130,7 @@ class AdminController extends Controller
   public function storeUser(Request $request)
   {
     $validator = Validator::make($request->all(), [
-      'username' => ['required', 'string', 'min:3', 'max:20', 'regex:/^[a-zA-Z0-9_.-]+$/', 'not_in:all', 'unique:cyo_auth_accounts'],
+      'username' => ['required', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'not_in:all', 'unique:cyo_auth_accounts'],
       'email' => 'required|string|email|max:255|unique:cyo_auth_accounts',
       'password' => 'required|string|min:8',
       'role' => 'required|string|in:user,student,teacher,volunteer,admin'
@@ -1185,7 +1185,7 @@ class AdminController extends Controller
     $user = User::findOrFail($id);
 
     $validator = Validator::make($request->all(), [
-      'username' => ['string', 'min:3', 'max:20', 'regex:/^[a-zA-Z0-9_.-]+$/', 'not_in:all', 'unique:cyo_auth_accounts,username,' . $id],
+      'username' => ['string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'not_in:all', 'unique:cyo_auth_accounts,username,' . $id],
       'email' => 'string|email|max:255|unique:cyo_auth_accounts,email,' . $id,
       'password' => 'nullable|string|min:8',
       'role' => 'string|in:user,student,teacher,volunteer,admin'

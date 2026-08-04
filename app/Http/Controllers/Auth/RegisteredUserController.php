@@ -35,7 +35,7 @@ class RegisteredUserController extends Controller
   public function store(Request $request): RedirectResponse
   {
     $request->validate([
-      'username' => ['required', 'string', 'min:3', 'max:20', 'regex:/^[a-zA-Z0-9_.-]+$/', 'unique:' . AuthAccount::class . ',username', 'not_in:all'],
+      'username' => ['required', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'unique:' . AuthAccount::class . ',username', 'not_in:all'],
       'profile_name' => 'required|string|max:255',
       'email' => 'required|string|lowercase|email|max:255|unique:' . User::class,
       'password' => ['required', 'confirmed', Rules\Password::defaults()],
