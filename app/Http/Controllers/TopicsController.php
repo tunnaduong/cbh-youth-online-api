@@ -157,6 +157,32 @@ class TopicsController extends Controller
    * @param  \Illuminate\Http\Request  $request
    * @return array
    */
+  /**
+   * Resolve @mentions in a topic's text to {username, user_id} pairs for
+   * client-side rendering. "all" is never resolvable (no account can have
+   * that username), so it's naturally excluded here already.
+   *
+   * @param  string|null  $text
+   * @return array<array{username:string,user_id:int}>
+   */
+  private function resolveTopicMentions(?string $text): array
+  {
+    if (!$text) {
+      return [];
+    }
+
+    $usernames = NotificationService::parseMentions($text);
+    if (empty($usernames)) {
+      return [];
+    }
+
+    return AuthAccount::whereIn('username', $usernames)
+      ->select('id', 'username')
+      ->get()
+      ->map(fn($u) => ['username' => $u->username, 'user_id' => $u->id])
+      ->all();
+  }
+
   private function formatTopicForList(Topic $topic, Request $request): array
   {
     // Check if user is moderator/admin (you may need to adjust this logic based on your role system)
@@ -170,6 +196,7 @@ class TopicsController extends Controller
       'id' => $topic->id,
       'title' => $topic->title,
       'content' => $topic->content_html,
+      'mentions' => $this->resolveTopicMentions($topic->description),
       'image_urls' => $topic->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
@@ -888,6 +915,7 @@ class TopicsController extends Controller
         'title' => $topic->title,
         'description' => $topic->description,
         'content' => $topic->content_html,
+        'mentions' => $this->resolveTopicMentions($topic->description),
         'image_urls' => $imageUrls,
         'document_urls' => $topic->getDocuments()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
@@ -1165,6 +1193,22 @@ class TopicsController extends Controller
 
     $this->bumpFeedVersion();
 
+    // Handle @mentions in the post — notify each existing mentioned user
+    // (only on creation, not on every edit, matching how comment mentions
+    // are handled). "all" can never resolve to a real account since it's a
+    // reserved username, so it's silently excluded here already.
+    $parsedMentionUsernames = NotificationService::parseMentions($request->description ?? '');
+    $resolvedTopicMentions = [];
+    if (!empty($parsedMentionUsernames)) {
+      $mentionedUsers = AuthAccount::whereIn('username', $parsedMentionUsernames)
+        ->select('id', 'username')
+        ->get();
+      foreach ($mentionedUsers as $mentionedUser) {
+        NotificationService::createMentionedNotification($mentionedUser->id, $topic, auth()->id());
+        $resolvedTopicMentions[] = ['username' => $mentionedUser->username, 'user_id' => $mentionedUser->id];
+      }
+    }
+
     // Debug: Log the created topic
     \Log::info('Topic created successfully:', [
       'topic' => [
@@ -1187,6 +1231,7 @@ class TopicsController extends Controller
         'id' => $topic->id,
         'title' => $topic->title,
         'content' => $topic->description,
+        'mentions' => $resolvedTopicMentions,
         'image_urls' => $topic->getImageUrls()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
         })->all(),
@@ -1377,9 +1422,15 @@ class TopicsController extends Controller
 
     HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
 
+    // Resolve @mentions in the updated text so clients can render them
+    // immediately, matching updateComment() — no new notifications are
+    // sent on edit, only on the initial post creation.
+    $topicArray = $topic->toArray();
+    $topicArray['mentions'] = $this->resolveTopicMentions($topic->description);
+
     return response()->json([
       'message' => 'Bài viết đã được cập nhật thành công',
-      'data' => $topic
+      'data' => $topicArray
     ]);
   }
 
