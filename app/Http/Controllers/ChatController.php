@@ -1525,6 +1525,14 @@ class ChatController extends Controller
       return response()->json(['message' => 'Không có thay đổi nào được gửi lên.'], 422);
     }
 
+    // Only mention keys whose value actually changed, so re-saving the same
+    // setting doesn't spam the conversation with a no-op system message.
+    $changedUpdates = array_filter(
+      $updates,
+      fn($value, $key) => $conversation->{$key} !== $value,
+      ARRAY_FILTER_USE_BOTH
+    );
+
     $conversation->update($updates);
 
     // Sharing disabled entirely — kill the active link so it can't keep circulating.
@@ -1532,12 +1540,54 @@ class ChatController extends Controller
       $conversation->update(['invite_token' => null]);
     }
 
-    $this->createSystemMessage($conversation, sprintf('%s đã cập nhật cài đặt quản lý nhóm', $this->displayName($user)));
+    if (!empty($changedUpdates)) {
+      $actorName = $this->displayName($user);
+      foreach ($changedUpdates as $key => $value) {
+        $this->createSystemMessage($conversation, $this->formatPermissionChangeMessage($actorName, $key, $value));
+      }
+    }
 
     return response()->json([
       'message' => 'Đã cập nhật cài đặt quản lý nhóm thành công.',
       'permissions' => $this->formatGroupPermissions($conversation, $user->id),
     ]);
+  }
+
+  /**
+   * Build a human-readable system message describing a single permission change,
+   * e.g. "Đào Phúc đã giới hạn chia sẻ liên kết mời cho chỉ trưởng nhóm".
+   *
+   * @param  string  $actorName
+   * @param  string  $key  One of Conversation::PERMISSION_KEYS
+   * @param  string  $value
+   * @return string
+   */
+  private function formatPermissionChangeMessage(string $actorName, string $key, string $value): string
+  {
+    $actionLabels = [
+      'perm_change_name' => 'đổi tên nhóm',
+      'perm_change_avatar' => 'đổi ảnh đại diện nhóm',
+      'perm_change_background' => 'đổi ảnh nền cuộc trò chuyện',
+      'perm_remove_members' => 'xóa thành viên',
+      'perm_share_invite_link' => 'chia sẻ liên kết mời',
+      'perm_invite_members' => 'mời thành viên',
+    ];
+
+    $valueLabels = [
+      'owner' => 'chỉ trưởng nhóm',
+      'deputy' => 'trưởng nhóm và phó nhóm',
+      'member' => 'tất cả thành viên',
+    ];
+
+    $action = $actionLabels[$key] ?? $key;
+
+    if ($value === 'none') {
+      // Only perm_share_invite_link supports 'none' — disabling it entirely
+      // reads more naturally than "cho phép ... không có ai".
+      return sprintf('%s đã tắt tính năng %s', $actorName, $action);
+    }
+
+    return sprintf('%s đã giới hạn quyền %s cho %s', $actorName, $action, $valueLabels[$value] ?? $value);
   }
 
   /**
