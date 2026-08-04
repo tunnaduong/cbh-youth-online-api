@@ -59,10 +59,13 @@ class ChatController extends Controller
       })
       ->values()  // Reset keys after filter
       ->map(function ($conversation) use ($user) {
-        $otherParticipants = $conversation
-          ->participants
-          ->where('id', '!=', $user->id)
-          ->values();
+        // Private chats only ever show "the other person", so participants
+        // there deliberately excludes you. Groups need the real member count
+        // (including yourself) — otherwise it always reads one member short
+        // compared to Group Info, which does include you.
+        $displayParticipants = $conversation->type === 'group'
+          ? $conversation->participants
+          : $conversation->participants->where('id', '!=', $user->id)->values();
 
         return [
           'id' => $conversation->id,
@@ -71,7 +74,7 @@ class ChatController extends Controller
           'avatar_url' => $conversation->type === 'group' && $conversation->avatar_url
             ? $this->absoluteStorageUrl($conversation->avatar_url)
             : null,
-          'participants' => $otherParticipants->map(function ($participant) {
+          'participants' => $displayParticipants->map(function ($participant) {
             return [
               'id' => $participant->id,
               'username' => $participant->username,
