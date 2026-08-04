@@ -41,10 +41,6 @@ class SettingsController extends Controller
   {
     $user = Auth::user();
 
-    if ($request->filled('username')) {
-      $request->merge(['username' => strtolower($request->username)]);
-    }
-
     $validated = $request->validate([
       'username' => ['required', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'unique:cyo_auth_accounts,username,' . $user->id, 'not_in:all'],
       'gender' => 'required|in:male,female',

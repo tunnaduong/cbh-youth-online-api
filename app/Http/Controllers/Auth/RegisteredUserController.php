@@ -34,10 +34,6 @@ class RegisteredUserController extends Controller
    */
   public function store(Request $request): RedirectResponse
   {
-    if ($request->filled('username')) {
-      $request->merge(['username' => strtolower($request->username)]);
-    }
-
     $request->validate([
       'username' => ['required', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'unique:' . AuthAccount::class . ',username', 'not_in:all'],
       'profile_name' => 'required|string|max:255',
