@@ -1260,7 +1260,7 @@ class ChatController extends Controller
     $user = Auth::user();
     $conversation = Conversation::findOrFail($conversationId);
 
-    if ($conversation->type !== 'group' || $conversation->is_public) {
+    if ($conversation->type !== 'group') {
       return response()->json(['message' => 'This is not a group conversation'], 400);
     }
 
