@@ -33,6 +33,7 @@ class NotificationSettingsController extends Controller
         'email_marketing' => $defaults['notify_email_marketing'],
         'email_social' => $defaults['notify_email_social'],
         'email_security' => $defaults['notify_email_security'],
+        'chat_read_receipts' => true,
       ]);
     }
 
@@ -48,6 +49,7 @@ class NotificationSettingsController extends Controller
       'email_marketing' => (bool) $settings->notify_email_marketing,
       'email_social' => (bool) $settings->notify_email_social,
       'email_security' => true, // Always true, cannot be changed
+      'chat_read_receipts' => $settings->chat_read_receipts ?? true,
     ]);
   }
 
@@ -68,6 +70,7 @@ class NotificationSettingsController extends Controller
       'email_contact' => 'nullable|boolean',
       'email_marketing' => 'nullable|boolean',
       'email_social' => 'nullable|boolean',
+      'chat_read_receipts' => 'nullable|boolean',
     ]);
 
     // Map notification_level to notify_type
@@ -97,6 +100,9 @@ class NotificationSettingsController extends Controller
     if (isset($validatedData['email_social'])) {
       $settingsData['notify_email_social'] = $validatedData['email_social'];
     }
+    if (isset($validatedData['chat_read_receipts'])) {
+      $settingsData['chat_read_receipts'] = $validatedData['chat_read_receipts'];
+    }
     // Always set email_security to true (cannot be changed)
     $settingsData['notify_email_security'] = true;
 
@@ -124,6 +130,7 @@ class NotificationSettingsController extends Controller
       'email_marketing' => (bool) $settings->notify_email_marketing,
       'email_social' => (bool) $settings->notify_email_social,
       'email_security' => true, // Always true, cannot be changed
+      'chat_read_receipts' => $settings->chat_read_receipts ?? true,
     ]);
   }
 }

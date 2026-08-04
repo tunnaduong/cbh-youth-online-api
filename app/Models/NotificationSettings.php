@@ -60,6 +60,7 @@ class NotificationSettings extends Model
     'notify_email_marketing' => 'boolean',
     'notify_email_social' => 'boolean',
     'notify_email_security' => 'boolean',
+    'chat_read_receipts' => 'boolean',
   ];
 
   /**
@@ -74,6 +75,7 @@ class NotificationSettings extends Model
     'notify_email_marketing',
     'notify_email_social',
     'notify_email_security',
+    'chat_read_receipts',
   ];
 
   /**

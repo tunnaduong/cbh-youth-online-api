@@ -15,6 +15,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageReaction;
 use App\Models\Notification;
+use App\Models\NotificationSettings;
 use App\Models\UserBlock;
 use App\Services\NotificationService;
 use App\Services\PushNotificationService;
@@ -647,21 +648,26 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    // Mark messages as read
-    $messages = $conversation
-      ->messages()
-      ->where('user_id', '!=', $user->id)
-      ->whereNull('read_at')
-      ->update(['read_at' => now()]);
+    $settings = NotificationSettings::where('user_id', $user->id)->first();
+    $readReceiptsEnabled = $settings ? ($settings->chat_read_receipts ?? true) : true;
 
-    // Update last_read_at for the user
-    $conversation
-      ->participants()
-      ->where('user_id', $user->id)
-      ->update(['last_read_at' => now()]);
+    if ($readReceiptsEnabled) {
+      // Mark messages as read
+      $conversation
+        ->messages()
+        ->where('user_id', '!=', $user->id)
+        ->whereNull('read_at')
+        ->update(['read_at' => now()]);
 
-    // Broadcast message read event
-    broadcast(new MessageRead($conversation->id, $user->id))->toOthers();
+      // Update last_read_at for the user
+      $conversation
+        ->participants()
+        ->where('user_id', $user->id)
+        ->update(['last_read_at' => now()]);
+
+      // Broadcast message read event
+      broadcast(new MessageRead($conversation->id, $user->id))->toOthers();
+    }
 
     return response()->json(['message' => 'Messages marked as read']);
   }
@@ -1268,20 +1274,35 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    $settings = NotificationSettings::where('user_id', $user->id)->first();
+    $readReceiptsEnabled = $settings ? ($settings->chat_read_receipts ?? true) : true;
+
+    if (!$readReceiptsEnabled) {
+      return response()->json(['participants' => []]);
+    }
+
     $participants = $conversation->participants()
       ->where('cyo_auth_accounts.id', '!=', $user->id)
       ->with('profile')
       ->get();
 
-    return response()->json([
-      'participants' => $participants->map(function ($p) {
-        $data = $this->formatParticipant($p);
-        $data['last_read_at'] = $p->pivot->last_read_at
-          ? Carbon::parse($p->pivot->last_read_at)->toISOString()
-          : null;
+    // Filter out participants who have disabled read receipts (they appear unread to others)
+    $participantSettings = NotificationSettings::whereIn('user_id', $participants->pluck('id'))
+      ->pluck('chat_read_receipts', 'user_id');
 
-        return $data;
-      })->values(),
+    return response()->json([
+      'participants' => $participants
+        ->filter(function ($p) use ($participantSettings) {
+          return $participantSettings->get($p->id, true) !== false;
+        })
+        ->map(function ($p) {
+          $data = $this->formatParticipant($p);
+          $data['last_read_at'] = $p->pivot->last_read_at
+            ? Carbon::parse($p->pivot->last_read_at)->toISOString()
+            : null;
+
+          return $data;
+        })->values(),
     ]);
   }
 
