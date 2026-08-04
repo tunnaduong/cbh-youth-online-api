@@ -53,6 +53,7 @@ class UserController extends Controller
             if (file_exists($imagePath)) {
               return response()->file($imagePath, [
                 'Content-Type' => $userContent->file_type,  // Dynamically set the Content-Type
+                'Cache-Control' => 'no-cache, must-revalidate', // avatar/cover URL never changes, so force revalidation instead of a stale CDN/client cache
               ]);
             }
 
@@ -95,6 +96,7 @@ class UserController extends Controller
           if (file_exists($imagePath)) {
             return response()->file($imagePath, [
               'Content-Type' => $userContent->file_type,
+              'Cache-Control' => 'no-cache, must-revalidate', // avatar/cover URL never changes, so force revalidation instead of a stale CDN/client cache
             ]);
           }
 
