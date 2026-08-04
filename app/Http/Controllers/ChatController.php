@@ -1543,7 +1543,17 @@ class ChatController extends Controller
     if (!empty($changedUpdates)) {
       $actorName = $this->displayName($user);
       foreach ($changedUpdates as $key => $value) {
-        $this->createSystemMessage($conversation, $this->formatPermissionChangeMessage($actorName, $key, $value));
+        $this->createSystemMessage(
+          $conversation,
+          $this->formatPermissionChangeMessage($actorName, $key, $value),
+          [
+            'event' => 'permission_changed',
+            'actor_id' => $user->id,
+            'actor_name' => $actorName,
+            'permission_key' => $key,
+            'permission_value' => $value,
+          ]
+        );
       }
     }
 
