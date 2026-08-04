@@ -10,7 +10,7 @@ class FixInvalidUsernames extends Command
     protected $signature = 'users:fix-invalid-usernames
         {--dry-run : List offending accounts without changing data}';
 
-    protected $description = 'Sanitize usernames that violate the ^[a-zA-Z0-9_.-]{3,21}$ rule (and the reserved word "all")';
+    protected $description = 'Sanitize usernames that violate the ^[a-zA-Z0-9_.-]{3,21}$ rule, are not lowercase, or equal the reserved word "all"';
 
     private const PATTERN = '/^[a-zA-Z0-9_.-]{3,21}$/';
 
@@ -65,13 +65,14 @@ class FixInvalidUsernames extends Command
     {
         return $username !== null
             && preg_match(self::PATTERN, $username) === 1
+            && $username === strtolower($username)
             && strtolower($username) !== 'all';
     }
 
     private function sanitize(AuthAccount $account): string
     {
-        // Strip everything except letters, digits, underscore, dot and dash.
-        $clean = preg_replace('/[^a-zA-Z0-9_.-]/', '', (string) $account->username);
+        // Strip everything except letters, digits, underscore, dot and dash, then lowercase.
+        $clean = strtolower(preg_replace('/[^a-zA-Z0-9_.-]/', '', (string) $account->username));
 
         if (strtolower($clean) === 'all') {
             $clean .= '_user';

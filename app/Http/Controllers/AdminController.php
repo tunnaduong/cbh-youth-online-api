@@ -1129,6 +1129,10 @@ class AdminController extends Controller
    */
   public function storeUser(Request $request)
   {
+    if ($request->filled('username')) {
+      $request->merge(['username' => strtolower($request->username)]);
+    }
+
     $validator = Validator::make($request->all(), [
       'username' => ['required', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'not_in:all', 'unique:cyo_auth_accounts'],
       'email' => 'required|string|email|max:255|unique:cyo_auth_accounts',
@@ -1183,6 +1187,10 @@ class AdminController extends Controller
   public function updateUser(Request $request, $id)
   {
     $user = User::findOrFail($id);
+
+    if ($request->filled('username')) {
+      $request->merge(['username' => strtolower($request->username)]);
+    }
 
     $validator = Validator::make($request->all(), [
       'username' => ['string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'not_in:all', 'unique:cyo_auth_accounts,username,' . $id],

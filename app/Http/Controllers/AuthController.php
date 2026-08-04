@@ -136,6 +136,10 @@ class AuthController extends Controller
    */
   public function register(Request $request)
   {
+    if ($request->filled('username')) {
+      $request->merge(['username' => strtolower($request->username)]);
+    }
+
     $request->validate([
       'username' => [
         'required',
