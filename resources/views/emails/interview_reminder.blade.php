@@ -19,7 +19,7 @@ Chúng mình mong bạn có thể tham gia đúng giờ và chuẩn bị tai ngh
 
 Một lần nữa, CYO cảm ơn bạn đã dành thời gian, sự quan tâm và yêu mến cho bọn mình.
 
-Nếu bạn đã điền xong thông tin, bạn có thể bỏ qua email này. Nếu không thể sắp xếp được lịch, hãy liên hệ [https://www.facebook.com/cbhyouthonline](https://www.facebook.com/cbhyouthonline) qua Messenger trước **{{ $contactDeadline }}** để được giúp đỡ.
+Nếu bạn đã điền xong thông tin, bạn có thể bỏ qua email này. Nếu không thể xếp được thời gian để phỏng vấn hay có vấn đề gì khác, hãy liên hệ [https://www.facebook.com/cbhyouthonline](https://www.facebook.com/cbhyouthonline) qua Messenger trước **{{ $contactDeadline }}** để được giúp đỡ.
 
 Mọi thắc mắc, vui lòng liên hệ:
 
