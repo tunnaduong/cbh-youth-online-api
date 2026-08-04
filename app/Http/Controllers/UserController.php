@@ -9,6 +9,7 @@ use App\Models\TopicComment;
 use App\Models\UserContent;
 use App\Models\UserSavedTopic;
 use App\Services\MentionService;
+use App\Services\NotificationService;
 use App\Notifications\VerifyEmail;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -238,6 +239,32 @@ class UserController extends Controller
     return response()->json(['message' => 'Không có file nào được upload.'], 400);
   }
 
+  /**
+   * Resolve @mention tokens in a post's content to {username, user_id} pairs,
+   * so the frontend can tell a real mention from plain "@text" that happens
+   * to look like one (and only link/bold the real ones).
+   *
+   * @param  string|null  $text
+   * @return array
+   */
+  private function resolvePostMentions(?string $text): array
+  {
+    if (!$text) {
+      return [];
+    }
+
+    $usernames = NotificationService::parseMentions($text);
+    if (empty($usernames)) {
+      return [];
+    }
+
+    return AuthAccount::whereIn('username', $usernames)
+      ->select('id', 'username')
+      ->get()
+      ->map(fn($u) => ['username' => $u->username, 'user_id' => $u->id])
+      ->all();
+  }
+
   private function roundToNearestFive($count)
   {
     if ($count <= 5) {
@@ -350,6 +377,7 @@ class UserController extends Controller
 
     // Transform recent posts - only show anonymous posts to the owner
     $isOwnProfile = auth()->check() && auth()->id() === $user->id;
+
     $recentPostsQuery = $user->posts()
       ->visibleToCurrentUser()  // public / own / followers-only when the viewer follows the author
       ->latest()
@@ -383,6 +411,7 @@ class UserController extends Controller
             'updated_at' => $vote->updated_at,
           ];
         }),
+        'mentions' => $this->resolvePostMentions($post->content),
         'author' => $post->anonymous ? [
           'id' => null,
           'username' => 'Ẩn danh',
