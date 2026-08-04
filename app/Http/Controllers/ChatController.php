@@ -1169,6 +1169,10 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    if (!$conversation->canPerform($user->id, 'perm_change_name')) {
+      return response()->json(['message' => 'Bạn không có quyền đổi tên nhóm.'], 403);
+    }
+
     $oldName = $conversation->name;
     $conversation->update([
       'name' => $request->name
@@ -1208,6 +1212,10 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    if (!$conversation->canPerform($user->id, 'perm_change_avatar')) {
+      return response()->json(['message' => 'Bạn không có quyền đổi ảnh đại diện nhóm.'], 403);
+    }
+
     $oldAvatarPath = $conversation->avatar_url;
     $path = $request->file('avatar')->store('group_avatars', 'public');
     $conversation->update(['avatar_url' => $path]);
@@ -1228,7 +1236,7 @@ class ChatController extends Controller
    *
    * @return \App\Models\Conversation|\Illuminate\Http\JsonResponse
    */
-  private function conversationForBackground($conversationId, $userId)
+  private function conversationForBackground($conversationId, $userId, bool $requireChangePermission = false)
   {
     $conversation = Conversation::findOrFail($conversationId);
 
@@ -1238,6 +1246,10 @@ class ChatController extends Controller
 
     if (!$conversation->hasParticipant($userId)) {
       return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    if ($requireChangePermission && $conversation->type === 'group' && !$conversation->canPerform($userId, 'perm_change_background')) {
+      return response()->json(['message' => 'Bạn không có quyền đổi ảnh nền cuộc trò chuyện.'], 403);
     }
 
     return $conversation;
@@ -1305,7 +1317,7 @@ class ChatController extends Controller
     ]);
 
     $user = Auth::user();
-    $conversation = $this->conversationForBackground($conversationId, $user->id);
+    $conversation = $this->conversationForBackground($conversationId, $user->id, true);
     if (!$conversation instanceof Conversation) {
       return $conversation;
     }
@@ -1322,9 +1334,9 @@ class ChatController extends Controller
       'file_size' => $file->getSize(),
     ]);
 
-    ProcessImageCompression::dispatch($path, $userContent->id);
-    $userContent->refresh();
-
+    // Chat backgrounds are stored uncompressed — unlike regular post/message
+    // images, they're viewed full-bleed behind text so compression artifacts
+    // are much more visible.
     ConversationBackgroundHistory::updateOrCreate(
       ['conversation_id' => $conversation->id, 'user_content_id' => $userContent->id],
       ['set_by' => $user->id, 'used_at' => now()]
@@ -1360,7 +1372,7 @@ class ChatController extends Controller
     ]);
 
     $user = Auth::user();
-    $conversation = $this->conversationForBackground($conversationId, $user->id);
+    $conversation = $this->conversationForBackground($conversationId, $user->id, true);
     if (!$conversation instanceof Conversation) {
       return $conversation;
     }
@@ -1400,7 +1412,7 @@ class ChatController extends Controller
   public function resetConversationBackground($conversationId)
   {
     $user = Auth::user();
-    $conversation = $this->conversationForBackground($conversationId, $user->id);
+    $conversation = $this->conversationForBackground($conversationId, $user->id, true);
     if (!$conversation instanceof Conversation) {
       return $conversation;
     }
@@ -1449,7 +1461,82 @@ class ChatController extends Controller
       'is_owner' => $conversation->isOwner($user->id),
       'is_deputy' => $conversation->isDeputy($user->id),
       'can_manage' => $conversation->isManager($user->id),
+      'permissions' => $this->formatGroupPermissions($conversation, $user->id),
       'participants' => $conversation->participants->map(fn($p) => $this->formatParticipant($p, true)),
+    ]);
+  }
+
+  /**
+   * Build the permissions payload for a group: the raw setting per action plus
+   * whether the current user is allowed to perform each one right now.
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @param  int  $userId
+   * @return array
+   */
+  private function formatGroupPermissions(Conversation $conversation, $userId): array
+  {
+    $settings = [];
+    $canDo = [];
+
+    foreach (array_keys(Conversation::PERMISSION_KEYS) as $key) {
+      $settings[$key] = $conversation->{$key};
+      $canDo[$key] = $key === 'perm_share_invite_link' && $conversation->{$key} === 'none'
+        ? false
+        : $conversation->canPerform($userId, $key);
+    }
+
+    return [
+      'settings' => $settings,
+      'can' => $canDo,
+    ];
+  }
+
+  /**
+   * Update a group's permission settings (who may rename, change avatar/background,
+   * remove members, share the invite link, invite members). Owner only.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function updateGroupPermissions(Request $request, $conversationId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->type !== 'group' || $conversation->is_public) {
+      return response()->json(['message' => 'This is not a group conversation'], 400);
+    }
+
+    if (!$conversation->isOwner($user->id)) {
+      return response()->json(['message' => 'Chỉ trưởng nhóm mới có thể thay đổi cài đặt quản lý nhóm.'], 403);
+    }
+
+    $rules = [];
+    foreach (Conversation::PERMISSION_KEYS as $key => $allowedValues) {
+      $rules[$key] = ['sometimes', 'string', 'in:' . implode(',', $allowedValues)];
+    }
+    $request->validate($rules);
+
+    $updates = array_intersect_key($request->all(), Conversation::PERMISSION_KEYS);
+
+    if (empty($updates)) {
+      return response()->json(['message' => 'Không có thay đổi nào được gửi lên.'], 422);
+    }
+
+    $conversation->update($updates);
+
+    // Sharing disabled entirely — kill the active link so it can't keep circulating.
+    if (($updates['perm_share_invite_link'] ?? null) === 'none' && $conversation->invite_token) {
+      $conversation->update(['invite_token' => null]);
+    }
+
+    $this->createSystemMessage($conversation, sprintf('%s đã cập nhật cài đặt quản lý nhóm', $this->displayName($user)));
+
+    return response()->json([
+      'message' => 'Đã cập nhật cài đặt quản lý nhóm thành công.',
+      'permissions' => $this->formatGroupPermissions($conversation, $user->id),
     ]);
   }
 
@@ -1533,6 +1620,10 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    if (!$conversation->canPerform($user->id, 'perm_invite_members')) {
+      return response()->json(['message' => 'Bạn không có quyền mời thành viên vào nhóm.'], 403);
+    }
+
     $existingIds = $conversation->participants()->pluck('cyo_auth_accounts.id')->toArray();
     $newParticipantIds = array_values(array_diff(array_unique($request->participants), $existingIds));
 
@@ -1587,8 +1678,8 @@ class ChatController extends Controller
     $isSelfLeave = (int) $userId === (int) $user->id;
 
     if (!$isSelfLeave) {
-      if (!$conversation->isManager($user->id)) {
-        return response()->json(['message' => 'Chỉ trưởng nhóm hoặc phó nhóm mới có thể xóa thành viên khác khỏi nhóm.'], 403);
+      if (!$conversation->canPerform($user->id, 'perm_remove_members')) {
+        return response()->json(['message' => 'Bạn không có quyền xóa thành viên khỏi nhóm.'], 403);
       }
       if ($conversation->isOwner($userId)) {
         return response()->json(['message' => 'Không thể xóa trưởng nhóm khỏi nhóm.'], 403);
@@ -1804,6 +1895,17 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    if ($conversation->perm_share_invite_link === 'none') {
+      if ($conversation->invite_token) {
+        $conversation->update(['invite_token' => null]);
+      }
+      return response()->json(['message' => 'Liên kết mời nhóm đã bị vô hiệu hóa.'], 403);
+    }
+
+    if (!$conversation->canPerform($user->id, 'perm_share_invite_link')) {
+      return response()->json(['message' => 'Bạn không có quyền chia sẻ liên kết mời nhóm.'], 403);
+    }
+
     if (!$conversation->invite_token) {
       $conversation->update(['invite_token' => Str::random(32)]);
     }
@@ -1812,8 +1914,7 @@ class ChatController extends Controller
   }
 
   /**
-   * Regenerate this group's invite link, invalidating the previous one. Open to any
-   * participant, same as renaming/changing the avatar.
+   * Regenerate this group's invite link, invalidating the previous one.
    *
    * @param  int  $conversationId
    * @return \Illuminate\Http\JsonResponse
@@ -1829,6 +1930,10 @@ class ChatController extends Controller
 
     if (!$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    if ($conversation->perm_share_invite_link === 'none' || !$conversation->canPerform($user->id, 'perm_share_invite_link')) {
+      return response()->json(['message' => 'Bạn không có quyền chia sẻ liên kết mời nhóm.'], 403);
     }
 
     $conversation->update(['invite_token' => Str::random(32)]);

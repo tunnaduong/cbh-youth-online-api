@@ -131,15 +131,8 @@ class UserController extends Controller
       $file = $request->file('cover_photo');
       $fileName = time() . '_cover_' . $file->getClientOriginalName();
 
-      $image = Image::make($file->getRealPath());
-      // Resize to max width 1500px, keep aspect ratio
-      $image->resize(2000, null, function ($constraint) {
-        $constraint->aspectRatio();
-        $constraint->upsize();
-      });
-
-      $filePath = 'covers/' . $fileName;
-      Storage::disk('public')->put($filePath, (string) $image->encode());
+      // Stored as-is, uncompressed — cover photos should keep their original quality.
+      $filePath = $file->storeAs('covers', $fileName, 'public');
 
       $userContent = UserContent::create([
         'user_id' => $user->id,

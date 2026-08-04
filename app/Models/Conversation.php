@@ -45,6 +45,29 @@ class Conversation extends Model
         'avatar_url',
         'invite_token',
         'background_content_id',
+        'perm_change_name',
+        'perm_change_avatar',
+        'perm_change_background',
+        'perm_remove_members',
+        'perm_share_invite_link',
+        'perm_invite_members',
+    ];
+
+    /**
+     * Group-management permission keys and their allowed setting values.
+     * 'owner' = owner only, 'deputy' = owner + deputy, 'member' = everyone.
+     * perm_share_invite_link additionally allows 'none' (link sharing disabled).
+     * perm_remove_members never allows 'member'.
+     *
+     * @var array<string, array<int, string>>
+     */
+    public const PERMISSION_KEYS = [
+        'perm_change_name' => ['owner', 'deputy', 'member'],
+        'perm_change_avatar' => ['owner', 'deputy', 'member'],
+        'perm_change_background' => ['owner', 'deputy', 'member'],
+        'perm_remove_members' => ['owner', 'deputy'],
+        'perm_share_invite_link' => ['owner', 'deputy', 'member', 'none'],
+        'perm_invite_members' => ['owner', 'deputy', 'member'],
     ];
 
     /**
@@ -170,6 +193,36 @@ class Conversation extends Model
     public function isManager($userId): bool
     {
         return $this->isOwner($userId) || $this->isDeputy($userId);
+    }
+
+    /**
+     * Check whether a user is allowed to perform a permission-gated group action
+     * (renaming, changing avatar/background, removing members, sharing the invite
+     * link, inviting members). Not applicable to private chats or the public chat —
+     * callers should only invoke this for real groups.
+     *
+     * @param  int  $userId
+     * @param  string  $permissionKey  One of the keys in self::PERMISSION_KEYS
+     * @return bool
+     */
+    public function canPerform($userId, string $permissionKey): bool
+    {
+        $setting = $this->{$permissionKey} ?? 'member';
+
+        if ($setting === 'none') {
+            return false;
+        }
+
+        if ($setting === 'member') {
+            return true;
+        }
+
+        if ($setting === 'deputy') {
+            return $this->isManager($userId);
+        }
+
+        // 'owner'
+        return $this->isOwner($userId);
     }
 
     /**

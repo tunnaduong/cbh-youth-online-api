@@ -315,6 +315,7 @@ Route::prefix('v1.0')->group(function () {
       Route::get('groups/{conversationId}', [ChatController::class, 'getGroupDetails']);
       Route::get('groups/{conversationId}/seen', [ChatController::class, 'getGroupSeenReceipts']);
       Route::put('groups/{conversationId}', [ChatController::class, 'updateGroupConversation']);
+      Route::put('groups/{conversationId}/permissions', [ChatController::class, 'updateGroupPermissions']);
       Route::delete('groups/{conversationId}', [ChatController::class, 'deleteGroupConversation']);
       Route::post('groups/{conversationId}/avatar', [ChatController::class, 'updateGroupAvatar']);
       Route::post('groups/{conversationId}/participants', [ChatController::class, 'addGroupParticipants']);
