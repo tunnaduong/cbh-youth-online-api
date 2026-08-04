@@ -144,6 +144,7 @@ class AuthController extends Controller
         'max:20',  // Maximum length
         'regex:/^[a-zA-Z0-9_-]+$/',  // No whitespace, no Unicode characters, only alphanumeric, underscore and dash
         'unique:cyo_auth_accounts,username',  // Ensure the username is unique in the users table
+        'not_in:all',  // Reserved: conflicts with @all mention-everyone
       ],
       'password' => 'required|string|min:6',
       'email' => 'required|email|unique:cyo_auth_accounts',
