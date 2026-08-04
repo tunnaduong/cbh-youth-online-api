@@ -3,7 +3,7 @@
 
 Thân gửi bạn **{{ $recipientName }},**
 
-Lời đầu tiên, CYO xin chân thành cảm ơn bạn vì đã dành thời gian, sự quan tâm và yêu mến cho diễn đàn qua đợt tuyển thành viên này. Trong lá thư này, CYO xin phép được thông báo rằng:
+Lời đầu tiên, CYO xin chân thành cảm ơn bạn vì đã dành thời gian, sự quan tâm và yêu mến cho diễn đàn qua đợt tuyển thành viên này. Trong lá thư này, CYO xin phép được nhắc nhở rằng:
 
 **Đã đến lúc điền lịch Vòng phỏng vấn trước khi quá thời hạn, chỉ cần vượt qua Vòng phỏng vấn bạn sẽ chính thức trở thành một phần của CYO.**
 
@@ -18,6 +18,8 @@ Hãy nhớ kỹ những mốc thời gian quan trọng này nhé:
 Chúng mình mong bạn có thể tham gia đúng giờ và chuẩn bị tai nghe/thiết bị có kết nối mạng ổn định để buổi phỏng vấn diễn ra suôn sẻ nhé.
 
 Một lần nữa, CYO cảm ơn bạn đã dành thời gian, sự quan tâm và yêu mến cho bọn mình.
+
+Nếu bạn đã điền xong thông tin, bạn có thể bỏ qua email này. Nếu không thể sắp xếp được lịch, hãy liên hệ [https://www.facebook.com/cbhyouthonline](https://www.facebook.com/cbhyouthonline) qua Messenger trước **{{ $contactDeadline }}** để được giúp đỡ.
 
 Mọi thắc mắc, vui lòng liên hệ:
 

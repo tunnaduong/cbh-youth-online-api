@@ -16,7 +16,8 @@ class SendInterviewReminderEmail extends Command
         {--format=Online (Discord) : Interview format}
         {--schedule-link= : Link to fill in the interview schedule}
         {--discord-link= : Discord server invite link}
-        {--deadline=23h59 ngày 04/08/2026 : Deadline to fill schedule and join Discord}';
+        {--deadline=23h59 ngày 04/08/2026 : Deadline to fill schedule and join Discord}
+        {--contact-deadline=17:00 5/8/2026 : Deadline to contact via Messenger if unable to schedule}';
 
     protected $description = 'Send an interview reminder email to a recipient.';
 
@@ -29,6 +30,7 @@ class SendInterviewReminderEmail extends Command
         $scheduleLink = $this->option('schedule-link');
         $discordLink = $this->option('discord-link');
         $deadline = $this->option('deadline');
+        $contactDeadline = $this->option('contact-deadline');
 
         if (!$scheduleLink) {
             $this->error('--schedule-link is required.');
@@ -56,6 +58,7 @@ class SendInterviewReminderEmail extends Command
                 $scheduleLink,
                 $discordLink,
                 $deadline,
+                $contactDeadline,
                 $recipientEmail,
             ));
 
