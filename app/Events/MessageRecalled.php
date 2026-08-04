@@ -32,4 +32,12 @@ class MessageRecalled implements ShouldBroadcast
     {
         return 'message.recalled';
     }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'conversation_id' => $this->conversationId,
+            'message_id' => $this->messageId,
+        ];
+    }
 }

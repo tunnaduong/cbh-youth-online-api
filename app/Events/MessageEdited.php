@@ -36,4 +36,14 @@ class MessageEdited implements ShouldBroadcast
     {
         return 'message.edited';
     }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'conversation_id' => $this->conversationId,
+            'message_id' => $this->messageId,
+            'content' => $this->content,
+            'updated_at' => $this->updatedAt,
+        ];
+    }
 }
