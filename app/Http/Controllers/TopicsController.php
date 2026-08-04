@@ -1652,8 +1652,25 @@ class TopicsController extends Controller
       }
     }
 
+    // Cap nesting at 3 levels: if the target comment is already level 3+
+    // (i.e. its own parent also has a parent), attach to the level-2 ancestor instead.
+    $replyingTo = $request->replying_to;
+    if ($replyingTo) {
+      $target = TopicComment::find($replyingTo);
+      if ($target && $target->replying_to) {
+        $grandparent = TopicComment::find($target->replying_to);
+        if ($grandparent && $grandparent->replying_to) {
+          // target is level 4+; walk up until we reach level 2
+          $replyingTo = $grandparent->replying_to;
+        } elseif ($grandparent) {
+          // target is level 3; cap to level 2 (its parent)
+          $replyingTo = $target->replying_to;
+        }
+      }
+    }
+
     $comment = TopicComment::create([
-      'replying_to' => $request->replying_to,
+      'replying_to' => $replyingTo,
       'topic_id' => $request->topic_id,
       'user_id' => auth()->id(),
       'comment' => $request->comment ?? '',
