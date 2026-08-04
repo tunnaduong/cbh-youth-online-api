@@ -778,6 +778,54 @@ class TopicsController extends Controller
         ]),
         'mentions' => $comment->comment ? $resolveMentionsFromText($comment->comment) : [],
         'replies' => $comment->replies->map(function ($reply) use ($resolveMentionsFromText) {
+          $formatSubReply = fn($subReply) => [
+            'id' => $subReply->id,
+            'content' => $subReply->comment,
+            'comment' => $subReply->comment_html,
+            'is_anonymous' => $subReply->is_anonymous,
+            'deleted_parent_username' => $subReply->getAttribute('deleted_parent_username') ?? null,
+            'target_comment_id' => $subReply->target_comment_id,
+            'author' => [
+              'id' => $subReply->user->id,
+              'username' => $subReply->user->username,
+              'email' => $subReply->user->email,
+              'profile_name' => $subReply->user->profile->profile_name ?? null,
+              'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
+            ],
+            'created_at' => $subReply->created_at->diffForHumans(),
+            'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
+            'is_edited' => $subReply->is_edited,
+            'image_urls' => $subReply->image_urls
+              ? array_map(fn($p) => config('app.url') . Storage::url($p), $subReply->image_urls)
+              : [],
+            'votes' => $subReply->votes->map(fn($vote) => [
+              'user_id' => $vote->user_id,
+              'username' => $vote->user->username,
+              'vote_value' => $vote->vote_value,
+            ]),
+            'mentions' => $subReply->comment ? $resolveMentionsFromText($subReply->comment) : [],
+          ];
+
+          // Sort level-3 replies so that a reply targeting a sibling appears right
+          // after that sibling (sandwich ordering). Replies without a target_comment_id
+          // keep their natural chronological position.
+          $subReplies = $reply->replies->sortBy('created_at')->values();
+          $subReplyIds = $subReplies->pluck('id')->flip();
+          $ordered = collect();
+          $inserted = [];
+          foreach ($subReplies as $sr) {
+            if (isset($inserted[$sr->id])) continue;
+            $ordered->push($sr);
+            $inserted[$sr->id] = true;
+            // After inserting this sub-reply, insert any others that target it
+            foreach ($subReplies as $child) {
+              if (!isset($inserted[$child->id]) && $child->target_comment_id === $sr->id) {
+                $ordered->push($child);
+                $inserted[$child->id] = true;
+              }
+            }
+          }
+
           return [
             'id' => $reply->id,
             'content' => $reply->comment,
@@ -803,34 +851,7 @@ class TopicsController extends Controller
               'vote_value' => $vote->vote_value,
             ]),
             'mentions' => $reply->comment ? $resolveMentionsFromText($reply->comment) : [],
-            'replies' => $reply->replies->map(function ($subReply) use ($resolveMentionsFromText) {
-              return [
-                'id' => $subReply->id,
-                'content' => $subReply->comment,
-                'comment' => $subReply->comment_html,
-                'is_anonymous' => $subReply->is_anonymous,
-                'deleted_parent_username' => $subReply->getAttribute('deleted_parent_username') ?? null,
-                'author' => [
-                  'id' => $subReply->user->id,
-                  'username' => $subReply->user->username,
-                  'email' => $subReply->user->email,
-                  'profile_name' => $subReply->user->profile->profile_name ?? null,
-                  'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
-                ],
-                'created_at' => $subReply->created_at->diffForHumans(),
-                'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
-                'is_edited' => $subReply->is_edited,
-                'image_urls' => $subReply->image_urls
-                  ? array_map(fn($p) => config('app.url') . Storage::url($p), $subReply->image_urls)
-                  : [],
-                'votes' => $subReply->votes->map(fn($vote) => [
-                  'user_id' => $vote->user_id,
-                  'username' => $vote->user->username,
-                  'vote_value' => $vote->vote_value,
-                ]),
-                'mentions' => $subReply->comment ? $resolveMentionsFromText($subReply->comment) : [],
-              ];
-            }),
+            'replies' => $ordered->map($formatSubReply)->values(),
           ];
         }),
       ];
@@ -1654,7 +1675,12 @@ class TopicsController extends Controller
 
     // Cap nesting at 3 levels: if the target comment is already level 3+
     // (i.e. its own parent also has a parent), attach to the level-2 ancestor instead.
-    $replyingTo = $request->replying_to;
+    // Store the original target in target_comment_id so the UI can sandwich the reply
+    // right after the actual comment being replied to.
+    $originalReplyingTo = $request->replying_to;
+    $replyingTo = $originalReplyingTo;
+    $targetCommentId = null;
+
     if ($replyingTo) {
       $target = TopicComment::find($replyingTo);
       if ($target && $target->replying_to) {
@@ -1662,15 +1688,18 @@ class TopicsController extends Controller
         if ($grandparent && $grandparent->replying_to) {
           // target is level 4+; walk up until we reach level 2
           $replyingTo = $grandparent->replying_to;
+          $targetCommentId = $originalReplyingTo;
         } elseif ($grandparent) {
-          // target is level 3; cap to level 2 (its parent)
+          // target is level 3; cap to level 2 (its parent), keep target for ordering
           $replyingTo = $target->replying_to;
+          $targetCommentId = $originalReplyingTo;
         }
       }
     }
 
     $comment = TopicComment::create([
       'replying_to' => $replyingTo,
+      'target_comment_id' => $targetCommentId,
       'topic_id' => $request->topic_id,
       'user_id' => auth()->id(),
       'comment' => $request->comment ?? '',

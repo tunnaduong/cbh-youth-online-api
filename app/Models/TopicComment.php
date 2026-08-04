@@ -59,6 +59,7 @@ class TopicComment extends Model
    */
   protected $fillable = [
     'replying_to',
+    'target_comment_id',
     'topic_id',
     'user_id',
     'comment',
@@ -125,9 +126,12 @@ class TopicComment extends Model
     static::created(function ($comment) {
       PointsService::onCommentCreated($comment->user_id);
 
-      // Create notification for comment reply
-      if ($comment->replying_to) {
-        $parentComment = TopicComment::find($comment->replying_to);
+      // Create notification for comment reply.
+      // Use target_comment_id (the actual comment replied to) when nesting was capped,
+      // so the right person gets notified even if replying_to was redirected.
+      $notifyTargetId = $comment->target_comment_id ?? $comment->replying_to;
+      if ($notifyTargetId) {
+        $parentComment = TopicComment::find($notifyTargetId);
         if ($parentComment) {
           NotificationService::createCommentRepliedNotification($comment, $parentComment, $comment->user_id);
         }
