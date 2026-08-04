@@ -18,7 +18,6 @@ class InterviewReminderMail extends Mailable implements ShouldQueue
     public string $date;
     public string $format;
     public string $scheduleLink;
-    public string $discordLink;
     public string $deadline;
     public string $contactDeadline;
     public ?string $unsubscribeUrl;
@@ -28,7 +27,6 @@ class InterviewReminderMail extends Mailable implements ShouldQueue
         string $date,
         string $format,
         string $scheduleLink,
-        string $discordLink,
         string $deadline,
         string $contactDeadline,
         ?string $recipientEmail = null,
@@ -37,7 +35,6 @@ class InterviewReminderMail extends Mailable implements ShouldQueue
         $this->date = $date;
         $this->format = $format;
         $this->scheduleLink = $scheduleLink;
-        $this->discordLink = $discordLink;
         $this->deadline = $deadline;
         $this->contactDeadline = $contactDeadline;
         $this->unsubscribeUrl = NewsletterSubscriptionService::unsubscribeUrlForEmail($recipientEmail);
@@ -57,7 +54,6 @@ class InterviewReminderMail extends Mailable implements ShouldQueue
                 'date' => $this->date,
                 'format' => $this->format,
                 'scheduleLink' => $this->scheduleLink,
-                'discordLink' => $this->discordLink,
                 'deadline' => $this->deadline,
                 'contactDeadline' => $this->contactDeadline,
                 'unsubscribeUrl' => $this->unsubscribeUrl,

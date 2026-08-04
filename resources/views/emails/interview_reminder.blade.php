@@ -13,7 +13,7 @@ Hãy nhớ kỹ những mốc thời gian quan trọng này nhé:
 - **Hình thức:** {{ $format }}
 - **Khung giờ phỏng vấn:** [{{ $scheduleLink }}]({{ $scheduleLink }})
 
-> **Lưu ý:** Bạn vui lòng điền lịch cho vòng Phỏng vấn và tham gia vào Discord Chuyên Biên Hòa Online: [{{ $discordLink }}]({{ $discordLink }}) trước **{{ $deadline }}**. Trong trường hợp bạn vào muộn quá 15 phút hoặc không tham gia Vòng phỏng vấn, chúng mình sẽ loại bạn khỏi danh sách ứng viên.
+> **Lưu ý:** Bạn vui lòng điền lịch cho vòng Phỏng vấn trước **{{ $deadline }}**. Link họp Google Meet sẽ có trong sheet lịch phỏng vấn. Trong trường hợp bạn vào muộn quá 15 phút hoặc không tham gia Vòng phỏng vấn, chúng mình sẽ loại bạn khỏi danh sách ứng viên.
 
 Chúng mình mong bạn có thể tham gia đúng giờ và chuẩn bị tai nghe/thiết bị có kết nối mạng ổn định để buổi phỏng vấn diễn ra suôn sẻ nhé.
 
