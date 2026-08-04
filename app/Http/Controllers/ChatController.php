@@ -16,7 +16,9 @@ use App\Models\Message;
 use App\Models\MessageReaction;
 use App\Models\Notification;
 use App\Models\NotificationSettings;
+use App\Models\ConversationBackgroundHistory;
 use App\Models\UserBlock;
+use App\Models\UserContent;
 use App\Services\NotificationService;
 use App\Services\PushNotificationService;
 use Carbon\Carbon;
@@ -46,7 +48,7 @@ class ChatController extends Controller
       $query->where('user_id', $user->id);
     })
       ->orderBy('updated_at', 'desc')
-      ->with(['participants.profile', 'latestMessage.user.profile'])
+      ->with(['participants.profile', 'latestMessage.user.profile', 'backgroundContent'])
       ->get()
       ->filter(function ($conversation) use ($blockedUserIds, $user) {
         if ($conversation->type === 'private') {
@@ -75,6 +77,9 @@ class ChatController extends Controller
           'avatar_url' => $conversation->type === 'group' && $conversation->avatar_url
             ? $this->absoluteStorageUrl($conversation->avatar_url)
             : null,
+          'background_url' => $conversation->is_public
+            ? null
+            : $this->absoluteStorageUrl($conversation->backgroundContent->file_path ?? null),
           'participants' => $displayParticipants->map(function ($participant) {
             return [
               'id' => $participant->id,
@@ -1217,6 +1222,203 @@ class ChatController extends Controller
   }
 
   /**
+   * Verify the conversation supports a chat background (any private or group
+   * conversation the user participates in — never the single app-wide public
+   * chat, which has no per-conversation settings at all) and the user may see it.
+   *
+   * @return \App\Models\Conversation|\Illuminate\Http\JsonResponse
+   */
+  private function conversationForBackground($conversationId, $userId)
+  {
+    $conversation = Conversation::findOrFail($conversationId);
+
+    if ($conversation->is_public) {
+      return response()->json(['message' => 'The public chat has no custom background'], 400);
+    }
+
+    if (!$conversation->hasParticipant($userId)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    return $conversation;
+  }
+
+  private function formatBackgroundHistoryEntry(ConversationBackgroundHistory $entry): array
+  {
+    return [
+      'id' => $entry->user_content_id,
+      'url' => $this->absoluteStorageUrl($entry->content->file_path ?? null),
+      'used_at' => $entry->used_at?->toISOString(),
+    ];
+  }
+
+  /**
+   * Notify every other participant that the chat background changed.
+   */
+  private function notifyBackgroundChanged(Conversation $conversation, int $actorId): void
+  {
+    foreach ($conversation->participants as $participant) {
+      if ($participant->id === $actorId) {
+        continue;
+      }
+      NotificationService::createConversationBackgroundChangedNotification($participant->id, $conversation, $actorId);
+    }
+  }
+
+  /**
+   * Get the current chat background and this conversation's background history
+   * (every image previously used, most recently used first, so participants can
+   * pick an old one again without re-uploading).
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getConversationBackground($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = $this->conversationForBackground($conversationId, $user->id);
+    if (!$conversation instanceof Conversation) {
+      return $conversation;
+    }
+
+    $conversation->load('backgroundContent', 'backgroundHistory.content');
+
+    return response()->json([
+      'background_url' => $this->absoluteStorageUrl($conversation->backgroundContent->file_path ?? null),
+      'history' => $conversation->backgroundHistory->map(fn($entry) => $this->formatBackgroundHistoryEntry($entry))->values(),
+    ]);
+  }
+
+  /**
+   * Upload a new image and set it as this conversation's chat background.
+   * Any participant of a private or group conversation may do this. Goes
+   * through the same async compression pipeline as every other image upload.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function uploadConversationBackground(Request $request, $conversationId)
+  {
+    $request->validate([
+      'image' => 'required|image|max:10240',
+    ]);
+
+    $user = Auth::user();
+    $conversation = $this->conversationForBackground($conversationId, $user->id);
+    if (!$conversation instanceof Conversation) {
+      return $conversation;
+    }
+
+    $file = $request->file('image');
+    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+    $path = $file->storeAs('chat_backgrounds', $fileName, 'public');
+
+    $userContent = UserContent::create([
+      'user_id' => $user->id,
+      'file_name' => $fileName,
+      'file_path' => $path,
+      'file_type' => $file->getMimeType(),
+      'file_size' => $file->getSize(),
+    ]);
+
+    ProcessImageCompression::dispatch($path, $userContent->id);
+    $userContent->refresh();
+
+    ConversationBackgroundHistory::updateOrCreate(
+      ['conversation_id' => $conversation->id, 'user_content_id' => $userContent->id],
+      ['set_by' => $user->id, 'used_at' => now()]
+    );
+
+    $conversation->update(['background_content_id' => $userContent->id]);
+
+    $backgroundUrl = $this->absoluteStorageUrl($userContent->file_path);
+
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã đổi ảnh nền cuộc trò chuyện', $this->displayName($user)),
+      ['event' => 'background_changed', 'background_url' => $backgroundUrl]
+    );
+
+    $this->notifyBackgroundChanged($conversation, $user->id);
+
+    return response()->json(['background_url' => $backgroundUrl]);
+  }
+
+  /**
+   * Re-select a previously used background image from this conversation's
+   * history, without re-uploading it.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function selectConversationBackground(Request $request, $conversationId)
+  {
+    $request->validate([
+      'user_content_id' => 'required|integer',
+    ]);
+
+    $user = Auth::user();
+    $conversation = $this->conversationForBackground($conversationId, $user->id);
+    if (!$conversation instanceof Conversation) {
+      return $conversation;
+    }
+
+    $historyEntry = ConversationBackgroundHistory::where('conversation_id', $conversation->id)
+      ->where('user_content_id', $request->user_content_id)
+      ->with('content')
+      ->first();
+
+    if (!$historyEntry) {
+      return response()->json(['message' => 'This image is not in this conversation\'s background history'], 404);
+    }
+
+    $historyEntry->update(['used_at' => now()]);
+    $conversation->update(['background_content_id' => $historyEntry->user_content_id]);
+
+    $backgroundUrl = $this->absoluteStorageUrl($historyEntry->content->file_path ?? null);
+
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã đổi ảnh nền cuộc trò chuyện', $this->displayName($user)),
+      ['event' => 'background_changed', 'background_url' => $backgroundUrl]
+    );
+
+    $this->notifyBackgroundChanged($conversation, $user->id);
+
+    return response()->json(['background_url' => $backgroundUrl]);
+  }
+
+  /**
+   * Clear the chat background back to the default appearance. The image stays
+   * in the conversation's background history so it can still be picked again.
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function resetConversationBackground($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = $this->conversationForBackground($conversationId, $user->id);
+    if (!$conversation instanceof Conversation) {
+      return $conversation;
+    }
+
+    $conversation->update(['background_content_id' => null]);
+
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã đặt lại ảnh nền mặc định', $this->displayName($user)),
+      ['event' => 'background_changed', 'background_url' => null]
+    );
+
+    $this->notifyBackgroundChanged($conversation, $user->id);
+
+    return response()->json(['background_url' => null]);
+  }
+
+  /**
    * Get details of a group conversation, including participants and their roles.
    *
    * @param  int  $conversationId
@@ -1820,15 +2022,19 @@ class ChatController extends Controller
    *
    * @param  \App\Models\Conversation  $conversation
    * @param  string  $content
+   * @param  array|null  $metadata  Extra structured data clients can key off of
+   *                                (e.g. a background-changed event carrying the
+   *                                new background_url) without a second request.
    * @return \App\Models\Message
    */
-  private function createSystemMessage(Conversation $conversation, string $content): Message
+  private function createSystemMessage(Conversation $conversation, string $content, ?array $metadata = null): Message
   {
     $message = Message::create([
       'conversation_id' => $conversation->id,
       'user_id' => null,
       'content' => $content,
       'type' => 'system',
+      'metadata' => $metadata,
     ]);
 
     $conversation->touch();
@@ -1850,7 +2056,7 @@ class ChatController extends Controller
       'created_at' => $message->created_at?->toISOString(),
       'created_at_human' => $message->created_at?->diffForHumans(),
       'read_at' => null,
-      'metadata' => null,
+      'metadata' => $metadata,
       'reply_to' => null,
       'reactions' => ['summary' => [], 'total' => 0, 'my_reactions' => []],
     ];

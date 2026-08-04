@@ -329,6 +329,10 @@ Route::prefix('v1.0')->group(function () {
       Route::get('search/users', [ChatController::class, 'searchUserForChat']);
       Route::get('search/user-suggestions', [ChatController::class, 'searchUserSuggestions']);
       Route::get('conversations/{conversationId}/mention-suggestions', [ChatController::class, 'mentionSuggestions']);
+      Route::get('conversations/{conversationId}/background', [ChatController::class, 'getConversationBackground']);
+      Route::post('conversations/{conversationId}/background', [ChatController::class, 'uploadConversationBackground']);
+      Route::post('conversations/{conversationId}/background/select', [ChatController::class, 'selectConversationBackground']);
+      Route::delete('conversations/{conversationId}/background', [ChatController::class, 'resetConversationBackground']);
     });
 
     // Study Materials

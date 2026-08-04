@@ -464,6 +464,40 @@ class NotificationService
   }
 
   /**
+   * Create a notification for a conversation's chat background being changed
+   * (private or group — never the public chat, which has no background).
+   *
+   * @param int $userId The participant being notified
+   * @param \App\Models\Conversation $conversation
+   * @param int $actorId User who changed the background
+   * @return Notification|null
+   */
+  public static function createConversationBackgroundChangedNotification(int $userId, \App\Models\Conversation $conversation, int $actorId): ?Notification
+  {
+    if ($userId === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($userId, 'conversation_background_changed')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $userId,
+      'actor_id' => $actorId,
+      'type' => 'conversation_background_changed',
+      'notifiable_type' => \App\Models\Conversation::class,
+      'notifiable_id' => $conversation->id,
+      'data' => [
+        'conversation_id' => $conversation->id,
+        'conversation_name' => $conversation->name,
+        'conversation_type' => $conversation->type,
+        'url' => '/chat?conversation=' . $conversation->id,
+      ],
+    ]);
+  }
+
+  /**
    * Create a notification for a topic being pinned.
    *
    * @param Topic $topic

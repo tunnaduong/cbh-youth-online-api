@@ -237,6 +237,7 @@ class PushNotificationService
         'member' => "{$actorName} đã gỡ vai trò phó nhóm của bạn trong nhóm " . ($notification->data['conversation_name'] ?? ''),
         default => "{$actorName} đã chỉ định bạn làm phó nhóm " . ($notification->data['conversation_name'] ?? ''),
       },
+      'conversation_background_changed' => "{$actorName} đã đổi ảnh nền " . (($notification->data['conversation_type'] ?? '') === 'group' ? 'nhóm ' . ($notification->data['conversation_name'] ?? '') : 'cuộc trò chuyện'),
       'topic_pinned' => 'Bài viết của bạn đã được ghim',
       'topic_moved' => 'Bài viết của bạn đã được chuyển',
       'topic_closed' => 'Bài viết của bạn đã bị đóng',

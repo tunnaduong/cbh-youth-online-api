@@ -44,6 +44,7 @@ class Conversation extends Model
         'is_public',
         'avatar_url',
         'invite_token',
+        'background_content_id',
     ];
 
     /**
@@ -85,6 +86,28 @@ class Conversation extends Model
     public function creator()
     {
         return $this->belongsTo(AuthAccount::class, 'created_by');
+    }
+
+    /**
+     * The currently-selected chat background image, if any.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function backgroundContent()
+    {
+        return $this->belongsTo(UserContent::class, 'background_content_id');
+    }
+
+    /**
+     * Every background image this conversation has used, most recently used first.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function backgroundHistory(): HasMany
+    {
+        return $this->hasMany(ConversationBackgroundHistory::class, 'conversation_id')
+            ->with('content')
+            ->orderByDesc('used_at');
     }
 
     /**
