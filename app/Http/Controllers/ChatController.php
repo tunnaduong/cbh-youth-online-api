@@ -91,6 +91,7 @@ class ChatController extends Controller
           'latest_message' => $conversation->latestMessage ? [
             'content' => $conversation->latestMessage->content,
             'type' => $conversation->latestMessage->type,
+            'metadata' => $conversation->latestMessage->metadata,
             'sender' => $conversation->latestMessage->user
               ? $conversation->latestMessage->user->username
               : ($conversation->latestMessage->type === 'system' ? 'system' : ($conversation->latestMessage->guest_name ?? 'Ẩn danh')),
@@ -135,6 +136,7 @@ class ChatController extends Controller
           'latest_message' => $publicChat->latestMessage ? [
             'content' => $publicChat->latestMessage->content,
             'type' => $publicChat->latestMessage->type,
+            'metadata' => $publicChat->latestMessage->metadata,
             'sender' => $publicChat->latestMessage->user ? $publicChat->latestMessage->user->username : ($publicChat->latestMessage->guest_name ?? 'Ẩn danh'),
             'is_myself' => $publicChat->latestMessage->user_id === $user->id,
             'is_recalled' => (bool) $publicChat->latestMessage->is_recalled,
