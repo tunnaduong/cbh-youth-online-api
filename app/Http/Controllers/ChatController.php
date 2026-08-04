@@ -1127,7 +1127,11 @@ class ChatController extends Controller
 
     $conversation->load('participants.profile');
 
-    $this->createSystemMessage($conversation, sprintf('%s đã tạo nhóm "%s"', $this->displayName($user), $conversation->name));
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã tạo nhóm "%s"', $this->displayName($user), $conversation->name),
+      ['event' => 'group_created', 'actor_name' => $this->displayName($user), 'group_name' => $conversation->name]
+    );
 
     foreach ($otherParticipantIds as $participantId) {
       NotificationService::createAddedToGroupNotification($participantId, $conversation, $user->id);
@@ -1179,7 +1183,11 @@ class ChatController extends Controller
     ]);
 
     if ($oldName !== $conversation->name) {
-      $this->createSystemMessage($conversation, sprintf('%s đã đổi tên nhóm thành "%s"', $this->displayName($user), $conversation->name));
+      $this->createSystemMessage(
+        $conversation,
+        sprintf('%s đã đổi tên nhóm thành "%s"', $this->displayName($user), $conversation->name),
+        ['event' => 'group_renamed', 'actor_name' => $this->displayName($user), 'group_name' => $conversation->name]
+      );
     }
 
     return response()->json([
@@ -1224,7 +1232,11 @@ class ChatController extends Controller
       Storage::disk('public')->delete($oldAvatarPath);
     }
 
-    $this->createSystemMessage($conversation, sprintf('%s đã đổi ảnh đại diện nhóm', $this->displayName($user)));
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã đổi ảnh đại diện nhóm', $this->displayName($user)),
+      ['event' => 'group_avatar_changed', 'actor_name' => $this->displayName($user)]
+    );
 
     return response()->json(['avatar_url' => $this->absoluteStorageUrl($path)]);
   }
@@ -1349,7 +1361,7 @@ class ChatController extends Controller
     $this->createSystemMessage(
       $conversation,
       sprintf('%s đã đổi ảnh nền cuộc trò chuyện', $this->displayName($user)),
-      ['event' => 'background_changed', 'background_url' => $backgroundUrl]
+      ['event' => 'background_changed', 'actor_name' => $this->displayName($user), 'background_url' => $backgroundUrl]
     );
 
     $this->notifyBackgroundChanged($conversation, $user->id);
@@ -1394,7 +1406,7 @@ class ChatController extends Controller
     $this->createSystemMessage(
       $conversation,
       sprintf('%s đã đổi ảnh nền cuộc trò chuyện', $this->displayName($user)),
-      ['event' => 'background_changed', 'background_url' => $backgroundUrl]
+      ['event' => 'background_changed', 'actor_name' => $this->displayName($user), 'background_url' => $backgroundUrl]
     );
 
     $this->notifyBackgroundChanged($conversation, $user->id);
@@ -1422,7 +1434,7 @@ class ChatController extends Controller
     $this->createSystemMessage(
       $conversation,
       sprintf('%s đã đặt lại ảnh nền mặc định', $this->displayName($user)),
-      ['event' => 'background_changed', 'background_url' => null]
+      ['event' => 'background_reset', 'actor_name' => $this->displayName($user), 'background_url' => null]
     );
 
     $this->notifyBackgroundChanged($conversation, $user->id);
@@ -1701,7 +1713,11 @@ class ChatController extends Controller
       ->whereIn('id', $newParticipantIds)
       ->map(fn($p) => $this->displayName($p))
       ->implode(', ');
-    $this->createSystemMessage($conversation, sprintf('%s đã thêm %s vào nhóm', $this->displayName($user), $addedNames));
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã thêm %s vào nhóm', $this->displayName($user), $addedNames),
+      ['event' => 'members_added', 'actor_name' => $this->displayName($user), 'member_names' => $addedNames]
+    );
 
     foreach ($newParticipantIds as $participantId) {
       NotificationService::createAddedToGroupNotification($participantId, $conversation, $user->id);
@@ -1844,7 +1860,8 @@ class ChatController extends Controller
     $target = AuthAccount::with('profile')->find($targetId);
     $this->createSystemMessage(
       $conversation,
-      sprintf('%s đã chỉ định %s làm phó nhóm', $this->displayName($user), $this->displayName($target))
+      sprintf('%s đã chỉ định %s làm phó nhóm', $this->displayName($user), $this->displayName($target)),
+      ['event' => 'deputy_assigned', 'actor_name' => $this->displayName($user), 'target_name' => $this->displayName($target)]
     );
     NotificationService::createGroupRoleChangedNotification($targetId, $conversation, $user->id, 'deputy');
 
@@ -1880,7 +1897,8 @@ class ChatController extends Controller
     $target = AuthAccount::with('profile')->find($userId);
     $this->createSystemMessage(
       $conversation,
-      sprintf('%s đã gỡ %s khỏi vai trò phó nhóm', $this->displayName($user), $this->displayName($target))
+      sprintf('%s đã gỡ %s khỏi vai trò phó nhóm', $this->displayName($user), $this->displayName($target)),
+      ['event' => 'deputy_removed', 'actor_name' => $this->displayName($user), 'target_name' => $this->displayName($target)]
     );
     NotificationService::createGroupRoleChangedNotification($userId, $conversation, $user->id, 'member');
 
@@ -1929,7 +1947,8 @@ class ChatController extends Controller
 
     $this->createSystemMessage(
       $conversation,
-      sprintf('%s đã chuyển quyền trưởng nhóm cho %s', $this->displayName($user), $this->displayName($newOwner))
+      sprintf('%s đã chuyển quyền trưởng nhóm cho %s', $this->displayName($user), $this->displayName($newOwner)),
+      ['event' => 'ownership_transferred', 'actor_name' => $this->displayName($user), 'new_owner_name' => $this->displayName($newOwner)]
     );
     NotificationService::createGroupRoleChangedNotification($newOwnerId, $conversation, $user->id, 'owner');
 
@@ -2066,7 +2085,11 @@ class ChatController extends Controller
 
     $conversation->participants()->attach($user->id, ['role' => 'member']);
 
-    $this->createSystemMessage($conversation, sprintf('%s đã tham gia nhóm qua lời mời', $this->displayName($user)));
+    $this->createSystemMessage(
+      $conversation,
+      sprintf('%s đã tham gia nhóm qua lời mời', $this->displayName($user)),
+      ['event' => 'joined_via_invite', 'actor_name' => $this->displayName($user)]
+    );
 
     return response()->json(['conversation_id' => $conversation->id, 'already_member' => false], 201);
   }
@@ -2098,7 +2121,10 @@ class ChatController extends Controller
       $removedName = $this->displayName($removedUser);
       $this->createSystemMessage(
         $conversation,
-        $isSelfLeave ? "{$removedName} đã rời khỏi nhóm" : "{$actorName} đã xóa {$removedName} khỏi nhóm"
+        $isSelfLeave ? "{$removedName} đã rời khỏi nhóm" : "{$actorName} đã xóa {$removedName} khỏi nhóm",
+        $isSelfLeave
+          ? ['event' => 'member_left', 'member_name' => $removedName]
+          : ['event' => 'member_removed', 'actor_name' => $actorName, 'member_name' => $removedName]
       );
 
       if (!$isSelfLeave) {
@@ -2111,7 +2137,11 @@ class ChatController extends Controller
       // (deputies included; being a deputy doesn't give priority here).
       $newOwner = $remaining->random();
       $conversation->participants()->updateExistingPivot($newOwner->id, ['role' => 'owner']);
-      $this->createSystemMessage($conversation, sprintf('%s đã trở thành trưởng nhóm mới', $this->displayName($newOwner)));
+      $this->createSystemMessage(
+        $conversation,
+        sprintf('%s đã trở thành trưởng nhóm mới', $this->displayName($newOwner)),
+        ['event' => 'owner_randomly_assigned', 'new_owner_name' => $this->displayName($newOwner)]
+      );
     }
   }
 
