@@ -142,7 +142,7 @@ class AuthController extends Controller
         'string',
         'min:3',  // Minimum length
         'max:20',  // Maximum length
-        'regex:/^[a-zA-Z0-9_-]+$/',  // No whitespace, no Unicode characters, only alphanumeric, underscore and dash
+        'regex:/^[a-zA-Z0-9_.-]+$/',  // No whitespace, no Unicode characters, only alphanumeric, underscore and dash
         'unique:cyo_auth_accounts,username',  // Ensure the username is unique in the users table
         'not_in:all',  // Reserved: conflicts with @all mention-everyone
       ],

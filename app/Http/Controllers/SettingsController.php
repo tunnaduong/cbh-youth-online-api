@@ -42,7 +42,7 @@ class SettingsController extends Controller
     $user = Auth::user();
 
     $validated = $request->validate([
-      'username' => ['required', 'string', 'min:3', 'max:20', 'regex:/^[a-zA-Z0-9_-]+$/', 'unique:cyo_auth_accounts,username,' . $user->id, 'not_in:all'],
+      'username' => ['required', 'string', 'min:3', 'max:20', 'regex:/^[a-zA-Z0-9_.-]+$/', 'unique:cyo_auth_accounts,username,' . $user->id, 'not_in:all'],
       'gender' => 'required|in:male,female',
       'location' => 'nullable|string|max:255',
       'bio' => 'nullable|string|max:500',
