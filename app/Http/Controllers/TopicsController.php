@@ -778,39 +778,10 @@ class TopicsController extends Controller
         ]),
         'mentions' => $comment->comment ? $resolveMentionsFromText($comment->comment) : [],
         'replies' => $comment->replies->map(function ($reply) use ($resolveMentionsFromText) {
-          $formatSubReply = fn($subReply) => [
-            'id' => $subReply->id,
-            'content' => $subReply->comment,
-            'comment' => $subReply->comment_html,
-            'is_anonymous' => $subReply->is_anonymous,
-            'deleted_parent_username' => $subReply->getAttribute('deleted_parent_username') ?? null,
-            'target_comment_id' => $subReply->target_comment_id,
-            'author' => [
-              'id' => $subReply->user->id,
-              'username' => $subReply->user->username,
-              'email' => $subReply->user->email,
-              'profile_name' => $subReply->user->profile->profile_name ?? null,
-              'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
-            ],
-            'created_at' => $subReply->created_at->diffForHumans(),
-            'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
-            'is_edited' => $subReply->is_edited,
-            'image_urls' => $subReply->image_urls
-              ? array_map(fn($p) => config('app.url') . Storage::url($p), $subReply->image_urls)
-              : [],
-            'votes' => $subReply->votes->map(fn($vote) => [
-              'user_id' => $vote->user_id,
-              'username' => $vote->user->username,
-              'vote_value' => $vote->vote_value,
-            ]),
-            'mentions' => $subReply->comment ? $resolveMentionsFromText($subReply->comment) : [],
-          ];
-
           // Sort level-3 replies so that a reply targeting a sibling appears right
           // after that sibling (sandwich ordering). Replies without a target_comment_id
           // keep their natural chronological position.
           $subReplies = $reply->replies->sortBy('created_at')->values();
-          $subReplyIds = $subReplies->pluck('id')->flip();
           $ordered = collect();
           $inserted = [];
           foreach ($subReplies as $sr) {
@@ -851,7 +822,47 @@ class TopicsController extends Controller
               'vote_value' => $vote->vote_value,
             ]),
             'mentions' => $reply->comment ? $resolveMentionsFromText($reply->comment) : [],
-            'replies' => $ordered->map($formatSubReply)->values(),
+            'replies' => $ordered->map(function ($subReply) use ($resolveMentionsFromText, $subReplies) {
+              // Resolve target author from siblings so frontend can show "→ @user"
+              $targetAuthor = null;
+              if ($subReply->target_comment_id) {
+                $targetSibling = $subReplies->firstWhere('id', $subReply->target_comment_id);
+                if ($targetSibling) {
+                  $targetAuthor = $targetSibling->is_anonymous ? null : [
+                    'username' => $targetSibling->user->username,
+                    'profile_name' => $targetSibling->user->profile->profile_name ?? null,
+                  ];
+                }
+              }
+              return [
+                'id' => $subReply->id,
+                'content' => $subReply->comment,
+                'comment' => $subReply->comment_html,
+                'is_anonymous' => $subReply->is_anonymous,
+                'deleted_parent_username' => $subReply->getAttribute('deleted_parent_username') ?? null,
+                'target_comment_id' => $subReply->target_comment_id,
+                'target_author' => $targetAuthor,
+                'author' => [
+                  'id' => $subReply->user->id,
+                  'username' => $subReply->user->username,
+                  'email' => $subReply->user->email,
+                  'profile_name' => $subReply->user->profile->profile_name ?? null,
+                  'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
+                ],
+                'created_at' => $subReply->created_at->diffForHumans(),
+                'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
+                'is_edited' => $subReply->is_edited,
+                'image_urls' => $subReply->image_urls
+                  ? array_map(fn($p) => config('app.url') . Storage::url($p), $subReply->image_urls)
+                  : [],
+                'votes' => $subReply->votes->map(fn($vote) => [
+                  'user_id' => $vote->user_id,
+                  'username' => $vote->user->username,
+                  'vote_value' => $vote->vote_value,
+                ]),
+                'mentions' => $subReply->comment ? $resolveMentionsFromText($subReply->comment) : [],
+              ];
+            })->values(),
           ];
         }),
       ];
