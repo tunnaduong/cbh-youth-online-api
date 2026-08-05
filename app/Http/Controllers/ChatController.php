@@ -1332,8 +1332,12 @@ class ChatController extends Controller
    */
   public function uploadConversationBackground(Request $request, $conversationId)
   {
+    // Plain 'image' rejects HEIC/HEIF outright, which is what Android hands
+    // over for "Live Photos" synced from iCloud/Google Photos (they're
+    // stored as HEIC stills, not a video) - that's the 422 users were
+    // hitting even though it looked like a normal photo pick to them.
     $request->validate([
-      'image' => 'required|image|max:10240',
+      'image' => 'required|mimes:jpg,jpeg,png,bmp,gif,svg,webp,heic,heif|max:10240',
     ]);
 
     $user = Auth::user();
@@ -1343,15 +1347,45 @@ class ChatController extends Controller
     }
 
     $file = $request->file('image');
-    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-    $path = $file->storeAs('chat_backgrounds', $fileName, 'public');
+    $originalExt = strtolower($file->getClientOriginalExtension());
+    $isHeic = in_array($originalExt, ['heic', 'heif'], true)
+      || in_array($file->getMimeType(), ['image/heic', 'image/heif'], true);
+
+    if ($isHeic) {
+      // Most browsers (and Android's own WebView) can't render HEIC in an
+      // <img> tag, so convert it to a JPEG the rest of the app can already
+      // display everywhere, instead of just accepting-and-breaking it.
+      $fileName = time() . '_' . uniqid() . '.jpg';
+      Storage::disk('public')->makeDirectory('chat_backgrounds');
+      $path = 'chat_backgrounds/' . $fileName;
+      $absPath = Storage::disk('public')->path($path);
+
+      $cmd = sprintf(
+        'convert %s -auto-orient %s 2>&1',
+        escapeshellarg($file->getRealPath()),
+        escapeshellarg($absPath)
+      );
+      exec($cmd, $cmdOutput, $returnCode);
+
+      if ($returnCode !== 0 || !file_exists($absPath)) {
+        return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+      }
+
+      $mimeType = 'image/jpeg';
+      $fileSize = filesize($absPath);
+    } else {
+      $fileName = time() . '_' . uniqid() . '.' . $originalExt;
+      $path = $file->storeAs('chat_backgrounds', $fileName, 'public');
+      $mimeType = $file->getMimeType();
+      $fileSize = $file->getSize();
+    }
 
     $userContent = UserContent::create([
       'user_id' => $user->id,
       'file_name' => $fileName,
       'file_path' => $path,
-      'file_type' => $file->getMimeType(),
-      'file_size' => $file->getSize(),
+      'file_type' => $mimeType,
+      'file_size' => $fileSize,
     ]);
 
     // Chat backgrounds are stored uncompressed — unlike regular post/message
