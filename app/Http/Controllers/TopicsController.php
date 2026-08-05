@@ -1012,7 +1012,7 @@ class TopicsController extends Controller
       'description' => 'required|string',
       'subforum_id' => 'nullable|exists:cyo_forum_subforums,id',  // Kiểm tra subforum_id
       'image_files' => 'nullable|array',
-      'image_files.*' => 'file|image|max:10240',  // 10MB max for each image
+      'image_files.*' => 'file|mimes:jpg,jpeg,png,bmp,gif,svg,webp,heic,heif|max:10240',  // 10MB max for each image
       'cdn_image_id' => 'nullable|string',  // For mobile app: comma-separated IDs of already uploaded images
       'document_files' => 'nullable|array',
       'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600',  // 25MB max for each document
@@ -1034,17 +1034,30 @@ class TopicsController extends Controller
       $files = $request->file('image_files');
 
       foreach ($files as $file) {
-        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs('images', $fileName, 'public');
+        if (\App\Services\HeicImageConverter::isHeic($file)) {
+          $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'images');
+          if ($converted === null) {
+            return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+          }
+          $fileName = $converted['file_name'];
+          $path = $converted['path'];
+          $fileType = $converted['mime'];
+          $fileSize = $converted['size'];
+        } else {
+          $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+          $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
+          $path = $file->storeAs('images', $fileName, 'public');
+          $fileType = $file->getMimeType();
+          $fileSize = $file->getSize();
+        }
 
         // Create UserContent record for each image
         $userContent = UserContent::create([
           'user_id' => auth()->id(),
           'file_name' => $fileName,
           'file_path' => $path,
-          'file_type' => $file->getMimeType(),
-          'file_size' => $file->getSize(),
+          'file_type' => $fileType,
+          'file_size' => $fileSize,
         ]);
 
         $cdnImageIds[] = $userContent->id;
@@ -1292,7 +1305,7 @@ class TopicsController extends Controller
       'description' => 'required|string',
       'subforum_id' => 'nullable|exists:cyo_forum_subforums,id',
       'image_files' => 'nullable|array',
-      'image_files.*' => 'file|image|max:10240',
+      'image_files.*' => 'file|mimes:jpg,jpeg,png,bmp,gif,svg,webp,heic,heif|max:10240',
       'document_files' => 'nullable|array',
       'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600',
       'video_files' => 'nullable|array',
@@ -1339,17 +1352,30 @@ class TopicsController extends Controller
       $files = $request->file('image_files');
 
       foreach ($files as $file) {
-        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs('images', $fileName, 'public');
+        if (\App\Services\HeicImageConverter::isHeic($file)) {
+          $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'images');
+          if ($converted === null) {
+            return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+          }
+          $fileName = $converted['file_name'];
+          $path = $converted['path'];
+          $fileType = $converted['mime'];
+          $fileSize = $converted['size'];
+        } else {
+          $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+          $fileName = time() . '_' . uniqid() . '_' . Str::slug($originalName) . '.' . $file->getClientOriginalExtension();
+          $path = $file->storeAs('images', $fileName, 'public');
+          $fileType = $file->getMimeType();
+          $fileSize = $file->getSize();
+        }
 
         // Create UserContent record for each image
         $userContent = UserContent::create([
           'user_id' => auth()->id(),
           'file_name' => $fileName,
           'file_path' => $path,
-          'file_type' => $file->getMimeType(),
-          'file_size' => $file->getSize(),
+          'file_type' => $fileType,
+          'file_size' => $fileSize,
         ]);
 
         $cdnImageIds[] = $userContent->id;
@@ -1720,7 +1746,7 @@ class TopicsController extends Controller
     $request->validate([
       'comment' => 'required_without:images|nullable|string',
       'images' => 'nullable|array|max:10',
-      'images.*' => 'file|image|max:10240|mimes:jpeg,png,jpg,gif,webp',
+      'images.*' => 'file|max:10240|mimes:jpeg,png,jpg,gif,webp,heic,heif',
       'replying_to' => 'nullable|exists:cyo_topic_comments,id',
       'topic_id' => 'required|exists:cyo_topics,id',
       'is_anonymous' => 'nullable|boolean',
@@ -1729,7 +1755,15 @@ class TopicsController extends Controller
     $imagePaths = [];
     if ($request->hasFile('images')) {
       foreach ($request->file('images') as $image) {
-        $path = $image->store('comment_images', 'public');
+        if (\App\Services\HeicImageConverter::isHeic($image)) {
+          $converted = \App\Services\HeicImageConverter::convertAndStore($image, 'comment_images');
+          if ($converted === null) {
+            return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+          }
+          $path = $converted['path'];
+        } else {
+          $path = $image->store('comment_images', 'public');
+        }
         ProcessImageCompression::dispatch($path);
         $imagePaths[] = $path;
       }

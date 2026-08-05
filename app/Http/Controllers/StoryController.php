@@ -127,7 +127,7 @@ class StoryController extends Controller
             $rules['font_style'] = 'nullable|string';
             $rules['text_position'] = 'nullable|json';
         } else {
-            $rules['media_file'] = 'required|file|mimes:jpeg,png,jpg,gif,mp4,mov,mp3,wav|max:100240';
+            $rules['media_file'] = 'required|file|mimes:jpeg,png,jpg,gif,heic,heif,mp4,mov,mp3,wav|max:100240';
         }
 
         $validator = Validator::make($request->all(), $rules);
@@ -179,7 +179,20 @@ class StoryController extends Controller
         // Handle media upload if present
         if ($request->hasFile('media_file')) {
             $file = $request->file('media_file');
-            $path = $file->store('stories', 'public');
+
+            if ($request->media_type === 'image' && \App\Services\HeicImageConverter::isHeic($file)) {
+                $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'stories');
+                if ($converted === null) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.',
+                    ], 422);
+                }
+                $path = $converted['path'];
+            } else {
+                $path = $file->store('stories', 'public');
+            }
+
             $data['media_url'] = Storage::url($path);
 
             if ($request->media_type === 'video') {

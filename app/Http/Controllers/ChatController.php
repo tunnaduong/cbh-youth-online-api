@@ -392,7 +392,7 @@ class ChatController extends Controller
       $fileRules[] = 'mimes:mp4,mov,avi,webm';
     } elseif ($type === 'image') {
       $fileRules[] = 'max:10240';  // 10MB max for image
-      $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp';
+      $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp,heic,heif';
     } else {
       $fileRules[] = 'max:10240';  // 10MB max for other files
     }
@@ -456,7 +456,17 @@ class ChatController extends Controller
     // Handle file upload
     if ($request->hasFile('file')) {
       $file = $request->file('file');
-      $path = $file->store('chat_files', 'public');
+
+      if ($request->type === 'image' && \App\Services\HeicImageConverter::isHeic($file)) {
+        $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'chat_files');
+        if ($converted === null) {
+          return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+        }
+        $path = $converted['path'];
+      } else {
+        $path = $file->store('chat_files', 'public');
+      }
+
       $messageData['file_url'] = $path;
 
       if ($request->type === 'video') {
@@ -1214,7 +1224,7 @@ class ChatController extends Controller
   public function updateGroupAvatar(Request $request, $conversationId)
   {
     $request->validate([
-      'avatar' => 'required|image|max:5120',
+      'avatar' => 'required|mimes:jpg,jpeg,png,bmp,gif,svg,webp,heic,heif|max:5120',
     ]);
 
     $user = Auth::user();
@@ -1233,7 +1243,16 @@ class ChatController extends Controller
     }
 
     $oldAvatarPath = $conversation->avatar_url;
-    $path = $request->file('avatar')->store('group_avatars', 'public');
+    $avatarFile = $request->file('avatar');
+    if (\App\Services\HeicImageConverter::isHeic($avatarFile)) {
+      $converted = \App\Services\HeicImageConverter::convertAndStore($avatarFile, 'group_avatars');
+      if ($converted === null) {
+        return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+      }
+      $path = $converted['path'];
+    } else {
+      $path = $avatarFile->store('group_avatars', 'public');
+    }
     $conversation->update(['avatar_url' => $path]);
 
     if ($oldAvatarPath) {
@@ -1348,31 +1367,22 @@ class ChatController extends Controller
 
     $file = $request->file('image');
     $originalExt = strtolower($file->getClientOriginalExtension());
-    $isHeic = in_array($originalExt, ['heic', 'heif'], true)
-      || in_array($file->getMimeType(), ['image/heic', 'image/heif'], true);
+    $isHeic = \App\Services\HeicImageConverter::isHeic($file);
 
     if ($isHeic) {
       // Most browsers (and Android's own WebView) can't render HEIC in an
       // <img> tag, so convert it to a JPEG the rest of the app can already
       // display everywhere, instead of just accepting-and-breaking it.
-      $fileName = time() . '_' . uniqid() . '.jpg';
-      Storage::disk('public')->makeDirectory('chat_backgrounds');
-      $path = 'chat_backgrounds/' . $fileName;
-      $absPath = Storage::disk('public')->path($path);
+      $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'chat_backgrounds');
 
-      $cmd = sprintf(
-        'convert %s -auto-orient %s 2>&1',
-        escapeshellarg($file->getRealPath()),
-        escapeshellarg($absPath)
-      );
-      exec($cmd, $cmdOutput, $returnCode);
-
-      if ($returnCode !== 0 || !file_exists($absPath)) {
+      if ($converted === null) {
         return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
       }
 
-      $mimeType = 'image/jpeg';
-      $fileSize = filesize($absPath);
+      $fileName = $converted['file_name'];
+      $path = $converted['path'];
+      $mimeType = $converted['mime'];
+      $fileSize = $converted['size'];
     } else {
       $fileName = time() . '_' . uniqid() . '.' . $originalExt;
       $path = $file->storeAs('chat_backgrounds', $fileName, 'public');
@@ -2622,7 +2632,7 @@ class ChatController extends Controller
       $fileRules[] = 'mimes:mp4,mov,avi,webm';
     } elseif ($type === 'image') {
       $fileRules[] = 'max:10240';  // 10MB max for image
-      $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp';
+      $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp,heic,heif';
     } else {
       $fileRules[] = 'max:10240';  // 10MB max for other files
     }
@@ -2682,7 +2692,17 @@ class ChatController extends Controller
     // Handle file upload
     if ($request->hasFile('file')) {
       $file = $request->file('file');
-      $path = $file->store('chat_files', 'public');
+
+      if ($request->type === 'image' && \App\Services\HeicImageConverter::isHeic($file)) {
+        $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'chat_files');
+        if ($converted === null) {
+          return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+        }
+        $path = $converted['path'];
+      } else {
+        $path = $file->store('chat_files', 'public');
+      }
+
       $messageData['file_url'] = $path;
     }
 

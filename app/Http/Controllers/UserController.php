@@ -123,24 +123,38 @@ class UserController extends Controller
     }
 
     $request->validate([
-      'cover_photo' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+      'cover_photo' => 'required|mimes:jpg,jpeg,png,bmp,gif,svg,webp,heic,heif|max:10240',
     ]);
 
     $user = AuthAccount::where('username', $username)->firstOrFail();
 
     if ($request->hasFile('cover_photo')) {
       $file = $request->file('cover_photo');
-      $fileName = time() . '_cover_' . $file->getClientOriginalName();
 
-      // Stored as-is, uncompressed — cover photos should keep their original quality.
-      $filePath = $file->storeAs('covers', $fileName, 'public');
+      if (\App\Services\HeicImageConverter::isHeic($file)) {
+        $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'covers');
+        if ($converted === null) {
+          return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+        }
+        $fileName = $converted['file_name'];
+        $filePath = $converted['path'];
+        $fileType = $converted['mime'];
+        $fileSize = $converted['size'];
+      } else {
+        $fileName = time() . '_cover_' . $file->getClientOriginalName();
+
+        // Stored as-is, uncompressed — cover photos should keep their original quality.
+        $filePath = $file->storeAs('covers', $fileName, 'public');
+        $fileType = $file->getClientMimeType();
+        $fileSize = Storage::disk('public')->size($filePath);
+      }
 
       $userContent = UserContent::create([
         'user_id' => $user->id,
         'file_name' => $fileName,
         'file_path' => $filePath,
-        'file_type' => $file->getClientMimeType(),
-        'file_size' => Storage::disk('public')->size($filePath),
+        'file_type' => $fileType,
+        'file_size' => $fileSize,
       ]);
 
       $user->load('profile');
@@ -181,7 +195,7 @@ class UserController extends Controller
 
     // Validate the incoming request
     $request->validate([
-      'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',  // Validate the file type and size
+      'avatar' => 'required|mimes:jpeg,png,jpg,gif,heic,heif|max:10240',  // Validate the file type and size
     ]);
 
     // Retrieve the user by username
@@ -192,11 +206,25 @@ class UserController extends Controller
       // Get the uploaded file
       $file = $request->file('avatar');
 
-      // Generate a unique filename
-      $fileName = time() . '_' . $file->getClientOriginalName();
+      // HEIC/HEIF can't be read by Intervention's GD/Imagick driver directly
+      // on most setups, so convert to JPEG first and crop/resize that instead.
+      if (\App\Services\HeicImageConverter::isHeic($file)) {
+        $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'avatars_tmp_heic');
+        if ($converted === null) {
+          return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+        }
+        $sourcePath = Storage::disk('public')->path($converted['path']);
+        $fileName = $converted['file_name'];
+        $fileType = $converted['mime'];
+      } else {
+        $sourcePath = $file->getRealPath();
+        // Generate a unique filename
+        $fileName = time() . '_' . $file->getClientOriginalName();
+        $fileType = $file->getClientMimeType();
+      }
 
       // Use Intervention Image to crop and resize to a 1:1 ratio
-      $image = Image::make($file->getRealPath());
+      $image = Image::make($sourcePath);
       $size = min($image->width(), $image->height());  // Get the smallest dimension
       $image->crop($size, $size)->resize(500, 500);  // Crop and resize to 500x500 pixels (or any preferred size)
 
@@ -206,12 +234,17 @@ class UserController extends Controller
       // Save the cropped image to the public disk
       Storage::disk('public')->put($filePath, (string) $image->encode());
 
+      // Clean up the temporary HEIC->JPEG intermediate file, if any.
+      if (isset($converted)) {
+        Storage::disk('public')->delete($converted['path']);
+      }
+
       // Update or create the user content record for the avatar
       $userContent = UserContent::create([
         'user_id' => $user->id,
         'file_name' => $fileName,
         'file_path' => $filePath,
-        'file_type' => $file->getClientMimeType(),
+        'file_type' => $fileType,
         'file_size' => Storage::disk('public')->size($filePath),
       ]);
 
