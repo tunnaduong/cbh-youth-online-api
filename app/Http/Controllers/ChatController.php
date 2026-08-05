@@ -414,6 +414,12 @@ class ChatController extends Controller
         if ($isBlocked) {
           return response()->json(['message' => 'Bạn đã chặn người dùng này.'], 403);
         }
+        // Also block the reverse direction - otherwise someone who has been
+        // blocked can still message the person who blocked them.
+        $blockedByOther = UserBlock::where('user_id', $otherParticipant->id)->where('blocked_user_id', $user->id)->exists();
+        if ($blockedByOther) {
+          return response()->json(['message' => 'Bạn không thể nhắn tin cho người dùng này.'], 403);
+        }
       }
     }
 

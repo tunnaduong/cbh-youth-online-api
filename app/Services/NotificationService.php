@@ -11,6 +11,7 @@ use App\Models\NotificationSettings;
 use App\Models\Story;
 use App\Models\Topic;
 use App\Models\TopicComment;
+use App\Models\UserBlock;
 use App\Services\PushNotificationService;
 
 /**
@@ -26,6 +27,17 @@ class NotificationService
    */
   private static function createAndPushNotification(array $notificationData): ?Notification
   {
+    $recipientId = $notificationData['user_id'] ?? null;
+    $actorId = $notificationData['actor_id'] ?? null;
+
+    // A block (in either direction) should silence all notifications between
+    // the two users - otherwise someone the recipient blocked can still page
+    // them via comments/reactions/votes/mentions/replies, which defeats the
+    // point of blocking.
+    if ($recipientId && $actorId && $recipientId !== $actorId && self::isBlockedEitherWay($recipientId, $actorId)) {
+      return null;
+    }
+
     $notification = Notification::create($notificationData);
 
     if ($notification) {
@@ -44,6 +56,15 @@ class NotificationService
     }
 
     return $notification;
+  }
+
+  private static function isBlockedEitherWay(int $userIdA, int $userIdB): bool
+  {
+    return UserBlock::where(function ($q) use ($userIdA, $userIdB) {
+      $q->where('user_id', $userIdA)->where('blocked_user_id', $userIdB);
+    })->orWhere(function ($q) use ($userIdA, $userIdB) {
+      $q->where('user_id', $userIdB)->where('blocked_user_id', $userIdA);
+    })->exists();
   }
 
   private static function sendInteractionEmail(Notification $notification): void
