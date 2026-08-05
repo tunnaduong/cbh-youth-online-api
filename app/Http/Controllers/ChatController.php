@@ -43,6 +43,15 @@ class ChatController extends Controller
   {
     $user = Auth::user();
     $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
+    // Private conversations with a blocked participant are dropped entirely
+    // below, but group/public chats stay visible - their "latest message"
+    // preview still needs to skip a message from someone blocked in either
+    // direction, otherwise it leaks the blocked user's text even though
+    // opening the conversation itself already hides it.
+    $blockedEitherWayIds = array_values(array_unique(array_merge(
+      $blockedUserIds,
+      UserBlock::where('blocked_user_id', $user->id)->pluck('user_id')->toArray()
+    )));
 
     $conversations = Conversation::whereHas('participants', function ($query) use ($user) {
       $query->where('user_id', $user->id);
@@ -61,7 +70,7 @@ class ChatController extends Controller
         return true;
       })
       ->values()  // Reset keys after filter
-      ->map(function ($conversation) use ($user) {
+      ->map(function ($conversation) use ($user, $blockedEitherWayIds) {
         // Private chats only ever show "the other person", so participants
         // there deliberately excludes you. Groups need the real member count
         // (including yourself) — otherwise it always reads one member short
@@ -69,6 +78,8 @@ class ChatController extends Controller
         $displayParticipants = $conversation->type === 'group'
           ? $conversation->participants
           : $conversation->participants->where('id', '!=', $user->id)->values();
+
+        $previewMessage = $this->previewSafeLatestMessage($conversation, $blockedEitherWayIds);
 
         return [
           'id' => $conversation->id,
@@ -88,17 +99,17 @@ class ChatController extends Controller
               'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
             ];
           }),
-          'latest_message' => $conversation->latestMessage ? [
-            'content' => $conversation->latestMessage->content,
-            'type' => $conversation->latestMessage->type,
-            'metadata' => $conversation->latestMessage->metadata,
-            'sender' => $conversation->latestMessage->user
-              ? $conversation->latestMessage->user->username
-              : ($conversation->latestMessage->type === 'system' ? 'system' : ($conversation->latestMessage->guest_name ?? 'Ẩn danh')),
-            'is_myself' => $conversation->latestMessage->user_id === $user->id,
-            'is_recalled' => (bool) $conversation->latestMessage->is_recalled,
-            'created_at' => $conversation->latestMessage->created_at ? $conversation->latestMessage->created_at->toISOString() : null,
-            'created_at_human' => $conversation->latestMessage->created_at ? $conversation->latestMessage->created_at->diffForHumans() : null,
+          'latest_message' => $previewMessage ? [
+            'content' => $previewMessage->content,
+            'type' => $previewMessage->type,
+            'metadata' => $previewMessage->metadata,
+            'sender' => $previewMessage->user
+              ? $previewMessage->user->username
+              : ($previewMessage->type === 'system' ? 'system' : ($previewMessage->guest_name ?? 'Ẩn danh')),
+            'is_myself' => $previewMessage->user_id === $user->id,
+            'is_recalled' => (bool) $previewMessage->is_recalled,
+            'created_at' => $previewMessage->created_at ? $previewMessage->created_at->toISOString() : null,
+            'created_at_human' => $previewMessage->created_at ? $previewMessage->created_at->diffForHumans() : null,
           ] : null,
           'unread_count' => $conversation->unreadMessagesCount($user->id)
         ];
@@ -127,21 +138,22 @@ class ChatController extends Controller
         });
 
         // Add public chat to conversations
+        $publicPreviewMessage = $this->previewSafeLatestMessage($publicChat, $blockedEitherWayIds);
         $publicChatData = [
           'id' => $publicChat->id,
           'type' => $publicChat->type,
           'name' => $publicChat->name,
           'avatar_url' => null,
           'participants' => $allParticipants,
-          'latest_message' => $publicChat->latestMessage ? [
-            'content' => $publicChat->latestMessage->content,
-            'type' => $publicChat->latestMessage->type,
-            'metadata' => $publicChat->latestMessage->metadata,
-            'sender' => $publicChat->latestMessage->user ? $publicChat->latestMessage->user->username : ($publicChat->latestMessage->guest_name ?? 'Ẩn danh'),
-            'is_myself' => $publicChat->latestMessage->user_id === $user->id,
-            'is_recalled' => (bool) $publicChat->latestMessage->is_recalled,
-            'created_at' => $publicChat->latestMessage->created_at ? $publicChat->latestMessage->created_at->toISOString() : null,
-            'created_at_human' => $publicChat->latestMessage->created_at ? $publicChat->latestMessage->created_at->diffForHumans() : null,
+          'latest_message' => $publicPreviewMessage ? [
+            'content' => $publicPreviewMessage->content,
+            'type' => $publicPreviewMessage->type,
+            'metadata' => $publicPreviewMessage->metadata,
+            'sender' => $publicPreviewMessage->user ? $publicPreviewMessage->user->username : ($publicPreviewMessage->guest_name ?? 'Ẩn danh'),
+            'is_myself' => $publicPreviewMessage->user_id === $user->id,
+            'is_recalled' => (bool) $publicPreviewMessage->is_recalled,
+            'created_at' => $publicPreviewMessage->created_at ? $publicPreviewMessage->created_at->toISOString() : null,
+            'created_at_human' => $publicPreviewMessage->created_at ? $publicPreviewMessage->created_at->diffForHumans() : null,
           ] : null,
           'unread_count' => $publicChat->unreadMessagesCount($user->id)
         ];
@@ -152,6 +164,26 @@ class ChatController extends Controller
     }
 
     return response()->json($conversations->values());
+  }
+
+  /**
+   * Returns the conversation's latest message, skipping over one from a
+   * user blocked in either direction (falls back to the newest message
+   * that isn't), so the conversations-list preview can't leak text from
+   * someone the viewer can't otherwise see/open in this conversation.
+   */
+  private function previewSafeLatestMessage(Conversation $conversation, array $blockedEitherWayIds)
+  {
+    $latest = $conversation->latestMessage;
+    if (!$latest || empty($blockedEitherWayIds) || !in_array($latest->user_id, $blockedEitherWayIds, true)) {
+      return $latest;
+    }
+
+    return $conversation->messages()
+      ->whereNotIn('user_id', $blockedEitherWayIds)
+      ->orderBy('created_at', 'desc')
+      ->with('user.profile')
+      ->first();
   }
 
   /**
@@ -742,6 +774,10 @@ class ChatController extends Controller
       }
     }
 
+    if ($message->user_id && $message->user_id !== $user->id && $this->isBlockedEitherWay($user->id, $message->user_id)) {
+      return response()->json(['message' => 'Không thể thực hiện hành động này.'], 403);
+    }
+
     MessageReaction::create([
       'message_id' => $message->id,
       'user_id' => $user->id,
@@ -1266,6 +1302,15 @@ class ChatController extends Controller
     );
 
     return response()->json(['avatar_url' => $this->absoluteStorageUrl($path)]);
+  }
+
+  private function isBlockedEitherWay(int $userIdA, int $userIdB): bool
+  {
+    return UserBlock::where(function ($q) use ($userIdA, $userIdB) {
+      $q->where('user_id', $userIdA)->where('blocked_user_id', $userIdB);
+    })->orWhere(function ($q) use ($userIdA, $userIdB) {
+      $q->where('user_id', $userIdB)->where('blocked_user_id', $userIdA);
+    })->exists();
   }
 
   /**

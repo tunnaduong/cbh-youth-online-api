@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\ExpoPushToken;
 use App\Models\Notification;
 use App\Models\NotificationSubscription;
+use App\Models\UserBlock;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Minishlink\WebPush\Subscription;
@@ -297,11 +298,31 @@ class PushNotificationService
         return 0;
       }
 
+      // A block in either direction should silence chat push notifications
+      // too - sendMessage() already rejects the send outright for 1:1
+      // private chats, but group/public chats have multiple recipients and
+      // no single "reject the send" makes sense there, so filter per
+      // participant instead.
+      $blockedEitherWay = UserBlock::where(function ($q) use ($senderId, $participants) {
+        $q->where('user_id', $senderId)->whereIn('blocked_user_id', $participants->pluck('id'));
+      })->orWhere(function ($q) use ($senderId, $participants) {
+        $q->where('blocked_user_id', $senderId)->whereIn('user_id', $participants->pluck('id'));
+      })->get(['user_id', 'blocked_user_id'])
+        ->flatMap(fn($row) => [$row->user_id, $row->blocked_user_id])
+        ->unique()
+        ->reject(fn($id) => $id === $senderId)
+        ->values()
+        ->all();
+
       $sentCount = 0;
 
       foreach ($participants as $participant) {
         // Skip if participant doesn't have valid id (should be filtered already, but double check)
         if (!$participant->id) {
+          continue;
+        }
+
+        if (in_array($participant->id, $blockedEitherWay, true)) {
           continue;
         }
 

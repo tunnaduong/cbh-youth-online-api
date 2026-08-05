@@ -8,6 +8,7 @@ use App\Models\TopicComment;
 use App\Models\TopicCommentVote;
 use App\Models\TopicView;
 use App\Models\TopicVote;
+use App\Models\UserBlock;
 use App\Models\UserContent;
 use App\Models\UserSavedTopic;
 use App\Services\HashtagService;
@@ -66,6 +67,15 @@ class TopicsController extends Controller
     }
 
     return $html;
+  }
+
+  private function isBlockedEitherWay(int $userIdA, int $userIdB): bool
+  {
+    return UserBlock::where(function ($q) use ($userIdA, $userIdB) {
+      $q->where('user_id', $userIdA)->where('blocked_user_id', $userIdB);
+    })->orWhere(function ($q) use ($userIdA, $userIdB) {
+      $q->where('user_id', $userIdB)->where('blocked_user_id', $userIdA);
+    })->exists();
   }
 
   /**
@@ -1592,6 +1602,11 @@ class TopicsController extends Controller
     // Retrieve the authenticated user
     $user = Auth::user();
 
+    $topicOwnerId = Topic::where('id', $topicId)->value('user_id');
+    if ($topicOwnerId && $topicOwnerId !== $user->id && $this->isBlockedEitherWay($user->id, $topicOwnerId)) {
+      return response()->json(['message' => 'Không thể thực hiện hành động này.'], 403);
+    }
+
     $vote = TopicVote::updateOrCreate(
       [
         'topic_id' => $topicId,
@@ -1803,6 +1818,11 @@ class TopicsController extends Controller
       'is_anonymous' => 'nullable|boolean',
     ]);
 
+    $topicOwnerId = Topic::where('id', $request->topic_id)->value('user_id');
+    if ($topicOwnerId && $topicOwnerId !== auth()->id() && $this->isBlockedEitherWay(auth()->id(), $topicOwnerId)) {
+      return response()->json(['message' => 'Không thể thực hiện hành động này.'], 403);
+    }
+
     $imagePaths = [];
     if ($request->hasFile('images')) {
       foreach ($request->file('images') as $image) {
@@ -1927,6 +1947,11 @@ class TopicsController extends Controller
     $request->validate([
       'vote_value' => 'required|integer|in:1,-1,0',  // 1 for upvote, -1 for downvote, 0 for remove vote
     ]);
+
+    $commentOwnerId = TopicComment::where('id', $commentId)->value('user_id');
+    if ($commentOwnerId && $commentOwnerId !== auth()->id() && $this->isBlockedEitherWay(auth()->id(), $commentOwnerId)) {
+      return response()->json(['message' => 'Không thể thực hiện hành động này.'], 403);
+    }
 
     $vote = TopicCommentVote::updateOrCreate(
       [
