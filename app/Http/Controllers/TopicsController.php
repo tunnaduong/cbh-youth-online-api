@@ -69,6 +69,56 @@ class TopicsController extends Controller
   }
 
   /**
+   * Resolve a topic's display HTML, lazily converting and persisting it
+   * from the raw markdown source if the pre-computed column is empty.
+   * Does not bump updated_at since this is a backfill, not a real edit.
+   *
+   * @param  \App\Models\Topic  $topic
+   * @return string
+   */
+  private function resolveTopicContentHtml(Topic $topic): string
+  {
+    if (!empty($topic->content_html)) {
+      return $topic->content_html;
+    }
+    if (empty($topic->description)) {
+      return '';
+    }
+    $html = $this->convertMarkdownToHtml($topic->description);
+    Topic::where('id', $topic->id)->update([
+      'content_html' => $html,
+      'updated_at' => $topic->updated_at,
+    ]);
+    $topic->content_html = $html;
+    return $html;
+  }
+
+  /**
+   * Resolve a comment's display HTML, lazily converting and persisting it
+   * from the raw markdown source if the pre-computed column is empty.
+   * Does not bump updated_at since this is a backfill, not a real edit.
+   *
+   * @param  \App\Models\TopicComment  $comment
+   * @return string
+   */
+  private function resolveCommentHtml(TopicComment $comment): string
+  {
+    if (!empty($comment->comment_html)) {
+      return $comment->comment_html;
+    }
+    if (empty($comment->comment)) {
+      return '';
+    }
+    $html = $this->convertMarkdownToHtml($comment->comment);
+    TopicComment::where('id', $comment->id)->update([
+      'comment_html' => $html,
+      'updated_at' => $comment->updated_at,
+    ]);
+    $comment->comment_html = $html;
+    return $html;
+  }
+
+  /**
    * Get a paginated list of topics.
    *
    * @param  \Illuminate\Http\Request  $request
@@ -82,6 +132,7 @@ class TopicsController extends Controller
         'subforum_id',
         'user_id',
         'title',
+        'description',
         'content_html',
         'created_at',
         'updated_at',
@@ -195,7 +246,7 @@ class TopicsController extends Controller
     $topicData = [
       'id' => $topic->id,
       'title' => $topic->title,
-      'content' => $topic->content_html,
+      'content' => $this->resolveTopicContentHtml($topic),
       'mentions' => $this->resolveTopicMentions($topic->description),
       'image_urls' => $topic->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
@@ -782,7 +833,7 @@ class TopicsController extends Controller
       return [
         'id' => $comment->id,
         'content' => $comment->comment,
-        'comment' => $comment->comment_html,
+        'comment' => $this->resolveCommentHtml($comment),
         'is_anonymous' => $comment->is_anonymous,
         'deleted_parent_username' => $comment->deleted_parent_username ?? null,
         'author' => [
@@ -827,7 +878,7 @@ class TopicsController extends Controller
           return [
             'id' => $reply->id,
             'content' => $reply->comment,
-            'comment' => $reply->comment_html,
+            'comment' => $this->resolveCommentHtml($reply),
             'is_anonymous' => $reply->is_anonymous,
             'deleted_parent_username' => $reply->getAttribute('deleted_parent_username') ?? null,
             'author' => [
@@ -864,7 +915,7 @@ class TopicsController extends Controller
               return [
                 'id' => $subReply->id,
                 'content' => $subReply->comment,
-                'comment' => $subReply->comment_html,
+                'comment' => $this->resolveCommentHtml($subReply),
                 'is_anonymous' => $subReply->is_anonymous,
                 'deleted_parent_username' => $subReply->getAttribute('deleted_parent_username') ?? null,
                 'target_comment_id' => $subReply->target_comment_id,
@@ -914,7 +965,7 @@ class TopicsController extends Controller
         'id' => $topic->id,
         'title' => $topic->title,
         'description' => $topic->description,
-        'content' => $topic->content_html,
+        'content' => $this->resolveTopicContentHtml($topic),
         'mentions' => $this->resolveTopicMentions($topic->description),
         'image_urls' => $imageUrls,
         'document_urls' => $topic->getDocuments()->map(function ($content) {
@@ -1621,7 +1672,7 @@ class TopicsController extends Controller
           'id' => $comment->id,
           'topic_id' => $comment->topic_id,
           'content' => $comment->comment,  // Raw markdown text for editing
-          'comment' => $comment->comment_html,  // HTML for display
+          'comment' => $this->resolveCommentHtml($comment),  // HTML for display
           'is_anonymous' => $comment->is_anonymous,
           'is_owner' => $isOwner,  // Add ownership flag
           'created_at' => $comment->created_at,
@@ -1695,7 +1746,7 @@ class TopicsController extends Controller
       return response()->json([
         'id' => $comment->id,
         'content' => $comment->comment,  // Return raw markdown for editing
-        'comment' => $comment->comment_html,  // Return HTML for display
+        'comment' => $this->resolveCommentHtml($comment),  // Return HTML for display
         'is_owner' => true,  // Updated comment is always owned by updater
         'mentions' => $resolvedMentions,  // Resolved @mention targets for immediate rendering
         'author' => [
@@ -1831,7 +1882,7 @@ class TopicsController extends Controller
     $commentData = [
       'id' => $comment->id,
       'content' => $comment->comment,  // Return raw markdown for editing
-      'comment' => $comment->comment_html,  // Return HTML for display
+      'comment' => $this->resolveCommentHtml($comment),  // Return HTML for display
       'is_anonymous' => $comment->is_anonymous,
       'is_owner' => true,  // New comment is always owned by creator
       'mentions' => $resolvedMentions,  // Resolved @mention targets for immediate rendering
