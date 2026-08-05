@@ -10,6 +10,7 @@ use App\Models\Message;
 use App\Models\Story;
 use App\Models\StoryReaction;
 use App\Models\StoryViewer;
+use App\Models\UserBlock;
 use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -44,10 +45,13 @@ class StoryController extends Controller
             ->whereIn('privacy', $privacyLevels);
 
         if ($request->user()) {
-            $blockedUserIds = \App\Models\UserBlock::where('user_id', $request->user()->id)
-                ->pluck('blocked_user_id')
-                ->toArray();
-            $query->whereNotIn('user_id', $blockedUserIds);
+            // Bidirectional: also hide stories from someone who has blocked
+            // the viewer, not just people the viewer blocked themselves.
+            $blockedEitherWayIds = array_values(array_unique(array_merge(
+                \App\Models\UserBlock::where('user_id', $request->user()->id)->pluck('blocked_user_id')->toArray(),
+                \App\Models\UserBlock::where('blocked_user_id', $request->user()->id)->pluck('user_id')->toArray()
+            )));
+            $query->whereNotIn('user_id', $blockedEitherWayIds);
         }
 
         $stories = $query
@@ -261,6 +265,15 @@ class StoryController extends Controller
         }
     }
 
+    private function isBlockedEitherWay(int $userIdA, int $userIdB): bool
+    {
+        return UserBlock::where(function ($q) use ($userIdA, $userIdB) {
+            $q->where('user_id', $userIdA)->where('blocked_user_id', $userIdB);
+        })->orWhere(function ($q) use ($userIdA, $userIdB) {
+            $q->where('user_id', $userIdB)->where('blocked_user_id', $userIdA);
+        })->exists();
+    }
+
     /**
      * Display the specified story.
      *
@@ -277,6 +290,22 @@ class StoryController extends Controller
             }
 
             return back()->with('error', 'Story has expired');
+        }
+
+        // The index() feed already hides a blocked/blocking user's stories,
+        // but that only stops them appearing in the bubble list - opening
+        // one directly by ID (e.g. from a stale bubble, deep link, or the
+        // viewer paging through) had no such check at all.
+        if ($request->user() && $story->user_id !== $request->user()->id
+            && $this->isBlockedEitherWay($request->user()->id, $story->user_id)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story not found',
+                ], 404);
+            }
+
+            return back()->with('error', 'Story not found');
         }
 
         $story->load(['user', 'viewers', 'reactions']);
@@ -352,6 +381,17 @@ class StoryController extends Controller
         }
 
         if ($story->user_id !== Auth::id()) {
+            if ($this->isBlockedEitherWay(Auth::id(), $story->user_id)) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Story not found',
+                    ], 404);
+                }
+
+                return back()->with('error', 'Story not found');
+            }
+
             StoryViewer::firstOrCreate([
                 'story_id' => $story->id,
                 'user_id' => Auth::id(),
@@ -401,6 +441,17 @@ class StoryController extends Controller
             }
 
             return back()->with('error', 'Story has expired');
+        }
+
+        if ($story->user_id !== Auth::id() && $this->isBlockedEitherWay(Auth::id(), $story->user_id)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story not found',
+                ], 404);
+            }
+
+            return back()->with('error', 'Story not found');
         }
 
         $reaction = StoryReaction::updateOrCreate(
@@ -501,6 +552,17 @@ class StoryController extends Controller
             }
 
             return back()->with('error', 'Cannot reply to your own story');
+        }
+
+        if ($this->isBlockedEitherWay($user->id, $storyOwnerId)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Story not found',
+                ], 404);
+            }
+
+            return back()->with('error', 'Story not found');
         }
 
         // Load story owner information

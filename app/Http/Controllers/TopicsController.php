@@ -79,6 +79,27 @@ class TopicsController extends Controller
   }
 
   /**
+   * Drop any resolved @mention pointing at a user blocked either way
+   * relative to the text's author - otherwise a block could be bypassed by
+   * mentioning the blocked/blocking user inside a post/comment on
+   * someone ELSE's content (the addComment/registerVote block checks only
+   * cover direct interaction with the content owner, not usernames
+   * mentioned in the body).
+   *
+   * @param  array<array{username:string,user_id:int}>  $mentions
+   */
+  private function filterMentionsByBlock(array $mentions, int $authorId): array
+  {
+    return array_values(array_filter($mentions, function ($m) use ($authorId) {
+      $mentionedId = $m['user_id'] ?? null;
+      if (!$mentionedId || $mentionedId === $authorId) {
+        return true;
+      }
+      return !$this->isBlockedEitherWay($authorId, $mentionedId);
+    }));
+  }
+
+  /**
    * Resolve a topic's display HTML, lazily converting and persisting it
    * from the raw markdown source if the pre-computed column is empty.
    * Does not bump updated_at since this is a backfill, not a real edit.
@@ -257,7 +278,7 @@ class TopicsController extends Controller
       'id' => $topic->id,
       'title' => $topic->title,
       'content' => $this->resolveTopicContentHtml($topic),
-      'mentions' => $this->resolveTopicMentions($topic->description),
+      'mentions' => $this->filterMentionsByBlock($this->resolveTopicMentions($topic->description), $topic->user_id),
       'image_urls' => $topic->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
@@ -864,7 +885,7 @@ class TopicsController extends Controller
           'username' => $vote->user->username,
           'vote_value' => $vote->vote_value,
         ]),
-        'mentions' => $comment->comment ? $resolveMentionsFromText($comment->comment) : [],
+        'mentions' => $comment->comment ? $this->filterMentionsByBlock($resolveMentionsFromText($comment->comment), $comment->user_id) : [],
         'replies' => $comment->replies->map(function ($reply) use ($resolveMentionsFromText) {
           // Sort level-3 replies so that a reply targeting a sibling appears right
           // after that sibling (sandwich ordering). Replies without a target_comment_id
@@ -909,7 +930,7 @@ class TopicsController extends Controller
               'username' => $vote->user->username,
               'vote_value' => $vote->vote_value,
             ]),
-            'mentions' => $reply->comment ? $resolveMentionsFromText($reply->comment) : [],
+            'mentions' => $reply->comment ? $this->filterMentionsByBlock($resolveMentionsFromText($reply->comment), $reply->user_id) : [],
             'replies' => $ordered->map(function ($subReply) use ($resolveMentionsFromText, $subReplies) {
               // Resolve target author from siblings so frontend can show "→ @user"
               $targetAuthor = null;
@@ -948,7 +969,7 @@ class TopicsController extends Controller
                   'username' => $vote->user->username,
                   'vote_value' => $vote->vote_value,
                 ]),
-                'mentions' => $subReply->comment ? $resolveMentionsFromText($subReply->comment) : [],
+                'mentions' => $subReply->comment ? $this->filterMentionsByBlock($resolveMentionsFromText($subReply->comment), $subReply->user_id) : [],
               ];
             })->values(),
           ];
@@ -976,7 +997,7 @@ class TopicsController extends Controller
         'title' => $topic->title,
         'description' => $topic->description,
         'content' => $this->resolveTopicContentHtml($topic),
-        'mentions' => $this->resolveTopicMentions($topic->description),
+        'mentions' => $this->filterMentionsByBlock($this->resolveTopicMentions($topic->description), $topic->user_id),
         'image_urls' => $imageUrls,
         'document_urls' => $topic->getDocuments()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
@@ -1305,7 +1326,7 @@ class TopicsController extends Controller
         'id' => $topic->id,
         'title' => $topic->title,
         'content' => $topic->description,
-        'mentions' => $resolvedTopicMentions,
+        'mentions' => $this->filterMentionsByBlock($resolvedTopicMentions, $topic->user_id),
         'image_urls' => $topic->getImageUrls()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
         })->all(),
@@ -1513,7 +1534,7 @@ class TopicsController extends Controller
     // immediately, matching updateComment() — no new notifications are
     // sent on edit, only on the initial post creation.
     $topicArray = $topic->toArray();
-    $topicArray['mentions'] = $this->resolveTopicMentions($topic->description);
+    $topicArray['mentions'] = $this->filterMentionsByBlock($this->resolveTopicMentions($topic->description), $topic->user_id);
 
     return response()->json([
       'message' => 'Bài viết đã được cập nhật thành công',
@@ -1693,7 +1714,7 @@ class TopicsController extends Controller
           'created_at' => $comment->created_at,
           'updated_at' => $comment->updated_at,
           'is_edited' => $comment->is_edited,
-          'mentions' => $resolveMentions($comment->comment),
+          'mentions' => $this->filterMentionsByBlock($resolveMentions($comment->comment), $comment->user_id),
           'author' => $comment->is_anonymous ? [
             'id' => null,
             'username' => 'Người dùng ẩn danh',
@@ -1763,7 +1784,7 @@ class TopicsController extends Controller
         'content' => $comment->comment,  // Return raw markdown for editing
         'comment' => $this->resolveCommentHtml($comment),  // Return HTML for display
         'is_owner' => true,  // Updated comment is always owned by updater
-        'mentions' => $resolvedMentions,  // Resolved @mention targets for immediate rendering
+        'mentions' => $this->filterMentionsByBlock($resolvedMentions, $comment->user_id),  // Resolved @mention targets for immediate rendering
         'author' => [
           'id' => $author->id,
           'username' => $author->username,
@@ -1905,7 +1926,7 @@ class TopicsController extends Controller
       'comment' => $this->resolveCommentHtml($comment),  // Return HTML for display
       'is_anonymous' => $comment->is_anonymous,
       'is_owner' => true,  // New comment is always owned by creator
-      'mentions' => $resolvedMentions,  // Resolved @mention targets for immediate rendering
+      'mentions' => $this->filterMentionsByBlock($resolvedMentions, $comment->user_id),  // Resolved @mention targets for immediate rendering
       'author' => $comment->is_anonymous ? [
         'id' => null,
         'username' => 'Người dùng ẩn danh',
