@@ -60,7 +60,7 @@ class TopicsController extends Controller
     preg_match_all('#<iframe[^>]+src="([^"]+)"[^>]*>.*?</iframe>#is', $markdown, $matches, PREG_SET_ORDER);
     foreach ($matches as $m) {
       $src = $m[1];
-      if (preg_match('#^(https?:)?//(www\.)?(youtube\.com|youtube-nocookie\.com|player\.vimeo\.com)/#', $src)) {
+      if (preg_match('#^(https?:)?//((www\.)?(youtube\.com|youtube-nocookie\.com|player\.vimeo\.com)|w\.soundcloud\.com)/#', $src)) {
         // giữ iframe, append vào cuối HTML
         $html .= "\n" . $m[0];
       }
