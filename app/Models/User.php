@@ -42,6 +42,10 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'banned_at',
+        'banned_until',
+        'ban_reason',
+        'banned_by',
     ];
 
     /**
@@ -63,6 +67,8 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'role' => 'string',
+        'banned_at' => 'datetime',
+        'banned_until' => 'datetime',
     ];
 
     /**
@@ -84,5 +90,33 @@ class User extends Authenticatable
     public function hasRole(string $role): bool
     {
         return $this->role === $role;
+    }
+
+    /**
+     * Determine whether the account is currently banned.
+     *
+     * @return bool
+     */
+    public function isCurrentlyBanned(): bool
+    {
+        if (!$this->banned_at) {
+            return false;
+        }
+
+        if ($this->banned_until === null) {
+            return true;
+        }
+
+        return $this->banned_until->isFuture();
+    }
+
+    /**
+     * Get the admin account that issued the ban, if any.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function banner()
+    {
+        return $this->belongsTo(User::class, 'banned_by');
     }
 }

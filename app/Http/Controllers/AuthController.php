@@ -23,6 +23,28 @@ use Intervention\Image\Facades\Image;
 class AuthController extends Controller
 {
   /**
+   * Build the standard 403 JSON response for a banned account trying to log in.
+   *
+   * @param  \App\Models\AuthAccount  $user
+   * @return \Illuminate\Http\JsonResponse
+   */
+  private function bannedResponse($user)
+  {
+    $bannedUntil = $user->banned_until;
+
+    $message = $bannedUntil
+      ? 'Tài khoản của bạn đã bị khóa đến ' . $bannedUntil->format('d/m/Y H:i') . '.'
+      : 'Tài khoản của bạn đã bị khóa vĩnh viễn.';
+
+    return response()->json([
+      'message' => $message,
+      'banned' => true,
+      'ban_reason' => $user->ban_reason,
+      'banned_until' => $bannedUntil,
+    ], 403);
+  }
+
+  /**
    * Download avatar from URL, process it, and save to storage
    * Returns UserContent ID or null on failure
    */
@@ -104,6 +126,10 @@ class AuthController extends Controller
           'password' => 'Mật khẩu sai.',
         ],
       ], 401);
+    }
+
+    if ($user->isCurrentlyBanned()) {
+      return $this->bannedResponse($user);
     }
 
     // Load the 'profile' relationship if the user exists
@@ -580,6 +606,11 @@ class AuthController extends Controller
           }
         }
       }
+
+      if ($user->isCurrentlyBanned()) {
+        return $this->bannedResponse($user);
+      }
+
       $token = $user->createToken('api-token')->plainTextToken;
 
       return response()->json([

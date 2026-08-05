@@ -1106,6 +1106,10 @@ class AdminController extends Controller
   public function usersIndex()
   {
     $users = User::paginate(10);
+    $users->getCollection()->transform(function ($user) {
+      $user->is_banned = $user->isCurrentlyBanned();
+      return $user;
+    });
     return response()->json([
       'users' => $users
     ]);
@@ -1232,6 +1236,83 @@ class AdminController extends Controller
     return redirect()
       ->route('admin.users.index')
       ->with('success', 'Xóa người dùng thành công');
+  }
+
+  /**
+   * Ban a user account, either temporarily (24h / 7 days) or permanently.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $id
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function banUser(Request $request, $id)
+  {
+    $validator = Validator::make($request->all(), [
+      'duration' => 'required|string|in:24h,7d,permanent',
+      'reason' => 'nullable|string|max:255',
+    ]);
+
+    if ($validator->fails()) {
+      return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    $user = User::findOrFail($id);
+
+    if ($user->id === Auth::id() || $user->role === 'admin') {
+      return response()->json([
+        'message' => 'Không thể khóa tài khoản quản trị viên hoặc chính bạn.',
+      ], 403);
+    }
+
+    $bannedUntil = null;
+    if ($request->duration === '24h') {
+      $bannedUntil = now()->addHours(24);
+    } elseif ($request->duration === '7d') {
+      $bannedUntil = now()->addDays(7);
+    }
+
+    $user->banned_at = now();
+    $user->banned_until = $bannedUntil;
+    $user->ban_reason = $request->reason;
+    $user->banned_by = Auth::id();
+    $user->save();
+
+    return response()->json([
+      'message' => 'Đã khóa tài khoản thành công.',
+      'user' => [
+        'id' => $user->id,
+        'banned_at' => $user->banned_at,
+        'banned_until' => $user->banned_until,
+        'ban_reason' => $user->ban_reason,
+        'banned_by' => $user->banned_by,
+        'is_banned' => $user->isCurrentlyBanned(),
+      ],
+    ]);
+  }
+
+  /**
+   * Remove a ban from a user account.
+   *
+   * @param  int  $id
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function unbanUser($id)
+  {
+    $user = User::findOrFail($id);
+
+    $user->banned_at = null;
+    $user->banned_until = null;
+    $user->ban_reason = null;
+    $user->banned_by = null;
+    $user->save();
+
+    return response()->json([
+      'message' => 'Đã mở khóa tài khoản thành công.',
+      'user' => [
+        'id' => $user->id,
+        'is_banned' => false,
+      ],
+    ]);
   }
 
   /**

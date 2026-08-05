@@ -183,7 +183,7 @@ Route::prefix('v1.0')->group(function () {
 
   // --- AUTHENTICATION REQUIRED ROUTES ---
   // These routes require a valid Sanctum authentication token.
-  Route::middleware('auth:sanctum')->group(function () {
+  Route::middleware(['auth:sanctum', 'not_banned'])->group(function () {
     // User & Profile
     Route::get('/user', function (Request $request) {
       $user = $request->user()->load('profile');
@@ -373,6 +373,8 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/admin/withdrawal-requests/pending', [AdminController::class, 'getPendingWithdrawals']);
       Route::post('/admin/withdrawal-requests/{id}/approve', [AdminController::class, 'approveWithdrawal']);
       Route::post('/admin/withdrawal-requests/{id}/reject', [AdminController::class, 'rejectWithdrawal']);
+      Route::post('/admin/users/{id}/ban', [AdminController::class, 'banUser']);
+      Route::post('/admin/users/{id}/unban', [AdminController::class, 'unbanUser']);
     });
 
     // SePay Webhook

@@ -53,7 +53,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
    *
    * @var array<int, string>
    */
-  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token', 'points', 'email_verified_at'];
+  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token', 'points', 'email_verified_at', 'banned_at', 'banned_until', 'ban_reason', 'banned_by'];
 
   /**
    * The attributes that should be hidden for serialization.
@@ -61,6 +61,16 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
    * @var array<int, string>
    */
   protected $hidden = ['password'];
+
+  /**
+   * The attributes that should be cast.
+   *
+   * @var array<string, string>
+   */
+  protected $casts = [
+    'banned_at' => 'datetime',
+    'banned_until' => 'datetime',
+  ];
 
   /**
    * Send the email verification notification.
@@ -197,5 +207,36 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   {
     $this->email_verified_at = now(); // Set the verification timestamp
     $this->save(); // Save the changes
+  }
+
+  /**
+   * Determine whether the account is currently banned.
+   *
+   * A user is currently banned iff banned_at is set AND either
+   * banned_until is null (permanent ban) or banned_until is in the future.
+   *
+   * @return bool
+   */
+  public function isCurrentlyBanned(): bool
+  {
+    if (!$this->banned_at) {
+      return false;
+    }
+
+    if ($this->banned_until === null) {
+      return true;
+    }
+
+    return $this->banned_until->isFuture();
+  }
+
+  /**
+   * Get the admin account that issued the ban, if any.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function banner()
+  {
+    return $this->belongsTo(AuthAccount::class, 'banned_by');
   }
 }
