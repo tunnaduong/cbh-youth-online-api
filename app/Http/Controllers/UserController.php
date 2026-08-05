@@ -538,7 +538,7 @@ class UserController extends Controller
       'profile_name' => 'nullable|string|max:255',
       'profile_picture' => 'nullable|integer',  // Optional, if updating avatar via URL
       'bio' => 'nullable|string',
-      'birthday' => 'nullable|date',
+      'birthday' => 'nullable|date|after:1899-12-31|before:today',
       'gender' => 'nullable|string|in:Male,Female',
       'location' => 'nullable|string|max:255',
     ]);
