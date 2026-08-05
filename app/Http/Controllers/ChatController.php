@@ -314,6 +314,7 @@ class ChatController extends Controller
           'content' => $message->is_recalled ? null : $message->content,
           'type' => $message->type,
           'file_url' => ($message->is_recalled || !$message->file_url) ? null : $this->absoluteStorageUrl($message->file_url),
+          'file_urls' => ($message->is_recalled || !$message->file_urls) ? null : array_map(fn($p) => $this->absoluteStorageUrl($p), $message->file_urls),
           'is_edited' => $message->is_edited,
           'is_recalled' => (bool) $message->is_recalled,
           'is_forwarded' => (bool) $message->is_forwarded,
@@ -429,10 +430,16 @@ class ChatController extends Controller
       $fileRules[] = 'max:10240';  // 10MB max for other files
     }
 
+    // Multi-attachment support (image/video only): same per-file rules as the
+    // single 'file' field, minus 'nullable' since array items are required-if-present.
+    $filesItemRules = array_values(array_filter($fileRules, fn($r) => $r !== 'nullable'));
+
     $request->validate([
-      'content' => 'required_without:file|string',
+      'content' => 'required_without_all:file,files|string',
       'type' => 'required|in:text,image,video,file',
       'file' => $fileRules,
+      'files' => 'nullable|array|max:10',
+      'files.*' => $filesItemRules,
       'reply_to_message_id' => 'nullable|integer|exists:cyo_conversation_messages,id',
     ]);
 
@@ -485,8 +492,41 @@ class ChatController extends Controller
       'reply_to_message_id' => $request->reply_to_message_id,
     ];
 
-    // Handle file upload
-    if ($request->hasFile('file')) {
+    // Handle multiple attachments (image/video only). When 'files[]' is present, it takes
+    // precedence over the legacy singular 'file' field.
+    if ($request->hasFile('files') && in_array($request->type, ['image', 'video'], true)) {
+      $fileUrls = [];
+
+      foreach ($request->file('files') as $file) {
+        if ($request->type === 'image' && \App\Services\HeicImageConverter::isHeic($file)) {
+          $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'chat_files');
+          if ($converted === null) {
+            return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+          }
+          $path = $converted['path'];
+        } else {
+          $path = $file->store('chat_files', 'public');
+        }
+
+        $fileUrls[] = $path;
+
+        if ($request->type === 'video') {
+          ProcessVideoCompression::dispatch($path);
+        } elseif ($request->type === 'image') {
+          ProcessImageCompression::dispatch($path);
+        }
+      }
+
+      $messageData['file_urls'] = $fileUrls;
+      $messageData['file_url'] = $fileUrls[0] ?? null;
+
+      if ($request->type === 'video' && $messageData['file_url']) {
+        $thumbnailUrl = $this->createVideoFirstFrame($messageData['file_url']);
+        if ($thumbnailUrl) {
+          $messageData['metadata'] = ['thumbnail_url' => $thumbnailUrl];
+        }
+      }
+    } elseif ($request->hasFile('file')) {
       $file = $request->file('file');
 
       if ($request->type === 'image' && \App\Services\HeicImageConverter::isHeic($file)) {
@@ -573,6 +613,7 @@ class ChatController extends Controller
       'content' => $message->content,
       'type' => $message->type,
       'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
+      'file_urls' => $message->file_urls ? array_map(fn($p) => $this->absoluteStorageUrl($p), $message->file_urls) : null,
       'is_edited' => $message->is_edited,
       'is_forwarded' => (bool) $message->is_forwarded,
       'is_myself' => $message->user_id === $user->id,
@@ -2590,6 +2631,7 @@ class ChatController extends Controller
           'content' => $message->content,
           'type' => $message->type,
           'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
+          'file_urls' => $message->file_urls ? array_map(fn($p) => $this->absoluteStorageUrl($p), $message->file_urls) : null,
           'is_edited' => $message->is_edited,
           'is_guest' => $isGuest,
           'sender' => $isGuest ? [
@@ -2682,10 +2724,16 @@ class ChatController extends Controller
       $fileRules[] = 'max:10240';  // 10MB max for other files
     }
 
+    // Multi-attachment support (image/video only): same per-file rules as the
+    // single 'file' field, minus 'nullable' since array items are required-if-present.
+    $filesItemRules = array_values(array_filter($fileRules, fn($r) => $r !== 'nullable'));
+
     // Validation rules - guest_name is only required for guests
     $rules = [
-      'content' => 'required_without:file|string|max:5000',
+      'content' => 'required_without_all:file,files|string|max:5000',
       'file' => $fileRules,
+      'files' => 'nullable|array|max:10',
+      'files.*' => $filesItemRules,
       'type' => 'required|in:text,image,video,file',
       'reply_to_message_id' => 'nullable|integer|exists:cyo_conversation_messages,id',
     ];
@@ -2734,8 +2782,28 @@ class ChatController extends Controller
       'reply_to_message_id' => $request->reply_to_message_id,
     ];
 
-    // Handle file upload
-    if ($request->hasFile('file')) {
+    // Handle multiple attachments (image/video only). When 'files[]' is present, it takes
+    // precedence over the legacy singular 'file' field.
+    if ($request->hasFile('files') && in_array($request->type, ['image', 'video'], true)) {
+      $fileUrls = [];
+
+      foreach ($request->file('files') as $file) {
+        if ($request->type === 'image' && \App\Services\HeicImageConverter::isHeic($file)) {
+          $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'chat_files');
+          if ($converted === null) {
+            return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+          }
+          $path = $converted['path'];
+        } else {
+          $path = $file->store('chat_files', 'public');
+        }
+
+        $fileUrls[] = $path;
+      }
+
+      $messageData['file_urls'] = $fileUrls;
+      $messageData['file_url'] = $fileUrls[0] ?? null;
+    } elseif ($request->hasFile('file')) {
       $file = $request->file('file');
 
       if ($request->type === 'image' && \App\Services\HeicImageConverter::isHeic($file)) {
@@ -2786,6 +2854,7 @@ class ChatController extends Controller
       'content' => $message->content,
       'type' => $message->type,
       'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
+      'file_urls' => $message->file_urls ? array_map(fn($p) => $this->absoluteStorageUrl($p), $message->file_urls) : null,
       'is_edited' => $message->is_edited,
       'is_guest' => $isGuest,
       'sender' => $isGuest ? [

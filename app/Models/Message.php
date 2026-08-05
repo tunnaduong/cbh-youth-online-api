@@ -48,6 +48,7 @@ class Message extends Model
         'content',
         'type',
         'file_url',
+        'file_urls',
         'is_edited',
         'is_recalled',
         'read_at',
@@ -70,6 +71,7 @@ class Message extends Model
         'read_at' => 'datetime',
         'deleted_at' => 'datetime',
         'metadata' => 'array',
+        'file_urls' => 'array',
     ];
 
     /**
