@@ -532,7 +532,7 @@ class UserController extends Controller
     // Validate incoming profile data
     $validatedData = $request->validate([
       // Account fields (username and email)
-      'username' => ['nullable', 'string', 'max:255', 'unique:cyo_auth_accounts,username,' . $user->id . ',id', 'not_in:all'],
+      'username' => ['nullable', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'unique:cyo_auth_accounts,username,' . $user->id . ',id', 'not_in:all'],
       'email' => 'nullable|email|max:255|unique:cyo_auth_accounts,email,' . $user->id . ',id',
       // Profile fields
       'profile_name' => 'nullable|string|max:255',
