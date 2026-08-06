@@ -46,6 +46,8 @@ class FileUploadController extends Controller
     $request->validate([
       'file' => 'required|file|max:102400',
       'uid' => 'required|integer',
+    ], [
+      'file.max' => 'Tệp quá lớn. Kích thước tối đa là 100MB.',
     ]);
 
     $file = $request->file('file');
