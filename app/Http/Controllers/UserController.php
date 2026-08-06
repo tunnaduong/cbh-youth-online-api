@@ -421,47 +421,9 @@ class UserController extends Controller
       $recentPostsQuery->where('anonymous', false);
     }
 
-    $recentPosts = $recentPostsQuery->take(5)->get()->map(function ($post) {
-      return [
-        'id' => $post->id,
-        'title' => $post->title,
-        'content' => $post->content_html,
-        'image_urls' => $post->getImageUrls()->map(function ($content) {
-          return config('app.url') . Storage::url($content->file_path);
-        })->all(),
-        'video_urls' => $post->getVideos()->map(function ($content) {
-          return config('app.url') . Storage::url($content->file_path);
-        })->all(),
-        'time' => $post->created_at->diffForHumans(),
-        'is_edited' => $post->is_edited,
-        'comments' => $this->roundToNearestFive($post->comments_count),
-        'views' => $post->views_count ?? 0,
-        'votes' => $post->votes->map(function ($vote) {
-          return [
-            'username' => $vote->user->username,
-            'vote_value' => $vote->vote_value,
-            'created_at' => $vote->created_at,
-            'updated_at' => $vote->updated_at,
-          ];
-        }),
-        'mentions' => $this->resolvePostMentions($post->content),
-        'author' => $post->anonymous ? [
-          'id' => null,
-          'username' => 'Ẩn danh',
-          'email' => null,
-          'profile_name' => 'Người dùng ẩn danh',
-          'verified' => false,
-        ] : [
-          'id' => $post->author->id,
-          'username' => $post->author->username,
-          'email' => $post->author->email,
-          'profile_name' => $post->author->profile->profile_name ?? null,
-          'verified' => $post->author->profile->verified == 1 ? true : false,
-        ],
-        'anonymous' => $post->anonymous,
-        'saved' => auth()->check() ? UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists() : false,
-      ];
-    });
+    // Only the 5 newest posts as a preview - the profile's "posts" tab/section
+    // fetches the full, paginated list from getUserPosts() below instead.
+    $recentPosts = $recentPostsQuery->take(5)->get()->map(fn($post) => $this->transformProfilePost($post));
 
     // Check if the user is online
     $isOnline = $user->last_activity > now()->subMinutes(5);
@@ -509,6 +471,86 @@ class UserController extends Controller
       'followers' => $followers,
       'following' => $following,
       'recent_posts' => $recentPosts,
+    ]);
+  }
+
+  /**
+   * Shared transform used by both the "recent posts" preview on getProfile()
+   * and the full paginated list in getUserPosts().
+   */
+  private function transformProfilePost($post)
+  {
+    return [
+      'id' => $post->id,
+      'title' => $post->title,
+      'content' => $post->content_html,
+      'image_urls' => $post->getImageUrls()->map(function ($content) {
+        return config('app.url') . Storage::url($content->file_path);
+      })->all(),
+      'video_urls' => $post->getVideos()->map(function ($content) {
+        return config('app.url') . Storage::url($content->file_path);
+      })->all(),
+      'time' => $post->created_at->diffForHumans(),
+      'is_edited' => $post->is_edited,
+      'comments' => $this->roundToNearestFive($post->comments_count),
+      'views' => $post->views_count ?? 0,
+      'votes' => $post->votes->map(function ($vote) {
+        return [
+          'username' => $vote->user->username,
+          'vote_value' => $vote->vote_value,
+          'created_at' => $vote->created_at,
+          'updated_at' => $vote->updated_at,
+        ];
+      }),
+      'mentions' => $this->resolvePostMentions($post->content),
+      'author' => $post->anonymous ? [
+        'id' => null,
+        'username' => 'Ẩn danh',
+        'email' => null,
+        'profile_name' => 'Người dùng ẩn danh',
+        'verified' => false,
+      ] : [
+        'id' => $post->author->id,
+        'username' => $post->author->username,
+        'email' => $post->author->email,
+        'profile_name' => $post->author->profile->profile_name ?? null,
+        'verified' => $post->author->profile->verified == 1 ? true : false,
+      ],
+      'anonymous' => $post->anonymous,
+      'saved' => auth()->check() ? UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists() : false,
+    ];
+  }
+
+  /**
+   * Get a user's posts, fully paginated (unlike getProfile()'s 5-post
+   * "recent posts" preview) - powers the profile's "posts" tab/section.
+   *
+   * @param  string  $username
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getUserPosts(Request $request, $username)
+  {
+    $user = AuthAccount::where('username', $username)->firstOrFail();
+    $isOwnProfile = auth()->check() && auth()->id() === $user->id;
+
+    $postsQuery = $user->posts()
+      ->visibleToCurrentUser()
+      ->latest()
+      ->withCount(['comments', 'views', 'votes']);
+
+    if (!$isOwnProfile) {
+      $postsQuery->where('anonymous', false);
+    }
+
+    $perPage = min((int) $request->input('per_page', 10), 30);
+    $posts = $postsQuery->paginate($perPage);
+
+    return response()->json([
+      'data' => $posts->getCollection()->map(fn($post) => $this->transformProfilePost($post))->values(),
+      'current_page' => $posts->currentPage(),
+      'last_page' => $posts->lastPage(),
+      'has_more' => $posts->hasMorePages(),
+      'total' => $posts->total(),
     ]);
   }
 

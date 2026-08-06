@@ -350,6 +350,13 @@ class StoryController extends Controller
             Storage::disk('public')->delete($framePath);
         }
 
+        // Mark this as an explicit user deletion (as opposed to the
+        // stories:cleanup-expired command's soft-delete of merely-expired
+        // stories) so getArchive() can tell the two apart and only ever
+        // resurface the latter.
+        $story->deleted_by_user = true;
+        $story->save();
+
         $story->delete();
 
         if ($request->expectsJson()) {
@@ -768,7 +775,9 @@ class StoryController extends Controller
      */
     public function getArchive(Request $request)
     {
-        $stories = Story::where('user_id', Auth::id())
+        $stories = Story::withTrashed()
+            ->where('user_id', Auth::id())
+            ->where('deleted_by_user', false)
             ->with(['viewers', 'reactions'])
             ->orderBy('created_at', 'desc')
             ->get()

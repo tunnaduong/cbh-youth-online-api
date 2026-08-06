@@ -175,6 +175,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/topics/{id}', [TopicsController::class, 'show']);
     Route::get('/comments/{commentId}/replies', [TopicsController::class, 'getReplies']);
     Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
+    Route::get('/users/{username}/posts', [UserController::class, 'getUserPosts']);
     Route::get('/forum/subforums', [ForumController::class, 'getSubforumsByRole']);
     Route::get('/forum/subforums/{subforum}/topics', [ForumController::class, 'getSubforumPosts']);
     Route::post('/online-users/track', [OnlineUserController::class, 'track']);

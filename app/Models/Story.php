@@ -62,6 +62,7 @@ class Story extends Model
         'duration',
         'pinned',
         'is_muted',
+        'deleted_by_user',
     ];
 
     /**
@@ -75,6 +76,7 @@ class Story extends Model
         'duration' => 'integer',
         'pinned' => 'boolean',
         'is_muted' => 'boolean',
+        'deleted_by_user' => 'boolean',
     ];
 
     /**
