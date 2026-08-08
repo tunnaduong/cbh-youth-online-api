@@ -1309,7 +1309,14 @@ class TopicsController extends Controller
         ->select('id', 'username')
         ->get();
       foreach ($mentionedUsers as $mentionedUser) {
-        NotificationService::createMentionedNotification($mentionedUser->id, $topic, auth()->id());
+        // filterMentionsByBlock() only strips the mention from what's
+        // rendered back to the client below - it never ran here, so a
+        // mentioned user who'd blocked (or been blocked by) the author still
+        // got a notification, letting either side "tag" the other right
+        // through a block.
+        if (!$this->isBlockedEitherWay(auth()->id(), $mentionedUser->id)) {
+          NotificationService::createMentionedNotification($mentionedUser->id, $topic, auth()->id());
+        }
         $resolvedTopicMentions[] = ['username' => $mentionedUser->username, 'user_id' => $mentionedUser->id];
       }
     }
@@ -1925,7 +1932,9 @@ class TopicsController extends Controller
         ->select('id', 'username')
         ->get();
       foreach ($mentionedUsers as $mentionedUser) {
-        NotificationService::createMentionedNotification($mentionedUser->id, $comment, auth()->id());
+        if (!$this->isBlockedEitherWay(auth()->id(), $mentionedUser->id)) {
+          NotificationService::createMentionedNotification($mentionedUser->id, $comment, auth()->id());
+        }
         $resolvedMentions[] = ['username' => $mentionedUser->username, 'user_id' => $mentionedUser->id];
       }
     }
