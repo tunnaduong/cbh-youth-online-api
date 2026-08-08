@@ -427,7 +427,7 @@ class ChatController extends Controller
       $fileRules[] = 'max:10240';  // 10MB max for image
       $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp,heic,heif';
     } else {
-      $fileRules[] = 'max:10240';  // 10MB max for other files
+      $fileRules[] = 'max:102400';  // 100MB max for other files
     }
 
     // Multi-attachment support (image/video only): same per-file rules as the
@@ -2721,7 +2721,7 @@ class ChatController extends Controller
       $fileRules[] = 'max:10240';  // 10MB max for image
       $fileRules[] = 'mimes:jpeg,png,jpg,gif,webp,heic,heif';
     } else {
-      $fileRules[] = 'max:10240';  // 10MB max for other files
+      $fileRules[] = 'max:102400';  // 100MB max for other files
     }
 
     // Multi-attachment support (image/video only): same per-file rules as the

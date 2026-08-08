@@ -209,11 +209,18 @@ class TopicsController extends Controller
       ->pluck('followed_id')
       ->toArray();
 
+    // Hide posts in both directions: users this account blocked, and users
+    // who blocked this account (previously only the first direction was
+    // excluded, so a blocked user could still see the blocker's posts in
+    // the main feed even though notifications/etc. were already hidden).
     $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)
       ->pluck('blocked_user_id')
       ->toArray();
+    $blockedByUserIds = \App\Models\UserBlock::where('blocked_user_id', $userId)
+      ->pluck('user_id')
+      ->toArray();
 
-    $query->whereNotIn('user_id', $blockedUserIds);
+    $query->whereNotIn('user_id', array_merge($blockedUserIds, $blockedByUserIds));
 
     $query->where(function ($q) use ($userId, $followingIds) {
       $q
@@ -464,10 +471,13 @@ class TopicsController extends Controller
     $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)
       ->pluck('blocked_user_id')
       ->toArray();
+    $blockedByUserIds = \App\Models\UserBlock::where('blocked_user_id', $userId)
+      ->pluck('user_id')
+      ->toArray();
 
     $topics = Topic::where('hidden', 0)
       ->whereIn('user_id', $followingIds)
-      ->whereNotIn('user_id', $blockedUserIds)
+      ->whereNotIn('user_id', array_merge($blockedUserIds, $blockedByUserIds))
       ->where(function ($q) use ($userId, $followingIds) {
         $q->where('privacy', 'public')
           ->orWhere('user_id', $userId)
