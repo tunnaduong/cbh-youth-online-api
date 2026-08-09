@@ -77,7 +77,10 @@ class GameController extends Controller
       ->sortByDesc(fn($g) => $g['play_count'] * $g['total_minutes'])
       ->values();
 
+    // "Mới cập nhật" - only games actually added within the last week, not
+    // just the most-recent N regardless of age.
     $newest = Game::where('is_active', true)
+      ->where('created_at', '>=', now()->subDays(7))
       ->orderByDesc('created_at')
       ->limit(10)
       ->get()
