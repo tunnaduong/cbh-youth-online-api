@@ -22,6 +22,9 @@ class GameController extends Controller
       'category' => $game->category,
       'image_url' => $game->image_url,
       'platform' => $game->platform,
+      // Drives the "MỚI" badge - true only while the game is still within
+      // its first week, regardless of how it was sorted/selected.
+      'is_new' => $game->created_at?->greaterThanOrEqualTo(now()->subDays(7)) ?? false,
     ];
   }
 
@@ -77,10 +80,9 @@ class GameController extends Controller
       ->sortByDesc(fn($g) => $g['play_count'] * $g['total_minutes'])
       ->values();
 
-    // "Mới cập nhật" - only games actually added within the last week, not
-    // just the most-recent N regardless of age.
+    // Top 10 most-recently-added games, regardless of age - the "MỚI" badge
+    // on each one is what's actually time-limited (see formatGame()).
     $newest = Game::where('is_active', true)
-      ->where('created_at', '>=', now()->subDays(7))
       ->orderByDesc('created_at')
       ->limit(10)
       ->get()
