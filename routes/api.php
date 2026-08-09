@@ -9,6 +9,7 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\QuizController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\OnlineUserController;
@@ -226,6 +227,10 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/email/resend-verification', [VerificationController::class, 'resend']);
     Route::post('/users/{username}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);
+
+    // Quiz (AI-generated question sets)
+    Route::post('/quiz/start', [QuizController::class, 'start']);
+    Route::post('/quiz/{quizSetId}/submit', [QuizController::class, 'submit']);
 
     // Game play sessions (XP tracking)
     Route::post('/games/{slug}/sessions', [GameController::class, 'startSession']);
