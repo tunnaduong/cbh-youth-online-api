@@ -252,6 +252,22 @@ class PointsService
   }
 
   /**
+   * Add points for time spent playing a game (1 XP per full minute played).
+   *
+   * @param int $userId
+   * @param int $xp
+   * @param int $gameSessionId
+   * @return void
+   */
+  public static function onGamePlayed($userId, $xp, $gameSessionId)
+  {
+    if ($xp <= 0) {
+      return;
+    }
+    self::addPoints($userId, $xp, 'game', 'Chơi game', $gameSessionId);
+  }
+
+  /**
    * Deduct points when admin applies point deduction
    *
    * @param int $userId

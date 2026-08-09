@@ -8,6 +8,7 @@ use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\GameController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\OnlineUserController;
@@ -81,6 +82,12 @@ Route::prefix('v1.0')->group(function () {
 
   // Mention suggestions (accessible with optional auth)
   Route::get('/mention-suggestions', [TopicsController::class, 'mentionSuggestions']);
+
+  // Games (browsing is public; starting/tracking a session requires auth, see below)
+  Route::get('/games', [GameController::class, 'index']);
+  Route::get('/games/random', [GameController::class, 'random']);
+  Route::get('/games/leaderboard', [GameController::class, 'leaderboard']);
+  Route::get('/games/{slug}', [GameController::class, 'show']);
 
   // User Information
   Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
@@ -219,6 +226,11 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/email/resend-verification', [VerificationController::class, 'resend']);
     Route::post('/users/{username}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);
+
+    // Game play sessions (XP tracking)
+    Route::post('/games/{slug}/sessions', [GameController::class, 'startSession']);
+    Route::post('/games/sessions/{sessionId}/heartbeat', [GameController::class, 'heartbeat']);
+    Route::post('/games/sessions/{sessionId}/end', [GameController::class, 'endSession']);
 
     // Notification Settings
     Route::get('/notification-settings', [NotificationSettingsController::class, 'getSettings']);
