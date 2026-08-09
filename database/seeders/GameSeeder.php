@@ -13,10 +13,10 @@ class GameSeeder extends Seeder
       [
         'name' => 'Minecraft',
         'slug' => 'minecraft',
-        'description' => 'Minecraft chơi trực tiếp trên trình duyệt.',
+        'description' => 'Chơi ngay trong trình duyệt của bạn!',
         'category' => 'adventure',
         'image_url' => 'https://dhp2010.is-a.dev/165921312.jpeg',
-        'iframe_url' => 'https://dhp2010.is-a.dev/minecraftnewer',
+        'iframe_url' => 'https://dhp2010.is-a.dev/minecraft',
         // Needs mouse + keyboard controls - not playable on a touchscreen.
         'platform' => 'pc',
         'sort_order' => 1,
