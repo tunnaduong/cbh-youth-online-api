@@ -15,7 +15,7 @@ class GameSeeder extends Seeder
         'slug' => 'minecraft',
         'description' => 'Minecraft chơi trực tiếp trên trình duyệt.',
         'category' => 'adventure',
-        'image_url' => 'https://api.chuyenbienhoa.com/storage/games/minecraft.jpg',
+        'image_url' => 'https://dhp2010.is-a.dev/165921312.jpeg',
         'iframe_url' => 'https://dhp2010.is-a.dev/minecraftnewer',
         // Needs mouse + keyboard controls - not playable on a touchscreen.
         'platform' => 'pc',
