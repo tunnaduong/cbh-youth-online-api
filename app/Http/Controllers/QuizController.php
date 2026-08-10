@@ -63,7 +63,7 @@ class QuizController extends Controller
       'difficulty' => 'required|string|in:easy,medium,hard',
       'grade' => 'required|string|in:' . implode(',', self::GRADES),
       'topic' => 'required|string|max:100',
-      'custom_topic' => 'required_if:topic,' . self::OTHER_TOPIC . '|nullable|string|max:100',
+      'custom_topic' => 'required_if:topic,' . self::OTHER_TOPIC . '|nullable|string|max:256',
     ]);
 
     $user = Auth::user();
