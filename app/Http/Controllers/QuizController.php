@@ -81,7 +81,7 @@ class QuizController extends Controller
     $gradeOut = $grade;
 
     try {
-      $generated = app(QuizGenerationService::class)->generate($count, $difficulty, $topicLabel, $grade);
+      $generated = app(QuizGenerationService::class)->generate($count, $difficulty, $topicLabel, $grade, $isCustomTopic);
       $resolvedTopic = $isCustomTopic ? $topicLabel : $generated['topic'];
       $topicOut = $resolvedTopic;
 

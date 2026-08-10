@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 class QuizGenerationService
 {
   private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-  private const MODEL = 'openai/gpt-oss-20b';
+  private const MODEL = 'openai/gpt-oss-120b';
 
   private const DIFFICULTY_LABELS = [
     'easy' => 'dễ',
@@ -27,11 +27,13 @@ class QuizGenerationService
    * @param  string|null  $topic  The subject/topic the questions must be about,
    *   or null to let the AI pick its own topic freely
    * @param  string  $grade  10|11|12
+   * @param  bool  $isCustomTopic  True when $topic is the user's own free-text
+   *   topic (the "Khác" option) rather than one of the predefined SGK subjects
    * @return array{topic: string, questions: array}
    *
    * @throws \RuntimeException  If the API call fails or returns unusable JSON
    */
-  public function generate(int $count, string $difficulty, ?string $topic, string $grade): array
+  public function generate(int $count, string $difficulty, ?string $topic, string $grade, bool $isCustomTopic = false): array
   {
     $apiKey = config('services.groq.key');
     if (!$apiKey) {
@@ -39,7 +41,7 @@ class QuizGenerationService
     }
 
     $difficultyLabel = self::DIFFICULTY_LABELS[$difficulty] ?? 'trung bình';
-    $prompt = $this->buildPrompt($count, $difficultyLabel, $topic, $grade);
+    $prompt = $this->buildPrompt($count, $difficultyLabel, $topic, $grade, $isCustomTopic);
 
     // One retry - the model occasionally wraps JSON in markdown fences or
     // returns a slightly malformed structure despite the instructions.
@@ -75,27 +77,39 @@ class QuizGenerationService
     throw new \RuntimeException('Không thể tạo câu hỏi từ AI: ' . ($lastError?->getMessage() ?? 'unknown error'));
   }
 
-  private function buildPrompt(int $count, string $difficultyLabel, ?string $topic, string $grade): string
+  private function buildPrompt(int $count, string $difficultyLabel, ?string $topic, string $grade, bool $isCustomTopic = false): string
   {
-    $topicInstruction = $topic
-      ? "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn \"{$topic}\" lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}."
-      : "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tự chọn một môn học trong chương trình lớp {$grade} (ví dụ: Toán, Vật lý, Hóa học, Sinh học, Ngữ văn, Lịch sử, Địa lý, Tin học...), sau đó tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn đó lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}.";
+    if ($isCustomTopic && $topic) {
+      // The user typed this topic themselves - it might not even be a school
+      // subject (e.g. "Anime", "Bóng đá") so we don't force the SGK/textbook
+      // framing on it, but it MUST be followed exactly, no substituting a
+      // different topic.
+      $topicInstruction = "Người dùng đã yêu cầu một chủ đề tùy chỉnh: \"{$topic}\". Hãy tạo {$count} câu hỏi trắc nghiệm ĐÚNG về chủ đề này, phù hợp với học sinh lớp {$grade}, ở mức độ {$difficultyLabel}.";
+      $topicFocusRule = "- BẮT BUỘC bám sát 100% chủ đề \"{$topic}\" mà người dùng đã chọn - TUYỆT ĐỐI không tự ý đổi sang chủ đề khác, không lạc đề, kể cả khi chủ đề nghe lạ hoặc hẹp. Chỉ điều chỉnh độ khó/cách diễn đạt cho phù hợp lứa tuổi lớp {$grade}, không được từ chối hay thay thế chủ đề.";
+      $curriculumRule = "- Mức độ \"{$difficultyLabel}\" nghĩa là {$difficultyLabel} SO VỚI học sinh lớp {$grade}.";
+    } else {
+      $topicInstruction = $topic
+        ? "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn \"{$topic}\" lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}."
+        : "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tự chọn một môn học trong chương trình lớp {$grade} (ví dụ: Toán, Vật lý, Hóa học, Sinh học, Ngữ văn, Lịch sử, Địa lý, Tin học...), sau đó tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn đó lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}.";
+      $topicFocusRule = $topic
+        ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác."
+        : "- Câu hỏi phải đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác.";
+      $curriculumRule = "- Câu hỏi PHẢI theo đúng chương trình sách giáo khoa Việt Nam hiện hành cho lớp {$grade} - không hỏi kiến thức quá cơ bản/tiểu học hoặc lệch chương trình. Mức độ \"{$difficultyLabel}\" nghĩa là {$difficultyLabel} SO VỚI học sinh lớp {$grade} (câu \"khó\" phải thực sự thử thách học sinh giỏi ở lớp này, không phải câu hỏi thường thức dễ đoán).";
+    }
+
     $topicFieldRule = $topic
       ? "- \"topic\" phải là đúng chuỗi \"{$topic}\"."
       : "- \"topic\" là tên môn học bạn đã tự chọn (string, ngắn gọn).";
-    $topicFocusRule = $topic
-      ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác."
-      : "- Câu hỏi phải đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác.";
-    $curriculumRule = "- Câu hỏi PHẢI theo đúng chương trình sách giáo khoa Việt Nam hiện hành cho lớp {$grade} - không hỏi kiến thức quá cơ bản/tiểu học hoặc lệch chương trình. Mức độ \"{$difficultyLabel}\" nghĩa là {$difficultyLabel} SO VỚI học sinh lớp {$grade} (câu \"khó\" phải thực sự thử thách học sinh giỏi ở lớp này, không phải câu hỏi thường thức dễ đoán).";
 
-    // Foreign-language subjects (Tiếng Anh, Tiếng Nga, Tiếng Pháp, ...) are
-    // allowed to have "question"/"options" written in that language - the
-    // whole point is testing that language. "explanation" always stays
-    // Vietnamese regardless. Every other subject stays fully Vietnamese.
-    $isForeignLanguageTopic = $topic && preg_match('/tiếng/iu', $topic) && !preg_match('/tiếng việt/iu', $topic);
+    // A topic gets to use another language in "question"/"options" only when
+    // it's actually ABOUT a language (Tiếng Anh, "học tiếng Nhật", "ngữ pháp
+    // English", ...) - the whole point there is testing that language. Any
+    // other topic (predefined subject OR custom, e.g. "Anime", "Bóng đá")
+    // stays Vietnamese-only, no matter how unusual the topic is.
+    $isForeignLanguageTopic = $topic && $this->looksLikeLanguageTopic($topic);
     $languageRule = $isForeignLanguageTopic
-      ? "- Vì đây là môn ngoại ngữ (\"{$topic}\"), \"question\" và \"options\" được phép viết bằng ngôn ngữ đó (ví dụ tiếng Anh, tiếng Nga...) khi phù hợp với nội dung câu hỏi. Riêng \"explanation\" LUÔN LUÔN phải viết bằng tiếng Việt."
-      : "- TOÀN BỘ nội dung (\"topic\", \"question\", \"options\", \"explanation\") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác. Ngoại lệ duy nhất: nếu chủ đề là một môn ngoại ngữ (ví dụ Tiếng Anh, Tiếng Nga...) thì \"question\" và \"options\" được phép dùng ngôn ngữ đó, còn \"explanation\" vẫn luôn phải là tiếng Việt.";
+      ? "- Vì chủ đề này liên quan đến một ngoại ngữ (\"{$topic}\"), \"question\" và \"options\" được phép viết bằng ngôn ngữ đó (ví dụ tiếng Anh, tiếng Nga...) khi phù hợp với nội dung câu hỏi. Riêng \"explanation\" LUÔN LUÔN phải viết bằng tiếng Việt."
+      : "- Chủ đề này KHÔNG liên quan đến việc học ngoại ngữ, vì vậy TOÀN BỘ nội dung (\"topic\", \"question\", \"options\", \"explanation\") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác, kể cả khi bản thân chủ đề có nguồn gốc nước ngoài (ví dụ tên phim, tên trò chơi...).";
 
     return <<<PROMPT
 {$topicInstruction}
@@ -125,6 +139,33 @@ Yêu cầu bắt buộc:
 - "answer" chỉ được là một trong các ký tự: "A", "B", "C", "D".
 - Chỉ trả về JSON thuần túy, không dùng thẻ markdown (```), không viết lời mở đầu hay kết luận.
 PROMPT;
+  }
+
+  /**
+   * Heuristic: does this topic string appear to be about learning/using a
+   * (non-Vietnamese) language, as opposed to some other subject that merely
+   * has a foreign-sounding name?
+   */
+  private function looksLikeLanguageTopic(string $topic): bool
+  {
+    $lower = mb_strtolower($topic);
+    if (str_contains($lower, 'tiếng việt')) {
+      return false;
+    }
+
+    $keywords = [
+      'tiếng', 'ngôn ngữ', 'ngoại ngữ', 'ngữ pháp', 'từ vựng', 'phát âm',
+      'language', 'grammar', 'vocabulary',
+      'english', 'russian', 'french', 'japanese', 'chinese', 'korean',
+      'german', 'spanish', 'anh văn',
+    ];
+    foreach ($keywords as $keyword) {
+      if (str_contains($lower, $keyword)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private function parseAndValidate(string $content, int $expectedCount, ?string $forcedTopic): array
