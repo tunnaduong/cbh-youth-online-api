@@ -24,6 +24,7 @@ class QuizQuestion extends Model
 
   protected $fillable = [
     'topic',
+    'grade',
     'difficulty',
     'question',
     'options',

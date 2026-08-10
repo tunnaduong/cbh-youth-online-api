@@ -23,6 +23,7 @@ class QuizSet extends Model
 
   protected $fillable = [
     'topic',
+    'grade',
     'difficulty',
     'question_count',
     'questions',

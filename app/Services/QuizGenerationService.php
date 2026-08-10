@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Generates multiple-choice quiz questions via Groq's chat completions API
- * (OpenAI-compatible). The AI picks its own topic every time - only
- * difficulty and question count are ever dictated by the caller.
+ * (OpenAI-compatible). Topic, grade level and difficulty are all dictated
+ * by the caller - the AI only writes the questions.
  */
 class QuizGenerationService
 {
@@ -24,11 +24,14 @@ class QuizGenerationService
   /**
    * @param  int  $count  Number of questions to generate
    * @param  string  $difficulty  easy|medium|hard
+   * @param  string|null  $topic  The subject/topic the questions must be about,
+   *   or null to let the AI pick its own topic freely
+   * @param  string  $grade  10|11|12
    * @return array{topic: string, questions: array}
    *
    * @throws \RuntimeException  If the API call fails or returns unusable JSON
    */
-  public function generate(int $count, string $difficulty): array
+  public function generate(int $count, string $difficulty, ?string $topic, string $grade): array
   {
     $apiKey = config('services.groq.key');
     if (!$apiKey) {
@@ -36,7 +39,7 @@ class QuizGenerationService
     }
 
     $difficultyLabel = self::DIFFICULTY_LABELS[$difficulty] ?? 'trung bình';
-    $prompt = $this->buildPrompt($count, $difficultyLabel);
+    $prompt = $this->buildPrompt($count, $difficultyLabel, $topic, $grade);
 
     // One retry - the model occasionally wraps JSON in markdown fences or
     // returns a slightly malformed structure despite the instructions.
@@ -62,7 +65,7 @@ class QuizGenerationService
           throw new \RuntimeException('Groq API response had no message content.');
         }
 
-        return $this->parseAndValidate($content, $count);
+        return $this->parseAndValidate($content, $count, $topic);
       } catch (\Throwable $e) {
         $lastError = $e;
         Log::warning('Quiz generation attempt failed: ' . $e->getMessage());
@@ -72,15 +75,25 @@ class QuizGenerationService
     throw new \RuntimeException('Không thể tạo câu hỏi từ AI: ' . ($lastError?->getMessage() ?? 'unknown error'));
   }
 
-  private function buildPrompt(int $count, string $difficultyLabel): string
+  private function buildPrompt(int $count, string $difficultyLabel, ?string $topic, string $grade): string
   {
+    $topicInstruction = $topic
+      ? "Hãy tạo {$count} câu hỏi trắc nghiệm về chủ đề \"{$topic}\", dành cho học sinh lớp {$grade}, ở mức độ {$difficultyLabel}."
+      : "Hãy tự chọn một chủ đề học thuật thú vị và phù hợp với chương trình lớp {$grade} (ví dụ: lịch sử, địa lý, khoa học, toán học, văn học, giáo dục công dân, thời sự...), sau đó tạo {$count} câu hỏi trắc nghiệm về chủ đề đó ở mức độ {$difficultyLabel}.";
+    $topicFieldRule = $topic
+      ? "- \"topic\" phải là đúng chuỗi \"{$topic}\"."
+      : "- \"topic\" là tên chủ đề bạn đã tự chọn (string, ngắn gọn).";
+    $topicFocusRule = $topic
+      ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và phù hợp với chương trình lớp {$grade}."
+      : "- Câu hỏi phải phù hợp với chương trình lớp {$grade}.";
+
     return <<<PROMPT
-Hãy tự chọn một chủ đề học thuật thú vị và phù hợp cho học sinh (ví dụ: lịch sử, địa lý, khoa học, toán học, văn học, giáo dục công dân, thời sự...), sau đó tạo {$count} câu hỏi trắc nghiệm về chủ đề đó ở mức độ {$difficultyLabel}.
+{$topicInstruction}
 
 Trả về kết quả dưới dạng một JSON object DUY NHẤT với cấu trúc chính xác sau, không thêm bất kỳ văn bản, markdown hay lời giải thích nào khác ngoài JSON:
 
 {
-  "topic": "tên chủ đề bạn đã chọn (string, ngắn gọn)",
+  "topic": "tên chủ đề (string, ngắn gọn)",
   "questions": [
     {
       "id": 1,
@@ -95,13 +108,15 @@ Trả về kết quả dưới dạng một JSON object DUY NHẤT với cấu t
 Yêu cầu bắt buộc:
 - TOÀN BỘ nội dung ("topic", "question", "options", "explanation") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác.
 - Mảng "questions" phải có đúng {$count} phần tử, id đánh số từ 1 đến {$count}.
+{$topicFocusRule}
+{$topicFieldRule}
 - "options" luôn có đúng 4 phần tử, mỗi phần tử bắt đầu bằng "A. ", "B. ", "C. " hoặc "D. ".
 - "answer" chỉ được là một trong các ký tự: "A", "B", "C", "D".
 - Chỉ trả về JSON thuần túy, không dùng thẻ markdown (```), không viết lời mở đầu hay kết luận.
 PROMPT;
   }
 
-  private function parseAndValidate(string $content, int $expectedCount): array
+  private function parseAndValidate(string $content, int $expectedCount, ?string $forcedTopic): array
   {
     // Strip a stray ```json ... ``` fence if the model added one anyway.
     $cleaned = trim($content);
@@ -113,7 +128,10 @@ PROMPT;
       throw new \RuntimeException('AI response was not valid quiz JSON.');
     }
 
-    $topic = is_string($data['topic'] ?? null) ? trim($data['topic']) : 'Kiến thức tổng hợp';
+    $topic = $forcedTopic ?: (is_string($data['topic'] ?? null) && trim($data['topic']) !== ''
+      ? trim($data['topic'])
+      : 'Kiến thức tổng hợp');
+
     $questions = [];
 
     foreach (array_values($data['questions']) as $index => $q) {
@@ -141,6 +159,6 @@ PROMPT;
       throw new \RuntimeException('AI returned too few valid questions (' . count($questions) . '/' . $expectedCount . ').');
     }
 
-    return ['topic' => $topic ?: 'Kiến thức tổng hợp', 'questions' => $questions];
+    return ['topic' => $topic, 'questions' => $questions];
   }
 }

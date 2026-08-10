@@ -6,6 +6,7 @@ use App\Models\AuthAccount;
 use App\Models\QuizQuestion;
 use App\Models\QuizSet;
 use App\Models\QuizSetPlay;
+use App\Models\StudyMaterialCategory;
 use App\Services\PointsService;
 use App\Services\QuizGenerationService;
 use Illuminate\Http\Request;
@@ -14,8 +15,10 @@ use Illuminate\Support\Facades\DB;
 
 class QuizController extends Controller
 {
-  private const ALLOWED_COUNTS = [5, 10, 20, 50, 100];
-  private const MAX_CUSTOM_COUNT = 100;
+  private const MAX_COUNT = 50;
+  private const OTHER_TOPIC = 'Khác';
+  private const RANDOM_TOPIC = 'Ngẫu nhiên';
+  private const GRADES = ['10', '11', '12'];
 
   // Points awarded per correct answer, scaled by difficulty - harder
   // question sets are worth more, same idea as the game XP ranking.
@@ -25,118 +28,151 @@ class QuizController extends Controller
     'hard' => 3,
   ];
 
-  // Below this many banked questions for a difficulty, we still lean on AI
-  // for half of every quiz so the bank fills up fast. Once it's past this
-  // size, most of the quiz is served from the bank (cheap, instant) and
-  // only a quarter comes from a fresh AI call - keeps the bank growing
-  // slowly forever while cutting AI usage once there's enough variety.
-  private const BANK_MATURITY_THRESHOLD = 1000;
-  private const OFFLINE_RATIO_SMALL_BANK = 0.5;
-  private const OFFLINE_RATIO_MATURE_BANK = 0.75;
+  /**
+   * Topics the user can pick from in the setup UI - the same subjects used
+   * by the study materials marketplace, plus "Khác" (handled client-side)
+   * for a free-text topic.
+   */
+  public function topics()
+  {
+    $topics = StudyMaterialCategory::orderBy('order')
+      ->pluck('name')
+      ->reject(fn($name) => $name === self::OTHER_TOPIC)
+      ->values();
+
+    return response()->json([
+      'random' => self::RANDOM_TOPIC,
+      'topics' => $topics,
+      'other' => self::OTHER_TOPIC,
+    ]);
+  }
 
   /**
-   * Start a quiz: composed per-question, not per-set. Some questions are
-   * drawn straight from the bank (previously generated, never before shown
-   * to this user); the rest are generated fresh via AI right now and added
-   * to the bank for future quizzes to draw from. The offline/online split
-   * depends on how big the bank already is for this difficulty - see
-   * BANK_MATURITY_THRESHOLD. Never returns answers/explanations - see
-   * submit().
+   * Start a quiz. Questions always come fresh from the AI for the chosen
+   * topic/grade/difficulty. Every AI-generated question for a predefined
+   * topic (not the free-text "Khác") is also saved into the local bank so
+   * it's available later. If the AI call fails, we fall back to serving
+   * random questions straight from that local bank - regardless of the
+   * topic/grade the user picked - so the quiz can still start. Never
+   * returns answers/explanations - see submit()/answer().
    */
   public function start(Request $request)
   {
     $request->validate([
-      'count' => 'required|integer|min:1|max:' . self::MAX_CUSTOM_COUNT,
+      'count' => 'required|integer|min:1|max:' . self::MAX_COUNT,
       'difficulty' => 'required|string|in:easy,medium,hard',
+      'grade' => 'required|string|in:' . implode(',', self::GRADES),
+      'topic' => 'required|string|max:100',
+      'custom_topic' => 'required_if:topic,' . self::OTHER_TOPIC . '|nullable|string|max:100',
     ]);
 
     $user = Auth::user();
     $count = (int) $request->count;
     $difficulty = $request->difficulty;
+    $grade = $request->grade;
+    $isCustomTopic = $request->topic === self::OTHER_TOPIC;
+    $isRandomTopic = $request->topic === self::RANDOM_TOPIC;
+    // null topic tells QuizGenerationService to let the AI pick its own -
+    // the actual topic it lands on comes back in $generated['topic'].
+    $topicLabel = $isCustomTopic ? trim($request->custom_topic) : ($isRandomTopic ? null : $request->topic);
 
-    $seenQuestionIds = DB::table('cyo_quiz_question_seen')
-      ->where('user_id', $user->id)
-      ->pluck('quiz_question_id');
+    $bankIdsToMarkSeen = collect();
+    $topicOut = $topicLabel;
+    $gradeOut = $grade;
 
-    $bankSize = QuizQuestion::where('difficulty', $difficulty)->count();
-    $offlineRatio = $bankSize < self::BANK_MATURITY_THRESHOLD
-      ? self::OFFLINE_RATIO_SMALL_BANK
-      : self::OFFLINE_RATIO_MATURE_BANK;
-    $offlineTarget = (int) round($count * $offlineRatio);
+    try {
+      $generated = app(QuizGenerationService::class)->generate($count, $difficulty, $topicLabel, $grade);
+      $resolvedTopic = $isCustomTopic ? $topicLabel : $generated['topic'];
+      $topicOut = $resolvedTopic;
 
-    $offlineQuestions = QuizQuestion::where('difficulty', $difficulty)
-      ->whereNotIn('id', $seenQuestionIds)
-      ->inRandomOrder()
-      ->limit($offlineTarget)
-      ->get();
-
-    // Whatever the bank couldn't cover (either short on the ratio, or the
-    // bank itself is too small/exhausted for this user) gets made up by AI.
-    $onlineNeeded = $count - $offlineQuestions->count();
-
-    $generatedQuestions = collect();
-    if ($onlineNeeded > 0) {
-      try {
-        $generated = app(QuizGenerationService::class)->generate($onlineNeeded, $difficulty);
-      } catch (\Throwable $e) {
-        // If AI is unavailable but the bank alone already covers the full
-        // count, just proceed offline-only instead of failing the request.
-        if ($offlineQuestions->count() < $count) {
-          return response()->json([
-            'message' => 'Không thể tạo câu hỏi lúc này, vui lòng thử lại sau.',
-          ], 503);
+      $questionsPayload = collect($generated['questions'])->map(function ($q) use ($isCustomTopic, $resolvedTopic, $grade, $difficulty, &$bankIdsToMarkSeen) {
+        $bankId = null;
+        if (!$isCustomTopic) {
+          $bankId = QuizQuestion::create([
+            'topic' => $resolvedTopic,
+            'grade' => $grade,
+            'difficulty' => $difficulty,
+            'question' => $q['question'],
+            'options' => $q['options'],
+            'answer' => $q['answer'],
+            'explanation' => $q['explanation'] ?? '',
+          ])->id;
+          $bankIdsToMarkSeen->push($bankId);
         }
-        $generated = ['topic' => null, 'questions' => []];
-      }
 
-      $generatedQuestions = collect($generated['questions'])->map(function ($q) use ($generated, $difficulty) {
-        return QuizQuestion::create([
-          'topic' => $generated['topic'] ?: 'Kiến thức tổng hợp',
-          'difficulty' => $difficulty,
+        return [
           'question' => $q['question'],
           'options' => $q['options'],
           'answer' => $q['answer'],
           'explanation' => $q['explanation'] ?? '',
-        ]);
+        ];
       });
+    } catch (\Throwable $e) {
+      // AI unavailable - fall back to whatever is in the local bank,
+      // ignoring the requested topic/grade/difficulty entirely so the
+      // quiz can still start with whatever variety is on hand.
+      $seenQuestionIds = DB::table('cyo_quiz_question_seen')
+        ->where('user_id', $user->id)
+        ->pluck('quiz_question_id');
+
+      $bankQuestions = QuizQuestion::whereNotIn('id', $seenQuestionIds)
+        ->inRandomOrder()
+        ->limit($count)
+        ->get();
+
+      $stillNeeded = $count - $bankQuestions->count();
+      if ($stillNeeded > 0) {
+        // Bank doesn't have enough unseen questions left - top up with
+        // repeats rather than fail outright.
+        $extra = QuizQuestion::whereNotIn('id', $bankQuestions->pluck('id'))
+          ->inRandomOrder()
+          ->limit($stillNeeded)
+          ->get();
+        $bankQuestions = $bankQuestions->concat($extra);
+      }
+
+      if ($bankQuestions->isEmpty()) {
+        return response()->json([
+          'message' => 'Không thể tạo câu hỏi lúc này, vui lòng thử lại sau.',
+        ], 503);
+      }
+
+      $bankIdsToMarkSeen = $bankQuestions->pluck('id');
+      $topics = $bankQuestions->pluck('topic')->unique();
+      $topicOut = $topics->count() === 1 ? $topics->first() : 'Tổng hợp nhiều chủ đề';
+      $grades = $bankQuestions->pluck('grade')->filter()->unique();
+      $gradeOut = $grades->count() === 1 ? $grades->first() : null;
+
+      $questionsPayload = $bankQuestions->map(fn($q) => [
+        'question' => $q->question,
+        'options' => $q->options,
+        'answer' => $q->answer,
+        'explanation' => $q->explanation,
+      ])->values();
     }
 
-    $bankQuestions = $offlineQuestions->concat($generatedQuestions)->shuffle()->values();
+    $questionsPayload = $questionsPayload->values()->map(fn($q, $i) => array_merge(['id' => $i + 1], $q));
 
-    $topics = $bankQuestions->pluck('topic')->unique();
-    $topicLabel = $topics->count() === 1 ? $topics->first() : 'Tổng hợp nhiều chủ đề';
-
-    $questionsPayload = $bankQuestions->values()->map(fn($q, $i) => [
-      'id' => $i + 1,
-      'question' => $q->question,
-      'options' => $q->options,
-      'answer' => $q->answer,
-      'explanation' => $q->explanation,
-      // Kept only server-side to mark this exact question as seen and to
-      // grade the answer - stripped before the response goes out below.
-      '_bank_id' => $q->id,
-    ]);
-
-    $quizSet = DB::transaction(function () use ($questionsPayload, $count, $difficulty, $topicLabel, $user) {
+    $quizSet = DB::transaction(function () use ($questionsPayload, $difficulty, $topicOut, $gradeOut, $user, $bankIdsToMarkSeen) {
       $set = QuizSet::create([
-        'topic' => $topicLabel,
+        'topic' => $topicOut,
+        'grade' => $gradeOut,
         'difficulty' => $difficulty,
         'question_count' => $questionsPayload->count(),
-        'questions' => $questionsPayload->map(fn($q) => collect($q)->except('_bank_id'))->values(),
+        'questions' => $questionsPayload,
         'served_count' => 1,
       ]);
       QuizSetPlay::create(['quiz_set_id' => $set->id, 'user_id' => $user->id]);
 
-      $bankIds = $questionsPayload->pluck('_bank_id');
-      $now = now();
-      $seenRows = $bankIds->map(fn($id) => [
-        'user_id' => $user->id,
-        'quiz_question_id' => $id,
-        'created_at' => $now,
-      ])->all();
-      // ignore() - a question generated fresh above can't already be seen,
-      // but stay defensive against any future concurrent-start race.
-      DB::table('cyo_quiz_question_seen')->insertOrIgnore($seenRows);
+      if ($bankIdsToMarkSeen->isNotEmpty()) {
+        $now = now();
+        $seenRows = $bankIdsToMarkSeen->map(fn($id) => [
+          'user_id' => $user->id,
+          'quiz_question_id' => $id,
+          'created_at' => $now,
+        ])->all();
+        DB::table('cyo_quiz_question_seen')->insertOrIgnore($seenRows);
+      }
 
       return $set;
     });
@@ -144,6 +180,7 @@ class QuizController extends Controller
     return response()->json([
       'quiz_set_id' => $quizSet->id,
       'topic' => $quizSet->topic,
+      'grade' => $quizSet->grade,
       'difficulty' => $quizSet->difficulty,
       'question_count' => $quizSet->question_count,
       'questions' => collect($quizSet->questions)->map(fn($q) => [
