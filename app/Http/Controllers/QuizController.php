@@ -211,6 +211,77 @@ class QuizController extends Controller
   }
 
   /**
+   * Grade a single question the instant the user answers it, revealing the
+   * correct answer/explanation right away instead of waiting for the whole
+   * quiz to be submitted. Once every question in the set has been answered
+   * this way, the play is finalized (score/points computed, points
+   * awarded) automatically - there's no separate "submit" step in this flow.
+   */
+  public function answer(Request $request, $quizSetId)
+  {
+    $request->validate([
+      'id' => 'required|integer',
+      'answer' => 'nullable|string|in:A,B,C,D',
+    ]);
+
+    $user = Auth::user();
+    $play = QuizSetPlay::where('quiz_set_id', $quizSetId)
+      ->where('user_id', $user->id)
+      ->firstOrFail();
+
+    if ($play->submitted_at) {
+      return response()->json(['message' => 'Bài đố vui này đã hoàn thành.'], 409);
+    }
+
+    $quizSet = QuizSet::findOrFail($quizSetId);
+    $question = collect($quizSet->questions)->firstWhere('id', $request->id);
+    if (!$question) {
+      return response()->json(['message' => 'Câu hỏi không hợp lệ.'], 422);
+    }
+
+    $answers = $play->answers ?? [];
+    $answers[$request->id] = $request->answer;
+    $play->answers = $answers;
+
+    $answeredCount = count($answers);
+    $finished = $answeredCount >= $quizSet->question_count;
+
+    $result = [
+      'id' => $question['id'],
+      'is_correct' => $request->answer === $question['answer'],
+      'correct_answer' => $question['answer'],
+      'explanation' => $question['explanation'] ?? '',
+      'answered_count' => $answeredCount,
+      'total' => $quizSet->question_count,
+      'finished' => $finished,
+    ];
+
+    if ($finished) {
+      $score = 0;
+      foreach (collect($quizSet->questions) as $q) {
+        if (($answers[$q['id']] ?? null) === $q['answer']) {
+          $score++;
+        }
+      }
+      $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+      $points = $score * $pointsPerAnswer;
+
+      $play->score = $score;
+      $play->points = $points;
+      $play->submitted_at = now();
+      $play->save();
+      PointsService::onQuizCompleted($user->id, $points, $play->id);
+
+      $result['score'] = $score;
+      $result['points'] = $points;
+    } else {
+      $play->save();
+    }
+
+    return response()->json($result);
+  }
+
+  /**
    * Quiz-specific leaderboard - total points earned from quiz plays only
    * (mirrors GameController::leaderboard).
    */

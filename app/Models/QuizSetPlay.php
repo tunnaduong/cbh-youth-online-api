@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $quiz_set_id
  * @property int $user_id
  * @property int|null $score
+ * @property array|null $answers  {questionId: "A"} - filled in one at a time
+ *   as the user answers each question, see QuizController::answer()
  * @property int $points
  * @property \Illuminate\Support\Carbon|null $submitted_at
  */
@@ -25,11 +27,13 @@ class QuizSetPlay extends Model
     'quiz_set_id',
     'user_id',
     'score',
+    'answers',
     'points',
     'submitted_at',
   ];
 
   protected $casts = [
+    'answers' => 'array',
     'submitted_at' => 'datetime',
   ];
 

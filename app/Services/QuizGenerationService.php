@@ -93,6 +93,7 @@ Trả về kết quả dưới dạng một JSON object DUY NHẤT với cấu t
 }
 
 Yêu cầu bắt buộc:
+- TOÀN BỘ nội dung ("topic", "question", "options", "explanation") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác.
 - Mảng "questions" phải có đúng {$count} phần tử, id đánh số từ 1 đến {$count}.
 - "options" luôn có đúng 4 phần tử, mỗi phần tử bắt đầu bằng "A. ", "B. ", "C. " hoặc "D. ".
 - "answer" chỉ được là một trong các ký tự: "A", "B", "C", "D".
