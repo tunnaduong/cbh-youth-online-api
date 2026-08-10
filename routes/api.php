@@ -91,6 +91,7 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/games/now-playing', [GameController::class, 'nowPlaying']);
   Route::get('/quiz/leaderboard', [QuizController::class, 'leaderboard']);
   Route::get('/quiz/topics', [QuizController::class, 'topics']);
+  Route::get('/quiz/{quizSetId}/preview', [QuizController::class, 'preview']);
   Route::get('/games/{slug}', [GameController::class, 'show']);
 
   // User Information
@@ -233,6 +234,7 @@ Route::prefix('v1.0')->group(function () {
 
     // Quiz (AI-generated question sets)
     Route::post('/quiz/start', [QuizController::class, 'start']);
+    Route::post('/quiz/{quizSetId}/join', [QuizController::class, 'join']);
     Route::post('/quiz/{quizSetId}/answer', [QuizController::class, 'answer']);
     Route::post('/quiz/{quizSetId}/submit', [QuizController::class, 'submit']);
 

@@ -192,6 +192,87 @@ class QuizController extends Controller
   }
 
   /**
+   * Public preview of a shared quiz set (topic/difficulty/question count and
+   * who originally shared it) - shown before the viewer logs in or joins,
+   * so a share link is useful even to a signed-out visitor.
+   */
+  public function preview($quizSetId)
+  {
+    $quizSet = QuizSet::findOrFail($quizSetId);
+    $firstPlay = QuizSetPlay::where('quiz_set_id', $quizSetId)
+      ->with('user.profile')
+      ->oldest()
+      ->first();
+
+    return response()->json([
+      'quiz_set_id' => $quizSet->id,
+      'topic' => $quizSet->topic,
+      'grade' => $quizSet->grade,
+      'difficulty' => $quizSet->difficulty,
+      'question_count' => $quizSet->question_count,
+      'shared_by' => $firstPlay?->user ? [
+        'username' => $firstPlay->user->username,
+        'profile_name' => $firstPlay->user->profile->profile_name ?? $firstPlay->user->username,
+      ] : null,
+    ]);
+  }
+
+  /**
+   * Join a quiz set someone else already started, so both people answer the
+   * exact same questions - the whole point of sharing a quiz. Reuses the
+   * existing QuizSetPlay unique(quiz_set_id, user_id) constraint: joining
+   * twice just resumes/re-reads the same play instead of erroring.
+   */
+  public function join(Request $request, $quizSetId)
+  {
+    $user = Auth::user();
+    $quizSet = QuizSet::findOrFail($quizSetId);
+
+    $play = QuizSetPlay::firstOrCreate(
+      ['quiz_set_id' => $quizSet->id, 'user_id' => $user->id],
+      []
+    );
+
+    if ($play->wasRecentlyCreated) {
+      $quizSet->increment('served_count');
+    }
+
+    $questionsById = collect($quizSet->questions)->keyBy('id');
+
+    if ($play->submitted_at) {
+      return response()->json([
+        'quiz_set_id' => $quizSet->id,
+        'topic' => $quizSet->topic,
+        'grade' => $quizSet->grade,
+        'difficulty' => $quizSet->difficulty,
+        'question_count' => $quizSet->question_count,
+        'status' => 'completed',
+        'result' => [
+          'score' => $play->score,
+          'total' => $quizSet->question_count,
+          'points' => $play->points,
+          'results' => $this->buildResults($questionsById, collect($play->answers ?? [])->map(fn($answer, $id) => ['id' => $id, 'answer' => $answer])),
+        ],
+      ]);
+    }
+
+    return response()->json([
+      'quiz_set_id' => $quizSet->id,
+      'topic' => $quizSet->topic,
+      'grade' => $quizSet->grade,
+      'difficulty' => $quizSet->difficulty,
+      'question_count' => $quizSet->question_count,
+      'status' => 'in_progress',
+      'answered' => $play->answers ?? [],
+      'questions' => $questionsById->map(fn($q) => [
+        'id' => $q['id'],
+        'question' => $q['question'],
+        'options' => $q['options'],
+      ])->values(),
+    ]);
+  }
+
+  /**
    * Grade a submitted quiz attempt. Only the user who was served this exact
    * set (via start()) may submit for it; resubmitting just returns the
    * already-graded result instead of re-scoring.
