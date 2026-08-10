@@ -21,6 +21,12 @@ class QuizGenerationService
     'hard' => 'khó',
   ];
 
+  // How many extra rounds we'll ask the AI to top up a short batch (e.g. it
+  // was asked for 50 and only returned 20) before giving up with whatever
+  // was collected. QuizController still falls back to the local bank if
+  // even the first batch fails outright.
+  private const MAX_TOPUP_ROUNDS = 3;
+
   /**
    * @param  int  $count  Number of questions to generate
    * @param  string  $difficulty  easy|medium|hard
@@ -31,46 +37,87 @@ class QuizGenerationService
    *   topic (the "Khác" option) rather than one of the predefined SGK subjects
    * @return array{topic: string, questions: array}
    *
-   * @throws \RuntimeException  If the API call fails or returns unusable JSON
+   * @throws \RuntimeException  If every API key fails and no questions were produced
    */
   public function generate(int $count, string $difficulty, ?string $topic, string $grade, bool $isCustomTopic = false): array
   {
-    $apiKey = config('services.groq.key');
-    if (!$apiKey) {
+    // Primary key first, then the backup key (AI_API_DHPHUC) if the
+    // primary is unset/rate-limited/erroring out.
+    $keys = array_values(array_filter([
+      config('services.groq.key'),
+      config('services.groq.secondary_key'),
+    ]));
+    if (empty($keys)) {
       throw new \RuntimeException('AI_API key is not configured.');
     }
 
     $difficultyLabel = self::DIFFICULTY_LABELS[$difficulty] ?? 'trung bình';
+
+    $result = $this->requestBatch($count, $difficultyLabel, $topic, $grade, $isCustomTopic, $keys, $topic);
+
+    // The model sometimes returns fewer questions than asked for (e.g. asked
+    // for 50, only got 20) - keep asking it for exactly the remainder,
+    // locked to the same resolved topic, until the count is met.
+    for ($round = 0; count($result['questions']) < $count && $round < self::MAX_TOPUP_ROUNDS; $round++) {
+      $missing = $count - count($result['questions']);
+      try {
+        $topUp = $this->requestBatch($missing, $difficultyLabel, $result['topic'], $grade, $isCustomTopic, $keys, $result['topic']);
+        $result['questions'] = array_merge($result['questions'], $topUp['questions']);
+      } catch (\Throwable $e) {
+        Log::warning('Quiz top-up generation failed, using what was collected so far: ' . $e->getMessage());
+        break;
+      }
+    }
+
+    return $result;
+  }
+
+  /**
+   * Requests one batch of $count questions, trying each API key in order
+   * (each with one retry for malformed JSON) before giving up.
+   */
+  private function requestBatch(int $count, string $difficultyLabel, ?string $topic, string $grade, bool $isCustomTopic, array $keys, ?string $forcedTopic): array
+  {
     $prompt = $this->buildPrompt($count, $difficultyLabel, $topic, $grade, $isCustomTopic);
 
-    // One retry - the model occasionally wraps JSON in markdown fences or
-    // returns a slightly malformed structure despite the instructions.
     $lastError = null;
-    for ($attempt = 0; $attempt < 2; $attempt++) {
-      try {
-        $response = Http::withToken($apiKey)
-          ->timeout(60)
-          ->post(self::API_URL, [
-            'model' => self::MODEL,
-            'messages' => [
-              ['role' => 'user', 'content' => $prompt],
-            ],
-            'response_format' => ['type' => 'json_object'],
-          ]);
+    foreach ($keys as $apiKey) {
+      // One retry per key - the model occasionally wraps JSON in markdown
+      // fences or returns a slightly malformed structure despite instructions.
+      for ($attempt = 0; $attempt < 2; $attempt++) {
+        try {
+          $response = Http::withToken($apiKey)
+            ->timeout(60)
+            ->post(self::API_URL, [
+              'model' => self::MODEL,
+              'messages' => [
+                ['role' => 'user', 'content' => $prompt],
+              ],
+              'response_format' => ['type' => 'json_object'],
+            ]);
 
-        if (!$response->successful()) {
-          throw new \RuntimeException('Groq API returned HTTP ' . $response->status() . ': ' . $response->body());
+          if ($response->status() === 429) {
+            // Rate limited - move on to the next key immediately instead of
+            // burning the retry on the same one.
+            throw new \RuntimeException('Groq API rate limited (429) for this key.');
+          }
+          if (!$response->successful()) {
+            throw new \RuntimeException('Groq API returned HTTP ' . $response->status() . ': ' . $response->body());
+          }
+
+          $content = $response->json('choices.0.message.content');
+          if (!$content) {
+            throw new \RuntimeException('Groq API response had no message content.');
+          }
+
+          return $this->parseAndValidate($content, $count, $forcedTopic);
+        } catch (\Throwable $e) {
+          $lastError = $e;
+          Log::warning('Quiz generation attempt failed: ' . $e->getMessage());
+          if (str_contains($e->getMessage(), '429')) {
+            break; // don't retry a rate-limited key, fall through to the next one
+          }
         }
-
-        $content = $response->json('choices.0.message.content');
-        if (!$content) {
-          throw new \RuntimeException('Groq API response had no message content.');
-        }
-
-        return $this->parseAndValidate($content, $count, $topic);
-      } catch (\Throwable $e) {
-        $lastError = $e;
-        Log::warning('Quiz generation attempt failed: ' . $e->getMessage());
       }
     }
 

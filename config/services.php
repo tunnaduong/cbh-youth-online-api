@@ -58,6 +58,10 @@ return [
     // Quiz question generation (see QuizGenerationService). Key lives in
     // .env as AI_API - never commit it or return it from any endpoint.
     'key' => env('AI_API'),
+    // Backup key tried if the primary hits a rate limit/error - lives in
+    // .env as AI_API_DHPHUC. Optional; generation just skips this attempt
+    // if unset.
+    'secondary_key' => env('AI_API_DHPHUC'),
   ],
 
 ];
