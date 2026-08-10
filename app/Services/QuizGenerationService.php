@@ -84,12 +84,12 @@ class QuizGenerationService
       // subject (e.g. "Anime", "Bóng đá") so we don't force the SGK/textbook
       // framing on it, but it MUST be followed exactly, no substituting a
       // different topic.
-      $topicInstruction = "Người dùng đã yêu cầu một chủ đề tùy chỉnh: \"{$topic}\". Hãy tạo {$count} câu hỏi trắc nghiệm ĐÚNG về chủ đề này, phù hợp với học sinh lớp {$grade}, ở mức độ {$difficultyLabel}.";
+      $topicInstruction = "Người dùng đã yêu cầu một chủ đề tùy chỉnh: \"{$topic}\". Hãy tạo ĐÚNG {$count} câu hỏi trắc nghiệm (không nhiều hơn, không ít hơn {$count} câu) ĐÚNG về chủ đề này, phù hợp với học sinh lớp {$grade}, ở mức độ {$difficultyLabel}.";
       $topicFocusRule = "- BẮT BUỘC bám sát 100% chủ đề \"{$topic}\" mà người dùng đã chọn - TUYỆT ĐỐI không tự ý đổi sang chủ đề khác, không lạc đề, kể cả khi chủ đề nghe lạ hoặc hẹp. Chỉ điều chỉnh độ khó/cách diễn đạt cho phù hợp lứa tuổi lớp {$grade}, không được từ chối hay thay thế chủ đề.";
       $curriculumRule = "- Mức độ \"{$difficultyLabel}\" nghĩa là {$difficultyLabel} SO VỚI học sinh lớp {$grade}.";
     } else {
       $topicInstruction = $topic
-        ? "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn \"{$topic}\" lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}."
+        ? "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tạo ĐÚNG {$count} câu hỏi trắc nghiệm (không nhiều hơn, không ít hơn {$count} câu) bám sát SÁCH GIÁO KHOA chương trình môn \"{$topic}\" lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}."
         : "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tự chọn một môn học trong chương trình lớp {$grade} (ví dụ: Toán, Vật lý, Hóa học, Sinh học, Ngữ văn, Lịch sử, Địa lý, Tin học...), sau đó tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn đó lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}.";
       $topicFocusRule = $topic
         ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác."
@@ -131,7 +131,7 @@ Trả về kết quả dưới dạng một JSON object DUY NHẤT với cấu t
 
 Yêu cầu bắt buộc:
 {$languageRule}
-- Mảng "questions" phải có đúng {$count} phần tử, id đánh số từ 1 đến {$count}.
+- QUAN TRỌNG NHẤT: Mảng "questions" PHẢI có ĐÚNG CHÍNH XÁC {$count} phần tử, không được thiếu, không được thừa. Đây là yêu cầu bắt buộc quan trọng nhất - hãy đếm lại số phần tử trong mảng trước khi trả về để đảm bảo đúng {$count} câu. id đánh số liên tục từ 1 đến {$count}, không bỏ số nào.
 {$topicFocusRule}
 {$curriculumRule}
 {$topicFieldRule}
