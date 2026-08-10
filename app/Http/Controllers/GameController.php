@@ -237,4 +237,42 @@ class GameController extends Controller
 
     return response()->json(['leaderboard' => $leaderboard]);
   }
+
+  // A session counts as "currently playing" if it hasn't ended and had a
+  // heartbeat within this window - heartbeats fire every 20s from the
+  // client, so 2 missed beats means the player is gone (tab closed, app
+  // killed, etc. without a clean endSession call).
+  private const ACTIVE_WINDOW_SECONDS = 60;
+
+  /**
+   * Who is playing what, right now - shown under the leaderboard alongside
+   * the XP ranking. Most-recently-active players first, one row per session.
+   */
+  public function nowPlaying(Request $request)
+  {
+    $sessions = GameSession::query()
+      ->whereNull('ended_at')
+      ->where('updated_at', '>=', now()->subSeconds(self::ACTIVE_WINDOW_SECONDS))
+      ->with(['game', 'user.profile'])
+      ->orderByDesc('updated_at')
+      ->limit(30)
+      ->get();
+
+    $players = $sessions
+      ->filter(fn($session) => $session->game && $session->user)
+      ->map(function ($session) {
+        $user = $session->user;
+        return [
+          'user_id' => $user->id,
+          'username' => $user->username,
+          'profile_name' => $user->profile->profile_name ?? $user->username,
+          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'game_name' => $session->game->name,
+          'game_slug' => $session->game->slug,
+        ];
+      })
+      ->values();
+
+    return response()->json(['playing' => $players]);
+  }
 }

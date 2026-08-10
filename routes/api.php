@@ -88,6 +88,8 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/games', [GameController::class, 'index']);
   Route::get('/games/random', [GameController::class, 'random']);
   Route::get('/games/leaderboard', [GameController::class, 'leaderboard']);
+  Route::get('/games/now-playing', [GameController::class, 'nowPlaying']);
+  Route::get('/quiz/leaderboard', [QuizController::class, 'leaderboard']);
   Route::get('/games/{slug}', [GameController::class, 'show']);
 
   // User Information

@@ -268,6 +268,23 @@ class PointsService
   }
 
   /**
+   * Add points for a completed quiz attempt. Points come pre-weighted by
+   * difficulty per correct answer (see QuizController::DIFFICULTY_POINTS).
+   *
+   * @param int $userId
+   * @param int $points
+   * @param int $quizSetPlayId
+   * @return void
+   */
+  public static function onQuizCompleted($userId, $points, $quizSetPlayId)
+  {
+    if ($points <= 0) {
+      return;
+    }
+    self::addPoints($userId, $points, 'quiz', 'Hoàn thành đố vui', $quizSetPlayId);
+  }
+
+  /**
    * Deduct points when admin applies point deduction
    *
    * @param int $userId

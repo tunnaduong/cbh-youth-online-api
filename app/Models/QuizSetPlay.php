@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $quiz_set_id
  * @property int $user_id
  * @property int|null $score
+ * @property int $points
  * @property \Illuminate\Support\Carbon|null $submitted_at
  */
 class QuizSetPlay extends Model
@@ -24,6 +25,7 @@ class QuizSetPlay extends Model
     'quiz_set_id',
     'user_id',
     'score',
+    'points',
     'submitted_at',
   ];
 

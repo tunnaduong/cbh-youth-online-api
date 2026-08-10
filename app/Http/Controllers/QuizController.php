@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuthAccount;
+use App\Models\QuizQuestion;
 use App\Models\QuizSet;
 use App\Models\QuizSetPlay;
+use App\Services\PointsService;
 use App\Services\QuizGenerationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,18 +14,34 @@ use Illuminate\Support\Facades\DB;
 
 class QuizController extends Controller
 {
-  // Once a generated set has been served to this many distinct users, it's
-  // retired from the reuse pool and a fresh one gets generated instead -
-  // keeps question sets from being reused indefinitely.
-  private const MAX_SERVES = 12;
-
   private const ALLOWED_COUNTS = [5, 10, 20, 50, 100];
   private const MAX_CUSTOM_COUNT = 100;
 
+  // Points awarded per correct answer, scaled by difficulty - harder
+  // question sets are worth more, same idea as the game XP ranking.
+  private const DIFFICULTY_POINTS = [
+    'easy' => 1,
+    'medium' => 2,
+    'hard' => 3,
+  ];
+
+  // Below this many banked questions for a difficulty, we still lean on AI
+  // for half of every quiz so the bank fills up fast. Once it's past this
+  // size, most of the quiz is served from the bank (cheap, instant) and
+  // only a quarter comes from a fresh AI call - keeps the bank growing
+  // slowly forever while cutting AI usage once there's enough variety.
+  private const BANK_MATURITY_THRESHOLD = 1000;
+  private const OFFLINE_RATIO_SMALL_BANK = 0.5;
+  private const OFFLINE_RATIO_MATURE_BANK = 0.75;
+
   /**
-   * Start a quiz: reuse an existing question set the user hasn't seen yet
-   * (if one exists and isn't over-served), otherwise generate a brand new
-   * one via AI. Never returns answers/explanations - see submit().
+   * Start a quiz: composed per-question, not per-set. Some questions are
+   * drawn straight from the bank (previously generated, never before shown
+   * to this user); the rest are generated fresh via AI right now and added
+   * to the bank for future quizzes to draw from. The offline/online split
+   * depends on how big the bank already is for this difficulty - see
+   * BANK_MATURITY_THRESHOLD. Never returns answers/explanations - see
+   * submit().
    */
   public function start(Request $request)
   {
@@ -35,39 +54,92 @@ class QuizController extends Controller
     $count = (int) $request->count;
     $difficulty = $request->difficulty;
 
-    $quizSet = QuizSet::where('question_count', $count)
-      ->where('difficulty', $difficulty)
-      ->where('served_count', '<', self::MAX_SERVES)
-      ->whereDoesntHave('plays', fn($q) => $q->where('user_id', $user->id))
-      ->inRandomOrder()
-      ->first();
+    $seenQuestionIds = DB::table('cyo_quiz_question_seen')
+      ->where('user_id', $user->id)
+      ->pluck('quiz_question_id');
 
-    if ($quizSet) {
-      DB::transaction(function () use ($quizSet, $user) {
-        $quizSet->increment('served_count');
-        QuizSetPlay::create(['quiz_set_id' => $quizSet->id, 'user_id' => $user->id]);
-      });
-    } else {
+    $bankSize = QuizQuestion::where('difficulty', $difficulty)->count();
+    $offlineRatio = $bankSize < self::BANK_MATURITY_THRESHOLD
+      ? self::OFFLINE_RATIO_SMALL_BANK
+      : self::OFFLINE_RATIO_MATURE_BANK;
+    $offlineTarget = (int) round($count * $offlineRatio);
+
+    $offlineQuestions = QuizQuestion::where('difficulty', $difficulty)
+      ->whereNotIn('id', $seenQuestionIds)
+      ->inRandomOrder()
+      ->limit($offlineTarget)
+      ->get();
+
+    // Whatever the bank couldn't cover (either short on the ratio, or the
+    // bank itself is too small/exhausted for this user) gets made up by AI.
+    $onlineNeeded = $count - $offlineQuestions->count();
+
+    $generatedQuestions = collect();
+    if ($onlineNeeded > 0) {
       try {
-        $generated = app(QuizGenerationService::class)->generate($count, $difficulty);
+        $generated = app(QuizGenerationService::class)->generate($onlineNeeded, $difficulty);
       } catch (\Throwable $e) {
-        return response()->json([
-          'message' => 'Không thể tạo câu hỏi lúc này, vui lòng thử lại sau.',
-        ], 503);
+        // If AI is unavailable but the bank alone already covers the full
+        // count, just proceed offline-only instead of failing the request.
+        if ($offlineQuestions->count() < $count) {
+          return response()->json([
+            'message' => 'Không thể tạo câu hỏi lúc này, vui lòng thử lại sau.',
+          ], 503);
+        }
+        $generated = ['topic' => null, 'questions' => []];
       }
 
-      $quizSet = DB::transaction(function () use ($generated, $count, $difficulty, $user) {
-        $set = QuizSet::create([
-          'topic' => $generated['topic'],
+      $generatedQuestions = collect($generated['questions'])->map(function ($q) use ($generated, $difficulty) {
+        return QuizQuestion::create([
+          'topic' => $generated['topic'] ?: 'Kiến thức tổng hợp',
           'difficulty' => $difficulty,
-          'question_count' => $count,
-          'questions' => $generated['questions'],
-          'served_count' => 1,
+          'question' => $q['question'],
+          'options' => $q['options'],
+          'answer' => $q['answer'],
+          'explanation' => $q['explanation'] ?? '',
         ]);
-        QuizSetPlay::create(['quiz_set_id' => $set->id, 'user_id' => $user->id]);
-        return $set;
       });
     }
+
+    $bankQuestions = $offlineQuestions->concat($generatedQuestions)->shuffle()->values();
+
+    $topics = $bankQuestions->pluck('topic')->unique();
+    $topicLabel = $topics->count() === 1 ? $topics->first() : 'Tổng hợp nhiều chủ đề';
+
+    $questionsPayload = $bankQuestions->values()->map(fn($q, $i) => [
+      'id' => $i + 1,
+      'question' => $q->question,
+      'options' => $q->options,
+      'answer' => $q->answer,
+      'explanation' => $q->explanation,
+      // Kept only server-side to mark this exact question as seen and to
+      // grade the answer - stripped before the response goes out below.
+      '_bank_id' => $q->id,
+    ]);
+
+    $quizSet = DB::transaction(function () use ($questionsPayload, $count, $difficulty, $topicLabel, $user) {
+      $set = QuizSet::create([
+        'topic' => $topicLabel,
+        'difficulty' => $difficulty,
+        'question_count' => $questionsPayload->count(),
+        'questions' => $questionsPayload->map(fn($q) => collect($q)->except('_bank_id'))->values(),
+        'served_count' => 1,
+      ]);
+      QuizSetPlay::create(['quiz_set_id' => $set->id, 'user_id' => $user->id]);
+
+      $bankIds = $questionsPayload->pluck('_bank_id');
+      $now = now();
+      $seenRows = $bankIds->map(fn($id) => [
+        'user_id' => $user->id,
+        'quiz_question_id' => $id,
+        'created_at' => $now,
+      ])->all();
+      // ignore() - a question generated fresh above can't already be seen,
+      // but stay defensive against any future concurrent-start race.
+      DB::table('cyo_quiz_question_seen')->insertOrIgnore($seenRows);
+
+      return $set;
+    });
 
     return response()->json([
       'quiz_set_id' => $quizSet->id,
@@ -111,6 +183,7 @@ class QuizController extends Controller
       return response()->json([
         'score' => $play->score,
         'total' => $quizSet->question_count,
+        'points' => $play->points,
         'results' => $this->buildResults($questionsById, $submittedById),
       ]);
     }
@@ -123,13 +196,61 @@ class QuizController extends Controller
       }
     }
 
-    $play->update(['score' => $score, 'submitted_at' => now()]);
+    $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+    $points = $score * $pointsPerAnswer;
+
+    $play->update(['score' => $score, 'points' => $points, 'submitted_at' => now()]);
+    PointsService::onQuizCompleted($user->id, $points, $play->id);
 
     return response()->json([
       'score' => $score,
       'total' => $quizSet->question_count,
+      'points' => $points,
       'results' => $this->buildResults($questionsById, $submittedById),
     ]);
+  }
+
+  /**
+   * Quiz-specific leaderboard - total points earned from quiz plays only
+   * (mirrors GameController::leaderboard).
+   */
+  public function leaderboard(Request $request)
+  {
+    $period = $request->input('period', 'week'); // week|all
+    $query = DB::table('cyo_quiz_set_plays')
+      ->whereNotNull('submitted_at')
+      ->select('user_id')
+      ->selectRaw('SUM(points) as total_points')
+      ->groupBy('user_id')
+      ->orderByDesc('total_points')
+      ->limit(20);
+
+    if ($period === 'week') {
+      $query->where('submitted_at', '>=', now()->subWeek());
+    }
+
+    $rows = $query->get();
+
+    $users = AuthAccount::whereIn('id', $rows->pluck('user_id'))
+      ->with('profile')
+      ->get()
+      ->keyBy('id');
+
+    $leaderboard = $rows
+      ->filter(fn($row) => isset($users[$row->user_id]))
+      ->map(function ($row) use ($users) {
+        $user = $users[$row->user_id];
+        return [
+          'id' => $user->id,
+          'username' => $user->username,
+          'profile_name' => $user->profile->profile_name ?? $user->username,
+          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'points' => (int) $row->total_points,
+        ];
+      })
+      ->values();
+
+    return response()->json(['leaderboard' => $leaderboard]);
   }
 
   private function buildResults($questionsById, $submittedById)
