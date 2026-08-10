@@ -78,14 +78,15 @@ class QuizGenerationService
   private function buildPrompt(int $count, string $difficultyLabel, ?string $topic, string $grade): string
   {
     $topicInstruction = $topic
-      ? "Hãy tạo {$count} câu hỏi trắc nghiệm về chủ đề \"{$topic}\", dành cho học sinh lớp {$grade}, ở mức độ {$difficultyLabel}."
-      : "Hãy tự chọn một chủ đề học thuật thú vị và phù hợp với chương trình lớp {$grade} (ví dụ: lịch sử, địa lý, khoa học, toán học, văn học, giáo dục công dân, thời sự...), sau đó tạo {$count} câu hỏi trắc nghiệm về chủ đề đó ở mức độ {$difficultyLabel}.";
+      ? "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn \"{$topic}\" lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}."
+      : "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tự chọn một môn học trong chương trình lớp {$grade} (ví dụ: Toán, Vật lý, Hóa học, Sinh học, Ngữ văn, Lịch sử, Địa lý, Tin học...), sau đó tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn đó lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}.";
     $topicFieldRule = $topic
       ? "- \"topic\" phải là đúng chuỗi \"{$topic}\"."
-      : "- \"topic\" là tên chủ đề bạn đã tự chọn (string, ngắn gọn).";
+      : "- \"topic\" là tên môn học bạn đã tự chọn (string, ngắn gọn).";
     $topicFocusRule = $topic
-      ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và phù hợp với chương trình lớp {$grade}."
-      : "- Câu hỏi phải phù hợp với chương trình lớp {$grade}.";
+      ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác."
+      : "- Câu hỏi phải đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác.";
+    $curriculumRule = "- Câu hỏi PHẢI theo đúng chương trình sách giáo khoa Việt Nam hiện hành cho lớp {$grade} - không hỏi kiến thức quá cơ bản/tiểu học hoặc lệch chương trình. Mức độ \"{$difficultyLabel}\" nghĩa là {$difficultyLabel} SO VỚI học sinh lớp {$grade} (câu \"khó\" phải thực sự thử thách học sinh giỏi ở lớp này, không phải câu hỏi thường thức dễ đoán).";
 
     // Foreign-language subjects (Tiếng Anh, Tiếng Nga, Tiếng Pháp, ...) are
     // allowed to have "question"/"options" written in that language - the
@@ -118,6 +119,7 @@ Yêu cầu bắt buộc:
 {$languageRule}
 - Mảng "questions" phải có đúng {$count} phần tử, id đánh số từ 1 đến {$count}.
 {$topicFocusRule}
+{$curriculumRule}
 {$topicFieldRule}
 - "options" luôn có đúng 4 phần tử, mỗi phần tử bắt đầu bằng "A. ", "B. ", "C. " hoặc "D. ".
 - "answer" chỉ được là một trong các ký tự: "A", "B", "C", "D".
