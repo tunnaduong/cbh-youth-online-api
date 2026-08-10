@@ -87,6 +87,15 @@ class QuizGenerationService
       ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và phù hợp với chương trình lớp {$grade}."
       : "- Câu hỏi phải phù hợp với chương trình lớp {$grade}.";
 
+    // Foreign-language subjects (Tiếng Anh, Tiếng Nga, Tiếng Pháp, ...) are
+    // allowed to have "question"/"options" written in that language - the
+    // whole point is testing that language. "explanation" always stays
+    // Vietnamese regardless. Every other subject stays fully Vietnamese.
+    $isForeignLanguageTopic = $topic && preg_match('/tiếng/iu', $topic) && !preg_match('/tiếng việt/iu', $topic);
+    $languageRule = $isForeignLanguageTopic
+      ? "- Vì đây là môn ngoại ngữ (\"{$topic}\"), \"question\" và \"options\" được phép viết bằng ngôn ngữ đó (ví dụ tiếng Anh, tiếng Nga...) khi phù hợp với nội dung câu hỏi. Riêng \"explanation\" LUÔN LUÔN phải viết bằng tiếng Việt."
+      : "- TOÀN BỘ nội dung (\"topic\", \"question\", \"options\", \"explanation\") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác. Ngoại lệ duy nhất: nếu chủ đề là một môn ngoại ngữ (ví dụ Tiếng Anh, Tiếng Nga...) thì \"question\" và \"options\" được phép dùng ngôn ngữ đó, còn \"explanation\" vẫn luôn phải là tiếng Việt.";
+
     return <<<PROMPT
 {$topicInstruction}
 
@@ -100,13 +109,13 @@ Trả về kết quả dưới dạng một JSON object DUY NHẤT với cấu t
       "question": "nội dung câu hỏi (string)",
       "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
       "answer": "A",
-      "explanation": "giải thích ngắn gọn lý do đáp án đúng (string)"
+      "explanation": "giải thích ngắn gọn lý do đáp án đúng, luôn bằng tiếng Việt (string)"
     }
   ]
 }
 
 Yêu cầu bắt buộc:
-- TOÀN BỘ nội dung ("topic", "question", "options", "explanation") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác.
+{$languageRule}
 - Mảng "questions" phải có đúng {$count} phần tử, id đánh số từ 1 đến {$count}.
 {$topicFocusRule}
 {$topicFieldRule}
