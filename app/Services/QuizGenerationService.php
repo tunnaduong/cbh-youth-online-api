@@ -6,14 +6,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Generates multiple-choice quiz questions via Cerebras' chat completions
- * API (OpenAI-compatible). The AI picks its own topic every time - only
+ * Generates multiple-choice quiz questions via Groq's chat completions API
+ * (OpenAI-compatible). The AI picks its own topic every time - only
  * difficulty and question count are ever dictated by the caller.
  */
 class QuizGenerationService
 {
-  private const API_URL = 'https://api.cerebras.ai/v1/chat/completions';
-  private const MODEL = 'gpt-oss-120b';
+  private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  private const MODEL = 'openai/gpt-oss-20b';
 
   private const DIFFICULTY_LABELS = [
     'easy' => 'dễ',
@@ -30,7 +30,7 @@ class QuizGenerationService
    */
   public function generate(int $count, string $difficulty): array
   {
-    $apiKey = config('services.cerebras.key');
+    $apiKey = config('services.groq.key');
     if (!$apiKey) {
       throw new \RuntimeException('AI_API key is not configured.');
     }
@@ -54,12 +54,12 @@ class QuizGenerationService
           ]);
 
         if (!$response->successful()) {
-          throw new \RuntimeException('Cerebras API returned HTTP ' . $response->status() . ': ' . $response->body());
+          throw new \RuntimeException('Groq API returned HTTP ' . $response->status() . ': ' . $response->body());
         }
 
         $content = $response->json('choices.0.message.content');
         if (!$content) {
-          throw new \RuntimeException('Cerebras API response had no message content.');
+          throw new \RuntimeException('Groq API response had no message content.');
         }
 
         return $this->parseAndValidate($content, $count);

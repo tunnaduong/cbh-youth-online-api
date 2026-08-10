@@ -54,7 +54,7 @@ return [
     'subject' => env('VAPID_SUBJECT', 'mailto:cbhyouthonline@gmail.com'),
   ],
 
-  'cerebras' => [
+  'groq' => [
     // Quiz question generation (see QuizGenerationService). Key lives in
     // .env as AI_API - never commit it or return it from any endpoint.
     'key' => env('AI_API'),
