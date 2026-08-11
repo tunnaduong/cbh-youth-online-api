@@ -148,15 +148,15 @@ class GameController extends Controller
   /**
    * Heartbeat/end shared logic: recompute duration server-side from
    * started_at (never trust a client-supplied elapsed value), and award XP
-   * for any newly-completed minute since the last heartbeat.
+   * for every newly-completed 10-minute block since the last heartbeat.
    */
   private function syncSession(GameSession $session, bool $closing): array
   {
     $now = now();
     $newDuration = max($session->duration_seconds, $session->started_at->diffInSeconds($now));
-    $previousMinutes = intdiv($session->duration_seconds, 60);
-    $newMinutes = intdiv($newDuration, 60);
-    $xpToAward = max(0, $newMinutes - $previousMinutes);
+    $previousBlocks = intdiv($session->duration_seconds, 600);
+    $newBlocks = intdiv($newDuration, 600);
+    $xpToAward = max(0, $newBlocks - $previousBlocks);
 
     $session->duration_seconds = $newDuration;
     $session->xp_earned += $xpToAward;

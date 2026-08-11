@@ -316,9 +316,10 @@ class QuizController extends Controller
 
     $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
     $points = $score * $pointsPerAnswer;
+    $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
 
     $play->update(['score' => $score, 'points' => $points, 'submitted_at' => now()]);
-    PointsService::onQuizCompleted($user->id, $points, $play->id);
+    PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
 
     return response()->json([
       'score' => $score,
@@ -383,12 +384,13 @@ class QuizController extends Controller
       }
       $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
       $points = $score * $pointsPerAnswer;
+      $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
 
       $play->score = $score;
       $play->points = $points;
       $play->submitted_at = now();
       $play->save();
-      PointsService::onQuizCompleted($user->id, $points, $play->id);
+      PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
 
       $result['score'] = $score;
       $result['points'] = $points;
