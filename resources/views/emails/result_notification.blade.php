@@ -12,7 +12,7 @@ Lời đầu tiên, CYO xin chân thành cảm ơn bạn vì đã dành thời g
 
 Một lần nữa, CYO cảm ơn bạn vì đã lựa chọn thành một phần của chúng mình.
 
-Bây giờ, bạn hãy tham gia vào nhóm Messenger để đồng hành cùng Diễn đàn nhé.
+Bây giờ, bạn hãy tham gia vào nhóm Messenger (https://m.me/j/AbaimCXdlP-f_OLL/?send_source=gc%3Acopy_invite_link_t) để đồng hành cùng Diễn đàn nhé.
 
 Chúng mình tin rằng từ những con người như bạn sẽ góp phần tạo nên một sân chơi văn minh, an toàn cho học sinh trường THPT Chuyên Biên Hòa.
 
