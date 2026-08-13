@@ -149,6 +149,18 @@ class QuizGenerationService
       ? "- \"topic\" phải là đúng chuỗi \"{$topic}\"."
       : "- \"topic\" là tên môn học bạn đã tự chọn (string, ngắn gọn).";
 
+    // Distractor plausibility should scale with difficulty: easy questions
+    // want obviously-wrong distractors, hard questions want distractors that
+    // are close/plausible (common misconceptions, near-miss values, similar
+    // terms) so the question is genuinely challenging - but exactly one
+    // option must still be fully, unambiguously correct. This is "make it
+    // tricky", not "make the answer debatable".
+    $distractorRule = match ($difficultyLabel) {
+      'khó' => "- Vì đây là câu hỏi mức độ KHÓ: 3 phương án nhiễu PHẢI thực sự \"gần đúng\" và dễ gây nhầm lẫn - ví dụ đại diện cho lỗi sai/ngộ nhận phổ biến của học sinh, số liệu/mốc thời gian/tên gần giống đáp án đúng, hoặc đúng trong một trường hợp khác dễ bị nhầm sang trường hợp này. Chúng phải khiến người không nắm chắc kiến thức dễ chọn nhầm. TUY NHIÊN, khi xét kỹ và đối chiếu chính xác với kiến thức chuẩn, PHẢI có DUY NHẤT MỘT phương án đúng hoàn toàn, còn 3 phương án kia phải sai dứt khoát, có căn cứ rõ ràng để loại trừ (không phải \"cũng tạm coi là đúng\" hay để ngỏ nhiều cách hiểu). Được phép đánh đố bằng logic, nhưng bản thân bạn (người ra đề) không được đoán mò - chỉ dùng những nhầm lẫn/kiến thức bạn chắc chắn xác định được là sai.",
+      'trung bình' => "- 3 phương án nhiễu nên tương đối hợp lý, liên quan đến chủ đề (không phải phương án vô nghĩa dễ loại ngay), nhưng vẫn phải sai rõ ràng và chắc chắn khi đối chiếu kiến thức chuẩn - không tạo cảm giác \"có thể đúng\".",
+      default => "- 3 phương án nhiễu nên liên quan đến chủ đề nhưng sai một cách rõ ràng, dễ phân biệt với đáp án đúng, phù hợp mức độ dễ.",
+    };
+
     // A topic gets to use another language in "question"/"options" only when
     // it's actually ABOUT a language (Tiếng Anh, "học tiếng Nhật", "ngữ pháp
     // English", ...) - the whole point there is testing that language. Any
@@ -183,14 +195,15 @@ Yêu cầu bắt buộc:
 {$topicFocusRule}
 {$curriculumRule}
 {$topicFieldRule}
+{$distractorRule}
 - "options" luôn có đúng 4 phần tử, mỗi phần tử bắt đầu bằng "A. ", "B. ", "C. " hoặc "D. ".
 - "answer" chỉ được là một trong các ký tự: "A", "B", "C", "D".
 - Chỉ trả về JSON thuần túy, không dùng thẻ markdown (```), không viết lời mở đầu hay kết luận.
 
 QUY TẮC BẮT BUỘC VỀ ĐỘ CHÍNH XÁC (quan trọng hơn tất cả các quy tắc khác):
 - TUYỆT ĐỐI KHÔNG được bịa đặt số liệu, sự kiện, mốc thời gian, tên riêng, công thức hay trích dẫn. Chỉ sử dụng kiến thức bạn CHẮC CHẮN 100% là đúng và được công nhận rộng rãi trong sách giáo khoa/kiến thức phổ thông chuẩn. Nếu không chắc chắn về một sự kiện/số liệu cụ thể, hãy chọn hỏi một nội dung khác mà bạn chắc chắn hơn thay vì đoán bừa.
-- Mỗi câu hỏi CHỈ được có DUY NHẤT MỘT đáp án đúng rõ ràng, không mơ hồ, không gây tranh cãi, không phụ thuộc vào cách diễn giải hoặc quan điểm cá nhân. Ba phương án còn lại phải sai một cách chắc chắn và dứt khoát (không phải "sai một phần" hay "cũng có thể đúng trong vài trường hợp").
-- Không đặt câu hỏi dạng đánh đố, chơi chữ, hoặc câu hỏi mà chính bạn không chắc chắn tuyệt đối về đáp án - thà hỏi kiến thức cơ bản hơn nhưng chắc chắn đúng, còn hơn hỏi kiến thức "khó nhớ chính xác" và trả lời sai.
+- Mỗi câu hỏi CHỈ được có DUY NHẤT MỘT đáp án đúng - điều này không bao giờ được thay đổi dù ở mức độ nào. Xét theo kiến thức chuẩn, chính xác, 3 phương án còn lại phải sai dứt khoát, có căn cứ rõ ràng để loại trừ khi phân tích kỹ (xem thêm quy tắc về độ "gần đúng" của phương án nhiễu theo từng mức độ bên dưới) - nhưng KHÔNG được để trường hợp 2 phương án cùng có thể coi là đúng, hoặc đáp án đúng phụ thuộc vào cách diễn giải/quan điểm cá nhân.
+- Được phép đặt câu hỏi mang tính đánh đố về mặt LOGIC (đặc biệt ở mức khó), nhưng tuyệt đối không được TỰ ĐOÁN MÒ khi chính bạn không chắc chắn về sự kiện/kiến thức - nếu không chắc, hãy đổi sang nội dung/cách hỏi khác mà bạn chắc chắn hơn, còn hơn hỏi kiến thức "khó nhớ chính xác" rồi trả lời sai.
 - TRƯỚC KHI đưa một câu hỏi vào kết quả cuối cùng, hãy tự kiểm tra lại trong đầu: (1) đáp án bạn chọn có thực sự đúng theo kiến thức chuẩn không, (2) ba phương án nhiễu còn lại có thực sự sai không, (3) câu hỏi có thuộc đúng chủ đề/lớp/mức độ yêu cầu không. Nếu có bất kỳ nghi ngờ nào ở một trong ba điểm trên, hãy thay câu hỏi đó bằng một câu khác chắc chắn hơn - không được giữ lại câu hỏi mà bạn không chắc chắn chỉ để đủ số lượng.
 PROMPT;
   }
