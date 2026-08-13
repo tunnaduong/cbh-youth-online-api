@@ -93,6 +93,7 @@ class QuizGenerationService
               'messages' => [
                 ['role' => 'user', 'content' => $prompt],
               ],
+              'temperature' => 0.2,
               'response_format' => ['type' => 'json_object'],
             ]);
 
@@ -185,6 +186,12 @@ Yêu cầu bắt buộc:
 - "options" luôn có đúng 4 phần tử, mỗi phần tử bắt đầu bằng "A. ", "B. ", "C. " hoặc "D. ".
 - "answer" chỉ được là một trong các ký tự: "A", "B", "C", "D".
 - Chỉ trả về JSON thuần túy, không dùng thẻ markdown (```), không viết lời mở đầu hay kết luận.
+
+QUY TẮC BẮT BUỘC VỀ ĐỘ CHÍNH XÁC (quan trọng hơn tất cả các quy tắc khác):
+- TUYỆT ĐỐI KHÔNG được bịa đặt số liệu, sự kiện, mốc thời gian, tên riêng, công thức hay trích dẫn. Chỉ sử dụng kiến thức bạn CHẮC CHẮN 100% là đúng và được công nhận rộng rãi trong sách giáo khoa/kiến thức phổ thông chuẩn. Nếu không chắc chắn về một sự kiện/số liệu cụ thể, hãy chọn hỏi một nội dung khác mà bạn chắc chắn hơn thay vì đoán bừa.
+- Mỗi câu hỏi CHỈ được có DUY NHẤT MỘT đáp án đúng rõ ràng, không mơ hồ, không gây tranh cãi, không phụ thuộc vào cách diễn giải hoặc quan điểm cá nhân. Ba phương án còn lại phải sai một cách chắc chắn và dứt khoát (không phải "sai một phần" hay "cũng có thể đúng trong vài trường hợp").
+- Không đặt câu hỏi dạng đánh đố, chơi chữ, hoặc câu hỏi mà chính bạn không chắc chắn tuyệt đối về đáp án - thà hỏi kiến thức cơ bản hơn nhưng chắc chắn đúng, còn hơn hỏi kiến thức "khó nhớ chính xác" và trả lời sai.
+- TRƯỚC KHI đưa một câu hỏi vào kết quả cuối cùng, hãy tự kiểm tra lại trong đầu: (1) đáp án bạn chọn có thực sự đúng theo kiến thức chuẩn không, (2) ba phương án nhiễu còn lại có thực sự sai không, (3) câu hỏi có thuộc đúng chủ đề/lớp/mức độ yêu cầu không. Nếu có bất kỳ nghi ngờ nào ở một trong ba điểm trên, hãy thay câu hỏi đó bằng một câu khác chắc chắn hơn - không được giữ lại câu hỏi mà bạn không chắc chắn chỉ để đủ số lượng.
 PROMPT;
   }
 
