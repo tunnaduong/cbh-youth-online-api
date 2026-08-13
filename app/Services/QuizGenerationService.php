@@ -93,7 +93,7 @@ class QuizGenerationService
               'messages' => [
                 ['role' => 'user', 'content' => $prompt],
               ],
-              'temperature' => 0.2,
+              'temperature' => 0.1,
               'response_format' => ['type' => 'json_object'],
             ]);
 
@@ -171,6 +171,15 @@ class QuizGenerationService
       ? "- Vì chủ đề này liên quan đến một ngoại ngữ (\"{$topic}\"), \"question\" và \"options\" được phép viết bằng ngôn ngữ đó (ví dụ tiếng Anh, tiếng Nga...) khi phù hợp với nội dung câu hỏi. Riêng \"explanation\" LUÔN LUÔN phải viết bằng tiếng Việt."
       : "- Chủ đề này KHÔNG liên quan đến việc học ngoại ngữ, vì vậy TOÀN BỘ nội dung (\"topic\", \"question\", \"options\", \"explanation\") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác, kể cả khi bản thân chủ đề có nguồn gốc nước ngoài (ví dụ tên phim, tên trò chơi...).";
 
+    // History is where this model hallucinates the most (exact dates, troop
+    // counts, minor treaty clauses, mixing up similarly-named
+    // people/battles/campaigns). Lock it down hard: only iconic, undisputed
+    // milestones, no invented precision.
+    $isHistoryTopic = $topic && $this->looksLikeHistoryTopic($topic);
+    $historyRule = $isHistoryTopic
+      ? "\n\nQUY TẮC RIÊNG CHO MÔN LỊCH SỬ (bắt buộc tuân thủ nghiêm ngặt, ưu tiên cao nhất):\n- CHỈ hỏi về những sự kiện, mốc thời gian, nhân vật lớn, mang tính CỘT MỐC, được ghi rõ và thống nhất trong sách giáo khoa Lịch sử Việt Nam hiện hành - loại bỏ hoàn toàn các chi tiết nhỏ, số liệu lẻ (số quân, số thương vong, số ngày cụ thể của một trận đánh phụ...) trừ khi đó là con số/ngày tháng NỔI TIẾNG, được nhắc đi nhắc lại trong sách giáo khoa (ví dụ 2/9/1945, 7/5/1954, 30/4/1975 là chấp nhận được vì đây là mốc cực kỳ phổ biến).\n- TUYỆT ĐỐI KHÔNG tự suy luận hay ước lượng ngày tháng, số liệu, tên hiệp ước/hiệp định, tên nhân vật nếu không nhớ chắc chắn 100% - không được làm tròn, đoán gần đúng hoặc suy ra từ sự kiện liên quan rồi coi như chắc chắn.\n- Cẩn thận phân biệt các sự kiện/nhân vật/chiến dịch có tên gần giống nhau hoặc cùng thời kỳ (dễ nhầm lẫn) - nếu không chắc chắn phân biệt được rạch ròi, hãy đổi sang hỏi một sự kiện cột mốc khác chắc chắn hơn thay vì hỏi thứ dễ gây tranh cãi.\n- Với câu hỏi mức khó về Lịch sử: đánh đố bằng cách yêu cầu học sinh phân biệt hai sự kiện/nguyên nhân/ý nghĩa DỄ NHẦM LẪN nhưng CÓ THẬT và bạn chắc chắn đúng - không được bịa ra một sự kiện/chi tiết không có thật chỉ để tạo độ khó."
+      : '';
+
     return <<<PROMPT
 {$topicInstruction}
 
@@ -204,7 +213,7 @@ QUY TẮC BẮT BUỘC VỀ ĐỘ CHÍNH XÁC (quan trọng hơn tất cả các
 - TUYỆT ĐỐI KHÔNG được bịa đặt số liệu, sự kiện, mốc thời gian, tên riêng, công thức hay trích dẫn. Chỉ sử dụng kiến thức bạn CHẮC CHẮN 100% là đúng và được công nhận rộng rãi trong sách giáo khoa/kiến thức phổ thông chuẩn. Nếu không chắc chắn về một sự kiện/số liệu cụ thể, hãy chọn hỏi một nội dung khác mà bạn chắc chắn hơn thay vì đoán bừa.
 - Mỗi câu hỏi CHỈ được có DUY NHẤT MỘT đáp án đúng - điều này không bao giờ được thay đổi dù ở mức độ nào. Xét theo kiến thức chuẩn, chính xác, 3 phương án còn lại phải sai dứt khoát, có căn cứ rõ ràng để loại trừ khi phân tích kỹ (xem thêm quy tắc về độ "gần đúng" của phương án nhiễu theo từng mức độ bên dưới) - nhưng KHÔNG được để trường hợp 2 phương án cùng có thể coi là đúng, hoặc đáp án đúng phụ thuộc vào cách diễn giải/quan điểm cá nhân.
 - Được phép đặt câu hỏi mang tính đánh đố về mặt LOGIC (đặc biệt ở mức khó), nhưng tuyệt đối không được TỰ ĐOÁN MÒ khi chính bạn không chắc chắn về sự kiện/kiến thức - nếu không chắc, hãy đổi sang nội dung/cách hỏi khác mà bạn chắc chắn hơn, còn hơn hỏi kiến thức "khó nhớ chính xác" rồi trả lời sai.
-- TRƯỚC KHI đưa một câu hỏi vào kết quả cuối cùng, hãy tự kiểm tra lại trong đầu: (1) đáp án bạn chọn có thực sự đúng theo kiến thức chuẩn không, (2) ba phương án nhiễu còn lại có thực sự sai không, (3) câu hỏi có thuộc đúng chủ đề/lớp/mức độ yêu cầu không. Nếu có bất kỳ nghi ngờ nào ở một trong ba điểm trên, hãy thay câu hỏi đó bằng một câu khác chắc chắn hơn - không được giữ lại câu hỏi mà bạn không chắc chắn chỉ để đủ số lượng.
+- TRƯỚC KHI đưa một câu hỏi vào kết quả cuối cùng, hãy tự kiểm tra lại trong đầu: (1) đáp án bạn chọn có thực sự đúng theo kiến thức chuẩn không, (2) ba phương án nhiễu còn lại có thực sự sai không, (3) câu hỏi có thuộc đúng chủ đề/lớp/mức độ yêu cầu không. Nếu có bất kỳ nghi ngờ nào ở một trong ba điểm trên, hãy thay câu hỏi đó bằng một câu khác chắc chắn hơn - không được giữ lại câu hỏi mà bạn không chắc chắn chỉ để đủ số lượng.{$historyRule}
 PROMPT;
   }
 
@@ -226,6 +235,25 @@ PROMPT;
       'english', 'russian', 'french', 'japanese', 'chinese', 'korean',
       'german', 'spanish', 'anh văn',
     ];
+    foreach ($keywords as $keyword) {
+      if (str_contains($lower, $keyword)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Heuristic: is this topic History (or history-adjacent, e.g. a custom
+   * topic like "Lịch sử Việt Nam thời kỳ kháng chiến")? Used to attach
+   * extra-strict anti-hallucination rules, since dates/figures/battles are
+   * where the model is most prone to confidently inventing precision.
+   */
+  private function looksLikeHistoryTopic(string $topic): bool
+  {
+    $lower = mb_strtolower($topic);
+    $keywords = ['lịch sử', 'history'];
     foreach ($keywords as $keyword) {
       if (str_contains($lower, $keyword)) {
         return true;
