@@ -13,10 +13,13 @@ use Illuminate\Support\Facades\Log;
 class QuizGenerationService
 {
   private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-  // Kimi K2 (1T-param MoE, ~32B active) - noticeably stronger world knowledge
-  // and factual recall than gpt-oss-120b, which is what we want for
-  // fact-heavy subjects like History. Also used for the verification pass.
-  private const MODEL = 'moonshotai/kimi-k2-instruct';
+  // NOTE: moonshotai/kimi-k2-instruct (previously set here) is NOT an actual
+  // Groq model ID - every generation request was failing outright because of
+  // it, which is why quiz start started returning 503. Confirmed current
+  // production models at https://console.groq.com/docs/models. Using
+  // llama-3.3-70b-versatile: an actual Groq production model with confirmed
+  // JSON mode support, also used for the verification pass below.
+  private const MODEL = 'llama-3.3-70b-versatile';
 
   private const DIFFICULTY_LABELS = [
     'easy' => 'dễ',
