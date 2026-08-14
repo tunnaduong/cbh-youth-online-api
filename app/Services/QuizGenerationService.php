@@ -13,7 +13,10 @@ use Illuminate\Support\Facades\Log;
 class QuizGenerationService
 {
   private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-  private const MODEL = 'openai/gpt-oss-120b';
+  // Kimi K2 (1T-param MoE, ~32B active) - noticeably stronger world knowledge
+  // and factual recall than gpt-oss-120b, which is what we want for
+  // fact-heavy subjects like History. Also used for the verification pass.
+  private const MODEL = 'moonshotai/kimi-k2-instruct';
 
   private const DIFFICULTY_LABELS = [
     'easy' => 'dễ',
@@ -111,7 +114,20 @@ class QuizGenerationService
             throw new \RuntimeException('Groq API response had no message content.');
           }
 
-          return $this->parseAndValidate($content, $count, $forcedTopic);
+          $parsed = $this->parseAndValidate($content, $count, $forcedTopic);
+
+          // Independent fact-check pass: a fresh call, with no memory of
+          // having just written these questions, is much more likely to
+          // catch a wrong answer than the same generation trusting itself.
+          // Non-fatal - if this call fails outright, ship the unverified
+          // batch rather than losing the whole generation over it.
+          try {
+            $parsed = $this->verifyAndFilter($parsed, $difficultyLabel, $grade, $apiKey);
+          } catch (\Throwable $e) {
+            Log::warning('Quiz verification pass failed, using unverified questions: ' . $e->getMessage());
+          }
+
+          return $parsed;
         } catch (\Throwable $e) {
           $lastError = $e;
           Log::warning('Quiz generation attempt failed: ' . $e->getMessage());
@@ -123,6 +139,136 @@ class QuizGenerationService
     }
 
     throw new \RuntimeException('Không thể tạo câu hỏi từ AI: ' . ($lastError?->getMessage() ?? 'unknown error'));
+  }
+
+  /**
+   * Independent fact-check pass over an already-parsed batch: asks the model
+   * to re-review each question with no memory of having written it, acting
+   * as a skeptical checker rather than the original author. Questions it
+   * can't confidently confirm are removed; questions where only the letter
+   * was wrong get their answer (and explanation) corrected in place.
+   *
+   * Non-fatal by design at the call site - this is a quality improvement on
+   * top of an already-valid batch, not a required step.
+   */
+  private function verifyAndFilter(array $parsed, string $difficultyLabel, string $grade, string $apiKey): array
+  {
+    $questions = $parsed['questions'];
+    if (empty($questions)) {
+      return $parsed;
+    }
+
+    $prompt = $this->buildVerificationPrompt($questions, $difficultyLabel, $grade, $parsed['topic']);
+
+    $response = Http::withToken($apiKey)
+      ->timeout(60)
+      ->post(self::API_URL, [
+        'model' => self::MODEL,
+        'messages' => [
+          ['role' => 'user', 'content' => $prompt],
+        ],
+        'temperature' => 0,
+        'response_format' => ['type' => 'json_object'],
+      ]);
+
+    if (!$response->successful()) {
+      throw new \RuntimeException('Groq verification API returned HTTP ' . $response->status());
+    }
+
+    $content = $response->json('choices.0.message.content');
+    if (!$content) {
+      throw new \RuntimeException('Groq verification API response had no message content.');
+    }
+
+    $cleaned = trim($content);
+    $cleaned = preg_replace('/^```(?:json)?\s*/i', '', $cleaned);
+    $cleaned = preg_replace('/```\s*$/', '', $cleaned);
+    $data = json_decode($cleaned, true);
+
+    if (!is_array($data) || !isset($data['results']) || !is_array($data['results'])) {
+      throw new \RuntimeException('Verification response was not valid JSON.');
+    }
+
+    $verdicts = [];
+    foreach ($data['results'] as $r) {
+      if (is_array($r) && isset($r['id'])) {
+        $verdicts[(int) $r['id']] = $r;
+      }
+    }
+
+    $filtered = [];
+    foreach ($questions as $q) {
+      $verdict = $verdicts[$q['id']] ?? null;
+      // No verdict returned for this id (model dropped it from the response)
+      // - treat as unconfirmed and drop it, same as an explicit "remove".
+      $status = $verdict['status'] ?? 'remove';
+
+      if ($status === 'remove') {
+        continue;
+      }
+
+      if ($status === 'fix' && in_array($verdict['answer'] ?? null, ['A', 'B', 'C', 'D'], true)) {
+        $q['answer'] = $verdict['answer'];
+        if (!empty($verdict['explanation']) && is_string($verdict['explanation'])) {
+          $q['explanation'] = $verdict['explanation'];
+        }
+      }
+
+      $filtered[] = $q;
+    }
+
+    // Renumber sequentially - ids must stay contiguous from 1 for the
+    // caller/DB the same way parseAndValidate originally produced them.
+    $filtered = array_values($filtered);
+    foreach ($filtered as $index => &$q) {
+      $q['id'] = $index + 1;
+    }
+    unset($q);
+
+    return ['topic' => $parsed['topic'], 'questions' => $filtered];
+  }
+
+  private function buildVerificationPrompt(array $questions, string $difficultyLabel, string $grade, string $topic): string
+  {
+    $questionsJson = json_encode(array_map(function ($q) {
+      return [
+        'id' => $q['id'],
+        'question' => $q['question'],
+        'options' => $q['options'],
+        'answer' => $q['answer'],
+      ];
+    }, $questions), JSON_UNESCAPED_UNICODE);
+
+    return <<<PROMPT
+Bạn là một chuyên gia thẩm định đề thi trắc nghiệm nghiêm khắc, ĐỘC LẬP với người đã ra đề dưới đây. Nhiệm vụ của bạn là kiểm tra lại TỪNG CÂU HỎI một cách hoài nghi, không mặc định tin rằng đáp án đã cho là đúng - hãy tự suy luận lại từ đầu bằng kiến thức chuẩn xác của bạn.
+
+Bối cảnh: đây là đề trắc nghiệm chủ đề "{$topic}", dành cho học sinh lớp {$grade}, mức độ {$difficultyLabel}.
+
+Danh sách câu hỏi cần thẩm định (JSON):
+{$questionsJson}
+
+Với MỖI câu hỏi (theo "id"), hãy tự kiểm tra:
+1. Đáp án ghi trong "answer" có thực sự chính xác theo kiến thức chuẩn không?
+2. Trong 4 phương án, có đúng DUY NHẤT MỘT phương án đúng không (không có 2 phương án cùng đúng, không có trường hợp không phương án nào đúng)?
+3. Câu hỏi có rõ ràng, không mơ hồ, không phụ thuộc cách diễn giải cá nhân không?
+4. Nội dung có phải kiến thức bạn CHẮC CHẮN 100% xác nhận được là đúng không (không phải điều bạn cũng không chắc)?
+
+Trả về JSON DUY NHẤT theo cấu trúc:
+{
+  "results": [
+    { "id": 1, "status": "valid" },
+    { "id": 2, "status": "fix", "answer": "C", "explanation": "giải thích ngắn gọn bằng tiếng Việt cho đáp án đúng thực sự" },
+    { "id": 3, "status": "remove" }
+  ]
+}
+
+Quy tắc chọn "status":
+- "valid": câu hỏi đúng, đáp án đã cho chính xác, giữ nguyên.
+- "fix": câu hỏi và 4 phương án đều ổn, nhưng chữ cái đáp án đã cho SAI - cung cấp "answer" đúng (A/B/C/D) và "explanation" mới.
+- "remove": câu hỏi có vấn đề không thể sửa chỉ bằng cách đổi đáp án (sai kiến thức trong chính nội dung câu hỏi/phương án, mơ hồ, nhiều hơn 1 đáp án đúng, không có đáp án nào đúng, không chắc chắn về tính chính xác, không đúng chủ đề/lớp/mức độ). Khi không chắc chắn 100%, PHẢI chọn "remove", không được giữ lại hay đoán.
+
+PHẢI trả về đúng một phần tử "results" cho MỖI id trong danh sách trên, không được bỏ sót id nào. Chỉ trả về JSON thuần túy, không markdown, không lời giải thích ngoài JSON.
+PROMPT;
   }
 
   private function buildPrompt(int $count, string $difficultyLabel, ?string $topic, string $grade, bool $isCustomTopic = false): string
