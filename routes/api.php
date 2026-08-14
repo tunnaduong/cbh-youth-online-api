@@ -9,6 +9,7 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\CustomQuizController;
 use App\Http\Controllers\QuizController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NotificationSettingsController;
@@ -234,6 +235,7 @@ Route::prefix('v1.0')->group(function () {
 
     // Quiz (AI-generated question sets)
     Route::post('/quiz/start', [QuizController::class, 'start']);
+    Route::post('/quiz/custom', [CustomQuizController::class, 'store']);
     Route::post('/quiz/{quizSetId}/join', [QuizController::class, 'join']);
     Route::post('/quiz/{quizSetId}/answer', [QuizController::class, 'answer']);
     Route::post('/quiz/{quizSetId}/submit', [QuizController::class, 'submit']);

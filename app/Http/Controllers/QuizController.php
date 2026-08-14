@@ -199,10 +199,27 @@ class QuizController extends Controller
   public function preview($quizSetId)
   {
     $quizSet = QuizSet::findOrFail($quizSetId);
-    $firstPlay = QuizSetPlay::where('quiz_set_id', $quizSetId)
-      ->with('user.profile')
-      ->oldest()
-      ->first();
+
+    // A custom quiz's real "shared by" is always its creator, whether or
+    // not they've actually played it themselves yet - unlike an
+    // AI-generated set, where "shared by" is whoever happened to start it
+    // first (there is no creator concept there).
+    if ($quizSet->is_custom) {
+      $creator = $quizSet->creator()->with('profile')->first();
+      $sharedBy = $creator ? [
+        'username' => $creator->username,
+        'profile_name' => $creator->profile->profile_name ?? $creator->username,
+      ] : null;
+    } else {
+      $firstPlay = QuizSetPlay::where('quiz_set_id', $quizSetId)
+        ->with('user.profile')
+        ->oldest()
+        ->first();
+      $sharedBy = $firstPlay?->user ? [
+        'username' => $firstPlay->user->username,
+        'profile_name' => $firstPlay->user->profile->profile_name ?? $firstPlay->user->username,
+      ] : null;
+    }
 
     return response()->json([
       'quiz_set_id' => $quizSet->id,
@@ -210,10 +227,8 @@ class QuizController extends Controller
       'grade' => $quizSet->grade,
       'difficulty' => $quizSet->difficulty,
       'question_count' => $quizSet->question_count,
-      'shared_by' => $firstPlay?->user ? [
-        'username' => $firstPlay->user->username,
-        'profile_name' => $firstPlay->user->profile->profile_name ?? $firstPlay->user->username,
-      ] : null,
+      'is_custom' => $quizSet->is_custom,
+      'shared_by' => $sharedBy,
     ]);
   }
 
@@ -314,12 +329,16 @@ class QuizController extends Controller
       }
     }
 
+    $isCreatorPlayingOwnQuiz = $this->isCreatorPlayingOwnQuiz($quizSet, $user);
     $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
-    $points = $score * $pointsPerAnswer;
-    $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+    $points = $isCreatorPlayingOwnQuiz ? 0 : $score * $pointsPerAnswer;
 
     $play->update(['score' => $score, 'points' => $points, 'submitted_at' => now()]);
-    PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
+
+    if (!$isCreatorPlayingOwnQuiz) {
+      $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+      PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
+    }
 
     return response()->json([
       'score' => $score,
@@ -382,15 +401,19 @@ class QuizController extends Controller
           $score++;
         }
       }
+      $isCreatorPlayingOwnQuiz = $this->isCreatorPlayingOwnQuiz($quizSet, $user);
       $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
-      $points = $score * $pointsPerAnswer;
-      $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+      $points = $isCreatorPlayingOwnQuiz ? 0 : $score * $pointsPerAnswer;
 
       $play->score = $score;
       $play->points = $points;
       $play->submitted_at = now();
       $play->save();
-      PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
+
+      if (!$isCreatorPlayingOwnQuiz) {
+        $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+        PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
+      }
 
       $result['score'] = $score;
       $result['points'] = $points;
@@ -442,6 +465,17 @@ class QuizController extends Controller
       ->values();
 
     return response()->json(['leaderboard' => $leaderboard]);
+  }
+
+  /**
+   * A custom quiz's creator gets no points/XP for completing their own
+   * quiz - both the quiz-leaderboard-facing $play->points and the global
+   * PointsService currency - so they can't farm either pool by writing a
+   * quiz and immediately "winning" it themselves.
+   */
+  private function isCreatorPlayingOwnQuiz(QuizSet $quizSet, AuthAccount $user): bool
+  {
+    return $quizSet->is_custom && $quizSet->creator_id !== null && $quizSet->creator_id === $user->id;
   }
 
   private function buildResults($questionsById, $submittedById)
