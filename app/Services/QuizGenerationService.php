@@ -203,15 +203,24 @@ class QuizGenerationService
     foreach ($questions as $q) {
       $verdict = $verdicts[$q['id']] ?? null;
       // No verdict returned for this id (model dropped it from the response)
-      // - treat as unconfirmed and drop it, same as an explicit "remove".
-      $status = $verdict['status'] ?? 'remove';
+      // - treat as unconfirmed and drop it.
+      $correctOptions = is_array($verdict['correct_options'] ?? null)
+        ? array_values(array_intersect($verdict['correct_options'], ['A', 'B', 'C', 'D']))
+        : null;
 
-      if ($status === 'remove') {
+      // Anything other than exactly one independently-confirmed correct
+      // option means the question is ambiguous (0 or 2+) or the verifier
+      // response was malformed - drop it rather than guess.
+      if ($correctOptions === null || count($correctOptions) !== 1) {
         continue;
       }
 
-      if ($status === 'fix' && in_array($verdict['answer'] ?? null, ['A', 'B', 'C', 'D'], true)) {
-        $q['answer'] = $verdict['answer'];
+      $confirmedAnswer = $correctOptions[0];
+      if ($confirmedAnswer !== $q['answer']) {
+        // The independent re-solve landed on a different letter than the
+        // original generation - trust the blind verification over the
+        // original (which had no incentive to second-guess itself).
+        $q['answer'] = $confirmedAnswer;
         if (!empty($verdict['explanation']) && is_string($verdict['explanation'])) {
           $q['explanation'] = $verdict['explanation'];
         }
@@ -233,42 +242,44 @@ class QuizGenerationService
 
   private function buildVerificationPrompt(array $questions, string $difficultyLabel, string $grade, string $topic): string
   {
+    // Deliberately NOT including the original "answer" - showing a proposed
+    // answer while asking "is this right?" biases a model toward confirming
+    // it (anchoring/confirmation bias) instead of judging independently.
+    // Making it evaluate each of the 4 options on its own merits, blind to
+    // which one was claimed correct, is what actually catches a question
+    // with zero or two valid options instead of rubber-stamping it.
     $questionsJson = json_encode(array_map(function ($q) {
       return [
         'id' => $q['id'],
         'question' => $q['question'],
         'options' => $q['options'],
-        'answer' => $q['answer'],
       ];
     }, $questions), JSON_UNESCAPED_UNICODE);
 
     return <<<PROMPT
-Bạn là một chuyên gia thẩm định đề thi trắc nghiệm nghiêm khắc, ĐỘC LẬP với người đã ra đề dưới đây. Nhiệm vụ của bạn là kiểm tra lại TỪNG CÂU HỎI một cách hoài nghi, không mặc định tin rằng đáp án đã cho là đúng - hãy tự suy luận lại từ đầu bằng kiến thức chuẩn xác của bạn.
+Bạn là một chuyên gia thẩm định đề thi trắc nghiệm nghiêm khắc. Bạn KHÔNG được biết đáp án nào đã được đề xuất trước đó - hãy tự giải từng câu hỏi từ đầu bằng kiến thức chuẩn xác của chính bạn, hoàn toàn độc lập.
 
 Bối cảnh: đây là đề trắc nghiệm chủ đề "{$topic}", dành cho học sinh lớp {$grade}, mức độ {$difficultyLabel}.
 
-Danh sách câu hỏi cần thẩm định (JSON):
+Danh sách câu hỏi cần thẩm định (JSON, KHÔNG có đáp án):
 {$questionsJson}
 
-Với MỖI câu hỏi (theo "id"), hãy tự kiểm tra:
-1. Đáp án ghi trong "answer" có thực sự chính xác theo kiến thức chuẩn không?
-2. Trong 4 phương án, có đúng DUY NHẤT MỘT phương án đúng không (không có 2 phương án cùng đúng, không có trường hợp không phương án nào đúng)?
-3. Câu hỏi có rõ ràng, không mơ hồ, không phụ thuộc cách diễn giải cá nhân không?
-4. Nội dung có phải kiến thức bạn CHẮC CHẮN 100% xác nhận được là đúng không (không phải điều bạn cũng không chắc)?
+Với MỖI câu hỏi (theo "id"), hãy xét RIÊNG TỪNG phương án A, B, C, D một cách độc lập và xác định phương án đó ĐÚNG hay SAI theo kiến thức chuẩn - không xét theo kiểu "cái nào có vẻ đúng nhất trong 4 cái", mà phải tự hỏi với từng phương án: "phát biểu này có đúng, chính xác 100% không?".
 
 Trả về JSON DUY NHẤT theo cấu trúc:
 {
   "results": [
-    { "id": 1, "status": "valid" },
-    { "id": 2, "status": "fix", "answer": "C", "explanation": "giải thích ngắn gọn bằng tiếng Việt cho đáp án đúng thực sự" },
-    { "id": 3, "status": "remove" }
+    { "id": 1, "correct_options": ["B"], "explanation": "giải thích ngắn gọn bằng tiếng Việt tại sao B đúng và 3 phương án còn lại sai" },
+    { "id": 2, "correct_options": ["A", "C"] },
+    { "id": 3, "correct_options": [] }
   ]
 }
 
-Quy tắc chọn "status":
-- "valid": câu hỏi đúng, đáp án đã cho chính xác, giữ nguyên.
-- "fix": câu hỏi và 4 phương án đều ổn, nhưng chữ cái đáp án đã cho SAI - cung cấp "answer" đúng (A/B/C/D) và "explanation" mới.
-- "remove": câu hỏi có vấn đề không thể sửa chỉ bằng cách đổi đáp án (sai kiến thức trong chính nội dung câu hỏi/phương án, mơ hồ, nhiều hơn 1 đáp án đúng, không có đáp án nào đúng, không chắc chắn về tính chính xác, không đúng chủ đề/lớp/mức độ). Khi không chắc chắn 100%, PHẢI chọn "remove", không được giữ lại hay đoán.
+Quy tắc:
+- "correct_options": mảng liệt kê TẤT CẢ các chữ cái (trong A/B/C/D) mà bạn xác nhận là đúng theo kiến thức chuẩn, xét độc lập từng phương án. Một câu hỏi tốt phải có ĐÚNG MỘT phần tử trong mảng này.
+- Nếu mảng có 2 phương án trở lên: nghĩa là câu hỏi có nhiều hơn một đáp án đúng (lỗi ra đề) - vẫn liệt kê đầy đủ, đừng cố chọn một cái.
+- Nếu mảng rỗng: nghĩa là không phương án nào bạn xác nhận được là đúng (có thể do câu hỏi sai kiến thức, hoặc bạn không đủ chắc chắn về bất kỳ phương án nào) - liệt kê mảng rỗng, đừng đoán bừa một đáp án chỉ để có phương án.
+- Chỉ thêm "explanation" khi mảng "correct_options" có đúng 1 phần tử.
 
 PHẢI trả về đúng một phần tử "results" cho MỖI id trong danh sách trên, không được bỏ sót id nào. Chỉ trả về JSON thuần túy, không markdown, không lời giải thích ngoài JSON.
 PROMPT;
@@ -305,7 +316,7 @@ PROMPT;
     // option must still be fully, unambiguously correct. This is "make it
     // tricky", not "make the answer debatable".
     $distractorRule = match ($difficultyLabel) {
-      'khó' => "- Vì đây là câu hỏi mức độ KHÓ: 3 phương án nhiễu PHẢI thực sự \"gần đúng\" và dễ gây nhầm lẫn - ví dụ đại diện cho lỗi sai/ngộ nhận phổ biến của học sinh, số liệu/mốc thời gian/tên gần giống đáp án đúng, hoặc đúng trong một trường hợp khác dễ bị nhầm sang trường hợp này. Chúng phải khiến người không nắm chắc kiến thức dễ chọn nhầm. TUY NHIÊN, khi xét kỹ và đối chiếu chính xác với kiến thức chuẩn, PHẢI có DUY NHẤT MỘT phương án đúng hoàn toàn, còn 3 phương án kia phải sai dứt khoát, có căn cứ rõ ràng để loại trừ (không phải \"cũng tạm coi là đúng\" hay để ngỏ nhiều cách hiểu). Được phép đánh đố bằng logic, nhưng bản thân bạn (người ra đề) không được đoán mò - chỉ dùng những nhầm lẫn/kiến thức bạn chắc chắn xác định được là sai.",
+      'khó' => "- Vì đây là câu hỏi mức độ KHÓ: 3 phương án nhiễu nên là những lỗi sai/ngộ nhận phổ biến mà học sinh hay mắc, hoặc số liệu/tên/mốc thời gian NGHE quen thuộc, dễ khiến người không nắm chắc kiến thức chọn nhầm. NHƯNG mỗi phương án nhiễu vẫn PHẢI là một phát biểu SAI một cách khách quan, tuyệt đối - không được là một phát biểu cũng đúng trong một ngữ cảnh/khía cạnh khác rồi chỉ \"không đúng bằng\" phương án kia. Trước khi hoàn thiện câu hỏi, hãy tự hỏi riêng từng phương án nhiễu: \"Phát biểu này có SAI hoàn toàn không, hay thực ra nó cũng đúng theo một cách hiểu nào đó?\" - nếu câu trả lời là phương án đó cũng có thể đúng, PHẢI sửa lại hoặc thay phương án khác. Nếu không nghĩ ra được 3 phương án nhiễu vừa hợp lý vừa chắc chắn sai, hãy ưu tiên phương án nhiễu đơn giản nhưng chắc chắn sai, còn hơn tạo phương án nhiễu tinh vi nhưng có nguy cơ cũng đúng.",
       'trung bình' => "- 3 phương án nhiễu nên tương đối hợp lý, liên quan đến chủ đề (không phải phương án vô nghĩa dễ loại ngay), nhưng vẫn phải sai rõ ràng và chắc chắn khi đối chiếu kiến thức chuẩn - không tạo cảm giác \"có thể đúng\".",
       default => "- 3 phương án nhiễu nên liên quan đến chủ đề nhưng sai một cách rõ ràng, dễ phân biệt với đáp án đúng, phù hợp mức độ dễ.",
     };
