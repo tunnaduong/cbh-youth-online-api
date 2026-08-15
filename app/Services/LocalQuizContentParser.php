@@ -4,7 +4,7 @@ namespace App\Services;
 
 /**
  * Deterministic, non-AI first pass at parsing a creator's quiz content
- * (markdown with **bold**/<u>underline</u>/<mark>distinctly-colored
+ * (markdown with bold text, <u>underline</u>, <mark>distinctly-colored
  * text</mark> marking the correct option) into structured questions -
  * covers the common case of a cleanly-formatted document (numbered
  * questions, A/B/C/D-labeled options) without an AI round-trip.

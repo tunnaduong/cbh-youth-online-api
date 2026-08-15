@@ -10,8 +10,8 @@ use Smalot\PdfParser\Parser as PdfParser;
 
 /**
  * Extracts text content from a creator-uploaded .docx/.txt/.pdf into the
- * same "**bold**/<u>underline</u>/<mark>distinctly-colored text</mark> marks
- * the correct option" markdown convention used everywhere else in the
+ * same "bold text, <u>underline</u>, <mark>distinctly-colored text</mark>
+ * marks the correct option" markdown convention used everywhere else in the
  * custom-quiz flow (see LocalQuizContentParser and CustomQuizParsingService).
  *
  * .txt content is expected to already use that convention (the frontend's
