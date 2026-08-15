@@ -126,10 +126,23 @@ class LocalQuizContentParser
       return null;
     }
 
+    // A creator sometimes types all options on one physical line (e.g.
+    // pasted text, or a rich-text editor that collapses <br>s), so split
+    // any line containing 2+ "A./B./C./D." markers into one line per
+    // marker before the per-line pass below.
+    $expanded = [];
+    foreach ($lines as $line) {
+      foreach ($this->splitInlineOptions($line) as $part) {
+        $expanded[] = $part;
+      }
+    }
+    $lines = $expanded;
+
     $questionLines = [];
     $options = []; // ordered list of ['text' => ..., 'marked' => bool]
     $explanationLines = [];
     $mode = 'question';
+    $sawLabeledOption = false;
 
     foreach ($lines as $line) {
       if (preg_match(self::EXPLANATION_LABEL_PATTERN, $line)) {
@@ -145,6 +158,7 @@ class LocalQuizContentParser
 
       if (preg_match(self::OPTION_LINE_PATTERN, $line, $m)) {
         $mode = 'options';
+        $sawLabeledOption = true;
         $rawText = $m[2];
         $marked = (bool) preg_match(self::MARK_PATTERN, $rawText);
         $options[] = [
@@ -167,6 +181,30 @@ class LocalQuizContentParser
             'marked' => $marked,
           ];
         }
+      }
+    }
+
+    // Nothing looked like an explicit "A./B./C./D." label anywhere in the
+    // block - most often because a rich-text editor auto-converted the
+    // typed letters into a real HTML list and the literal prefixes never
+    // made it into the extracted text. Fall back to position: first line
+    // is the question, every line after it (up to the explanation label)
+    // is an option in the order it appears.
+    if (!$sawLabeledOption && count($lines) >= 3) {
+      $optionCandidates = array_slice($lines, 1, min(4, count($lines) - 1));
+      // Re-derive using original line order rather than what fell through
+      // the (unused-for-this-path) label loop above.
+      $questionLines = [$lines[0]];
+      $options = [];
+      foreach ($optionCandidates as $line) {
+        if (preg_match(self::EXPLANATION_LABEL_PATTERN, $line)) {
+          break;
+        }
+        $marked = (bool) preg_match(self::MARK_PATTERN, $line);
+        $options[] = [
+          'text' => trim($this->stripMarks($line)),
+          'marked' => $marked,
+        ];
       }
     }
 
@@ -215,5 +253,24 @@ class LocalQuizContentParser
     $text = preg_replace('/<mark>(.+?)<\/mark>/us', '$1', $text);
     $text = preg_replace('/__(.+?)__/us', '$1', $text);
     return $text;
+  }
+
+  /**
+   * Splits a single physical line into multiple lines when it contains 2+
+   * "A./B./C./D." markers run together (e.g. "A. foo B. bar C. baz D. qux"
+   * typed or pasted as one line). Lines with 0 or 1 marker are returned
+   * unchanged so normal single-option-per-line input isn't affected.
+   *
+   * @return string[]
+   */
+  private function splitInlineOptions(string $line): array
+  {
+    preg_match_all('/(?:^|\s)[\(\[]?[A-Da-d1-4][\.\):]\s/u', $line, $matches);
+    if (count($matches[0]) < 2) {
+      return [$line];
+    }
+
+    $parts = preg_split('/(?=(?:^|\s)[\(\[]?[A-Da-d1-4][\.\):]\s)/u', $line, -1, PREG_SPLIT_NO_EMPTY);
+    return array_values(array_filter(array_map('trim', $parts), fn($p) => $p !== ''));
   }
 }
