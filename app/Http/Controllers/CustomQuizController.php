@@ -95,8 +95,8 @@ class CustomQuizController extends Controller
   }
 
   /**
-   * Converts the rich-text editor's HTML into the same "**bold**/
-   * <u>underline</u>/<mark>distinctly-colored text</mark> marks the correct
+   * Converts the rich-text editor's HTML into the same "bold text,
+   * <u>underline</u>, <mark>distinctly-colored text</mark> marks the correct
    * option" convention used by QuizDocumentExtractionService/
    * LocalQuizContentParser/CustomQuizParsingService, so every source type
    * (typed, .docx, .txt, .pdf) funnels into identical downstream parsing.
