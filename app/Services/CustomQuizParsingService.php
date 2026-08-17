@@ -152,7 +152,7 @@ PROMPT;
         continue;
       }
 
-      $options = array_values(array_map('strval', $q['options']));
+      $options = array_values(array_map(fn($o) => QuizMarkupStripper::strip((string) $o), $q['options']));
       $answerIndex = array_search($q['answer'], ['A', 'B', 'C', 'D'], true);
       if ($answerIndex >= count($options)) {
         continue; // "answer" points past the (fewer than 4) options actually given
@@ -163,10 +163,15 @@ PROMPT;
 
       $questions[] = [
         'id' => count($questions) + 1,
-        'question' => (string) $q['question'],
+        // The prompt asks the model to already strip markup from its JSON
+        // output, but it isn't perfectly reliable about it (particularly
+        // for a marker left unbalanced by an upstream extraction quirk -
+        // see QuizMarkupStripper) - run the same safety net here too rather
+        // than trusting the model's own cleanup.
+        'question' => QuizMarkupStripper::strip((string) $q['question']),
         'options' => $options,
         'answer' => (string) $q['answer'],
-        'explanation' => isset($q['explanation']) ? (string) $q['explanation'] : '',
+        'explanation' => isset($q['explanation']) ? QuizMarkupStripper::strip((string) $q['explanation']) : '',
       ];
     }
 
