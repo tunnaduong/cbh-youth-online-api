@@ -27,7 +27,12 @@ class LocalQuizContentParser
   private const MARK_PATTERN = '/\*\*(.+?)\*\*|<u>(.+?)<\/u>|<mark>(.+?)<\/mark>|__(.+?)__/us';
 
   private const QUESTION_START_PATTERN = '/^\s*(?:câu|question|bài|q)\s*\.?\s*\d+\s*[\.:)]\s*/iu';
-  private const OPTION_LINE_PATTERN = '/^\s*[\(\[]?([A-Da-d1-4])[\.\):]\s*(.+)$/u';
+  // Group 1 captures any markdown emphasis markers (**, __, *, _) that open
+  // immediately before the label itself (e.g. "**C. text**") so they can be
+  // reattached to the option text rather than being silently dropped -
+  // otherwise the emphasis pair becomes unbalanced and MARK_PATTERN can no
+  // longer recognize/strip it.
+  private const OPTION_LINE_PATTERN = '/^\s*([\*_]{0,2})[\(\[]?([A-Da-d1-4])[\.\):]\s*(.+)$/u';
   private const EXPLANATION_LABEL_PATTERN = '/^\s*(?:giải thích|explanation|lý do|reason)\s*[:.]?\s*/iu';
 
   /**
@@ -159,7 +164,7 @@ class LocalQuizContentParser
       if (preg_match(self::OPTION_LINE_PATTERN, $line, $m)) {
         $mode = 'options';
         $sawLabeledOption = true;
-        $rawText = $m[2];
+        $rawText = $m[1] . $m[3];
         $marked = (bool) preg_match(self::MARK_PATTERN, $rawText);
         $options[] = [
           'text' => trim($this->stripMarks($rawText)),
@@ -190,7 +195,7 @@ class LocalQuizContentParser
         foreach ($parts as $part) {
           if (preg_match(self::OPTION_LINE_PATTERN, $part, $m)) {
             $sawLabeledOption = true;
-            $rawText = $m[2];
+            $rawText = $m[1] . $m[3];
             $marked = (bool) preg_match(self::MARK_PATTERN, $rawText);
             $options[] = [
               'text' => trim($this->stripMarks($rawText)),
@@ -282,12 +287,12 @@ class LocalQuizContentParser
    */
   private function splitInlineOptions(string $line): array
   {
-    preg_match_all('/(?:^|\s)[\(\[]?[A-Da-d1-4][\.\):]\s/u', $line, $matches);
+    preg_match_all('/(?:^|\s)[\*_]{0,2}[\(\[]?[A-Da-d1-4][\.\):]\s/u', $line, $matches);
     if (count($matches[0]) < 2) {
       return [$line];
     }
 
-    $parts = preg_split('/(?=(?:^|\s)[\(\[]?[A-Da-d1-4][\.\):]\s)/u', $line, -1, PREG_SPLIT_NO_EMPTY);
+    $parts = preg_split('/(?=(?:^|\s)[\*_]{0,2}[\(\[]?[A-Da-d1-4][\.\):]\s)/u', $line, -1, PREG_SPLIT_NO_EMPTY);
     return array_values(array_filter(array_map('trim', $parts), fn($p) => $p !== ''));
   }
 
@@ -303,7 +308,7 @@ class LocalQuizContentParser
    */
   private function splitStrayLine(string $line): array
   {
-    $parts = preg_split('/(?=(?:^|\s)[\(\[]?[A-Da-d1-4][\.\):]\s)/u', $line, -1, PREG_SPLIT_NO_EMPTY);
+    $parts = preg_split('/(?=(?:^|\s)[\*_]{0,2}[\(\[]?[A-Da-d1-4][\.\):]\s)/u', $line, -1, PREG_SPLIT_NO_EMPTY);
     return array_values(array_filter(array_map('trim', $parts), fn($p) => $p !== ''));
   }
 }
