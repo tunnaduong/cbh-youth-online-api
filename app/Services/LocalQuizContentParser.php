@@ -173,13 +173,30 @@ class LocalQuizContentParser
       } else {
         // Stray line after options started but before an explanation label -
         // most likely a continuation of the last option (wrapped line).
-        if (!empty($options)) {
+        // But the line may also have a new option's label buried mid-line
+        // (e.g. a previous option's trailing sentence got glued to the next
+        // "C. ..." option on the same physical line) - split that off
+        // rather than swallowing the new option into the previous one.
+        $parts = $this->splitStrayLine($line);
+        $continuation = array_shift($parts);
+        if ($continuation !== null && $continuation !== '' && !empty($options)) {
           $last = array_pop($options);
-          $marked = $last['marked'] || (bool) preg_match(self::MARK_PATTERN, $line);
+          $marked = $last['marked'] || (bool) preg_match(self::MARK_PATTERN, $continuation);
           $options[] = [
-            'text' => trim($last['text'] . ' ' . $this->stripMarks($line)),
+            'text' => trim($last['text'] . ' ' . $this->stripMarks($continuation)),
             'marked' => $marked,
           ];
+        }
+        foreach ($parts as $part) {
+          if (preg_match(self::OPTION_LINE_PATTERN, $part, $m)) {
+            $sawLabeledOption = true;
+            $rawText = $m[2];
+            $marked = (bool) preg_match(self::MARK_PATTERN, $rawText);
+            $options[] = [
+              'text' => trim($this->stripMarks($rawText)),
+              'marked' => $marked,
+            ];
+          }
         }
       }
     }
@@ -270,6 +287,22 @@ class LocalQuizContentParser
       return [$line];
     }
 
+    $parts = preg_split('/(?=(?:^|\s)[\(\[]?[A-Da-d1-4][\.\):]\s)/u', $line, -1, PREG_SPLIT_NO_EMPTY);
+    return array_values(array_filter(array_map('trim', $parts), fn($p) => $p !== ''));
+  }
+
+  /**
+   * Splits a stray (unlabeled-at-start) line at any mid-line "A./B./C./D."
+   * marker. The first returned part is the leading text (a continuation of
+   * the previous option); any further parts each start with a label and are
+   * new options. Called only once OPTION_LINE_PATTERN has already failed to
+   * match the whole line, so the first part never itself starts with a
+   * label.
+   *
+   * @return string[]
+   */
+  private function splitStrayLine(string $line): array
+  {
     $parts = preg_split('/(?=(?:^|\s)[\(\[]?[A-Da-d1-4][\.\):]\s)/u', $line, -1, PREG_SPLIT_NO_EMPTY);
     return array_values(array_filter(array_map('trim', $parts), fn($p) => $p !== ''));
   }
