@@ -28,10 +28,11 @@ class CustomQuizController extends Controller
       'title' => 'nullable|string|max:150',
       'difficulty' => 'nullable|string|in:' . implode(',', self::DIFFICULTIES),
       'content_html' => 'nullable|string|max:100000',
+      'content_text' => 'nullable|string|max:100000',
       'file' => 'nullable|file|mimes:docx,txt,pdf|max:10240', // 10MB
     ]);
 
-    if (!$request->filled('content_html') && !$request->hasFile('file')) {
+    if (!$request->filled('content_html') && !$request->filled('content_text') && !$request->hasFile('file')) {
       return response()->json([
         'message' => 'Cần nhập nội dung hoặc tải lên file (.docx, .txt, .pdf).',
       ], 422);
@@ -43,6 +44,11 @@ class CustomQuizController extends Controller
     try {
       if ($request->hasFile('file')) {
         $markdown = app(QuizDocumentExtractionService::class)->extract($request->file('file'));
+      } elseif ($request->filled('content_text')) {
+        // Already in the "**bold**"/<u>/<mark> marker convention -
+        // sent directly by clients (e.g. the mobile app's live-markdown
+        // editor) that compose in this markup natively instead of HTML.
+        $markdown = $request->input('content_text');
       } else {
         $markdown = $this->htmlToMarkup($request->input('content_html'));
       }
