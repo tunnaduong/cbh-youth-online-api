@@ -278,6 +278,12 @@ class LocalQuizContentParser
     $text = preg_replace('/<u>(.+?)<\/u>/us', '$1', $text);
     $text = preg_replace('/<mark>(.+?)<\/mark>/us', '$1', $text);
     $text = preg_replace('/__(.+?)__/us', '$1', $text);
+    // Safety net: a marker pair split across two options by an upstream
+    // extraction quirk (e.g. an underline spanning a paragraph/line break)
+    // leaves one half unmatched here - strip any leftover lone open/close
+    // tag rather than showing it as literal text to quiz-takers.
+    $text = preg_replace('/<\/?u>|<\/?mark>/u', '', $text);
+    $text = preg_replace('/\*\*|__/u', '', $text);
     return $text;
   }
 

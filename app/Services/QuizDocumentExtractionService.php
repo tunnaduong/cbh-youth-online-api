@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpWord\Element\Text;
+use PhpOffice\PhpWord\Element\TextBreak;
 use PhpOffice\PhpWord\Element\TextRun;
 use PhpOffice\PhpWord\IOFactory;
 use Smalot\PdfParser\Parser as PdfParser;
@@ -76,6 +77,14 @@ class QuizDocumentExtractionService
 
   private function elementToMarkdown($element): ?string
   {
+    // A soft line break (Shift+Enter) inside a single paragraph - if left
+    // unhandled it silently disappears (see the catch-all below), which
+    // glues two options that were only visually separated by this break
+    // into one run-on line and corrupts label/mark parsing downstream.
+    if ($element instanceof TextBreak) {
+      return "\n";
+    }
+
     if ($element instanceof TextRun) {
       $parts = [];
       foreach ($element->getElements() as $child) {
