@@ -262,6 +262,11 @@ class QuizController extends Controller
         'difficulty' => $quizSet->difficulty,
         'question_count' => $quizSet->question_count,
         'status' => 'completed',
+        'questions' => $questionsById->map(fn($q) => [
+          'id' => $q['id'],
+          'question' => $q['question'],
+          'options' => $q['options'],
+        ])->values(),
         'result' => [
           'score' => $play->score,
           'total' => $quizSet->question_count,

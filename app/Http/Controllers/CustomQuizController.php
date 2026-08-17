@@ -163,20 +163,31 @@ class CustomQuizController extends Controller
   }
 
   /**
-   * Wraps $inner in an open/close marker, but keeps any trailing newline(s)
-   * outside the marker instead of inside it. Some rich-text editors nest a
-   * block element (p/div/li) *inside* an inline bold/underline/color node
-   * instead of the reverse - when that happens $inner already ends with the
-   * "\n" the block tag appended, and wrapping it verbatim would produce
-   * "**text\n**" (closing marker glued to the start of the next line)
-   * instead of the intended "**text**\n".
+   * Wraps $inner in an open/close marker, but keeps every newline - leading,
+   * trailing, or in between - outside the marker instead of splitting it in
+   * half. Some rich-text editors nest a block element (p/div/li) *inside* an
+   * inline bold/underline/color node instead of the reverse, and when that
+   * block element spans *multiple* paragraphs/lines, $inner ends up with a
+   * "\n" in the middle (not just at the end). Wrapping the whole thing
+   * verbatim would produce "<u>line one\nline two</u>" - a single marker
+   * pair straddling two lines - which then gets torn apart into "<u>" stuck
+   * on the end of one option and "</u>" stuck on the start of the next once
+   * the markdown is split into lines, leaving both unmatched and visible as
+   * literal text. Wrapping each newline-delimited segment separately keeps
+   * every marker pair on its own line instead.
    */
   private function wrapMarker(string $inner, string $open, string $close): string
   {
-    if (preg_match('/^(.*?)(\n*)$/us', $inner, $m)) {
-      return $open . $m[1] . $close . $m[2];
+    $segments = preg_split('/(\n+)/u', $inner, -1, PREG_SPLIT_DELIM_CAPTURE);
+    $result = '';
+    foreach ($segments as $segment) {
+      // Odd-indexed pieces from PREG_SPLIT_DELIM_CAPTURE are the "\n+"
+      // delimiters themselves - pass them through untouched.
+      $result .= ($segment === '' || preg_match('/^\n+$/u', $segment))
+        ? $segment
+        : $open . $segment . $close;
     }
-    return $open . $inner . $close;
+    return $result;
   }
 
   private function hasMarkedColor(\DOMElement $node): bool
