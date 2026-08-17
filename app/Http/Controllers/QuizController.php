@@ -233,6 +233,51 @@ class QuizController extends Controller
   }
 
   /**
+   * Replay a quiz set (shared or own custom set) the user has already
+   * played before - any number of times. Resets this user's existing play
+   * back to "in progress" so they can answer fresh, but deliberately leaves
+   * points_awarded_at untouched: whether this user has ever earned points
+   * for this exact quiz set is tracked independently of the current
+   * attempt, so a replay's answer()/submit() never pays out a second time
+   * (see the points_awarded_at check there). Requires an existing play
+   * (i.e. join()/start() already ran once) - there's nothing to restart
+   * otherwise.
+   */
+  public function restart($quizSetId)
+  {
+    $user = Auth::user();
+    $quizSet = QuizSet::findOrFail($quizSetId);
+
+    $play = QuizSetPlay::where('quiz_set_id', $quizSet->id)
+      ->where('user_id', $user->id)
+      ->firstOrFail();
+
+    $play->update([
+      'answers' => null,
+      'score' => null,
+      'points' => 0,
+      'submitted_at' => null,
+    ]);
+
+    $questionsById = collect($quizSet->questions)->keyBy('id');
+
+    return response()->json([
+      'quiz_set_id' => $quizSet->id,
+      'topic' => $quizSet->topic,
+      'grade' => $quizSet->grade,
+      'difficulty' => $quizSet->difficulty,
+      'question_count' => $quizSet->question_count,
+      'status' => 'in_progress',
+      'answered' => [],
+      'questions' => $questionsById->map(fn($q) => [
+        'id' => $q['id'],
+        'question' => $q['question'],
+        'options' => $q['options'],
+      ])->values(),
+    ]);
+  }
+
+  /**
    * Join a quiz set someone else already started, so both people answer the
    * exact same questions - the whole point of sharing a quiz. Reuses the
    * existing QuizSetPlay unique(quiz_set_id, user_id) constraint: joining
@@ -335,12 +380,22 @@ class QuizController extends Controller
     }
 
     $isCreatorPlayingOwnQuiz = $this->isCreatorPlayingOwnQuiz($quizSet, $user);
+    // A restart() resets score/submitted_at for a fresh attempt but leaves
+    // points_awarded_at alone - so a replay (this user's 2nd+ completion of
+    // this exact quiz set) is worth 0 points here even though it's still
+    // scored/shown normally, same as a creator playing their own quiz.
+    $alreadyAwarded = $play->points_awarded_at !== null;
     $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
-    $points = $isCreatorPlayingOwnQuiz ? 0 : $score * $pointsPerAnswer;
+    $points = ($isCreatorPlayingOwnQuiz || $alreadyAwarded) ? 0 : $score * $pointsPerAnswer;
 
-    $play->update(['score' => $score, 'points' => $points, 'submitted_at' => now()]);
+    $play->update([
+      'score' => $score,
+      'points' => $points,
+      'submitted_at' => now(),
+      'points_awarded_at' => $alreadyAwarded ? $play->points_awarded_at : ($isCreatorPlayingOwnQuiz ? null : now()),
+    ]);
 
-    if (!$isCreatorPlayingOwnQuiz) {
+    if (!$isCreatorPlayingOwnQuiz && !$alreadyAwarded) {
       $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
       PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
     }
@@ -407,15 +462,21 @@ class QuizController extends Controller
         }
       }
       $isCreatorPlayingOwnQuiz = $this->isCreatorPlayingOwnQuiz($quizSet, $user);
+      // See the same check in submit() - a restart() attempt (this user's
+      // 2nd+ completion of this exact quiz set) never earns points again.
+      $alreadyAwarded = $play->points_awarded_at !== null;
       $pointsPerAnswer = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
-      $points = $isCreatorPlayingOwnQuiz ? 0 : $score * $pointsPerAnswer;
+      $points = ($isCreatorPlayingOwnQuiz || $alreadyAwarded) ? 0 : $score * $pointsPerAnswer;
 
       $play->score = $score;
       $play->points = $points;
       $play->submitted_at = now();
+      if (!$alreadyAwarded && !$isCreatorPlayingOwnQuiz) {
+        $play->points_awarded_at = now();
+      }
       $play->save();
 
-      if (!$isCreatorPlayingOwnQuiz) {
+      if (!$isCreatorPlayingOwnQuiz && !$alreadyAwarded) {
         $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
         PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
       }

@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *   as the user answers each question, see QuizController::answer()
  * @property int $points
  * @property \Illuminate\Support\Carbon|null $submitted_at
+ * @property \Illuminate\Support\Carbon|null $points_awarded_at  Set once, the
+ *   first time this user earns points for this quiz set, and never cleared
+ *   again - even across a restart() - so a replay never pays out twice.
  */
 class QuizSetPlay extends Model
 {
@@ -30,11 +33,13 @@ class QuizSetPlay extends Model
     'answers',
     'points',
     'submitted_at',
+    'points_awarded_at',
   ];
 
   protected $casts = [
     'answers' => 'array',
     'submitted_at' => 'datetime',
+    'points_awarded_at' => 'datetime',
   ];
 
   public function quizSet(): BelongsTo

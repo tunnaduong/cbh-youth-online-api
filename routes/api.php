@@ -237,6 +237,7 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/quiz/start', [QuizController::class, 'start']);
     Route::post('/quiz/custom', [CustomQuizController::class, 'store']);
     Route::post('/quiz/{quizSetId}/join', [QuizController::class, 'join']);
+    Route::post('/quiz/{quizSetId}/restart', [QuizController::class, 'restart']);
     Route::post('/quiz/{quizSetId}/answer', [QuizController::class, 'answer']);
     Route::post('/quiz/{quizSetId}/submit', [QuizController::class, 'submit']);
 
