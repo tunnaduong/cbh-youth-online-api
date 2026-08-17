@@ -144,16 +144,33 @@ class CustomQuizController extends Controller
     // `color` attribute (<font color="...">) or an inline
     // `style="color: ..."`.
     if ($node instanceof \DOMElement && $this->hasMarkedColor($node)) {
-      $inner = "<mark>{$inner}</mark>";
+      $inner = $this->wrapMarker($inner, '<mark>', '</mark>');
     }
 
     return match ($tag) {
-      'b', 'strong' => "**{$inner}**",
-      'u' => "<u>{$inner}</u>",
+      'b', 'strong' => $this->wrapMarker($inner, '**', '**'),
+      'u' => $this->wrapMarker($inner, '<u>', '</u>'),
       'br' => "\n",
       'p', 'div', 'li' => $inner . "\n",
       default => $inner,
     };
+  }
+
+  /**
+   * Wraps $inner in an open/close marker, but keeps any trailing newline(s)
+   * outside the marker instead of inside it. Some rich-text editors nest a
+   * block element (p/div/li) *inside* an inline bold/underline/color node
+   * instead of the reverse - when that happens $inner already ends with the
+   * "\n" the block tag appended, and wrapping it verbatim would produce
+   * "**text\n**" (closing marker glued to the start of the next line)
+   * instead of the intended "**text**\n".
+   */
+  private function wrapMarker(string $inner, string $open, string $close): string
+  {
+    if (preg_match('/^(.*?)(\n*)$/us', $inner, $m)) {
+      return $open . $m[1] . $close . $m[2];
+    }
+    return $open . $inner . $close;
   }
 
   private function hasMarkedColor(\DOMElement $node): bool
