@@ -16,6 +16,28 @@ class UniversityController extends Controller
         'Referer'         => 'https://hoctap.coccoc.com/tim-truong-dh-cd',
     ];
 
+    // Clean a single university object: strip HTML from address, deduplicate URLs
+    private function normalizeUniversity(array $uni): array
+    {
+        // Strip HTML from address: <br> → newline, remove all other tags
+        if (!empty($uni['address'])) {
+            $uni['address'] = preg_replace('/<br\s*\/?>/i', "\n", $uni['address']);
+            $uni['address'] = trim(strip_tags($uni['address']));
+        }
+
+        // Deduplicate URLs
+        if (!empty($uni['url'])) {
+            $urls = preg_split('/\s+/', trim($uni['url']));
+            $urls = array_values(array_unique(array_filter($urls, fn($u) => str_starts_with($u, 'http'))));
+            $uni['urls'] = $urls;
+            unset($uni['url']);
+        } else {
+            $uni['urls'] = [];
+        }
+
+        return $uni;
+    }
+
     // GET /v1.0/universities/options
     public function options()
     {
@@ -23,7 +45,16 @@ class UniversityController extends Controller
             $res = Http::withHeaders(self::HEADERS)
                 ->timeout(15)
                 ->get(self::BASE, ['offset' => 'all']);
-            return $res->json();
+            $raw = $res->json();
+            $uh  = $raw['verticals_university_hub']['university_hub'] ?? null;
+
+            return [
+                'city'               => $uh['city'] ?? [],
+                'major'              => $uh['major'] ?? [],
+                'type'               => $uh['type'] ?? [],
+                'subjectComposition' => $uh['subjectComposition'] ?? [],
+                'generalInfo'        => $uh['generalInfo'] ?? [],
+            ];
         });
 
         return response()->json($data);
@@ -35,7 +66,6 @@ class UniversityController extends Controller
         $q            = $request->query('q', '');
         $autocomplete = $request->query('autocomplete');
 
-        $url = self::BASE . '/search';
         $params = ['q' => $q];
         if ($autocomplete) {
             $params['autocomplete'] = '1';
@@ -43,9 +73,18 @@ class UniversityController extends Controller
 
         $res = Http::withHeaders(self::HEADERS)
             ->timeout(15)
-            ->get($url, $params);
+            ->get(self::BASE . '/search', $params);
 
-        return response()->json($res->json());
+        $raw = $res->json();
+        $list = $raw['verticals_university_hub']['university_hub'] ?? [];
+
+        if (!is_array($list)) {
+            $list = [];
+        }
+
+        $list = array_map(fn($u) => $this->normalizeUniversity($u), $list);
+
+        return response()->json($list);
     }
 
     // GET /v1.0/universities?offset=1&city=0&major=0&...
@@ -57,6 +96,18 @@ class UniversityController extends Controller
             ->timeout(15)
             ->get(self::BASE, $params);
 
-        return response()->json($res->json());
+        $raw = $res->json();
+        $uh  = $raw['verticals_university_hub']['university_hub'] ?? [];
+
+        $universities = array_map(
+            fn($u) => $this->normalizeUniversity($u),
+            $uh['universityResponses'] ?? []
+        );
+
+        return response()->json([
+            'universities' => $universities,
+            'currentPage'  => $uh['currentPage'] ?? 1,
+            'maxPage'      => $uh['maxPage'] ?? 1,
+        ]);
     }
 }
