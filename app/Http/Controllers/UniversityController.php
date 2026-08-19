@@ -11,7 +11,7 @@ class UniversityController extends Controller
     const BASE = 'https://hoctap.coccoc.com/composer/university_hub';
 
     const HEADERS = [
-        'User-Agent'      => 'Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro XL Build/AP4A.241205.013) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/174.0.0.0 Mobile Safari/537.36',
+        'User-Agent'      => 'Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro XL Build/AP4A.241205.013) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/174.10.5.6 Mobile Safari/537.36',
         'Accept-Language' => 'vi-VN,vi;q=0.9,en;q=0.8',
         'Referer'         => 'https://hoctap.coccoc.com/tim-truong-dh-cd',
     ];
