@@ -42,9 +42,9 @@ class UniversityController extends Controller
     public function options()
     {
         // Filter choices (city/major/type/subjectComposition) barely ever
-        // change, so they're cached. generalInfo ("Quy chế tuyển sinh") is
-        // fetched fresh on every request so newly published notices show up
-        // immediately instead of waiting out the cache TTL.
+        // change, so they get a long cache. generalInfo ("Quy chế tuyển
+        // sinh") is cached too but with a short TTL so it stays reasonably
+        // live without hitting Cốc Cốc on every single request.
         $filters = Cache::remember('university_filters', 86400, function () {
             $res = Http::withHeaders(self::HEADERS)
                 ->timeout(15)
@@ -59,14 +59,18 @@ class UniversityController extends Controller
             ];
         });
 
-        $res = Http::withHeaders(self::HEADERS)
-            ->timeout(15)
-            ->get(self::BASE, ['offset' => 'all']);
-        $uh = $res->json()['verticals_university_hub']['university_hub'] ?? null;
+        $generalInfo = Cache::remember('university_general_info', 900, function () {
+            $res = Http::withHeaders(self::HEADERS)
+                ->timeout(15)
+                ->get(self::BASE, ['offset' => 'all']);
+            $uh = $res->json()['verticals_university_hub']['university_hub'] ?? null;
+
+            return $uh['generalInfo'] ?? [];
+        });
 
         return response()->json([
             ...$filters,
-            'generalInfo' => $uh['generalInfo'] ?? [],
+            'generalInfo' => $generalInfo,
         ]);
     }
 
