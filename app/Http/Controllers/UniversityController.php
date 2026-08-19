@@ -41,7 +41,7 @@ class UniversityController extends Controller
     // GET /v1.0/universities/options
     public function options()
     {
-        $data = Cache::remember('university_options', 86400, function () {
+        $data = Cache::remember('university_options_v2', 86400, function () {
             $res = Http::withHeaders(self::HEADERS)
                 ->timeout(15)
                 ->get(self::BASE, ['offset' => 'all']);
@@ -82,7 +82,12 @@ class UniversityController extends Controller
             $list = [];
         }
 
-        $list = array_map(fn($u) => $this->normalizeUniversity($u), $list);
+        // autocomplete=1 returns an array of plain name strings; a normal
+        // search returns full university objects — normalize only the latter.
+        $list = array_map(
+            fn($u) => is_array($u) ? $this->normalizeUniversity($u) : ['name' => $u],
+            $list
+        );
 
         return response()->json($list);
     }
