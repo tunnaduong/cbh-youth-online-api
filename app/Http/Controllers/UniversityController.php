@@ -41,23 +41,33 @@ class UniversityController extends Controller
     // GET /v1.0/universities/options
     public function options()
     {
-        $data = Cache::remember('university_options_v2', 86400, function () {
+        // Filter choices (city/major/type/subjectComposition) barely ever
+        // change, so they're cached. generalInfo ("Quy chế tuyển sinh") is
+        // fetched fresh on every request so newly published notices show up
+        // immediately instead of waiting out the cache TTL.
+        $filters = Cache::remember('university_filters', 86400, function () {
             $res = Http::withHeaders(self::HEADERS)
                 ->timeout(15)
                 ->get(self::BASE, ['offset' => 'all']);
-            $raw = $res->json();
-            $uh  = $raw['verticals_university_hub']['university_hub'] ?? null;
+            $uh = $res->json()['verticals_university_hub']['university_hub'] ?? null;
 
             return [
                 'city'               => $uh['city'] ?? [],
                 'major'              => $uh['major'] ?? [],
                 'type'               => $uh['type'] ?? [],
                 'subjectComposition' => $uh['subjectComposition'] ?? [],
-                'generalInfo'        => $uh['generalInfo'] ?? [],
             ];
         });
 
-        return response()->json($data);
+        $res = Http::withHeaders(self::HEADERS)
+            ->timeout(15)
+            ->get(self::BASE, ['offset' => 'all']);
+        $uh = $res->json()['verticals_university_hub']['university_hub'] ?? null;
+
+        return response()->json([
+            ...$filters,
+            'generalInfo' => $uh['generalInfo'] ?? [],
+        ]);
     }
 
     // GET /v1.0/universities/search?q=...&autocomplete=1
