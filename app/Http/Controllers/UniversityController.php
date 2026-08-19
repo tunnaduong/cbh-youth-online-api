@@ -41,10 +41,10 @@ class UniversityController extends Controller
     // GET /v1.0/universities/options
     public function options()
     {
-        // Filter choices (city/major/type/subjectComposition) barely ever
-        // change, so they get a long cache. generalInfo ("Quy chế tuyển
-        // sinh") is cached too but with a short TTL so it stays reasonably
-        // live without hitting Cốc Cốc on every single request.
+        // Filter choices (city/major/type/subjectComposition) and
+        // generalInfo ("Quy chế tuyển sinh") are both cached for 1 day —
+        // long enough to avoid hammering Cốc Cốc, short enough to pick up
+        // new notices without a redeploy.
         $filters = Cache::remember('university_filters', 86400, function () {
             $res = Http::withHeaders(self::HEADERS)
                 ->timeout(15)
@@ -59,7 +59,7 @@ class UniversityController extends Controller
             ];
         });
 
-        $generalInfo = Cache::remember('university_general_info', 900, function () {
+        $generalInfo = Cache::remember('university_general_info', 86400, function () {
             $res = Http::withHeaders(self::HEADERS)
                 ->timeout(15)
                 ->get(self::BASE, ['offset' => 'all']);
