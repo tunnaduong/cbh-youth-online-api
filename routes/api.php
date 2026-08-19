@@ -31,6 +31,7 @@ use App\Http\Controllers\UserPointDeductionController;
 use App\Http\Controllers\UserReportController;
 use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\WalletController;
+use App\Http\Controllers\UniversityController;
 use App\Http\Controllers\YouthNewsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -84,6 +85,11 @@ Route::prefix('v1.0')->group(function () {
 
   // Mention suggestions (accessible with optional auth)
   Route::get('/mention-suggestions', [TopicsController::class, 'mentionSuggestions']);
+
+  // Universities (proxy to Cốc Cốc hoctap API)
+  Route::get('/universities/options', [UniversityController::class, 'options']);
+  Route::get('/universities/search', [UniversityController::class, 'search']);
+  Route::get('/universities', [UniversityController::class, 'index']);
 
   // Games (browsing is public; starting/tracking a session requires auth, see below)
   Route::get('/games', [GameController::class, 'index']);
