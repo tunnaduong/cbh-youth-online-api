@@ -83,6 +83,15 @@ class SEPayWebhookController extends Controller
       $userId = null;
       $code = null;
 
+      // A "GS" code (Gift Shop) means this transfer is paying for a shop
+      // order's QR payment method, not a wallet top-up - handle it entirely
+      // separately (no points involved) before falling into the MW/wallet
+      // parsing below, which would otherwise never match a GS code anyway
+      // but exists as its own path for clarity.
+      if (preg_match('/GS(\d+)/i', $content, $gsMatches)) {
+        return $this->processShopOrderPayment($data, 'GS' . $gsMatches[1]);
+      }
+
       // Try to parse MW pattern first (MW<UserID><Timestamp>)
       // Pattern: MW471732757864 where if length > 10, first part is user ID, last 10 digits are timestamp
       if (preg_match('/MW(\d+)/i', $content, $matches)) {
@@ -208,6 +217,79 @@ class SEPayWebhookController extends Controller
       Log::error('SEPay deposit processing error: ' . $e->getMessage(), [
         'data' => $data,
         'trace' => $e->getTraceAsString()
+      ]);
+      return false;
+    }
+  }
+
+  /**
+   * Process a Gift Shop order's QR payment - confirms an incoming bank
+   * transfer that used the "GS<order_id><timestamp>" payment_code
+   * ShopController::storeOrder generated as the transfer content, the same
+   * way processDeposit confirms an "MW<user_id><timestamp>" wallet top-up.
+   *
+   * @param array $data
+   * @param string $paymentCode e.g. "GS4212345678901"
+   * @return bool
+   */
+  private function processShopOrderPayment($data, $paymentCode)
+  {
+    try {
+      $order = \App\Models\ShopOrder::where('payment_code', $paymentCode)
+        ->where('payment_method', 'qr')
+        ->first();
+
+      if (!$order) {
+        Log::warning('SEPay webhook: No shop order found for payment code', ['code' => $paymentCode]);
+        return false;
+      }
+
+      if ($order->payment_status === 'paid') {
+        Log::info('SEPay webhook: Shop order already paid', ['order_id' => $order->id]);
+        return true;
+      }
+
+      $transferAmount = (int) ($data['transferAmount'] ?? 0);
+      if ($transferAmount < $order->total_amount) {
+        Log::warning('SEPay webhook: Shop order transfer amount too low', [
+          'order_id' => $order->id,
+          'expected' => $order->total_amount,
+          'received' => $transferAmount,
+        ]);
+        return false;
+      }
+
+      $order->update([
+        'payment_status' => 'paid',
+        'status' => 'processing',
+        'paid_at' => now(),
+      ]);
+
+      try {
+        \App\Services\NotificationService::createSystemNotification(
+          $order->user_id,
+          'payment_received',
+          [
+            'title' => 'Thanh toán đơn hàng thành công',
+            'message' => "Đơn hàng Giftshop #{$order->id} đã được thanh toán và đang được xử lý.",
+            'url' => '/giftshop/orders/' . $order->id,
+          ]
+        );
+      } catch (\Exception $e) {
+        Log::error('SEPay shop order notification error: ' . $e->getMessage());
+      }
+
+      Log::info('SEPay webhook: Successfully processed shop order payment', [
+        'order_id' => $order->id,
+        'amount_vnd' => $transferAmount,
+        'sepay_id' => $data['id'] ?? null,
+      ]);
+
+      return true;
+    } catch (\Exception $e) {
+      Log::error('SEPay shop order payment processing error: ' . $e->getMessage(), [
+        'data' => $data,
+        'trace' => $e->getTraceAsString(),
       ]);
       return false;
     }

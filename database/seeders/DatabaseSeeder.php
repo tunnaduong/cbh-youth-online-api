@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
       SchoolMistakeListSeeder::class,
       OnlineRecordSeeder::class,
       StudyMaterialCategorySeeder::class,
+      ShopSeeder::class,
     ]);
 
     // Phase 2: First-Level Dependencies

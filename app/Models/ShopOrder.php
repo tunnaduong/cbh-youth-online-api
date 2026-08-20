@@ -13,7 +13,13 @@ class ShopOrder extends Model
 
   protected $fillable = [
     'user_id', 'total_amount', 'status',
-    'shipping_address', 'phone', 'note'
+    'shipping_address', 'phone', 'note',
+    'payment_method', 'payment_status', 'payment_code', 'paid_at',
+  ];
+
+  protected $casts = [
+    'total_amount' => 'integer',
+    'paid_at' => 'datetime',
   ];
 
   public function user()

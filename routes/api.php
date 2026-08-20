@@ -391,6 +391,8 @@ Route::prefix('v1.0')->group(function () {
     // Gift Shop Order
     Route::post('/shop/orders', [ShopController::class, 'storeOrder']);
     Route::get('/shop/my-orders', [ShopController::class, 'myOrders']);
+    Route::get('/shop/orders/{id}/payment-status', [ShopController::class, 'paymentStatus']);
+    Route::post('/shop/orders/{id}/cancel', [ShopController::class, 'cancelOrder']);
 
     // Wallet
     Route::get('/wallet/balance', [WalletController::class, 'getBalance']);
