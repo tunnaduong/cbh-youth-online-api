@@ -108,24 +108,10 @@ class FileUploadController extends Controller
       'video_status' => $isVideo ? 'pending' : null,
     ];
 
-    // Same small (480px) preview generation chat uses for messages (see
-    // MediaThumbnailService) - a post/story card never needs to decode a
-    // full-resolution original just to render a feed-sized thumbnail.
-    // Image thumbnails and the video first-frame are cheap enough to
-    // generate synchronously (same as chat); the muted low-bitrate video
-    // preview clip used for feed autoplay is a real ffmpeg transcode, so it
-    // stays a queued job like ProcessVideoCompression already is.
-    if ($isImage) {
-      $data['thumbnail_path'] = \App\Services\MediaThumbnailService::imageThumbnail($path);
-    } elseif ($isVideo) {
-      $data['thumbnail_path'] = \App\Services\MediaThumbnailService::videoFirstFrame($path);
-    }
-
     $userContent = UserContent::create($data);
 
     if ($isVideo) {
       ProcessVideoCompression::dispatch($path, $userContent->id);
-      \App\Jobs\ProcessUserContentVideoPreview::dispatch($path, $userContent->id);
 
       // Refresh to get updated size/status after job runs (sync queue runs inline)
       $userContent->refresh();
@@ -136,8 +122,6 @@ class FileUploadController extends Controller
           : 'Upload video thành công! Video đang được xử lý.',
         'id'           => $userContent->id,
         'path'         => Storage::url($userContent->file_path),
-        'thumbnail_url' => $userContent->thumbnail_url,
-        'preview_url'  => $userContent->preview_url,
         'video_status' => $userContent->video_status,
       ], 201);
     }
@@ -152,7 +136,6 @@ class FileUploadController extends Controller
       'message' => 'Upload ảnh thành công!',
       'id'      => $userContent->id,
       'path'    => Storage::url($userContent->file_path),
-      'thumbnail_url' => $userContent->thumbnail_url,
     ], 201);
   }
 

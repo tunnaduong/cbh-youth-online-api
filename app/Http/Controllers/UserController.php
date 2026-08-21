@@ -487,20 +487,8 @@ class UserController extends Controller
       'image_urls' => $post->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
-      // Small generated copies - see MediaThumbnailService/UserContent's
-      // thumbnail_url/preview_url accessors. Same parallel-array convention
-      // as TopicsController::index's feed response.
-      'image_thumbnail_urls' => $post->getImageUrls()->map(function ($content) {
-        return $content->thumbnail_url;
-      })->all(),
       'video_urls' => $post->getVideos()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
-      })->all(),
-      'video_thumbnail_urls' => $post->getVideos()->map(function ($content) {
-        return $content->thumbnail_url;
-      })->all(),
-      'video_preview_urls' => $post->getVideos()->map(function ($content) {
-        return $content->preview_url;
       })->all(),
       'time' => $post->created_at->diffForHumans(),
       'is_edited' => $post->is_edited,

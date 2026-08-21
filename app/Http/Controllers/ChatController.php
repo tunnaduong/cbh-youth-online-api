@@ -525,11 +525,6 @@ class ChatController extends Controller
         if ($thumbnailUrl) {
           $messageData['metadata'] = ['thumbnail_url' => $thumbnailUrl];
         }
-      } elseif ($request->type === 'image' && $messageData['file_url']) {
-        $thumbnailUrl = $this->createImageThumbnail($messageData['file_url']);
-        if ($thumbnailUrl) {
-          $messageData['metadata'] = ['thumbnail_url' => $thumbnailUrl];
-        }
       }
     } elseif ($request->hasFile('file')) {
       $file = $request->file('file');
@@ -554,24 +549,10 @@ class ChatController extends Controller
         }
       } elseif ($request->type === 'image') {
         ProcessImageCompression::dispatch($path);
-        $thumbnailUrl = $this->createImageThumbnail($path);
-        if ($thumbnailUrl) {
-          $messageData['metadata'] = ['thumbnail_url' => $thumbnailUrl];
-        }
       }
     }
 
     $message = Message::create($messageData);
-
-    // Low-res muted preview for inline autoplay (see ProcessVideoPreview) -
-    // queued independently of ProcessVideoCompression above rather than
-    // chained to it: both just transcode from whatever bytes exist at
-    // $path when they run (original or already-compressed), either is a
-    // valid source to downscale further, so there's no ordering
-    // requirement worth the extra complexity of chaining.
-    if ($request->type === 'video' && !empty($messageData['file_url'] ?? null)) {
-      \App\Jobs\ProcessVideoPreview::dispatch($messageData['file_url'], $message->id);
-    }
 
     $messageData = $this->finalizeAndBroadcastMessage($conversation, $message, $user);
 
@@ -692,25 +673,46 @@ class ChatController extends Controller
    */
   private function createVideoFirstFrame(string $videoPath): ?string
   {
-    $framePath = \App\Services\MediaThumbnailService::videoFirstFrame($videoPath, 'chat_files/video-frames');
-    return $framePath ? $this->absoluteStorageUrl($framePath) : null;
-  }
+    $disk = Storage::disk('public');
+    $framePath = 'chat_files/video-frames/' . Str::uuid() . '.jpg';
+    $inputPath = $disk->path($videoPath);
+    $outputPath = $disk->path($framePath);
 
-  /**
-   * Downscaled JPEG copy of an uploaded chat image, for the small chat-bubble
-   * preview. ProcessImageCompression already caps the original at 1470px -
-   * plenty for the full-screen viewer, but still far more pixels than a
-   * ~200px-wide bubble needs to decode/render every time it scrolls into
-   * view. Mirrors createVideoFirstFrame's scale (480px) and storage
-   * convention above.
-   *
-   * @param  string  $imagePath
-   * @return string|null
-   */
-  private function createImageThumbnail(string $imagePath): ?string
-  {
-    $thumbPath = \App\Services\MediaThumbnailService::imageThumbnail($imagePath, 'chat_files/image-thumbs');
-    return $thumbPath ? $this->absoluteStorageUrl($thumbPath) : null;
+    $disk->makeDirectory('chat_files/video-frames');
+
+    try {
+      $process = new Process([
+        env('FFMPEG_BINARY', 'ffmpeg'),
+        '-y',
+        '-i',
+        $inputPath,
+        '-vframes',
+        '1',
+        '-vf',
+        'scale=480:-1:flags=lanczos',
+        $outputPath,
+      ]);
+      $process->setTimeout(60);
+      $process->run();
+
+      if (!$process->isSuccessful() || !$disk->exists($framePath)) {
+        Log::warning('Unable to create first-frame thumbnail for chat video', [
+          'video_path' => $videoPath,
+          'error' => trim($process->getErrorOutput()),
+        ]);
+
+        return null;
+      }
+
+      return $this->absoluteStorageUrl($framePath);
+    } catch (\Throwable $exception) {
+      Log::warning('Error creating first-frame thumbnail for chat video', [
+        'video_path' => $videoPath,
+        'error' => $exception->getMessage(),
+      ]);
+
+      return null;
+    }
   }
 
   /**
