@@ -35,6 +35,15 @@ class BackfillMediaThumbnails extends Command
 
   public function handle(): int
   {
+    // PHP-FPM's default 128M is sized for one request at a time; this
+    // command decodes many full-resolution photos in the same long-running
+    // process, which exhausted it (GD's decoded buffer alone runs tens of MB
+    // per modern phone photo). Safe to raise here since it's a one-off CLI
+    // job, not a web worker serving concurrent requests. MediaThumbnailService
+    // now also frees each image right after use so this doesn't just delay
+    // the same crash - see its destroy() call.
+    ini_set('memory_limit', '1024M');
+
     $dryRun = (bool) $this->option('dry-run');
     $limit = $this->option('limit') ? (int) $this->option('limit') : null;
 

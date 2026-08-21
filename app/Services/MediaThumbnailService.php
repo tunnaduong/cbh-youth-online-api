@@ -21,6 +21,7 @@ class MediaThumbnailService
   {
     $disk = Storage::disk('public');
     $thumbPath = $destFolder . '/' . Str::uuid() . '.jpg';
+    $image = null;
 
     try {
       $image = \Intervention\Image\Facades\Image::make($disk->path($imagePath));
@@ -43,6 +44,15 @@ class MediaThumbnailService
       ]);
 
       return null;
+    } finally {
+      // GD keeps the decoded pixel buffer (width*height*4 bytes - tens of MB
+      // for a modern phone photo) alive until this resource is freed. Left
+      // unfreed, a long-running process working through many images in a
+      // row (the backfill command) accumulates all of them and blows past
+      // PHP's memory_limit - a single request handling one upload never hit
+      // this since the process exits right after, but it matters a lot here.
+      // In a finally so a failed resize/encode still releases it.
+      $image?->destroy();
     }
   }
 
