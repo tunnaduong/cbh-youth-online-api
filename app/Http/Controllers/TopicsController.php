@@ -289,6 +289,15 @@ class TopicsController extends Controller
       'image_urls' => $topic->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
+      // Small (480px) generated copies - see MediaThumbnailService/
+      // UserContent's thumbnail_url/preview_url accessors. Parallel arrays
+      // (not a change to image_urls/video_urls' existing shape) so older
+      // clients that only know the plain-string arrays above keep working
+      // unchanged; a feed card should prefer these when present and fall
+      // back to the full image_urls/video_urls entry at the same index.
+      'image_thumbnail_urls' => $topic->getImageUrls()->map(function ($content) {
+        return $content->thumbnail_url;
+      })->all(),
       'document_urls' => $topic->getDocuments()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
@@ -297,6 +306,12 @@ class TopicsController extends Controller
       })->all(),
       'video_urls' => $topic->getVideos()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
+      })->all(),
+      'video_thumbnail_urls' => $topic->getVideos()->map(function ($content) {
+        return $content->thumbnail_url;
+      })->all(),
+      'video_preview_urls' => $topic->getVideos()->map(function ($content) {
+        return $content->preview_url;
       })->all(),
       'author' => $topic->anonymous && !$isModerator ? [
         'id' => null,
