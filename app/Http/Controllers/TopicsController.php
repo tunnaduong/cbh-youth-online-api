@@ -150,6 +150,19 @@ class TopicsController extends Controller
   }
 
   /**
+   * Absolute URLs for a comment's image_urls/image_thumbnail_urls -
+   * shared by every comment/reply/sub-reply serialization block below so
+   * they all resolve relative storage paths the same way.
+   *
+   * @param  array|null  $paths
+   * @return array<int, string>
+   */
+  private function resolveCommentMediaUrls(?array $paths): array
+  {
+    return $paths ? array_map(fn($p) => config('app.url') . Storage::url($p), $paths) : [];
+  }
+
+  /**
    * Get a paginated list of topics.
    *
    * @param  \Illuminate\Http\Request  $request
@@ -902,9 +915,8 @@ class TopicsController extends Controller
         'created_at' => $comment->created_at->diffForHumans(),
         'updated_at' => $comment->updated_at ? $comment->updated_at->diffForHumans() : null,
         'is_edited' => $comment->is_edited,
-        'image_urls' => $comment->image_urls
-          ? array_map(fn($p) => config('app.url') . Storage::url($p), $comment->image_urls)
-          : [],
+        'image_urls' => $this->resolveCommentMediaUrls($comment->image_urls),
+        'image_thumbnail_urls' => $this->resolveCommentMediaUrls($comment->image_thumbnail_urls),
         'votes' => $comment->votes->map(fn($vote) => [
           'user_id' => $vote->user_id,
           'username' => $vote->user->username,
@@ -947,9 +959,8 @@ class TopicsController extends Controller
             'created_at' => $reply->created_at->diffForHumans(),
             'updated_at' => $reply->updated_at ? $reply->updated_at->diffForHumans() : null,
             'is_edited' => $reply->is_edited,
-            'image_urls' => $reply->image_urls
-              ? array_map(fn($p) => config('app.url') . Storage::url($p), $reply->image_urls)
-              : [],
+            'image_urls' => $this->resolveCommentMediaUrls($reply->image_urls),
+            'image_thumbnail_urls' => $this->resolveCommentMediaUrls($reply->image_thumbnail_urls),
             'votes' => $reply->votes->map(fn($vote) => [
               'user_id' => $vote->user_id,
               'username' => $vote->user->username,
@@ -986,9 +997,8 @@ class TopicsController extends Controller
                 'created_at' => $subReply->created_at->diffForHumans(),
                 'updated_at' => $subReply->updated_at ? $subReply->updated_at->diffForHumans() : null,
                 'is_edited' => $subReply->is_edited,
-                'image_urls' => $subReply->image_urls
-                  ? array_map(fn($p) => config('app.url') . Storage::url($p), $subReply->image_urls)
-                  : [],
+                'image_urls' => $this->resolveCommentMediaUrls($subReply->image_urls),
+                'image_thumbnail_urls' => $this->resolveCommentMediaUrls($subReply->image_thumbnail_urls),
                 'votes' => $subReply->votes->map(fn($vote) => [
                   'user_id' => $vote->user_id,
                   'username' => $vote->user->username,
@@ -1877,6 +1887,10 @@ class TopicsController extends Controller
     }
 
     $imagePaths = [];
+    // Index-paired with $imagePaths - a failed/missing thumbnail leaves a
+    // null hole rather than shifting the array, so frontends can always
+    // zip it against image_urls by index and fall back to the full image.
+    $imageThumbnailPaths = [];
     if ($request->hasFile('images')) {
       foreach ($request->file('images') as $image) {
         if (\App\Services\HeicImageConverter::isHeic($image)) {
@@ -1890,6 +1904,7 @@ class TopicsController extends Controller
         }
         ProcessImageCompression::dispatch($path);
         $imagePaths[] = $path;
+        $imageThumbnailPaths[] = \App\Services\MediaThumbnailService::imageThumbnail($path, 'comment_images/thumbs');
       }
     }
 
@@ -1925,6 +1940,7 @@ class TopicsController extends Controller
       'comment' => $request->comment ?? '',
       'comment_html' => $request->comment ? $this->convertMarkdownToHtml($request->comment) : '',
       'image_urls' => !empty($imagePaths) ? $imagePaths : null,
+      'image_thumbnail_urls' => !empty($imageThumbnailPaths) ? $imageThumbnailPaths : null,
       'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
@@ -1974,9 +1990,8 @@ class TopicsController extends Controller
       ],
       'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
       'is_edited' => false,
-      'image_urls' => $comment->image_urls
-        ? array_map(fn($p) => config('app.url') . Storage::url($p), $comment->image_urls)
-        : [],
+      'image_urls' => $this->resolveCommentMediaUrls($comment->image_urls),
+      'image_thumbnail_urls' => $this->resolveCommentMediaUrls($comment->image_thumbnail_urls),
       'votes' => [],
     ];
 
