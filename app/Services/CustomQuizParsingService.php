@@ -8,13 +8,13 @@ use Illuminate\Support\Facades\Log;
 /**
  * Parses a creator's own quiz content (typed with bold/underline marking the
  * correct answer, or extracted from an uploaded .docx/.txt/.pdf) into
- * structured multiple-choice questions, via the same Groq AI used for
- * QuizGenerationService - but this one only EXTRACTS what's already in the
- * source text, it never invents questions/facts. See CustomQuizController.
+ * structured multiple-choice questions via the configured chat-api AI - but
+ * this one only EXTRACTS what's already in the source text, it never invents
+ * questions/facts. See CustomQuizController.
  */
 class CustomQuizParsingService
 {
-  private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  private const API_URL = 'https://chat-api.chuyenbienhoa.com';
   // Per product decision: custom-quiz parsing intentionally stays on
   // gpt-oss-120b (unlike QuizGenerationService's model, which has since
   // moved on) - this is pure extraction of existing text, not open-ended
@@ -34,13 +34,12 @@ class CustomQuizParsingService
    */
   public function parse(string $markdown): array
   {
-    $keys = array_values(array_filter([
-      config('services.groq.key'),
-      config('services.groq.secondary_key'),
-    ]));
-    if (empty($keys)) {
-      throw new \RuntimeException('AI_API key is not configured.');
+    $apiKey = config('services.chat_api.key');
+    if (empty($apiKey)) {
+      throw new \RuntimeException('CYO_AI_API key is not configured.');
     }
+
+    $keys = [$apiKey];
 
     $markdown = mb_substr(trim($markdown), 0, self::MAX_CONTENT_CHARS);
     if ($markdown === '') {
@@ -55,7 +54,7 @@ class CustomQuizParsingService
         try {
           $response = Http::withToken($apiKey)
             ->timeout(90)
-            ->post(self::API_URL, [
+            ->post(self::API_URL . '/v1/chat/completions', [
               'model' => self::MODEL,
               'messages' => [
                 ['role' => 'user', 'content' => $prompt],
@@ -65,15 +64,15 @@ class CustomQuizParsingService
             ]);
 
           if ($response->status() === 429) {
-            throw new \RuntimeException('Groq API rate limited (429) for this key.');
+            throw new \RuntimeException('AI API rate limited (429) for this key.');
           }
           if (!$response->successful()) {
-            throw new \RuntimeException('Groq API returned HTTP ' . $response->status() . ': ' . $response->body());
+            throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' . $response->body());
           }
 
           $content = $response->json('choices.0.message.content');
           if (!$content) {
-            throw new \RuntimeException('Groq API response had no message content.');
+            throw new \RuntimeException('AI API response had no message content.');
           }
 
           return $this->parseAndValidate($content);

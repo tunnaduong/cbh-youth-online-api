@@ -6,20 +6,15 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Generates multiple-choice quiz questions via Groq's chat completions API
- * (OpenAI-compatible). Topic, grade level and difficulty are all dictated
- * by the caller - the AI only writes the questions.
+ * Generates multiple-choice quiz questions via the configured chat-api
+ * OpenAI-compatible endpoint. Topic, grade level and difficulty are all
+ * dictated by the caller - the AI only writes the questions.
  */
 class QuizGenerationService
 {
-  private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-  // NOTE: moonshotai/kimi-k2-instruct (previously set here) is NOT an actual
-  // Groq model ID - every generation request was failing outright because of
-  // it, which is why quiz start started returning 503. Confirmed current
-  // production models at https://console.groq.com/docs/models. Using
-  // llama-3.3-70b-versatile: an actual Groq production model with confirmed
-  // JSON mode support, also used for the verification pass below.
-  private const MODEL = 'llama-3.3-70b-versatile';
+  private const API_URL = 'https://chat-api.chuyenbienhoa.com';
+  // Use the Gemini chat model on the configured OpenAI-compatible endpoint.
+  private const MODEL = 'gemini-3.5-flash';
 
   private const DIFFICULTY_LABELS = [
     'easy' => 'dễ',
@@ -47,16 +42,12 @@ class QuizGenerationService
    */
   public function generate(int $count, string $difficulty, ?string $topic, string $grade, bool $isCustomTopic = false): array
   {
-    // Primary key first, then the backup key (AI_API_DHPHUC) if the
-    // primary is unset/rate-limited/erroring out.
-    $keys = array_values(array_filter([
-      config('services.groq.key'),
-      config('services.groq.secondary_key'),
-    ]));
-    if (empty($keys)) {
-      throw new \RuntimeException('AI_API key is not configured.');
+    $apiKey = config('services.chat_api.key');
+    if (empty($apiKey)) {
+      throw new \RuntimeException('CYO_AI_API key is not configured.');
     }
 
+    $keys = [$apiKey];
     $difficultyLabel = self::DIFFICULTY_LABELS[$difficulty] ?? 'trung bình';
 
     $result = $this->requestBatch($count, $difficultyLabel, $topic, $grade, $isCustomTopic, $keys, $topic);
@@ -94,7 +85,7 @@ class QuizGenerationService
         try {
           $response = Http::withToken($apiKey)
             ->timeout(60)
-            ->post(self::API_URL, [
+            ->post(self::API_URL . '/v1/chat/completions', [
               'model' => self::MODEL,
               'messages' => [
                 ['role' => 'user', 'content' => $prompt],
@@ -104,17 +95,15 @@ class QuizGenerationService
             ]);
 
           if ($response->status() === 429) {
-            // Rate limited - move on to the next key immediately instead of
-            // burning the retry on the same one.
-            throw new \RuntimeException('Groq API rate limited (429) for this key.');
+            throw new \RuntimeException('AI API rate limited (429) for this key.');
           }
           if (!$response->successful()) {
-            throw new \RuntimeException('Groq API returned HTTP ' . $response->status() . ': ' . $response->body());
+            throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' . $response->body());
           }
 
           $content = $response->json('choices.0.message.content');
           if (!$content) {
-            throw new \RuntimeException('Groq API response had no message content.');
+            throw new \RuntimeException('AI API response had no message content.');
           }
 
           $parsed = $this->parseAndValidate($content, $count, $forcedTopic);
@@ -165,7 +154,7 @@ class QuizGenerationService
 
     $response = Http::withToken($apiKey)
       ->timeout(60)
-      ->post(self::API_URL, [
+      ->post(self::API_URL . '/v1/chat/completions', [
         'model' => self::MODEL,
         'messages' => [
           ['role' => 'user', 'content' => $prompt],
@@ -175,12 +164,12 @@ class QuizGenerationService
       ]);
 
     if (!$response->successful()) {
-      throw new \RuntimeException('Groq verification API returned HTTP ' . $response->status());
+      throw new \RuntimeException('AI verification API returned HTTP ' . $response->status());
     }
 
     $content = $response->json('choices.0.message.content');
     if (!$content) {
-      throw new \RuntimeException('Groq verification API response had no message content.');
+      throw new \RuntimeException('AI verification API response had no message content.');
     }
 
     $cleaned = trim($content);
