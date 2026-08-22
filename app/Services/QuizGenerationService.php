@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
  */
 class QuizGenerationService
 {
-  private const API_URL = 'https://chat-api.chuyenbienhoa.com';
+  private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
   // Use the Gemini chat model on the configured OpenAI-compatible endpoint.
   private const MODEL = 'gemini-3.5-flash';
 
@@ -85,7 +85,7 @@ class QuizGenerationService
         try {
           $response = Http::withToken($apiKey)
             ->timeout(60)
-            ->post(self::API_URL . '/v1/chat/completions', [
+            ->post(self::API_URL, [
               'model' => self::MODEL,
               'messages' => [
                 ['role' => 'user', 'content' => $prompt],
@@ -154,7 +154,7 @@ class QuizGenerationService
 
     $response = Http::withToken($apiKey)
       ->timeout(60)
-      ->post(self::API_URL . '/v1/chat/completions', [
+      ->post(self::API_URL, [
         'model' => self::MODEL,
         'messages' => [
           ['role' => 'user', 'content' => $prompt],

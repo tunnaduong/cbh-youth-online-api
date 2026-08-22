@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
  */
 class CustomQuizParsingService
 {
-  private const API_URL = 'https://chat-api.chuyenbienhoa.com';
+  private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
   // Per product decision: custom-quiz parsing intentionally stays on
   // gpt-oss-120b (unlike QuizGenerationService's model, which has since
   // moved on) - this is pure extraction of existing text, not open-ended
@@ -54,7 +54,7 @@ class CustomQuizParsingService
         try {
           $response = Http::withToken($apiKey)
             ->timeout(90)
-            ->post(self::API_URL . '/v1/chat/completions', [
+            ->post(self::API_URL, [
               'model' => self::MODEL,
               'messages' => [
                 ['role' => 'user', 'content' => $prompt],
