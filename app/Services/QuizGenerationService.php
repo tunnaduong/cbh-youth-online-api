@@ -7,8 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Generates multiple-choice quiz questions via the configured chat-api
- * OpenAI-compatible endpoint. Topic, grade level and difficulty are all
- * dictated by the caller.
+ * OpenAI-compatible endpoint.
  */
 class QuizGenerationService
 {
@@ -21,19 +20,8 @@ class QuizGenerationService
     'hard' => 'khó',
   ];
 
-  // Restrict top-up calls to 1 round max to eliminate compounding back-to-back request delays
   private const MAX_TOPUP_ROUNDS = 1;
 
-  /**
-   * @param  int  $count  Number of questions to generate
-   * @param  string  $difficulty  easy|medium|hard
-   * @param  string|null  $topic  The subject/topic
-   * @param  string  $grade  10|11|12
-   * @param  bool  $isCustomTopic  True when $topic is user's free-text topic
-   * @return array{topic: string, questions: array}
-   *
-   * @throws \RuntimeException  If generation fails completely
-   */
   public function generate(int $count, string $difficulty, ?string $topic, string $grade, bool $isCustomTopic = false): array
   {
     $apiKey = config('services.chat_api.key');
@@ -60,9 +48,6 @@ class QuizGenerationService
     return $result;
   }
 
-  /**
-   * Requests one batch of $count questions in a single pass.
-   */
   private function requestBatch(int $count, string $difficultyLabel, ?string $topic, string $grade, bool $isCustomTopic, array $keys, ?string $forcedTopic): array
   {
     $prompt = $this->buildPrompt($count, $difficultyLabel, $topic, $grade, $isCustomTopic);
@@ -78,7 +63,7 @@ class QuizGenerationService
               'messages' => [
                 [
                   'role' => 'system',
-                  'content' => 'You are a quiz generation engine. You must output raw JSON only matching the exact schema requested. Do not wrap in markdown or backticks.',
+                  'content' => "You are a raw JSON-only generator. NEVER write introductory sentences, intros, conversational filler, markdown formatting, or notes like 'I will now generate...'. Output ONLY valid JSON starting with '{' and ending with '}'.",
                 ],
                 [
                   'role' => 'user',
@@ -101,7 +86,6 @@ class QuizGenerationService
             throw new \RuntimeException('AI API response had no message content.');
           }
 
-          // Parse and validate with regex extraction
           return $this->parseAndValidate($content, $count, $forcedTopic);
         } catch (\Throwable $e) {
           $lastError = $e;
@@ -127,7 +111,8 @@ class QuizGenerationService
 Tạo ĐÚNG {$count} câu hỏi trắc nghiệm tiếng Việt dành cho học sinh lớp {$grade}, mức độ {$difficultyLabel}.
 Bối cảnh: {$contextScope}
 
-Cấu trúc JSON duy nhất cần trả về (không markdown, không thêm văn bản):
+CRITICAL: Output raw JSON starting directly with { and ending with }. DO NOT write conversational intro/outro text.
+
 {
   "topic": "{$topicName}",
   "questions": [
@@ -141,12 +126,12 @@ Cấu trúc JSON duy nhất cần trả về (không markdown, không thêm văn
   ]
 }
 
-Quy tắc tối ưu token và tốc độ tối đa:
-1. "question": Nêu câu hỏi súc tích, ngắn gọn.
-2. "options": Mỗi lựa chọn chỉ chứa cụm từ/con số ngắn, không viết thành câu dài.
-3. "explanation": TỐI ĐA 5-8 TỪ. Chỉ viết từ khóa/công thức chính giải thích lý do đúng, không viết câu đầy đủ.
-4. "answer": Bắt buộc chọn 1 trong 4 ký tự "A", "B", "C", "D".
-5. Tạo JSON hoàn chỉnh trong MỘT LẦN DUY NHẤT (single pass), không suy luận hay tự đánh giá lại.
+Quy tắc bắt buộc:
+1. "question": Ngắn gọn, súc tích.
+2. "options": Cụm từ/con số ngắn gọn.
+3. "explanation": TỐI ĐA 5-8 TỪ.
+4. "answer": CHỈ chọn 1 trong 4 ký tự "A", "B", "C", "D".
+5. Tạo JSON hoàn chỉnh trong MỘT LẦN DUY NHẤT (single pass).
 PROMPT;
   }
 
@@ -154,7 +139,10 @@ PROMPT;
   {
     $cleaned = trim($content);
 
-    // Extract JSON payload using regex if surrounded by markdown codeblocks or extra text
+    // Standardize markdown codeblocks stripping
+    $cleaned = preg_replace('/^```(?:json)?\s*/i', '', $cleaned);$cleaned = preg_replace('/```\s*$/', '', $cleaned);
+
+    // Extract JSON string using regex matching outermost brackets
     if (preg_match('/\{[\s\S]*\}/', $cleaned, $matches)) {
       $cleaned = $matches[0];
     }
