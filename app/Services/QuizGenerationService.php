@@ -76,7 +76,14 @@ class QuizGenerationService
             ->post(self::API_URL, [
               'model' => self::MODEL,
               'messages' => [
-                ['role' => 'user', 'content' => $prompt],
+                [
+                  'role' => 'system',
+                  'content' => 'You are a quiz generation engine. You must output raw JSON only matching the exact schema requested. Do not wrap in markdown or backticks.',
+                ],
+                [
+                  'role' => 'user',
+                  'content' => $prompt,
+                ],
               ],
               'temperature' => 0.1,
               'response_format' => ['type' => 'json_object'],
@@ -94,7 +101,7 @@ class QuizGenerationService
             throw new \RuntimeException('AI API response had no message content.');
           }
 
-          // Directly parse and return in a single pass
+          // Parse and validate with regex extraction
           return $this->parseAndValidate($content, $count, $forcedTopic);
         } catch (\Throwable $e) {
           $lastError = $e;
@@ -146,10 +153,16 @@ PROMPT;
   private function parseAndValidate(string $content, int $expectedCount, ?string $forcedTopic): array
   {
     $cleaned = trim($content);
-    $cleaned = preg_replace('/^```(?:json)?\s*/i', '', $cleaned);$cleaned = preg_replace('/```\s*$/', '', $cleaned);
+
+    // Extract JSON payload using regex if surrounded by markdown codeblocks or extra text
+    if (preg_match('/\{[\s\S]*\}/', $cleaned, $matches)) {
+      $cleaned = $matches[0];
+    }
 
     $data = json_decode($cleaned, true);
+
     if (!is_array($data) || !isset($data['questions']) || !is_array($data['questions'])) {
+      Log::error('Quiz JSON Parse Failed. Raw content: ' . $content);
       throw new \RuntimeException('AI response was not valid quiz JSON.');
     }
 
