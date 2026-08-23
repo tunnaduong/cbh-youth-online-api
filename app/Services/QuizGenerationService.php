@@ -8,12 +8,11 @@ use Illuminate\Support\Facades\Log;
 /**
  * Generates multiple-choice quiz questions via the configured chat-api
  * OpenAI-compatible endpoint. Topic, grade level and difficulty are all
- * dictated by the caller - the AI only writes the questions.
+ * dictated by the caller.
  */
 class QuizGenerationService
 {
   private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
-  // Use the Gemini flash-lite model on the configured OpenAI-compatible endpoint.
   private const MODEL = 'gemini-flash-lite';
 
   private const DIFFICULTY_LABELS = [
@@ -22,22 +21,20 @@ class QuizGenerationService
     'hard' => 'khó',
   ];
 
-  // How many extra rounds we'll ask the AI to top up a short batch (e.g. it
-  // was asked for 50 and only returned 20) before giving up with whatever
-  // was collected.
+  // Restrict top-up calls to 1 round max to eliminate long back-to-back request delays
   private const MAX_TOPUP_ROUNDS = 1;
 
   /**
    * @param  int  $count  Number of questions to generate
    * @param  string  $difficulty  easy|medium|hard
-   * @param  string|null  $topic  The subject/topic the questions must be about
+   * @param  string|null  $topic  The subject/topic
    * @param  string  $grade  10|11|12
-   * @param  bool  $isCustomTopic  True when$topic is user's own free-text
+   * @param  bool  $isCustomTopic  True when $topic is user's free-text topic
    * @return array{topic: string, questions: array}
    *
    * @throws \RuntimeException  If generation fails completely
    */
-  public function generate(int $count, string $difficulty, ?string $topic, string $grade, bool$isCustomTopic = false): array
+  public function generate(int $count, string $difficulty, ?string $topic, string $grade, bool $isCustomTopic = false): array
   {
     $apiKey = config('services.chat_api.key');
     if (empty($apiKey)) {
@@ -47,12 +44,13 @@ class QuizGenerationService
     $keys = [$apiKey];
     $difficultyLabel = self::DIFFICULTY_LABELS[$difficulty] ?? 'trung bình';
 
-    $result = $this->requestBatch($count, $difficultyLabel,$topic, $grade,$isCustomTopic, $keys,$topic);
+    $result = $this->requestBatch($count, $difficultyLabel, $topic, $grade, $isCustomTopic, $keys, $topic);
 
-    // Keep asking for the remainder if short, up to MAX_TOPUP_ROUNDS
-    for ($round = 0; count($result['questions']) < $count &&$round < self::MAX_TOPUP_ROUNDS; $round++) {$missing = $count - count($result['questions']);
+    for ($round = 0; count($result['questions']) < $count && $round < self::MAX_TOPUP_ROUNDS; $round++) {
+      $missing = $count - count($result['questions']);
       try {
-        $topUp =$this->requestBatch($missing,$difficultyLabel, $result['topic'],$grade, $isCustomTopic,$keys, $result['topic']);$result['questions'] = array_merge($result['questions'],$topUp['questions']);
+        $topUp = $this->requestBatch($missing, $difficultyLabel, $result['topic'], $grade, $isCustomTopic, $keys, $result['topic']);
+        $result['questions'] = array_merge($result['questions'], $topUp['questions']);
       } catch (\Throwable $e) {
         Log::warning('Quiz top-up generation failed, using what was collected so far: ' . $e->getMessage());
         break;
@@ -65,12 +63,12 @@ class QuizGenerationService
   /**
    * Requests one batch of $count questions.
    */
-  private function requestBatch(int $count, string $difficultyLabel, ?string $topic, string $grade, bool$isCustomTopic, array $keys, ?string $forcedTopic): array
+  private function requestBatch(int $count, string $difficultyLabel, ?string $topic, string $grade, bool $isCustomTopic, array $keys, ?string $forcedTopic): array
   {
-    $prompt = $this->buildPrompt($count, $difficultyLabel,$topic, $grade,$isCustomTopic);
+    $prompt = $this->buildPrompt($count, $difficultyLabel, $topic, $grade, $isCustomTopic);
 
     $lastError = null;
-    foreach ($keys as$apiKey) {
+    foreach ($keys as $apiKey) {
       for ($attempt = 0; $attempt < 2; $attempt++) {
         try {
           $response = Http::withToken($apiKey)
@@ -88,18 +86,18 @@ class QuizGenerationService
             throw new \RuntimeException('AI API rate limited (429) for this key.');
           }
           if (!$response->successful()) {
-            throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' .$response->body());
+            throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' . $response->body());
           }
 
-          $content =$response->json('choices.0.message.content');
+          $content = $response->json('choices.0.message.content');
           if (!$content) {
             throw new \RuntimeException('AI API response had no message content.');
           }
 
-          // Directly parse and return without calling verifyAndFilter()
-          return $this->parseAndValidate($content, $count,$forcedTopic);
+          // Directly parse and return in a single pass
+          return $this->parseAndValidate($content, $count, $forcedTopic);
         } catch (\Throwable $e) {
-          $lastError =$e;
+          $lastError = $e;
           Log::warning('Quiz generation attempt failed: ' . $e->getMessage());
           if (str_contains($e->getMessage(), '429')) {
             break;
@@ -111,112 +109,38 @@ class QuizGenerationService
     throw new \RuntimeException('Không thể tạo câu hỏi từ AI: ' . ($lastError?->getMessage() ?? 'unknown error'));
   }
 
-  private function buildPrompt(int $count, string $difficultyLabel, ?string $topic, string $grade, bool$isCustomTopic = false): string
+  private function buildPrompt(int $count, string $difficultyLabel, ?string $topic, string $grade, bool $isCustomTopic = false): string
   {
-    if ($isCustomTopic &&$topic) {
-      $topicInstruction = "Người dùng đã yêu cầu một chủ đề tùy chỉnh: \"{$topic}\". Hãy tạo ĐÚNG {$count} câu hỏi trắc nghiệm (không nhiều hơn, không ít hơn {$count} câu) ĐÚNG về chủ đề này, phù hợp với học sinh lớp {$grade}, ở mức độ {$difficultyLabel}.";
-      $topicFocusRule = "- BẮT BUỘC bám sát 100\% chủ đề \"{$topic}\" mà người dùng đã chọn - TUYỆT ĐỐI không tự ý đổi sang chủ đề khác, không lạc đề, kể cả khi chủ đề nghe lạ hoặc hẹp. Chỉ điều chỉnh độ khó/cách diễn đạt cho phù hợp lứa tuổi lớp {$grade}, không được từ chối hay thay thế chủ đề.";
-      $curriculumRule = "- Mức độ \"{$difficultyLabel}\" nghĩa là {$difficultyLabel} SO VỚI học sinh lớp {$grade}.";
-    } else {
-      $topicInstruction =$topic
-        ? "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tạo ĐÚNG {$count} câu hỏi trắc nghiệm (không nhiều hơn, không ít hơn {$count} câu) bám sát SÁCH GIÁO KHOA chương trình môn \"{$topic}\" lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}."
-        : "Bạn là giáo viên THPT tại Việt Nam đang ra đề kiểm tra. Hãy tự chọn một môn học trong chương trình lớp {$grade} (ví dụ: Toán, Vật lý, Hóa học, Sinh học, Ngữ văn, Lịch sử, Địa lý, Tin học...), sau đó tạo {$count} câu hỏi trắc nghiệm bám sát SÁCH GIÁO KHOA chương trình môn đó lớp {$grade} hiện hành của Bộ Giáo dục và Đào tạo Việt Nam, ở mức độ {$difficultyLabel}.";
-      $topicFocusRule =$topic
-        ? "- Câu hỏi phải bám sát chủ đề \"{$topic}\" và đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác."
-        : "- Câu hỏi phải đúng nội dung sách giáo khoa lớp {$grade}, không hỏi kiến thức của lớp khác.";
-      $curriculumRule = "- Câu hỏi PHẢI theo đúng chương trình sách giáo khoa Việt Nam hiện hành cho lớp {$grade} - không hỏi kiến thức quá cơ bản/tiểu học hoặc lệch chương trình. Mức độ \"{$difficultyLabel}\" nghĩa là {$difficultyLabel} SO VỚI học sinh lớp {$grade} (câu \"khó\" phải thực sự thử thách học sinh giỏi ở lớp này, không phải câu hỏi thường thức dễ đoán).";
-    }
-
-    $topicFieldRule =$topic
-      ? "- \"topic\" phải là đúng chuỗi \"{$topic}\"."
-      : "- \"topic\" là tên môn học bạn đã tự chọn (string, ngắn gọn).";
-
-    $distractorRule = match ($difficultyLabel) {
-      'khó' => "- Vì đây là câu hỏi mức độ KHÓ: 3 phương án nhiễu nên là những lỗi sai/ngộ nhận phổ biến mà học sinh hay mắc, hoặc số liệu/tên/mốc thời gian NGHE quen thuộc, dễ khiến người không nắm chắc kiến thức chọn nhầm. NHƯNG mỗi phương án nhiễu vẫn PHẢI là một phát biểu SAI một cách khách quan, tuyệt đối - không được là một phát biểu cũng đúng trong một ngữ cảnh/khía cạnh khác rồi chỉ \"không đúng bằng\" phương án kia. Trước khi hoàn thiện câu hỏi, hãy tự hỏi riêng từng phương án nhiễu: \"Phát biểu này có SAI hoàn toàn không, hay thực ra nó cũng đúng theo một cách hiểu nào đó?\" - nếu câu trả lời là phương án đó cũng có thể đúng, PHẢI sửa lại hoặc thay phương án khác. Nếu không nghĩ ra được 3 phương án nhiễu vừa hợp lý vừa chắc chắn sai, hãy ưu tiên phương án nhiễu đơn giản nhưng chắc chắn sai, còn hơn tạo phương án nhiễu tinh vi nhưng có nguy cơ cũng đúng.",
-      'trung bình' => "- 3 phương án nhiễu nên tương đối hợp lý, liên quan đến chủ đề (không phải phương án vô nghĩa dễ loại ngay), nhưng vẫn phải sai rõ ràng và chắc chắn khi đối chiếu kiến thức chuẩn - không tạo cảm giác \"có thể đúng\".",
-      default => "- 3 phương án nhiễu nên liên quan đến chủ đề nhưng sai một cách rõ ràng, dễ phân biệt với đáp án đúng, phù hợp mức độ dễ.",
-    };
-
-    $isForeignLanguageTopic =$topic && $this->looksLikeLanguageTopic($topic);
-    $languageRule =$isForeignLanguageTopic
-      ? "- Vì chủ đề này liên quan đến một ngoại ngữ (\"{$topic}\"), \"question\" và \"options\" được phép viết bằng ngôn ngữ đó (ví dụ tiếng Anh, tiếng Nga...) khi phù hợp với nội dung câu hỏi. Riêng \"explanation\" LUÔN LUÔN phải viết bằng tiếng Việt."
-      : "- Chủ đề này KHÔNG liên quan đến việc học ngoại ngữ, vì vậy TOÀN BỘ nội dung (\"topic\", \"question\", \"options\", \"explanation\") phải được viết bằng tiếng Việt, không dùng tiếng Anh hay bất kỳ ngôn ngữ nào khác, kể cả khi bản thân chủ đề có nguồn gốc nước ngoài (ví dụ tên phim, tên trò chơi...).";
-
-    $isHistoryTopic =$topic && $this->looksLikeHistoryTopic($topic);
-    $historyRule =$isHistoryTopic
-      ? "\n\nQUY TẮC RIÊNG CHO MÔN LỊCH SỬ (bắt buộc tuân thủ nghiêm ngặt, ưu tiên cao nhất):\n- CHỈ hỏi về những sự kiện, mốc thời gian, nhân vật lớn, mang tính CỘT MỐC, được ghi rõ và thống nhất trong sách giáo khoa Lịch sử Việt Nam hiện hành - loại bỏ hoàn toàn các chi tiết nhỏ, số liệu lẻ (số quân, số thương vong, số ngày cụ thể của một trận đánh phụ...) trừ khi đó là con số/ngày tháng NỔI TIẾNG, được nhắc đi nhắc lại trong sách giáo khoa (ví dụ 2/9/1945, 7/5/1954, 30/4/1975 là chấp nhận được vì đây là mốc cực kỳ phổ biến).\n- TUYỆT ĐỐI KHÔNG tự suy luận hay ước lượng ngày tháng, số liệu, tên hiệp ước/hiệp định, tên nhân vật nếu không nhớ chắc chắn 100% - không được làm tròn, đoán gần đúng hoặc suy ra từ sự kiện liên quan rồi coi như chắc chắn.\n- Cẩn thận phân biệt các sự kiện/nhân vật/chiến dịch có tên gần giống nhau hoặc cùng thời kỳ (dễ nhầm lẫn) - nếu không chắc chắn phân biệt được rạch ròi, hãy đổi sang hỏi một sự kiện cột mốc khác chắc chắn hơn thay vì hỏi thứ dễ gây tranh cãi.\n- Với câu hỏi mức khó về Lịch sử: đánh đố bằng cách yêu cầu học sinh phân biệt hai sự kiện/nguyên nhân/ý nghĩa DỄ NHẦM LẪN nhưng CÓ THẬT và bạn chắc chắn đúng - không được bịa ra một sự kiện/chi tiết không có thật chỉ để tạo độ khó."
-      : '';
+    $topicName = $topic ?: 'Kiến thức tổng hợp';
+    $contextScope = $isCustomTopic 
+      ? "Chủ đề tùy chỉnh: \"{$topicName}\"." 
+      : "Sách giáo khoa môn \"{$topicName}\" lớp {$grade} (Bộ GD&ĐT Việt Nam).";
 
     return <<<PROMPT
-{$topicInstruction}
+Tạo ĐÚNG {$count} câu hỏi trắc nghiệm tiếng Việt dành cho học sinh lớp {$grade}, mức độ {$difficultyLabel}.
+Bối cảnh: {$contextScope}
 
-Trả về kết quả dưới dạng một JSON object DUY NHẤT với cấu trúc chính xác sau, không thêm bất kỳ văn bản, markdown hay lời giải thích nào khác ngoài JSON:
-
+Cấu trúc JSON duy nhất cần trả về (không markdown, không thêm văn bản):
 {
-  "topic": "tên chủ đề (string, ngắn gọn)",
+  "topic": "{$topicName}",
   "questions": [
     {
       "id": 1,
-      "question": "nội dung câu hỏi (string)",
-      "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+      "question": "Nội dung câu hỏi",
+      "options": ["A. Phương án 1", "B. Phương án 2", "C. Phương án 3", "D. Phương án 4"],
       "answer": "A",
-      "explanation": "giải thích ngắn gọn lý do đáp án đúng, luôn bằng tiếng Việt (string)"
+      "explanation": "Giải thích ngắn gọn 1 câu lý do đáp án đúng."
     }
   ]
 }
 
-Yêu cầu bắt buộc:
-{$languageRule}
-- QUAN TRỌNG NHẤT: Mảng "questions" PHẢI có ĐÚNG CHÍNH XÁC {$count} phần tử, không được thiếu, không được thừa. Đây là yêu cầu bắt buộc quan trọng nhất - hãy đếm lại số phần tử trong mảng trước khi trả về để đảm bảo đúng {$count} câu. id đánh số liên tục từ 1 đến {$count}, không bỏ số nào.
-{$topicFocusRule}
-{$curriculumRule}
-{$topicFieldRule}
-{$distractorRule}
-- "options" luôn có đúng 4 phần tử, mỗi phần tử bắt đầu bằng "A. ", "B. ", "C. " hoặc "D. ".
-- "answer" chỉ được là một trong các ký tự: "A", "B", "C", "D".
-- Chỉ trả về JSON thuần túy, không dùng thẻ markdown (```), không viết lời mở đầu hay kết luận.
-
-QUY TẮC BẮT BUỘC VỀ ĐỘ CHÍNH XÁC (quan trọng hơn tất cả các quy tắc khác):
-- TUYỆT ĐỐI KHÔNG được bịa đặt số liệu, sự kiện, mốc thời gian, tên riêng, công thức hay trích dẫn. Chỉ sử dụng kiến thức bạn CHẮC CHẮN 100% là đúng và được công nhận rộng rãi trong sách giáo khoa/kiến thức phổ thông chuẩn. Nếu không chắc chắn về một sự kiện/số liệu cụ thể, hãy chọn hỏi một nội dung khác mà bạn chắc chắn hơn thay vì đoán bừa.
-- Mỗi câu hỏi CHỈ được có DUY NHẤT MỘT đáp án đúng - điều này không bao giờ được thay đổi dù ở mức độ nào. Xét theo kiến thức chuẩn, chính xác, 3 phương án còn lại phải sai dứt khoát, có căn cứ rõ ràng để loại trừ khi phân tích kỹ (xem thêm quy tắc về độ "gần đúng" của phương án nhiễu theo từng mức độ bên dưới) - nhưng KHÔNG được để trường hợp 2 phương án cùng có thể coi là đúng, hoặc đáp án đúng phụ thuộc vào cách diễn giải/quan điểm cá nhân.
-- Được phép đặt câu hỏi mang tính đánh đố về mặt LOGIC (đặc biệt ở mức khó), nhưng tuyệt đối không được TỰ ĐOÁN MÒ khi chính bạn không chắc chắn về sự kiện/kiến thức - nếu không chắc, hãy đổi sang nội dung/cách hỏi khác mà bạn chắc chắn hơn, còn hơn hỏi kiến thức "khó nhớ chính xác" rồi trả lời sai.
-- TRƯỚC KHI đưa một câu hỏi vào kết quả cuối cùng, hãy tự kiểm tra lại trong đầu: (1) đáp án bạn chọn có thực sự đúng theo kiến thức chuẩn không, (2) ba phương án nhiễu còn lại có thực sự sai không, (3) câu hỏi có thuộc đúng chủ đề/lớp/mức độ yêu cầu không. Nếu có bất kỳ nghi ngờ nào ở một trong ba điểm trên, hãy thay câu hỏi đó bằng một câu khác chắc chắn hơn - không được giữ lại câu hỏi mà bạn không chắc chắn chỉ để đủ số lượng.{$historyRule}
+Quy tắc tối ưu tốc độ và chính xác:
+1. Tạo JSON hoàn chỉnh ngay trong MỘT LẦN DUY NHẤT (single-pass generation). Không thực hiện các bước tự đánh giá/suy luận lại.
+2. Mảng "questions" bắt buộc phải có đúng {$count} phần tử, id từ 1 đến {$count}.
+3. Mảng "options" có đúng 4 phần tử bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
+4. "answer" chỉ được là một trong 4 ký tự: "A", "B", "C", "D". Mỗi câu hỏi CHỈ CÓ DUY NHẤT một đáp án đúng.
+5. Lời giải thích ("explanation") phải cực kỳ ngắn gọn (tối đa 1 câu) để giảm bớt số lượng token sinh ra.
 PROMPT;
-  }
-
-  private function looksLikeLanguageTopic(string $topic): bool
-  {
-    $lower = mb_strtolower($topic);
-    if (str_contains($lower, 'tiếng việt')) {
-      return false;
-    }
-
-    $keywords = [
-      'tiếng', 'ngôn ngữ', 'ngoại ngữ', 'ngữ pháp', 'từ vựng', 'phát âm',
-      'language', 'grammar', 'vocabulary',
-      'english', 'russian', 'french', 'japanese', 'chinese', 'korean',
-      'german', 'spanish', 'anh văn',
-    ];
-    foreach ($keywords as $keyword) {
-      if (str_contains($lower, $keyword)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private function looksLikeHistoryTopic(string $topic): bool
-  {
-    $lower = mb_strtolower($topic);
-    $keywords = ['lịch sử', 'history'];
-    foreach ($keywords as $keyword) {
-      if (str_contains($lower, $keyword)) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   private function parseAndValidate(string $content, int $expectedCount, ?string $forcedTopic): array
