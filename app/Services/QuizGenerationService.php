@@ -21,7 +21,7 @@ class QuizGenerationService
     'hard' => 'khó',
   ];
 
-  // Restrict top-up calls to 1 round max to eliminate long back-to-back request delays
+  // Restrict top-up calls to 1 round max to eliminate compounding back-to-back request delays
   private const MAX_TOPUP_ROUNDS = 1;
 
   /**
@@ -61,7 +61,7 @@ class QuizGenerationService
   }
 
   /**
-   * Requests one batch of $count questions.
+   * Requests one batch of $count questions in a single pass.
    */
   private function requestBatch(int $count, string $difficultyLabel, ?string $topic, string $grade, bool $isCustomTopic, array $keys, ?string $forcedTopic): array
   {
@@ -126,20 +126,20 @@ Cấu trúc JSON duy nhất cần trả về (không markdown, không thêm văn
   "questions": [
     {
       "id": 1,
-      "question": "Nội dung câu hỏi",
-      "options": ["A. Phương án 1", "B. Phương án 2", "C. Phương án 3", "D. Phương án 4"],
+      "question": "Nội dung câu hỏi ngắn gọn",
+      "options": ["A. Đáp án 1", "B. Đáp án 2", "C. Đáp án 3", "D. Đáp án 4"],
       "answer": "A",
-      "explanation": "Giải thích ngắn gọn 1 câu lý do đáp án đúng."
+      "explanation": "Từ khóa cốt lõi"
     }
   ]
 }
 
-Quy tắc tối ưu tốc độ và chính xác:
-1. Tạo JSON hoàn chỉnh ngay trong MỘT LẦN DUY NHẤT (single-pass generation). Không thực hiện các bước tự đánh giá/suy luận lại.
-2. Mảng "questions" bắt buộc phải có đúng {$count} phần tử, id từ 1 đến {$count}.
-3. Mảng "options" có đúng 4 phần tử bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
-4. "answer" chỉ được là một trong 4 ký tự: "A", "B", "C", "D". Mỗi câu hỏi CHỈ CÓ DUY NHẤT một đáp án đúng.
-5. Lời giải thích ("explanation") phải cực kỳ ngắn gọn (tối đa 1 câu) để giảm bớt số lượng token sinh ra.
+Quy tắc tối ưu token và tốc độ tối đa:
+1. "question": Nêu câu hỏi súc tích, ngắn gọn.
+2. "options": Mỗi lựa chọn chỉ chứa cụm từ/con số ngắn, không viết thành câu dài.
+3. "explanation": TỐI ĐA 5-8 TỪ. Chỉ viết từ khóa/công thức chính giải thích lý do đúng, không viết câu đầy đủ.
+4. "answer": Bắt buộc chọn 1 trong 4 ký tự "A", "B", "C", "D".
+5. Tạo JSON hoàn chỉnh trong MỘT LẦN DUY NHẤT (single pass), không suy luận hay tự đánh giá lại.
 PROMPT;
   }
 
