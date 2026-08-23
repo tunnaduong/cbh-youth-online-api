@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Log;
 class QuizGenerationService
 {
   private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
-  // Use the Gemini chat model on the configured OpenAI-compatible endpoint.
-  private const MODEL = 'gemini-3.5-flash';
+  // Use the Gemini flash-lite model on the configured OpenAI-compatible endpoint.
+  private const MODEL = 'gemini-flash-lite';
 
   private const DIFFICULTY_LABELS = [
     'easy' => 'dễ',
