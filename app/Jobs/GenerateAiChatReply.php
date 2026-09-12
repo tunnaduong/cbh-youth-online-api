@@ -49,30 +49,42 @@ class GenerateAiChatReply implements ShouldQueue
     }
 
     try {
-      $reply = $this->mode === 'summary'
+      $result = $this->mode === 'summary'
         ? $this->runSummary($aiChatService, $conversation, $triggerMessage)
         : $this->runAsk($aiChatService, $triggerMessage);
     } catch (\Throwable $e) {
       Log::error('GenerateAiChatReply failed: ' . $e->getMessage());
-      $reply = 'Xin lỗi, hiện tại AI đang gặp sự cố và không thể trả lời. Vui lòng thử lại sau.';
+      $result = ['content' => 'Xin lỗi, hiện tại AI đang gặp sự cố và không thể trả lời. Vui lòng thử lại sau.', 'reaction' => null];
     }
 
     $aiMessage = Message::create([
       'conversation_id' => $conversation->id,
       'user_id' => $aiAccount->id,
-      'content' => $reply,
+      'content' => $result['content'],
       'type' => 'text',
       'reply_to_message_id' => $triggerMessage->id,
     ]);
 
-    app(ChatController::class)->broadcastAiMessage($conversation, $aiMessage, $aiAccount);
+    $chatController = app(ChatController::class);
+    $chatController->broadcastAiMessage($conversation, $aiMessage, $aiAccount);
+
+    // Optional: the AI can also react to the original message it was called
+    // on (its own choice, expressed via the "[REACT:type]" marker parsed out
+    // in AiChatService) - never on its own canned fallback/error/help replies,
+    // only when it actually got a real model response.
+    if ($result['reaction']) {
+      $chatController->reactAsAi($triggerMessage, $aiAccount, $result['reaction']);
+    }
   }
 
-  private function runAsk(AiChatService $aiChatService, Message $triggerMessage): string
+  /**
+   * @return array{content: string, reaction: ?string}
+   */
+  private function runAsk(AiChatService $aiChatService, Message $triggerMessage): array
   {
     $repliedTo = $triggerMessage->replyTo;
     if ($repliedTo && $repliedTo->type !== 'text') {
-      return $this->unsupportedMediaReply($repliedTo->type);
+      return ['content' => $this->unsupportedMediaReply($repliedTo->type), 'reaction' => null];
     }
 
     $chain = $this->collectReplyChain($triggerMessage);
@@ -148,13 +160,16 @@ class GenerateAiChatReply implements ShouldQueue
     return "Xin lỗi, hiện tại Yoyo AI chưa thể đọc và xử lý {$label}, chỉ có thể đọc tin nhắn văn bản. Vui lòng thử lại với một tin nhắn chữ nhé.";
   }
 
-  private function runSummary(AiChatService $aiChatService, Conversation $conversation, Message $triggerMessage): string
+  /**
+   * @return array{content: string, reaction: ?string}
+   */
+  private function runSummary(AiChatService $aiChatService, Conversation $conversation, Message $triggerMessage): array
   {
     // /summary as a reply (e.g. replying to a specific message and asking to
     // summarize from there) only makes sense against text - same rule as /ai.
     $repliedTo = $triggerMessage->replyTo;
     if ($repliedTo && $repliedTo->type !== 'text') {
-      return $this->unsupportedMediaReply($repliedTo->type);
+      return ['content' => $this->unsupportedMediaReply($repliedTo->type), 'reaction' => null];
     }
 
     $customRequest = $this->stripCommandPrefix($triggerMessage->content ?? '', '/summary');

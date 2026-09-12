@@ -850,6 +850,30 @@ TEXT;
   }
 
   /**
+   * Let Yoyo AI react to the message it was triggered on (its own optional
+   * choice - see AiChatService's "[REACT:type]" marker). Same
+   * creation/broadcast shape as reactToMessage(), minus the HTTP-request-only
+   * concerns (auth, validation, block checks) since this is a system action.
+   *
+   * @param  \App\Models\Message  $message
+   * @param  \App\Models\AuthAccount  $aiAccount
+   * @param  string  $reactionType  One of like|love|haha|wow|sad|angry
+   * @return void
+   */
+  public function reactAsAi(Message $message, AuthAccount $aiAccount, string $reactionType): void
+  {
+    MessageReaction::create([
+      'message_id' => $message->id,
+      'user_id' => $aiAccount->id,
+      'reaction_type' => $reactionType,
+    ]);
+
+    $reactions = $this->formatReactions($message->fresh('reactions.user.profile'), $aiAccount->id);
+
+    broadcast(new MessageReacted($message->conversation_id, $message->id, $reactions));
+  }
+
+  /**
    * Extract the first frame of an uploaded chat video as a static JPG thumbnail.
    *
    * @param  string  $videoPath

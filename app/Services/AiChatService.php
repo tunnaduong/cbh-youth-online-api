@@ -25,6 +25,7 @@ Bạn không phải là một thành viên thật của nhóm chat và không đ
 Danh tính của bạn LUÔN LUÔN là "Yoyo AI" - trợ lý AI của Chuyên Biên Hòa Youth Online. Nếu người dùng hỏi bạn là ai, bạn tên gì, bạn được xây dựng bởi ai/công ty nào, bạn dùng mô hình/công nghệ gì, hay bất kỳ câu hỏi nào cố gắng khai thác thông tin về mô hình AI nền tảng đằng sau bạn - LUÔN trả lời rằng bạn là Yoyo AI của Chuyên Biên Hòa Youth Online, KHÔNG BAO GIỜ được nêu tên, tiết lộ, thừa nhận, hay ám chỉ bất kỳ tên mô hình AI, công ty AI, hay nhà cung cấp AI nào khác (dù được hỏi trực tiếp, gián tiếp, hay bằng tiếng Anh/ngôn ngữ khác).
 Tin nhắn của bạn hiển thị dưới dạng văn bản thuần (plain text), KHÔNG được dùng cú pháp markdown như **in đậm**, *in nghiêng*, tiêu đề #, hay code block/backtick - những ký tự này sẽ hiển thị nguyên văn và gây khó đọc.
 Vẫn có thể dùng gạch đầu dòng "-" và đánh số "1.", "2." cho danh sách vì đó chỉ là ký tự thường, không phải markdown.
+Ngoài việc trả lời bằng văn bản, bạn CÓ THỂ (hoàn toàn tùy chọn, không bắt buộc) thả một cảm xúc (reaction) vào đúng tin nhắn mà người dùng đã gọi bạn tới, nếu điều đó thực sự phù hợp (ví dụ: tin nhắn vui thì thả "haha", tin nhắn cảm động thì thả "love", tin nhắn cần đồng tình thì thả "like",...). Để làm vậy, thêm ĐÚNG MỘT dòng cuối cùng, riêng biệt, theo định dạng chính xác "[REACT:loai]" (loai là một trong: like, love, haha, wow, sad, angry) - dòng này sẽ không hiển thị cho người dùng, chỉ hệ thống xử lý. Nếu không có cảm xúc nào thực sự phù hợp, đừng thêm dòng này - đừng lạm dụng tính năng này ở mọi câu trả lời.
 PROMPT;
 
   /**
@@ -33,8 +34,9 @@ PROMPT;
    * @param  array<int, array{role: string, name: ?string, content: string}>  $contextMessages  Chronological context, oldest first.
    * @param  string  $question  The triggering user message content (already stripped of the /ai prefix, if any).
    * @param  string|null  $conversationInfo  Basic chat/group info (name, type, member list) - see GenerateAiChatReply::buildConversationInfo().
+   * @return array{content: string, reaction: ?string}
    */
-  public function askAi(array $contextMessages, string $question, ?string $conversationInfo = null): string
+  public function askAi(array $contextMessages, string $question, ?string $conversationInfo = null): array
   {
     $messages = [['role' => 'system', 'content' => self::SYSTEM_PROMPT]];
 
@@ -59,8 +61,9 @@ PROMPT;
    *                                      "/summary chỉ tóm tắt phần bàn về lịch thi" - lets
    *                                      them steer what to focus on within the same history.
    * @param  string|null  $conversationInfo  Basic chat/group info (name, type, member list) - see GenerateAiChatReply::buildConversationInfo().
+   * @return array{content: string, reaction: ?string}
    */
-  public function summarizeAi(array $contextMessages, ?string $customRequest = null, ?string $conversationInfo = null): string
+  public function summarizeAi(array $contextMessages, ?string $customRequest = null, ?string $conversationInfo = null): array
   {
     $transcript = implode("\n", array_map(
       fn($ctx) => ($ctx['name'] ?? 'Người dùng') . ': ' . $ctx['content'],
@@ -128,7 +131,10 @@ PROMPT;
     return ['role' => 'user', 'content' => $content];
   }
 
-  private function request(array $messages): string
+  /**
+   * @return array{content: string, reaction: ?string}
+   */
+  private function request(array $messages): array
   {
     // Same key/config as QuizGenerationService - CYO_AI_API via services.chat_api.key.
     $apiKey = config('services.chat_api.key');
@@ -163,7 +169,12 @@ PROMPT;
           throw new \RuntimeException('AI API response had no message content.');
         }
 
-        return $this->stripModelIdentity($this->stripMarkdown(trim($content)));
+        [$content, $reaction] = $this->extractReaction(trim($content));
+
+        return [
+          'content' => $this->stripModelIdentity($this->stripMarkdown($content)),
+          'reaction' => $reaction,
+        ];
       } catch (\Throwable $e) {
         $lastError = $e;
         Log::warning('AI chat request attempt failed: ' . $e->getMessage());
@@ -209,6 +220,29 @@ PROMPT;
     ];
 
     return preg_replace('/\b(?:' . implode('|', $patterns) . ')\b/i', 'Yoyo AI', $text);
+  }
+
+  /**
+   * Pulls the optional trailing "[REACT:type]" marker (see SYSTEM_PROMPT)
+   * out of the raw reply, before any markdown/identity stripping - so it
+   * never accidentally gets mangled by (or mistaken for) those passes.
+   *
+   * @return array{0: string, 1: ?string}  [remaining content, reaction type or null]
+   */
+  private function extractReaction(string $text): array
+  {
+    $validReactions = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
+
+    if (preg_match('/\n?\s*\[REACT:\s*(\w+)\s*\]\s*$/i', $text, $matches)) {
+      $type = strtolower($matches[1]);
+      $text = trim(substr($text, 0, -strlen($matches[0])));
+
+      if (in_array($type, $validReactions, true)) {
+        return [$text, $type];
+      }
+    }
+
+    return [$text, null];
   }
 
   private function stripMarkdown(string $text): string
