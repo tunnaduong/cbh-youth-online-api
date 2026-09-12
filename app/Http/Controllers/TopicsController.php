@@ -2345,6 +2345,7 @@ class TopicsController extends Controller
 
     $users = AuthAccount::query()
       ->when($currentUserId, fn($q) => $q->where('id', '!=', $currentUserId))
+      ->where('is_ai', false)
       ->where(function ($q) use ($query) {
         $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
           ->orWhereHas('profile', function ($q2) use ($query) {

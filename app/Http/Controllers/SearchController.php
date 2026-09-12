@@ -72,13 +72,14 @@ class SearchController extends Controller
    */
   private function searchUsers($query, $limit)
   {
-    return AuthAccount::where(function ($q) use ($query) {
-      $q->where('username', 'LIKE', "%{$query}%")
-        ->orWhereHas('profile', function ($q) use ($query) {
-          $q->where('profile_name', 'LIKE', "%{$query}%")
-            ->orWhere('bio', 'LIKE', "%{$query}%");
-        });
-    })
+    return AuthAccount::where('is_ai', false)
+      ->where(function ($q) use ($query) {
+        $q->where('username', 'LIKE', "%{$query}%")
+          ->orWhereHas('profile', function ($q) use ($query) {
+            $q->where('profile_name', 'LIKE', "%{$query}%")
+              ->orWhere('bio', 'LIKE', "%{$query}%");
+          });
+      })
       ->with(['profile'])
       ->limit($limit)
       ->get()

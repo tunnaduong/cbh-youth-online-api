@@ -60,4 +60,14 @@ return [
     'key' => env('CYO_AI_API'),
   ],
 
+  'groq' => [
+    // Chat-with-AI feature (see AiChatService). Two independent Groq keys
+    // live in .env as AI_API and AI_API_DHPHUC and are used as backups to
+    // each other (if one is rate-limited/failing, the other is tried) -
+    // never commit them or return them from any endpoint.
+    'key' => env('AI_API'),
+    'secondary_key' => env('AI_API_DHPHUC'),
+    'model' => env('GROQ_CHAT_MODEL', 'openai/gpt-oss-120b'),
+  ],
+
 ];

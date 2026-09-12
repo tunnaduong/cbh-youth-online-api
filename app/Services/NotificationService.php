@@ -721,6 +721,7 @@ class NotificationService
 
     if (!empty($regularUsernames)) {
       $query = \App\Models\AuthAccount::whereIn('username', $regularUsernames)
+        ->where('is_ai', false)
         ->with('profile')
         ->select('id', 'username');
 

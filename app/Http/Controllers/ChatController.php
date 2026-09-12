@@ -269,6 +269,7 @@ class ChatController extends Controller
           'username' => 'Ẩn danh',
           'profile_name' => 'Ẩn danh',
           'avatar_url' => null,
+          'is_ai' => false,
         ];
 
         if ($isSystem) {
@@ -281,6 +282,7 @@ class ChatController extends Controller
           try {
             $senderData['id'] = $message->user->id;
             $senderData['username'] = $message->user->username ?? 'Ẩn danh';
+            $senderData['is_ai'] = (bool) $message->user->is_ai;
 
             // Safely access profile - use null coalescing to avoid errors
             $profile = $message->user->profile ?? null;
@@ -556,7 +558,50 @@ class ChatController extends Controller
 
     $messageData = $this->finalizeAndBroadcastMessage($conversation, $message, $user);
 
+    $this->maybeTriggerAi($conversation, $message);
+
     return response()->json($messageData, 201);
+  }
+
+  /**
+   * Decide whether a just-sent message should invoke the CYO AI assistant,
+   * and if so dispatch the async job that calls Groq and posts the reply.
+   *
+   * The AI is only ever involved via an explicit trigger:
+   *   - a message starting with "/ai" (analyze this message + its reply chain)
+   *   - a message starting with "/summary" (summarize recent conversation history)
+   *   - a plain reply directed at a previous CYO AI message (continue the conversation)
+   * A plain message with no command and no reply-to-AI never involves the AI.
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @param  \App\Models\Message  $message
+   * @return void
+   */
+  private function maybeTriggerAi(Conversation $conversation, Message $message): void
+  {
+    if ($message->user_id === null || (bool) $message->user->is_ai) {
+      return;  // never let the AI (or a system message) trigger itself
+    }
+
+    $content = trim((string) $message->content);
+    $mode = null;
+
+    if (stripos($content, '/summary') === 0) {
+      $mode = 'summary';
+    } elseif (stripos($content, '/ai') === 0) {
+      $mode = 'ai';
+    } elseif ($message->reply_to_message_id) {
+      $repliedTo = $message->replyTo ?? Message::find($message->reply_to_message_id);
+      if ($repliedTo && $repliedTo->user_id && optional($repliedTo->user)->is_ai) {
+        $mode = 'ai';
+      }
+    }
+
+    if ($mode === null) {
+      return;
+    }
+
+    \App\Jobs\GenerateAiChatReply::dispatch($conversation->id, $message->id, $mode);
   }
 
   /**
@@ -585,12 +630,14 @@ class ChatController extends Controller
       'username' => 'Ẩn danh',
       'profile_name' => 'Ẩn danh',
       'avatar_url' => null,
+      'is_ai' => false,
     ];
 
     if ($message->user) {
       try {
         $senderData['id'] = $message->user->id;
         $senderData['username'] = $message->user->username ?? 'Ẩn danh';
+        $senderData['is_ai'] = (bool) $message->user->is_ai;
 
         // Safely access profile - use null coalescing to avoid errors
         $profile = $message->user->profile ?? null;
@@ -661,6 +708,60 @@ class ChatController extends Controller
     }
 
     $messageData['mentions'] = $resolvedMentions;
+
+    return $messageData;
+  }
+
+  /**
+   * Broadcast a CYO AI-authored reply (created out of band by GenerateAiChatReply)
+   * the same way a human message is broadcast, minus the notification/mention
+   * pipeline (the AI never @-mentions anyone and there's no separate push
+   * notification path for it yet). Broadcast to everyone rather than
+   * ->toOthers(), since there is no client-side optimistic render for it.
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @param  \App\Models\Message  $message
+   * @param  \App\Models\AuthAccount  $aiAccount
+   * @return array
+   */
+  public function broadcastAiMessage(Conversation $conversation, Message $message, AuthAccount $aiAccount): array
+  {
+    $conversation->touch();
+
+    $message->load('replyTo.user.profile');
+
+    $messageData = [
+      'id' => $message->id,
+      'content' => $message->content,
+      'type' => $message->type,
+      'file_url' => null,
+      'file_urls' => null,
+      'is_edited' => false,
+      'is_forwarded' => false,
+      'is_myself' => false,
+      'sender' => [
+        'id' => $aiAccount->id,
+        'username' => $aiAccount->username,
+        'profile_name' => $aiAccount->profile->profile_name ?? 'CYO AI',
+        'avatar_url' => config('app.url') . "/v1.0/users/{$aiAccount->username}/avatar",
+        'is_ai' => true,
+      ],
+      'created_at' => $message->created_at?->toISOString(),
+      'created_at_human' => $message->created_at?->diffForHumans(),
+      'read_at' => null,
+      'metadata' => $message->metadata,
+      'reply_to' => $this->formatReplyTo($message->replyTo),
+      'reactions' => ['summary' => [], 'total' => 0, 'my_reactions' => []],
+      'mentions' => [],
+    ];
+
+    broadcast(new MessageSent($conversation->id, $messageData));
+
+    $this->sendChatPushNotifications($conversation, $messageData, $aiAccount->id);
+
+    if ($message->reply_to_message_id && $message->replyTo) {
+      NotificationService::createMessageReplyNotification($message->replyTo, $message, $aiAccount->id);
+    }
 
     return $messageData;
   }
@@ -892,6 +993,7 @@ class ChatController extends Controller
         'username' => $message->guest_name ?? 'Ẩn danh',
         'profile_name' => $message->guest_name ?? 'Ẩn danh',
         'avatar_url' => null,
+        'is_ai' => false,
       ];
     } elseif ($message->user) {
       $profile = $message->user->profile ?? null;
@@ -902,6 +1004,7 @@ class ChatController extends Controller
         'avatar_url' => $message->user->username
           ? config('app.url') . "/v1.0/users/{$message->user->username}/avatar"
           : null,
+        'is_ai' => (bool) $message->user->is_ai,
       ];
     } else {
       $sender = [
@@ -909,6 +1012,7 @@ class ChatController extends Controller
         'username' => 'Ẩn danh',
         'profile_name' => 'Ẩn danh',
         'avatar_url' => null,
+        'is_ai' => false,
       ];
     }
 
@@ -2385,6 +2489,7 @@ class ChatController extends Controller
         'username' => 'system',
         'profile_name' => 'Hệ thống',
         'avatar_url' => null,
+        'is_ai' => false,
       ],
       'created_at' => $message->created_at?->toISOString(),
       'created_at_human' => $message->created_at?->diffForHumans(),
@@ -2427,6 +2532,7 @@ class ChatController extends Controller
 
     $users = $conversation->participants()
       ->where('cyo_auth_accounts.id', '!=', $user->id)
+      ->where('cyo_auth_accounts.is_ai', false)
       ->where(function ($q) use ($query) {
         $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
           ->orWhereHas('profile', function ($q2) use ($query) {
@@ -2473,6 +2579,7 @@ class ChatController extends Controller
 
     // Find user with exact username match (case-insensitive)
     $foundUser = AuthAccount::where('id', '!=', $user->id)
+      ->where('is_ai', false)
       ->whereRaw('LOWER(username) = ?', [strtolower($searchTerm)])
       ->with('profile')
       ->first();
@@ -2533,6 +2640,7 @@ class ChatController extends Controller
     }
 
     $users = AuthAccount::whereNotIn('id', array_unique($excludeIds))
+      ->where('is_ai', false)
       ->where(function ($q) use ($query) {
         $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
           ->orWhereHas('profile', function ($q2) use ($query) {

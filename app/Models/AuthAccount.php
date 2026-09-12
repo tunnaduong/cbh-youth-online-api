@@ -53,7 +53,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
    *
    * @var array<int, string>
    */
-  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token', 'points', 'email_verified_at', 'banned_at', 'banned_until', 'ban_reason', 'banned_by'];
+  protected $fillable = ['username', 'password', 'email', 'last_activity', 'role', 'provider', 'provider_id', 'provider_token', 'points', 'email_verified_at', 'banned_at', 'banned_until', 'ban_reason', 'banned_by', 'is_ai'];
 
   /**
    * The attributes that should be hidden for serialization.
@@ -70,6 +70,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   protected $casts = [
     'banned_at' => 'datetime',
     'banned_until' => 'datetime',
+    'is_ai' => 'boolean',
   ];
 
   /**
