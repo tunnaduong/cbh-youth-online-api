@@ -12,17 +12,17 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Creates (or updates) the "CYO AI" chat persona: a real AuthAccount so all
+ * Creates (or updates) the "Yoyo AI" chat persona: a real AuthAccount so all
  * existing avatar/sender/presence-channel formatting works unchanged, but
  * flagged is_ai so it's excluded from mention/search/friend suggestions.
  */
 class SeedAiChatAccount extends Command
 {
   protected $signature = 'ai:seed-account
-      {--username=cyo.ai : Reserved username for the AI account}
+      {--username=yoyo.ai : Reserved username for the AI account}
       {--avatar-url=https://www.chuyenbienhoa.com/images/cyo_ai.png : Avatar image to download}';
 
-  protected $description = 'Create or update the CYO AI chat account used by the Chat with AI feature';
+  protected $description = 'Create or update the Yoyo AI chat account used by the Chat with AI feature';
 
   public function handle(): int
   {
@@ -34,7 +34,7 @@ class SeedAiChatAccount extends Command
     if (!$account) {
       $account = AuthAccount::create([
         'username' => $username,
-        'email' => $username . '@cyo.internal',
+        'email' => $username . '@yoyo.internal',
         'password' => Hash::make(Str::random(40)),
         'role' => 'user',
         'is_ai' => true,
@@ -52,11 +52,11 @@ class SeedAiChatAccount extends Command
     if (!$profile) {
       $profile = UserProfile::create([
         'auth_account_id' => $account->id,
-        'profile_name' => 'CYO AI',
+        'profile_name' => 'Yoyo AI',
         'verified' => true,
       ]);
-    } elseif ($profile->profile_name !== 'CYO AI') {
-      $profile->update(['profile_name' => 'CYO AI']);
+    } elseif ($profile->profile_name !== 'Yoyo AI') {
+      $profile->update(['profile_name' => 'Yoyo AI']);
     }
 
     $this->downloadAvatar($account, $profile, $avatarUrl);
@@ -82,7 +82,7 @@ class SeedAiChatAccount extends Command
 
       $contentType = $response->header('Content-Type') ?: 'image/png';
       $extension = str_contains($contentType, 'jpeg') ? 'jpg' : 'png';
-      $fileName = 'cyo_ai_avatar.' . $extension;
+      $fileName = 'yoyo_ai_avatar.' . $extension;
       $path = 'avatars/' . Str::uuid() . '.' . $extension;
 
       Storage::disk('public')->put($path, $response->body());

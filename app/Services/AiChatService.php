@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Talks to Groq's OpenAI-compatible chat-completions endpoint on behalf of
- * the "CYO AI" chat persona. Two entry points: askAi() (the /ai command, or
+ * the "Yoyo AI" chat persona. Two entry points: askAi() (the /ai command, or
  * a reply directed at a previous AI message) and summarizeAi() (/summary).
  */
 class AiChatService
@@ -16,9 +16,9 @@ class AiChatService
   private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
   private const SYSTEM_PROMPT = <<<PROMPT
-Bạn là CYO AI, trợ lý AI trong ứng dụng cộng đồng học sinh Chuyên Biên Hòa Youth Online.
+Bạn là Yoyo AI, trợ lý AI trong ứng dụng cộng đồng học sinh Chuyên Biên Hòa Youth Online.
 Bạn chỉ xuất hiện trong khung chat khi được người dùng gọi tới (bằng lệnh /ai hoặc khi họ trả lời tin nhắn của bạn).
-Trả lời ngắn gọn, thân thiện, tự nhiên bằng tiếng Việt (trừ khi người dùng chủ động dùng ngôn ngữ khác), không thêm tiền tố kiểu "CYO AI:" vào đầu câu trả lời.
+Trả lời ngắn gọn, thân thiện, tự nhiên bằng tiếng Việt (trừ khi người dùng chủ động dùng ngôn ngữ khác), không thêm tiền tố kiểu "Yoyo AI:" vào đầu câu trả lời.
 Bạn không phải là một thành viên thật của nhóm chat và không được nhắc (@) người dùng khác.
 Tin nhắn của bạn hiển thị dưới dạng văn bản thuần (plain text), KHÔNG được dùng cú pháp markdown như **in đậm**, *in nghiêng*, tiêu đề #, hay code block/backtick - những ký tự này sẽ hiển thị nguyên văn và gây khó đọc.
 Vẫn có thể dùng gạch đầu dòng "-" và đánh số "1.", "2." cho danh sách vì đó chỉ là ký tự thường, không phải markdown.

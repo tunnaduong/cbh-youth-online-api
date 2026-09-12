@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Runs the Groq call for a /ai, /summary, or reply-to-AI trigger out of
- * band, then creates and broadcasts CYO AI's reply message the same way a
+ * band, then creates and broadcasts Yoyo AI's reply message the same way a
  * human-sent message would be (see ChatController::finalizeAndBroadcastMessage).
  */
 class GenerateAiChatReply implements ShouldQueue
@@ -82,7 +82,7 @@ class GenerateAiChatReply implements ShouldQueue
   }
 
   /**
-   * CYO AI can only read text today - if the message a user replied to (with
+   * Yoyo AI can only read text today - if the message a user replied to (with
    * /ai, or by continuing a conversation with the AI) is a photo/video/file,
    * say so plainly instead of silently ignoring the attachment or hallucinating
    * about content it never actually saw.
@@ -96,7 +96,7 @@ class GenerateAiChatReply implements ShouldQueue
       default => 'nội dung này',
     };
 
-    return "Xin lỗi, hiện tại CYO AI chưa thể đọc và xử lý {$label}, chỉ có thể đọc tin nhắn văn bản. Vui lòng thử lại với một tin nhắn chữ nhé.";
+    return "Xin lỗi, hiện tại Yoyo AI chưa thể đọc và xử lý {$label}, chỉ có thể đọc tin nhắn văn bản. Vui lòng thử lại với một tin nhắn chữ nhé.";
   }
 
   private function runSummary(AiChatService $aiChatService, Conversation $conversation, Message $triggerMessage): string

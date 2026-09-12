@@ -564,13 +564,13 @@ class ChatController extends Controller
   }
 
   /**
-   * Decide whether a just-sent message should invoke the CYO AI assistant,
+   * Decide whether a just-sent message should invoke the Yoyo AI assistant,
    * and if so dispatch the async job that calls Groq and posts the reply.
    *
    * The AI is only ever involved via an explicit trigger:
    *   - a message starting with "/ai" (analyze this message + its reply chain)
    *   - a message starting with "/summary" (summarize recent conversation history)
-   *   - a plain reply directed at a previous CYO AI message (continue the conversation)
+   *   - a plain reply directed at a previous Yoyo AI message (continue the conversation)
    * A plain message with no command and no reply-to-AI never involves the AI.
    *
    * @param  \App\Models\Conversation  $conversation
@@ -713,7 +713,7 @@ class ChatController extends Controller
   }
 
   /**
-   * Broadcast a CYO AI-authored reply (created out of band by GenerateAiChatReply)
+   * Broadcast a Yoyo AI-authored reply (created out of band by GenerateAiChatReply)
    * the same way a human message is broadcast, minus the notification/mention
    * pipeline (the AI never @-mentions anyone and there's no separate push
    * notification path for it yet). Broadcast to everyone rather than
@@ -742,7 +742,7 @@ class ChatController extends Controller
       'sender' => [
         'id' => $aiAccount->id,
         'username' => $aiAccount->username,
-        'profile_name' => $aiAccount->profile->profile_name ?? 'CYO AI',
+        'profile_name' => $aiAccount->profile->profile_name ?? 'Yoyo AI',
         'avatar_url' => config('app.url') . "/v1.0/users/{$aiAccount->username}/avatar",
         'is_ai' => true,
       ],
