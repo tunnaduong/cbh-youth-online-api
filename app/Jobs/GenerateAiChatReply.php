@@ -50,7 +50,7 @@ class GenerateAiChatReply implements ShouldQueue
 
     try {
       $reply = $this->mode === 'summary'
-        ? $this->runSummary($aiChatService, $conversation)
+        ? $this->runSummary($aiChatService, $conversation, $triggerMessage)
         : $this->runAsk($aiChatService, $triggerMessage);
     } catch (\Throwable $e) {
       Log::error('GenerateAiChatReply failed: ' . $e->getMessage());
@@ -76,8 +76,10 @@ class GenerateAiChatReply implements ShouldQueue
     return $aiChatService->askAi($chain, $question !== '' ? $question : ($triggerMessage->content ?? ''));
   }
 
-  private function runSummary(AiChatService $aiChatService, Conversation $conversation): string
+  private function runSummary(AiChatService $aiChatService, Conversation $conversation, Message $triggerMessage): string
   {
+    $customRequest = $this->stripCommandPrefix($triggerMessage->content ?? '', '/summary');
+
     $recent = $conversation->messages()
       ->whereNotNull('content')
       ->where('is_recalled', false)
@@ -88,10 +90,14 @@ class GenerateAiChatReply implements ShouldQueue
       ->reverse()
       ->values();
 
+    // Exclude the trigger message itself (the "/summary ..." command) from
+    // the transcript being summarized - it's an instruction, not content.
+    $recent = $recent->reject(fn($m) => $m->id === $triggerMessage->id)->values();
+
     $trimmed = $aiChatService->trimForSummary($recent);
     $context = $trimmed->map(fn($m) => $this->toContext($m))->all();
 
-    return $aiChatService->summarizeAi($context);
+    return $aiChatService->summarizeAi($context, $customRequest !== '' ? $customRequest : null);
   }
 
   /**

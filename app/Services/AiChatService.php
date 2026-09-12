@@ -20,6 +20,8 @@ Bạn là CYO AI, trợ lý AI trong ứng dụng cộng đồng học sinh Chuy
 Bạn chỉ xuất hiện trong khung chat khi được người dùng gọi tới (bằng lệnh /ai hoặc khi họ trả lời tin nhắn của bạn).
 Trả lời ngắn gọn, thân thiện, tự nhiên bằng tiếng Việt (trừ khi người dùng chủ động dùng ngôn ngữ khác), không thêm tiền tố kiểu "CYO AI:" vào đầu câu trả lời.
 Bạn không phải là một thành viên thật của nhóm chat và không được nhắc (@) người dùng khác.
+Tin nhắn của bạn hiển thị dưới dạng văn bản thuần (plain text), KHÔNG được dùng cú pháp markdown như **in đậm**, *in nghiêng*, tiêu đề #, hay code block/backtick - những ký tự này sẽ hiển thị nguyên văn và gây khó đọc.
+Vẫn có thể dùng gạch đầu dòng "-" và đánh số "1.", "2." cho danh sách vì đó chỉ là ký tự thường, không phải markdown.
 PROMPT;
 
   /**
@@ -45,19 +47,26 @@ PROMPT;
    * Summarize the last N messages of a conversation for /summary.
    *
    * @param  array<int, array{role: string, name: ?string, content: string}>  $contextMessages  Chronological, oldest first.
+   * @param  string|null  $customRequest  Extra text the user typed after "/summary", e.g.
+   *                                      "/summary chỉ tóm tắt phần bàn về lịch thi" - lets
+   *                                      them steer what to focus on within the same history.
    */
-  public function summarizeAi(array $contextMessages): string
+  public function summarizeAi(array $contextMessages, ?string $customRequest = null): string
   {
     $transcript = implode("\n", array_map(
       fn($ctx) => ($ctx['name'] ?? 'Người dùng') . ': ' . $ctx['content'],
       $contextMessages
     ));
 
+    $instruction = $customRequest !== null && trim($customRequest) !== ''
+      ? "Hãy trả lời yêu cầu sau đây của người dùng DỰA TRÊN đoạn hội thoại bên dưới (đây không phải một tóm tắt chung, hãy tập trung vào đúng điều họ hỏi):\n\"{$customRequest}\""
+      : 'Hãy tóm tắt ngắn gọn, dễ hiểu nội dung chính của đoạn hội thoại sau (nêu các chủ đề/quyết định chính, không cần liệt kê từng tin nhắn):';
+
     $messages = [
       ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
       [
         'role' => 'user',
-        'content' => "Hãy tóm tắt ngắn gọn, dễ hiểu nội dung chính của đoạn hội thoại sau (nêu các chủ đề/quyết định chính, không cần liệt kê từng tin nhắn):\n\n{$transcript}",
+        'content' => "{$instruction}\n\n{$transcript}",
       ],
     ];
 
