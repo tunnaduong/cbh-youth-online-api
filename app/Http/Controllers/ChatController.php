@@ -572,7 +572,14 @@ class ChatController extends Controller
    *   - a message starting with "/summary" (summarize recent conversation history)
    *   - the standalone message "/help" (instant pregenerated tutorial, no AI call)
    *   - a plain reply directed at a previous Yoyo AI message (continue the conversation)
-   * A plain message with no command and no reply-to-AI never involves the AI.
+   *   - ANY message at all, if this is a private 1-on-1 conversation with the
+   *     AI itself (see isPrivateAiConversation()) - a user who found @yoyo.ai
+   *     via "new conversation" search gets a normal back-and-forth chat with
+   *     it, without needing to type /ai or reply every time. This exception
+   *     is scoped to that one conversation only; every other chat (group,
+   *     the public room) keeps the explicit-trigger-only behavior above.
+   * A plain message with no command and no reply-to-AI never involves the AI
+   * anywhere else.
    *
    * @param  \App\Models\Conversation  $conversation
    * @param  \App\Models\Message  $message
@@ -601,6 +608,8 @@ class ChatController extends Controller
       $mode = 'summary';
     } elseif (stripos($content, '/ai') === 0) {
       $mode = 'ai';
+    } elseif ($this->isPrivateAiConversation($conversation)) {
+      $mode = 'ai';
     } elseif ($message->reply_to_message_id) {
       $repliedTo = $message->replyTo ?? Message::find($message->reply_to_message_id);
       if ($repliedTo && $repliedTo->user_id && optional($repliedTo->user)->is_ai) {
@@ -613,6 +622,20 @@ class ChatController extends Controller
     }
 
     \App\Jobs\GenerateAiChatReply::dispatch($conversation->id, $message->id, $mode);
+  }
+
+  /**
+   * True when $conversation is a private 1-on-1 between a human and the AI
+   * account - the one place a plain message (no /ai, no reply) still gets
+   * an AI reply automatically.
+   */
+  private function isPrivateAiConversation(Conversation $conversation): bool
+  {
+    if ($conversation->type !== 'private') {
+      return false;
+    }
+
+    return $conversation->participants()->where('is_ai', true)->exists();
   }
 
   private const AI_HELP_TEXT = <<<TEXT
@@ -631,8 +654,12 @@ Xin chào, mình là Yoyo AI - trợ lý AI trong khung chat! Đây là những 
 /help - Xem hướng dẫn này
 - Gõ đúng "/help" (không kèm thêm nội dung nào khác) để xem lại hướng dẫn này bất cứ lúc nào.
 
+Trò chuyện riêng với mình
+- Vào mục nhắn tin, tạo cuộc trò chuyện mới và tìm chính xác username "yoyo.ai" để bắt đầu nhắn tin riêng với mình.
+- Trong cuộc trò chuyện riêng đó, mình sẽ trả lời MỌI tin nhắn bạn gửi như một cuộc trò chuyện bình thường, không cần gõ "/ai" hay trả lời (reply) gì cả.
+
 Một vài lưu ý:
-- Mình chỉ xuất hiện khi được gọi tới bằng /ai, /summary, hoặc khi bạn trả lời tin nhắn của mình - mình không tự động đọc hay trả lời các tin nhắn khác trong nhóm.
+- Ở các đoạn chat khác (nhóm, chat chung...), mình chỉ xuất hiện khi được gọi tới bằng /ai, /summary, hoặc khi bạn trả lời tin nhắn của mình - mình không tự động đọc hay trả lời các tin nhắn khác trong đó.
 - Hiện tại mình chỉ đọc được tin nhắn văn bản, chưa thể xem hình ảnh, video hay tệp đính kèm.
 - Gõ "/" để xem gợi ý các lệnh này ngay trong khung nhập tin nhắn.
 TEXT;
@@ -2633,9 +2660,12 @@ TEXT;
     $user = Auth::user();
     $searchTerm = $request->username;
 
-    // Find user with exact username match (case-insensitive)
+    // Find user with exact username match (case-insensitive). Deliberately
+    // does NOT exclude is_ai here (unlike every other search/mention/
+    // suggestion endpoint) - this is the one sanctioned way to discover an
+    // AI persona and start a private 1-on-1 with it; it's still invisible to
+    // group-member pickers, forum/chat mentions, and general search.
     $foundUser = AuthAccount::where('id', '!=', $user->id)
-      ->where('is_ai', false)
       ->whereRaw('LOWER(username) = ?', [strtolower($searchTerm)])
       ->with('profile')
       ->first();
@@ -2657,6 +2687,7 @@ TEXT;
         'username' => $foundUser->username,
         'profile_name' => $foundUser->profile->profile_name ?? $foundUser->username,
         'avatar_url' => config('app.url') . "/v1.0/users/{$foundUser->username}/avatar",
+        'is_ai' => (bool) $foundUser->is_ai,
       ],
       'existing_conversation_id' => $existingConversation?->id
     ]);
