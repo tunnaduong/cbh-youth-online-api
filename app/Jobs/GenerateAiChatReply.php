@@ -70,10 +70,33 @@ class GenerateAiChatReply implements ShouldQueue
 
   private function runAsk(AiChatService $aiChatService, Message $triggerMessage): string
   {
+    $repliedTo = $triggerMessage->replyTo;
+    if ($repliedTo && $repliedTo->type !== 'text') {
+      return $this->unsupportedMediaReply($repliedTo->type);
+    }
+
     $chain = $this->collectReplyChain($triggerMessage);
     $question = $this->stripCommandPrefix($triggerMessage->content ?? '', '/ai');
 
     return $aiChatService->askAi($chain, $question !== '' ? $question : ($triggerMessage->content ?? ''));
+  }
+
+  /**
+   * CYO AI can only read text today - if the message a user replied to (with
+   * /ai, or by continuing a conversation with the AI) is a photo/video/file,
+   * say so plainly instead of silently ignoring the attachment or hallucinating
+   * about content it never actually saw.
+   */
+  private function unsupportedMediaReply(string $mediaType): string
+  {
+    $label = match ($mediaType) {
+      'image' => 'hình ảnh',
+      'video' => 'video',
+      'file' => 'tệp đính kèm',
+      default => 'nội dung này',
+    };
+
+    return "Xin lỗi, hiện tại CYO AI chưa thể đọc và xử lý {$label}, chỉ có thể đọc tin nhắn văn bản. Vui lòng thử lại với một tin nhắn chữ nhé.";
   }
 
   private function runSummary(AiChatService $aiChatService, Conversation $conversation, Message $triggerMessage): string
@@ -136,7 +159,18 @@ class GenerateAiChatReply implements ShouldQueue
     return [
       'role' => $isAi ? 'assistant' : 'user',
       'name' => $isAi ? null : $name,
-      'content' => (string) $message->content,
+      // Older messages further back in a reply chain/history that are media
+      // (not the immediate reply target, which is blocked outright in
+      // runAsk()) are labeled rather than sent as empty/garbled content -
+      // the AI still can't see them, but knows something was there.
+      'content' => $message->type === 'text'
+        ? (string) $message->content
+        : '[' . match ($message->type) {
+          'image' => 'đã gửi một hình ảnh',
+          'video' => 'đã gửi một video',
+          'file' => 'đã gửi một tệp đính kèm',
+          default => 'nội dung không phải văn bản',
+        } . ']',
     ];
   }
 
