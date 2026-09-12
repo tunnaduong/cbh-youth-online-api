@@ -78,7 +78,56 @@ class GenerateAiChatReply implements ShouldQueue
     $chain = $this->collectReplyChain($triggerMessage);
     $question = $this->stripCommandPrefix($triggerMessage->content ?? '', '/ai');
 
-    return $aiChatService->askAi($chain, $question !== '' ? $question : ($triggerMessage->content ?? ''));
+    return $aiChatService->askAi(
+      $chain,
+      $question !== '' ? $question : ($triggerMessage->content ?? ''),
+      $this->buildConversationInfo($triggerMessage->conversation)
+    );
+  }
+
+  /**
+   * Basic info about the chat itself (name, type, member list) so /ai and
+   * /summary can answer questions like "who's in this group" or "what's
+   * this group called" without needing to be told explicitly.
+   */
+  private function buildConversationInfo(Conversation $conversation): string
+  {
+    if ($conversation->is_public) {
+      return "Thông tin cuộc trò chuyện hiện tại: đây là phòng chat chung công khai \"{$conversation->name}\" của toàn bộ cộng đồng CYO/CBH Youth Online - ai cũng có thể tham gia, danh sách thành viên rất lớn và luôn thay đổi nên không liệt kê đầy đủ ở đây.";
+    }
+
+    if ($conversation->type === 'private') {
+      $otherParticipant = $conversation->participants()
+        ->where('is_ai', false)
+        ->with('profile')
+        ->first();
+      $otherName = $otherParticipant
+        ? ($otherParticipant->profile->profile_name ?? $otherParticipant->username)
+        : 'người dùng';
+
+      return "Thông tin cuộc trò chuyện hiện tại: đây là đoạn chat riêng (1-1) giữa bạn (Yoyo AI) và {$otherName}.";
+    }
+
+    // Group chat: name + member list (name, username, role).
+    $members = $conversation->participants()
+      ->where('is_ai', false)
+      ->with('profile')
+      ->get()
+      ->map(function ($member) {
+        $name = $member->profile->profile_name ?? $member->username;
+        $role = $member->pivot->role ?? 'member';
+        $roleLabel = match ($role) {
+          'owner' => 'trưởng nhóm',
+          'deputy' => 'phó nhóm',
+          default => 'thành viên',
+        };
+        return "{$name} (@{$member->username}, {$roleLabel})";
+      })
+      ->implode(', ');
+
+    $groupName = $conversation->name ?: 'Nhóm chưa đặt tên';
+
+    return "Thông tin cuộc trò chuyện hiện tại: đây là nhóm chat tên \"{$groupName}\", gồm các thành viên: {$members}.";
   }
 
   /**
@@ -137,7 +186,11 @@ class GenerateAiChatReply implements ShouldQueue
     $trimmed = $aiChatService->trimForSummary($recent);
     $context = $trimmed->map(fn($m) => $this->toContext($m))->all();
 
-    return $aiChatService->summarizeAi($context, $customRequest !== '' ? $customRequest : null);
+    return $aiChatService->summarizeAi(
+      $context,
+      $customRequest !== '' ? $customRequest : null,
+      $this->buildConversationInfo($conversation)
+    );
   }
 
   /**

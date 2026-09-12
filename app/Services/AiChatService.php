@@ -30,10 +30,15 @@ PROMPT;
    *
    * @param  array<int, array{role: string, name: ?string, content: string}>  $contextMessages  Chronological context, oldest first.
    * @param  string  $question  The triggering user message content (already stripped of the /ai prefix, if any).
+   * @param  string|null  $conversationInfo  Basic chat/group info (name, type, member list) - see GenerateAiChatReply::buildConversationInfo().
    */
-  public function askAi(array $contextMessages, string $question): string
+  public function askAi(array $contextMessages, string $question, ?string $conversationInfo = null): string
   {
     $messages = [['role' => 'system', 'content' => self::SYSTEM_PROMPT]];
+
+    if ($conversationInfo) {
+      $messages[] = ['role' => 'system', 'content' => $conversationInfo];
+    }
 
     foreach ($contextMessages as $ctx) {
       $messages[] = $this->toChatMessage($ctx);
@@ -51,8 +56,9 @@ PROMPT;
    * @param  string|null  $customRequest  Extra text the user typed after "/summary", e.g.
    *                                      "/summary chỉ tóm tắt phần bàn về lịch thi" - lets
    *                                      them steer what to focus on within the same history.
+   * @param  string|null  $conversationInfo  Basic chat/group info (name, type, member list) - see GenerateAiChatReply::buildConversationInfo().
    */
-  public function summarizeAi(array $contextMessages, ?string $customRequest = null): string
+  public function summarizeAi(array $contextMessages, ?string $customRequest = null, ?string $conversationInfo = null): string
   {
     $transcript = implode("\n", array_map(
       fn($ctx) => ($ctx['name'] ?? 'Người dùng') . ': ' . $ctx['content'],
@@ -63,12 +69,15 @@ PROMPT;
       ? "Hãy trả lời yêu cầu sau đây của người dùng DỰA TRÊN đoạn hội thoại bên dưới (đây không phải một tóm tắt chung, hãy tập trung vào đúng điều họ hỏi):\n\"{$customRequest}\""
       : 'Hãy tóm tắt ngắn gọn, dễ hiểu nội dung chính của đoạn hội thoại sau (nêu các chủ đề/quyết định chính, không cần liệt kê từng tin nhắn):';
 
-    $messages = [
-      ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
-      [
-        'role' => 'user',
-        'content' => "{$instruction}\n\n{$transcript}",
-      ],
+    $messages = [['role' => 'system', 'content' => self::SYSTEM_PROMPT]];
+
+    if ($conversationInfo) {
+      $messages[] = ['role' => 'system', 'content' => $conversationInfo];
+    }
+
+    $messages[] = [
+      'role' => 'user',
+      'content' => "{$instruction}\n\n{$transcript}",
     ];
 
     return $this->request($messages);
