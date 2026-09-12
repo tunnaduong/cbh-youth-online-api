@@ -142,7 +142,7 @@ PROMPT;
               // Lower temperature favors more accurate/consistent answers
               // over creative variation, appropriate for a chat assistant
               // answering factual/contextual questions in-app.
-              'temperature' => 0.4,
+              'temperature' => 0.2,
             ]);
 
           if ($response->status() === 429) {
