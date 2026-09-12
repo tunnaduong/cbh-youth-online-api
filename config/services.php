@@ -55,19 +55,10 @@ return [
   ],
 
   'chat_api' => [
-    // Quiz question generation (see QuizGenerationService). Key lives in
+    // Quiz question generation (QuizGenerationService) and the Chat with AI
+    // feature (AiChatService) both use this same key/proxy. Key lives in
     // .env as CYO_AI_API - never commit it or return it from any endpoint.
     'key' => env('CYO_AI_API'),
-  ],
-
-  'groq' => [
-    // Chat-with-AI feature (see AiChatService). Two independent Groq keys
-    // live in .env as AI_API and AI_API_DHPHUC and are used as backups to
-    // each other (if one is rate-limited/failing, the other is tried) -
-    // never commit them or return them from any endpoint.
-    'key' => env('AI_API'),
-    'secondary_key' => env('AI_API_DHPHUC'),
-    'model' => env('GROQ_CHAT_MODEL', 'openai/gpt-oss-120b'),
   ],
 
 ];

@@ -7,13 +7,15 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Talks to Groq's OpenAI-compatible chat-completions endpoint on behalf of
- * the "Yoyo AI" chat persona. Two entry points: askAi() (the /ai command, or
- * a reply directed at a previous AI message) and summarizeAi() (/summary).
+ * Talks to the same internal chat-completions proxy used by
+ * QuizGenerationService (see config('services.chat_api')) on behalf of the
+ * "Yoyo AI" chat persona. Two entry points: askAi() (the /ai command, or a
+ * reply directed at a previous AI message) and summarizeAi() (/summary).
  */
 class AiChatService
 {
-  private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
+  private const MODEL = 'gemini-flash-lite';
 
   private const SYSTEM_PROMPT = <<<PROMPT
 Bạn là Yoyo AI, trợ lý AI trong ứng dụng cộng đồng học sinh Chuyên Biên Hòa Youth Online (CYO/CBH Youth Online).
@@ -128,52 +130,45 @@ PROMPT;
 
   private function request(array $messages): string
   {
-    // AI_API and AI_API_DHPHUC are used as backups to each other: if the
-    // first key is rate-limited or failing, fall through to the next one.
-    $keys = array_values(array_filter([
-      config('services.groq.key'),
-      config('services.groq.secondary_key'),
-    ]));
-
-    if (empty($keys)) {
-      throw new \RuntimeException('No Groq API key is configured (AI_API / AI_API_DHPHUC).');
+    // Same key/config as QuizGenerationService - CYO_AI_API via services.chat_api.key.
+    $apiKey = config('services.chat_api.key');
+    if (empty($apiKey)) {
+      throw new \RuntimeException('CYO_AI_API key is not configured.');
     }
 
     $lastError = null;
 
-    foreach ($keys as $apiKey) {
-      for ($attempt = 0; $attempt < 2; $attempt++) {
-        try {
-          $response = Http::withToken($apiKey)
-            ->timeout(60)
-            ->post(self::API_URL, [
-              'model' => config('services.groq.model', 'openai/gpt-oss-120b'),
-              'messages' => $messages,
-              // Lower temperature favors more accurate/consistent answers
-              // over creative variation, appropriate for a chat assistant
-              // answering factual/contextual questions in-app.
-              'temperature' => 0.2,
-            ]);
+    for ($attempt = 0; $attempt < 2; $attempt++) {
+      try {
+        $response = Http::withToken($apiKey)
+          ->timeout(60)
+          ->post(self::API_URL, [
+            'model' => self::MODEL,
+            'messages' => $messages,
+            // Lower temperature favors more accurate/consistent answers
+            // over creative variation, appropriate for a chat assistant
+            // answering factual/contextual questions in-app.
+            'temperature' => 0.2,
+          ]);
 
-          if ($response->status() === 429) {
-            throw new \RuntimeException('Groq API rate limited (429) for this key.');
-          }
-          if (!$response->successful()) {
-            throw new \RuntimeException('Groq API returned HTTP ' . $response->status() . ': ' . $response->body());
-          }
+        if ($response->status() === 429) {
+          throw new \RuntimeException('AI API rate limited (429).');
+        }
+        if (!$response->successful()) {
+          throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' . $response->body());
+        }
 
-          $content = $response->json('choices.0.message.content');
-          if (!is_string($content) || trim($content) === '') {
-            throw new \RuntimeException('Groq API response had no message content.');
-          }
+        $content = $response->json('choices.0.message.content');
+        if (!is_string($content) || trim($content) === '') {
+          throw new \RuntimeException('AI API response had no message content.');
+        }
 
-          return $this->stripModelIdentity($this->stripMarkdown(trim($content)));
-        } catch (\Throwable $e) {
-          $lastError = $e;
-          Log::warning('AI chat request attempt failed: ' . $e->getMessage());
-          if (str_contains($e->getMessage(), '429')) {
-            break;  // move on to the next key
-          }
+        return $this->stripModelIdentity($this->stripMarkdown(trim($content)));
+      } catch (\Throwable $e) {
+        $lastError = $e;
+        Log::warning('AI chat request attempt failed: ' . $e->getMessage());
+        if (str_contains($e->getMessage(), '429')) {
+          break;
         }
       }
     }
