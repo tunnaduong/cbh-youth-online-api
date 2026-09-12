@@ -139,7 +139,10 @@ PROMPT;
             ->post(self::API_URL, [
               'model' => config('services.groq.model', 'openai/gpt-oss-120b'),
               'messages' => $messages,
-              'temperature' => 0.5,
+              // Lower temperature favors more accurate/consistent answers
+              // over creative variation, appropriate for a chat assistant
+              // answering factual/contextual questions in-app.
+              'temperature' => 0.4,
             ]);
 
           if ($response->status() === 429) {

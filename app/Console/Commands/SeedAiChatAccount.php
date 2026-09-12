@@ -20,14 +20,18 @@ class SeedAiChatAccount extends Command
 {
   protected $signature = 'ai:seed-account
       {--username=yoyo.ai : Reserved username for the AI account}
-      {--avatar-url=https://www.chuyenbienhoa.com/images/cyo_ai.png : Avatar image to download}';
+      {--name=Yoyo AI : Display name (profile_name) for the AI account}
+      {--avatar-url=https://www.chuyenbienhoa.com/images/cyo_ai.png : Avatar image to download}
+      {--force-avatar : Re-download and replace the avatar even if one is already set (use this to change the avatar later)}';
 
-  protected $description = 'Create or update the Yoyo AI chat account used by the Chat with AI feature';
+  protected $description = 'Create or update the Yoyo AI chat account used by the Chat with AI feature. Safe to re-run any time you want to change the name (--name) or avatar (--avatar-url --force-avatar).';
 
   public function handle(): int
   {
     $username = $this->option('username');
+    $name = $this->option('name');
     $avatarUrl = $this->option('avatar-url');
+    $forceAvatar = (bool) $this->option('force-avatar');
 
     $account = AuthAccount::where('username', $username)->first();
 
@@ -52,24 +56,27 @@ class SeedAiChatAccount extends Command
     if (!$profile) {
       $profile = UserProfile::create([
         'auth_account_id' => $account->id,
-        'profile_name' => 'Yoyo AI',
+        'profile_name' => $name,
         'verified' => true,
       ]);
-    } elseif ($profile->profile_name !== 'Yoyo AI') {
-      $profile->update(['profile_name' => 'Yoyo AI']);
+    } elseif ($profile->profile_name !== $name) {
+      $profile->update(['profile_name' => $name]);
+      $this->info("Updated display name to \"{$name}\".");
     }
 
-    $this->downloadAvatar($account, $profile, $avatarUrl);
+    $this->downloadAvatar($account, $profile, $avatarUrl, $forceAvatar);
 
     $this->info('Done.');
 
     return self::SUCCESS;
   }
 
-  private function downloadAvatar(AuthAccount $account, UserProfile $profile, string $avatarUrl): void
+  private function downloadAvatar(AuthAccount $account, UserProfile $profile, string $avatarUrl, bool $force): void
   {
-    if ($profile->profile_picture && UserContent::find($profile->profile_picture)) {
-      $this->info('Avatar already set, skipping download.');
+    $existingContent = $profile->profile_picture ? UserContent::find($profile->profile_picture) : null;
+
+    if ($existingContent && !$force) {
+      $this->info('Avatar already set, skipping download (pass --force-avatar to replace it).');
       return;
     }
 
@@ -96,6 +103,13 @@ class SeedAiChatAccount extends Command
       ]);
 
       $profile->update(['profile_picture' => $userContent->id]);
+
+      // Clean up the previous avatar file/row now that the new one is live,
+      // so replacing it repeatedly doesn't leak storage.
+      if ($existingContent) {
+        Storage::disk('public')->delete($existingContent->file_path);
+        $existingContent->delete();
+      }
 
       $this->info('Avatar downloaded and set.');
     } catch (\Throwable $e) {
