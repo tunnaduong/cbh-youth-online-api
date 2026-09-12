@@ -42,7 +42,18 @@ class SettingsController extends Controller
     $user = Auth::user();
 
     $validated = $request->validate([
-      'username' => ['required', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/', 'unique:cyo_auth_accounts,username,' . $user->id, 'not_in:all'],
+      'username' => [
+        'required', 'string', 'min:3', 'max:21', 'regex:/^[a-zA-Z0-9_.-]+$/',
+        'unique:cyo_auth_accounts,username,' . $user->id, 'not_in:all',
+        // Reserved: AI persona usernames (e.g. yoyo.ai) - belt-and-suspenders
+        // on top of the 'unique' rule above, case-insensitive.
+        function ($attribute, $value, $fail) {
+          $reserved = AuthAccount::where('is_ai', true)->pluck('username');
+          if ($reserved->contains(fn($u) => strcasecmp($u, $value) === 0)) {
+            $fail('Tên người dùng này đã được sử dụng.');
+          }
+        },
+      ],
       'gender' => 'required|in:male,female',
       'location' => 'nullable|string|max:255',
       'bio' => 'nullable|string|max:500',

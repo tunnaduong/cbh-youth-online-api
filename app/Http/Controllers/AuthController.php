@@ -171,6 +171,16 @@ class AuthController extends Controller
         'regex:/^[a-zA-Z0-9_.-]+$/',  // No whitespace, no Unicode characters, only alphanumeric, underscore and dash
         'unique:cyo_auth_accounts,username',  // Ensure the username is unique in the users table
         'not_in:all',  // Reserved: conflicts with @all mention-everyone
+        // Reserved: AI persona usernames (e.g. yoyo.ai) - belt-and-suspenders
+        // on top of the 'unique' rule above, in case an AI account is ever
+        // temporarily absent when this runs. Case-insensitive since
+        // usernames aren't otherwise unique-checked case-sensitively either.
+        function ($attribute, $value, $fail) {
+          $reserved = AuthAccount::where('is_ai', true)->pluck('username');
+          if ($reserved->contains(fn($u) => strcasecmp($u, $value) === 0)) {
+            $fail('Tên người dùng này đã được sử dụng.');
+          }
+        },
       ],
       'password' => 'required|string|min:6',
       'email' => 'required|email|unique:cyo_auth_accounts',

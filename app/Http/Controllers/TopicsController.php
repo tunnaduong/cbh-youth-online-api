@@ -266,6 +266,7 @@ class TopicsController extends Controller
     }
 
     return AuthAccount::whereIn('username', $usernames)
+      ->where('is_ai', false)
       ->select('id', 'username')
       ->get()
       ->map(fn($u) => ['username' => $u->username, 'user_id' => $u->id])
@@ -854,7 +855,7 @@ class TopicsController extends Controller
     ));
     $resolvedCommentUsers = [];
     if (!empty($allCommentUsernames)) {
-      foreach (\App\Models\AuthAccount::whereIn('username', $allCommentUsernames)->select('id', 'username')->get() as $u) {
+      foreach (\App\Models\AuthAccount::whereIn('username', $allCommentUsernames)->where('is_ai', false)->select('id', 'username')->get() as $u) {
         $resolvedCommentUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
       }
     }
@@ -1306,6 +1307,7 @@ class TopicsController extends Controller
     $resolvedTopicMentions = [];
     if (!empty($parsedMentionUsernames)) {
       $mentionedUsers = AuthAccount::whereIn('username', $parsedMentionUsernames)
+        ->where('is_ai', false)
         ->select('id', 'username')
         ->get();
       foreach ($mentionedUsers as $mentionedUser) {
@@ -1704,7 +1706,7 @@ class TopicsController extends Controller
     ));
     $resolvedUsers = [];
     if (!empty($allUsernames)) {
-      foreach (\App\Models\AuthAccount::whereIn('username', $allUsernames)->select('id', 'username')->get() as $u) {
+      foreach (\App\Models\AuthAccount::whereIn('username', $allUsernames)->where('is_ai', false)->select('id', 'username')->get() as $u) {
         $resolvedUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
       }
     }
@@ -1791,7 +1793,7 @@ class TopicsController extends Controller
       $parsedMentionUsernames = NotificationService::parseMentions($request->comment ?? '');
       $resolvedMentions = [];
       if (!empty($parsedMentionUsernames)) {
-        foreach (\App\Models\AuthAccount::whereIn('username', $parsedMentionUsernames)->select('id', 'username')->get() as $u) {
+        foreach (\App\Models\AuthAccount::whereIn('username', $parsedMentionUsernames)->where('is_ai', false)->select('id', 'username')->get() as $u) {
           $resolvedMentions[] = ['username' => $u->username, 'user_id' => $u->id];
         }
       }
@@ -1929,6 +1931,7 @@ class TopicsController extends Controller
     $resolvedMentions = [];
     if (!empty($parsedMentionUsernames) && $topic) {
       $mentionedUsers = \App\Models\AuthAccount::whereIn('username', $parsedMentionUsernames)
+        ->where('is_ai', false)
         ->select('id', 'username')
         ->get();
       foreach ($mentionedUsers as $mentionedUser) {

@@ -249,7 +249,7 @@ class ChatController extends Controller
     }
     $regularMentionedUsernames = array_filter($allMentionedUsernames, fn($u) => $u !== 'all');
     if (!empty($regularMentionedUsernames)) {
-      $q = \App\Models\AuthAccount::whereIn('username', $regularMentionedUsernames)->select('id', 'username');
+      $q = \App\Models\AuthAccount::whereIn('username', $regularMentionedUsernames)->where('is_ai', false)->select('id', 'username');
       if ($participantIds !== null) {
         $q->whereIn('id', $participantIds);
       }
@@ -2772,7 +2772,7 @@ TEXT;
     }
     $regularPublicMentions = array_filter($publicMentionUsernames, fn($u) => $u !== 'all');
     if (!empty($regularPublicMentions)) {
-      foreach (AuthAccount::whereIn('username', $regularPublicMentions)->select('id', 'username')->get() as $u) {
+      foreach (AuthAccount::whereIn('username', $regularPublicMentions)->where('is_ai', false)->select('id', 'username')->get() as $u) {
         $resolvedPublicUsers[strtolower($u->username)] = ['username' => $u->username, 'user_id' => $u->id];
       }
     }

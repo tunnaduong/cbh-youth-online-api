@@ -292,6 +292,7 @@ class UserController extends Controller
     }
 
     return AuthAccount::whereIn('username', $usernames)
+      ->where('is_ai', false)
       ->select('id', 'username')
       ->get()
       ->map(fn($u) => ['username' => $u->username, 'user_id' => $u->id])
