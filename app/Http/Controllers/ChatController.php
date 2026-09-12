@@ -2803,16 +2803,19 @@ TEXT;
             'username' => $message->guest_name ?? 'Ẩn danh',
             'profile_name' => $message->guest_name ?? 'Ẩn danh',
             'avatar_url' => null,
+            'is_ai' => false,
           ] : ($message->user ? [
             'id' => $message->user->id,
             'username' => $message->user->username ?? 'Ẩn danh',
             'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
             'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+            'is_ai' => (bool) $message->user->is_ai,
           ] : [
             'id' => null,
             'username' => 'Ẩn danh',
             'profile_name' => 'Ẩn danh',
             'avatar_url' => null,
+            'is_ai' => false,
           ]),
           'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
           'created_at_human' => $message->created_at->diffForHumans(),
@@ -3026,16 +3029,19 @@ TEXT;
         'username' => $message->guest_name ?? 'Ẩn danh',
         'profile_name' => $message->guest_name ?? 'Ẩn danh',
         'avatar_url' => null,
+        'is_ai' => false,
       ] : ($message->user ? [
         'id' => $message->user->id,
         'username' => $message->user->username ?? 'Ẩn danh',
         'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
         'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+        'is_ai' => (bool) $message->user->is_ai,
       ] : [
         'id' => null,
         'username' => 'Ẩn danh',
         'profile_name' => 'Ẩn danh',
         'avatar_url' => null,
+        'is_ai' => false,
       ]),
       'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
       'created_at_human' => $message->created_at->diffForHumans(),
@@ -3072,6 +3078,12 @@ TEXT;
 
     $messageData['mentions'] = $resolvedPublicMentions;
 
+    // This legacy public-chat endpoint bypasses the Conversation-based
+    // sendMessage() entirely, so /ai, /summary, and /help need to be wired
+    // in here too - maybeTriggerAi() already no-ops for guests (user_id is
+    // null) via its own guard.
+    $this->maybeTriggerAi($conversation, $message);
+
     return response()->json($messageData, 201);
   }
 
@@ -3095,6 +3107,7 @@ TEXT;
     $now = Carbon::now();
     $users = $conversation
       ->participants()
+      ->where('is_ai', false)
       ->with('profile')
       ->get()
       ->map(function ($user) use ($now) {
