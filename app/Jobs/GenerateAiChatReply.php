@@ -101,14 +101,31 @@ class GenerateAiChatReply implements ShouldQueue
 
   private function runSummary(AiChatService $aiChatService, Conversation $conversation, Message $triggerMessage): string
   {
+    // /summary as a reply (e.g. replying to a specific message and asking to
+    // summarize from there) only makes sense against text - same rule as /ai.
+    $repliedTo = $triggerMessage->replyTo;
+    if ($repliedTo && $repliedTo->type !== 'text') {
+      return $this->unsupportedMediaReply($repliedTo->type);
+    }
+
     $customRequest = $this->stripCommandPrefix($triggerMessage->content ?? '', '/summary');
 
-    $recent = $conversation->messages()
+    $recentQuery = $conversation->messages()
       ->whereNotNull('content')
       ->where('is_recalled', false)
+      ->with('user.profile');
+
+    // "/summary" as a reply anchors the window to end at the replied-to
+    // message instead of "now" - so users can jump back and summarize an
+    // older stretch of the conversation instead of always getting the very
+    // latest messages.
+    if ($repliedTo) {
+      $recentQuery->where('created_at', '<=', $repliedTo->created_at);
+    }
+
+    $recent = $recentQuery
       ->orderBy('created_at', 'desc')
       ->limit(50)
-      ->with('user.profile')
       ->get()
       ->reverse()
       ->values();
