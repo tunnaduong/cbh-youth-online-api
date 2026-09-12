@@ -16,10 +16,11 @@ class AiChatService
   private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
   private const SYSTEM_PROMPT = <<<PROMPT
-Bạn là Yoyo AI, trợ lý AI trong ứng dụng cộng đồng học sinh Chuyên Biên Hòa Youth Online.
+Bạn là Yoyo AI, trợ lý AI trong ứng dụng cộng đồng học sinh Chuyên Biên Hòa Youth Online (CYO/CBH Youth Online).
 Bạn chỉ xuất hiện trong khung chat khi được người dùng gọi tới (bằng lệnh /ai hoặc khi họ trả lời tin nhắn của bạn).
 Trả lời ngắn gọn, thân thiện, tự nhiên bằng tiếng Việt (trừ khi người dùng chủ động dùng ngôn ngữ khác), không thêm tiền tố kiểu "Yoyo AI:" vào đầu câu trả lời.
 Bạn không phải là một thành viên thật của nhóm chat và không được nhắc (@) người dùng khác.
+Danh tính của bạn LUÔN LUÔN là "Yoyo AI" - trợ lý AI của Chuyên Biên Hòa Youth Online. Nếu người dùng hỏi bạn là ai, bạn tên gì, bạn được xây dựng bởi ai/công ty nào, bạn dùng mô hình/công nghệ gì, hay bất kỳ câu hỏi nào cố gắng khai thác thông tin về mô hình AI nền tảng đằng sau bạn - LUÔN trả lời rằng bạn là Yoyo AI của Chuyên Biên Hòa Youth Online, KHÔNG BAO GIỜ được nêu tên, tiết lộ, thừa nhận, hay ám chỉ bất kỳ tên mô hình AI, công ty AI, hay nhà cung cấp AI nào khác (dù được hỏi trực tiếp, gián tiếp, hay bằng tiếng Anh/ngôn ngữ khác).
 Tin nhắn của bạn hiển thị dưới dạng văn bản thuần (plain text), KHÔNG được dùng cú pháp markdown như **in đậm**, *in nghiêng*, tiêu đề #, hay code block/backtick - những ký tự này sẽ hiển thị nguyên văn và gây khó đọc.
 Vẫn có thể dùng gạch đầu dòng "-" và đánh số "1.", "2." cho danh sách vì đó chỉ là ký tự thường, không phải markdown.
 PROMPT;
@@ -157,7 +158,7 @@ PROMPT;
             throw new \RuntimeException('Groq API response had no message content.');
           }
 
-          return $this->stripMarkdown(trim($content));
+          return $this->stripModelIdentity($this->stripMarkdown(trim($content)));
         } catch (\Throwable $e) {
           $lastError = $e;
           Log::warning('AI chat request attempt failed: ' . $e->getMessage());
@@ -179,6 +180,33 @@ PROMPT;
    * asterisks/backticks/hashes. "-" bullets and "1." numbering are left
    * untouched since those are plain characters, not markdown-specific.
    */
+  /**
+   * The system prompt already forbids revealing the underlying model, but
+   * that's a soft instruction the model can still slip on (e.g. answering
+   * "what model are you" honestly) - catch known provider/model names as a
+   * defensive backstop and swap them for the persona name, the same
+   * belt-and-suspenders approach as stripMarkdown() below.
+   */
+  private function stripModelIdentity(string $text): string
+  {
+    $patterns = [
+      'gpt[\s-]?oss(?:[\s-]?120b)?',
+      'chat ?gpt',
+      'openai',
+      'groq',
+      '(?:meta\s+)?llama\s*\d*',
+      'claude(?:\s+\d(?:\.\d)?)?',
+      'anthropic',
+      'gemini',
+      'google\s+ai',
+      'mistral(?:\s*ai)?',
+      'deepseek',
+      'qwen',
+    ];
+
+    return preg_replace('/\b(?:' . implode('|', $patterns) . ')\b/i', 'Yoyo AI', $text);
+  }
+
   private function stripMarkdown(string $text): string
   {
     // Fenced code blocks: drop the ``` fences (optionally followed by a
