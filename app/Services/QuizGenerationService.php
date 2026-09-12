@@ -6,14 +6,16 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Generates multiple-choice quiz questions via the configured chat-api
- * OpenAI-compatible endpoint. Topic, grade level and difficulty are all
- * dictated by the caller.
+ * Generates multiple-choice quiz questions by calling the Google AI Studio
+ * (Gemini) API directly - one of up to 5 configured API keys (GEMINI_1..
+ * GEMINI_5, see config('services.gemini.keys')) is picked at random per
+ * request, with the rest used as backup if that key fails. Topic, grade
+ * level and difficulty are all dictated by the caller.
  */
 class QuizGenerationService
 {
-  private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
-  private const MODEL = 'gemini-flash-lite';
+  private const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent';
+  private const MODEL = 'gemini-3.1-flash-lite';
 
   private const DIFFICULTY_LABELS = [
     'easy' => 'dễ',
@@ -35,12 +37,14 @@ class QuizGenerationService
    */
   public function generate(int $count, string $difficulty, ?string $topic, string $grade, bool $isCustomTopic = false): array
   {
-    $apiKey = config('services.chat_api.key');
-    if (empty($apiKey)) {
-      throw new \RuntimeException('CYO_AI_API key is not configured.');
+    $keys = config('services.gemini.keys', []);
+    if (empty($keys)) {
+      throw new \RuntimeException('No GEMINI_1..GEMINI_5 API key is configured.');
     }
+    // Randomize which key is tried first each request (spreads load across
+    // all 5), keeping the rest in random order as backup if it fails.
+    shuffle($keys);
 
-    $keys = [$apiKey];
     $difficultyLabel = self::DIFFICULTY_LABELS[$difficulty] ?? 'trung bình';
 
     $result = $this->requestBatch($count, $difficultyLabel, $topic, $grade, $isCustomTopic, $keys, $topic);
@@ -66,26 +70,30 @@ class QuizGenerationService
   {
     $prompt = $this->buildPrompt($count, $difficultyLabel, $topic, $grade, $isCustomTopic);
 
+    $url = sprintf(self::API_URL, self::MODEL);
+
     $lastError = null;
     foreach ($keys as $apiKey) {
       for ($attempt = 0; $attempt < 2; $attempt++) {
         try {
-          $response = Http::withToken($apiKey)
+          $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
             ->timeout(60)
-            ->post(self::API_URL, [
-              'model' => self::MODEL,
-              'messages' => [
-                [
-                  'role' => 'system',
-                  'content' => "You are a raw JSON generator. NEVER write introductory text, markdown formatting, backticks, or conversational filler like 'I will now generate...'. Output ONLY valid JSON starting with '{' and ending with '}'.",
-                ],
-                [
-                  'role' => 'user',
-                  'content' => $prompt,
+            ->post($url, [
+              'systemInstruction' => [
+                'parts' => [
+                  ['text' => "You are a raw JSON generator. NEVER write introductory text, markdown formatting, backticks, or conversational filler like 'I will now generate...'. Output ONLY valid JSON starting with '{' and ending with '}'."],
                 ],
               ],
-              'temperature' => 0.1,
-              'response_format' => ['type' => 'json_object'],
+              'contents' => [
+                [
+                  'role' => 'user',
+                  'parts' => [['text' => $prompt]],
+                ],
+              ],
+              'generationConfig' => [
+                'temperature' => 0.1,
+                'responseMimeType' => 'application/json',
+              ],
             ]);
 
           if ($response->status() === 429) {
@@ -95,7 +103,7 @@ class QuizGenerationService
             throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' . $response->body());
           }
 
-          $content = $response->json('choices.0.message.content');
+          $content = $response->json('candidates.0.content.parts.0.text');
           if (!$content) {
             throw new \RuntimeException('AI API response had no message content.');
           }

@@ -36,6 +36,13 @@ class RouteServiceProvider extends ServiceProvider
       return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
     });
 
+    // Each AI quiz generation call burns AI credit across the shared
+    // GEMINI_1..GEMINI_5 keys - cap it at 1 per user per minute so nobody
+    // can spam /quiz/start and drain them.
+    RateLimiter::for('quiz-generate', function (Request $request) {
+      return Limit::perMinute(1)->by($request->user()?->id ?: $request->ip());
+    });
+
     $this->routes(function () {
       Route::middleware('api')
         ->group(base_path('routes/api.php'));

@@ -240,7 +240,7 @@ Route::prefix('v1.0')->group(function () {
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);
 
     // Quiz (AI-generated question sets)
-    Route::post('/quiz/start', [QuizController::class, 'start']);
+    Route::post('/quiz/start', [QuizController::class, 'start'])->middleware('throttle:quiz-generate');
     Route::post('/quiz/custom', [CustomQuizController::class, 'store']);
     Route::post('/quiz/{quizSetId}/join', [QuizController::class, 'join']);
     Route::post('/quiz/{quizSetId}/restart', [QuizController::class, 'restart']);

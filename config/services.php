@@ -55,10 +55,28 @@ return [
   ],
 
   'chat_api' => [
-    // Quiz question generation (QuizGenerationService) and the Chat with AI
-    // feature (AiChatService) both use this same key/proxy. Key lives in
-    // .env as CYO_AI_API - never commit it or return it from any endpoint.
+    // The Chat with AI feature (AiChatService) uses this key/proxy. Key
+    // lives in .env as CYO_AI_API - never commit it or return it from any
+    // endpoint. Quiz generation (QuizGenerationService) no longer uses this -
+    // see 'gemini' below.
     'key' => env('CYO_AI_API'),
+  ],
+
+  'gemini' => [
+    // Quiz question generation (QuizGenerationService) calls the Google AI
+    // Studio API directly with one of these keys, picked at random each
+    // request and rotated through on failure - spreads load/rate limits
+    // across all 5 instead of hammering a single key. Keys live in .env as
+    // GEMINI_1..GEMINI_5 - never commit them or return them from any
+    // endpoint. Missing/blank entries are dropped, so this works fine with
+    // fewer than 5 configured.
+    'keys' => array_values(array_filter([
+      env('GEMINI_1'),
+      env('GEMINI_2'),
+      env('GEMINI_3'),
+      env('GEMINI_4'),
+      env('GEMINI_5'),
+    ])),
   ],
 
 ];
