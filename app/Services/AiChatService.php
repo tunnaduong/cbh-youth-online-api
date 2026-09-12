@@ -154,7 +154,7 @@ PROMPT;
             throw new \RuntimeException('Groq API response had no message content.');
           }
 
-          return trim($content);
+          return $this->stripMarkdown(trim($content));
         } catch (\Throwable $e) {
           $lastError = $e;
           Log::warning('AI chat request attempt failed: ' . $e->getMessage());
@@ -166,5 +166,45 @@ PROMPT;
     }
 
     throw new \RuntimeException('Không thể lấy phản hồi từ AI: ' . ($lastError?->getMessage() ?? 'unknown error'));
+  }
+
+  /**
+   * The system prompt asks the model never to use markdown, but LLMs are
+   * unreliable about following that instruction on their own (it's trained
+   * heavily toward markdown output) - strip the common emphasis/heading/code
+   * syntax defensively so it never leaks into the chat as literal
+   * asterisks/backticks/hashes. "-" bullets and "1." numbering are left
+   * untouched since those are plain characters, not markdown-specific.
+   */
+  private function stripMarkdown(string $text): string
+  {
+    // Fenced code blocks: drop the ``` fences (optionally followed by a
+    // language tag) but keep the code content itself.
+    $text = preg_replace('/```[a-zA-Z0-9_+-]*\n?/', '', $text);
+    $text = preg_replace('/```/', '', $text);
+
+    // Inline code: `code` -> code
+    $text = preg_replace('/`([^`]+)`/', '$1', $text);
+
+    // Bold: **text** or __text__ -> text
+    $text = preg_replace('/\*\*(.+?)\*\*/s', '$1', $text);
+    $text = preg_replace('/__(.+?)__/s', '$1', $text);
+
+    // Italic: *text* or _text_ -> text. Requiring a non-whitespace character
+    // right after the opening marker means "* item" (a bullet, space after
+    // the asterisk) never matches here - only genuine *emphasis* does.
+    $text = preg_replace('/\*([^\s*][^*]*?)\*/', '$1', $text);
+    $text = preg_replace('/_([^\s_][^_]*?)_/', '$1', $text);
+
+    // Strikethrough: ~~text~~ -> text
+    $text = preg_replace('/~~(.+?)~~/s', '$1', $text);
+
+    // Headings: strip a leading "#", "##", ... before a line's text.
+    $text = preg_replace('/^#{1,6}\s+/m', '', $text);
+
+    // Links/images: [text](url) -> text (url), ![alt](url) -> alt (url)
+    $text = preg_replace('/!?\[([^\]]*)\]\(([^)]+)\)/', '$1 ($2)', $text);
+
+    return trim($text);
   }
 }
