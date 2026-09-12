@@ -570,6 +570,7 @@ class ChatController extends Controller
    * The AI is only ever involved via an explicit trigger:
    *   - a message starting with "/ai" (analyze this message + its reply chain)
    *   - a message starting with "/summary" (summarize recent conversation history)
+   *   - the standalone message "/help" (instant pregenerated tutorial, no AI call)
    *   - a plain reply directed at a previous Yoyo AI message (continue the conversation)
    * A plain message with no command and no reply-to-AI never involves the AI.
    *
@@ -584,6 +585,16 @@ class ChatController extends Controller
     }
 
     $content = trim((string) $message->content);
+
+    // "/help" only counts as the help command completely on its own - any
+    // trailing text ("/help ai" etc.) falls through to the normal /ai and
+    // /summary checks below instead. Answered instantly from a pregenerated
+    // string, so it never touches the AI job/Groq at all.
+    if (strcasecmp($content, '/help') === 0) {
+      $this->sendAiHelp($conversation, $message);
+      return;
+    }
+
     $mode = null;
 
     if (stripos($content, '/summary') === 0) {
@@ -602,6 +613,51 @@ class ChatController extends Controller
     }
 
     \App\Jobs\GenerateAiChatReply::dispatch($conversation->id, $message->id, $mode);
+  }
+
+  private const AI_HELP_TEXT = <<<TEXT
+Xin chào, mình là Yoyo AI - trợ lý AI trong khung chat! Đây là những gì mình có thể giúp:
+
+/ai - Hỏi mình bất cứ điều gì
+- Gõ "/ai <câu hỏi>" để hỏi mình trực tiếp.
+- Nếu bạn trả lời (reply) một tin nhắn rồi gõ "/ai <câu hỏi>", mình sẽ đọc cả tin nhắn đó (và toàn bộ chuỗi tin nhắn được trả lời lồng nhau phía trước) để hiểu ngữ cảnh trước khi trả lời.
+- Sau khi mình trả lời, bạn có thể trả lời (reply) lại tin nhắn của mình như bình thường để tiếp tục cuộc trò chuyện, không cần gõ lại "/ai" mỗi lần.
+
+/summary - Tóm tắt cuộc trò chuyện
+- Gõ "/summary" để mình tóm tắt khoảng 10-50 tin nhắn gần nhất trong đoạn chat (tùy độ dài cuộc trò chuyện).
+- Bạn có thể thêm yêu cầu cụ thể, ví dụ "/summary chỉ tóm tắt phần bàn về lịch thi" để mình tập trung đúng phần bạn cần thay vì tóm tắt chung chung.
+- Trả lời (reply) một tin nhắn cũ rồi gõ "/summary" để mình tóm tắt từ thời điểm đó trở về trước, thay vì luôn lấy các tin nhắn mới nhất.
+
+/help - Xem hướng dẫn này
+- Gõ đúng "/help" (không kèm thêm nội dung nào khác) để xem lại hướng dẫn này bất cứ lúc nào.
+
+Một vài lưu ý:
+- Mình chỉ xuất hiện khi được gọi tới bằng /ai, /summary, hoặc khi bạn trả lời tin nhắn của mình - mình không tự động đọc hay trả lời các tin nhắn khác trong nhóm.
+- Hiện tại mình chỉ đọc được tin nhắn văn bản, chưa thể xem hình ảnh, video hay tệp đính kèm.
+- Gõ "/" để xem gợi ý các lệnh này ngay trong khung nhập tin nhắn.
+TEXT;
+
+  /**
+   * Answer "/help" instantly with a pregenerated tutorial - no Groq call
+   * needed, so this responds synchronously in the request instead of going
+   * through the queued GenerateAiChatReply job.
+   */
+  private function sendAiHelp(Conversation $conversation, Message $triggerMessage): void
+  {
+    $aiAccount = AuthAccount::where('is_ai', true)->first();
+    if (!$aiAccount) {
+      return;
+    }
+
+    $helpMessage = Message::create([
+      'conversation_id' => $conversation->id,
+      'user_id' => $aiAccount->id,
+      'content' => self::AI_HELP_TEXT,
+      'type' => 'text',
+      'reply_to_message_id' => $triggerMessage->id,
+    ]);
+
+    $this->broadcastAiMessage($conversation, $helpMessage, $aiAccount);
   }
 
   /**
