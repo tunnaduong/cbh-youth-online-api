@@ -1618,7 +1618,7 @@ class TopicsController extends Controller
           'user_id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? null,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'avatar_url' => $user->avatarUrl(),
           'vote_value' => $vote->vote_value,
         ];
       });
@@ -2050,7 +2050,7 @@ class TopicsController extends Controller
           'user_id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? null,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'avatar_url' => $user->avatarUrl(),
           'vote_value' => $vote->vote_value,
         ];
       });
@@ -2362,7 +2362,7 @@ class TopicsController extends Controller
         'id' => $u->id,
         'username' => $u->username,
         'profile_name' => $u->profile->profile_name ?? $u->username,
-        'avatar_url' => config('app.url') . "/v1.0/users/{$u->username}/avatar",
+        'avatar_url' => $u->avatarUrl(),
       ]);
 
     return response()->json(['suggestions' => $users]);

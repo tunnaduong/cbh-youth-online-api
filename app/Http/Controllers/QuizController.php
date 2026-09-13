@@ -524,7 +524,7 @@ class QuizController extends Controller
           'id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? $user->username,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'avatar_url' => $user->avatarUrl(),
           'points' => (int) $row->total_points,
         ];
       })

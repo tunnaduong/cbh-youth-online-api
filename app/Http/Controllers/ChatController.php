@@ -96,7 +96,7 @@ class ChatController extends Controller
               'id' => $participant->id,
               'username' => $participant->username,
               'profile_name' => $participant->profile->profile_name ?? $participant->username,
-              'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
+              'avatar_url' => $participant->avatarUrl(),
             ];
           }),
           'latest_message' => $previewMessage ? [
@@ -144,7 +144,7 @@ class ChatController extends Controller
             'id' => $participant->id,
             'username' => $participant->username,
             'profile_name' => $participant->profile->profile_name ?? $participant->username,
-            'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
+            'avatar_url' => $participant->avatarUrl(),
           ];
         });
 
@@ -306,7 +306,7 @@ class ChatController extends Controller
               : ($message->user->username ?? 'Ẩn danh');
 
             if ($message->user->username) {
-              $senderData['avatar_url'] = config('app.url') . "/v1.0/users/{$message->user->username}/avatar";
+              $senderData['avatar_url'] = $message->user->avatarUrl();
             }
           } catch (\Exception $e) {
             // Fallback if any error occurs accessing user properties
@@ -744,7 +744,7 @@ TEXT;
           : ($message->user->username ?? 'Ẩn danh');
 
         if ($message->user->username) {
-          $senderData['avatar_url'] = config('app.url') . "/v1.0/users/{$message->user->username}/avatar";
+          $senderData['avatar_url'] = $message->user->avatarUrl();
         }
       } catch (\Exception $e) {
         // Fallback if any error occurs accessing user properties
@@ -841,7 +841,7 @@ TEXT;
         'id' => $aiAccount->id,
         'username' => $aiAccount->username,
         'profile_name' => $aiAccount->profile->profile_name ?? 'Yoyo AI',
-        'avatar_url' => config('app.url') . "/v1.0/users/{$aiAccount->username}/avatar",
+        'avatar_url' => $aiAccount->avatarUrl(),
         'is_ai' => true,
       ],
       'created_at' => $message->created_at?->toISOString(),
@@ -1124,7 +1124,7 @@ TEXT;
         'username' => $message->user->username ?? 'Ẩn danh',
         'profile_name' => ($profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
         'avatar_url' => $message->user->username
-          ? config('app.url') . "/v1.0/users/{$message->user->username}/avatar"
+          ? $message->user->avatarUrl()
           : null,
         'is_ai' => (bool) $message->user->is_ai,
       ];
@@ -2522,7 +2522,7 @@ TEXT;
       'id' => $participant->id,
       'username' => $participant->username,
       'profile_name' => $participant->profile->profile_name ?? $participant->username,
-      'avatar_url' => config('app.url') . "/v1.0/users/{$participant->username}/avatar",
+      'avatar_url' => $participant->avatarUrl(),
     ];
 
     if ($includeRole && isset($participant->pivot)) {
@@ -2668,7 +2668,7 @@ TEXT;
         'id' => $u->id,
         'username' => $u->username,
         'profile_name' => $u->profile->profile_name ?? $u->username,
-        'avatar_url' => config('app.url') . "/v1.0/users/{$u->username}/avatar",
+        'avatar_url' => $u->avatarUrl(),
       ])->values()->all();
 
     // Prepend @all only in group/public chats, not in 1-on-1 private conversations
@@ -2725,7 +2725,7 @@ TEXT;
         'id' => $foundUser->id,
         'username' => $foundUser->username,
         'profile_name' => $foundUser->profile->profile_name ?? $foundUser->username,
-        'avatar_url' => config('app.url') . "/v1.0/users/{$foundUser->username}/avatar",
+        'avatar_url' => $foundUser->avatarUrl(),
         'is_ai' => (bool) $foundUser->is_ai,
       ],
       'existing_conversation_id' => $existingConversation?->id
@@ -2878,7 +2878,7 @@ TEXT;
             'id' => $message->user->id,
             'username' => $message->user->username ?? 'Ẩn danh',
             'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-            'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+            'avatar_url' => $message->user->avatarUrl(),
             'is_ai' => (bool) $message->user->is_ai,
           ] : [
             'id' => null,
@@ -3104,7 +3104,7 @@ TEXT;
         'id' => $message->user->id,
         'username' => $message->user->username ?? 'Ẩn danh',
         'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-        'avatar_url' => config('app.url') . "/v1.0/users/{$message->user->username}/avatar",
+        'avatar_url' => $message->user->avatarUrl(),
         'is_ai' => (bool) $message->user->is_ai,
       ] : [
         'id' => null,
@@ -3197,7 +3197,7 @@ TEXT;
           'id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? $user->username,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'avatar_url' => $user->avatarUrl(),
           'is_guest' => false,
           'last_activity' => $lastActivityString,
           'is_online' => $isOnline,

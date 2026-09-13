@@ -553,7 +553,7 @@ class NotificationController extends Controller
         'id' => $actor->id,
         'username' => $actor->username,
         'profile_name' => $actor->profile->profile_name ?? $actor->username,
-        'avatar_url' => config('app.url') . "/v1.0/users/{$actor->username}/avatar",
+        'avatar_url' => $actor->avatarUrl(),
       ] : ($isAnonymous ? [
         'id' => null,
         'username' => 'Ẩn danh',

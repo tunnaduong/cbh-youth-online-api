@@ -127,6 +127,30 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   }
 
   /**
+   * Absolute avatar URL, versioned by the profile's updated_at so clients
+   * (mobile's expo-image especially, which caches by URL and otherwise
+   * ignores the avatar endpoint's no-cache header) get a new URL - and so
+   * bust their cache - the moment this user's avatar changes, instead of
+   * showing whoever's stale cached image indefinitely.
+   */
+  public function avatarUrl(): string
+  {
+    $version = $this->profile?->updated_at?->timestamp;
+    $base = config('app.url') . "/v1.0/users/{$this->username}/avatar";
+    return $version ? "{$base}?v={$version}" : $base;
+  }
+
+  /**
+   * Same versioning as avatarUrl(), for the cover photo.
+   */
+  public function coverUrl(): string
+  {
+    $version = $this->profile?->updated_at?->timestamp;
+    $base = config('app.url') . "/v1.0/users/{$this->username}/cover";
+    return $version ? "{$base}?v={$version}" : $base;
+  }
+
+  /**
    * Get the posts for the user.
    *
    * @return \Illuminate\Database\Eloquent\Relations\HasMany

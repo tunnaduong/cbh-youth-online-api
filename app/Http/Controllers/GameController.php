@@ -229,7 +229,7 @@ class GameController extends Controller
           'id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? $user->username,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'avatar_url' => $user->avatarUrl(),
           'xp' => (int) $row->total_xp,
         ];
       })
@@ -266,7 +266,7 @@ class GameController extends Controller
           'user_id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? $user->username,
-          'avatar_url' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
+          'avatar_url' => $user->avatarUrl(),
           'game_name' => $session->game->name,
           'game_slug' => $session->game->slug,
         ];

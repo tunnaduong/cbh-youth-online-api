@@ -168,7 +168,7 @@ class UserController extends Controller
 
       return response()->json([
         'message' => 'Cập nhật ảnh bìa thành công.',
-        'cover_photo_url' => config('app.url') . "/v1.0/users/{$user->username}/cover",
+        'cover_photo_url' => $user->coverUrl(),
         'cover_photo_id' => $userContent->id,
       ], 200);
     }
@@ -369,7 +369,7 @@ class UserController extends Controller
         'id' => $follower->follower->id,
         'username' => $follower->follower->username,
         'profile_name' => $follower->follower->profile->profile_name ?? null,
-        'profile_picture' => config('app.url') . "/v1.0/users/{$follower->follower->username}/avatar",
+        'profile_picture' => $follower->follower->avatarUrl(),
       ];
 
       if (auth()->check()) {
@@ -393,7 +393,7 @@ class UserController extends Controller
         'id' => $followed->followed->id,
         'username' => $followed->followed->username,
         'profile_name' => $followed->followed->profile->profile_name ?? null,
-        'profile_picture' => config('app.url') . "/v1.0/users/{$followed->followed->username}/avatar",
+        'profile_picture' => $followed->followed->avatarUrl(),
         'isFollowed' => false,  // Default to false
       ];
 
@@ -447,8 +447,8 @@ class UserController extends Controller
       'updated_at' => $user->updated_at,
       'profile' => [
         'profile_name' => $user->profile->profile_name ?? null,
-        'profile_picture' => config('app.url') . "/v1.0/users/{$user->username}/avatar",
-        'cover_photo_url' => $user->profile->cover_photo ? config('app.url') . "/v1.0/users/{$user->username}/cover" : null,
+        'profile_picture' => $user->avatarUrl(),
+        'cover_photo_url' => $user->profile->cover_photo ? $user->coverUrl() : null,
         'bio' => $user->profile->bio ?? null,
         'birthday' => $user->profile->birthday ? Carbon::parse($user->profile->birthday)->locale('vi')->format('d \T\h\á\n\g m Y') : null,
         'birthday_raw' => $user->profile->birthday ?? null,

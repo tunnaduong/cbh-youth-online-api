@@ -619,7 +619,7 @@ class StoryController extends Controller
             'id' => $message->user->id,
             'username' => $message->user->username ?? 'Ẩn danh',
             'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
-            'avatar_url' => config('app.url')."/v1.0/users/{$message->user->username}/avatar",
+            'avatar_url' => $message->user->avatarUrl(),
         ];
 
         $messageData = [
@@ -656,7 +656,7 @@ class StoryController extends Controller
                             'id' => $message->user->id,
                             'username' => $message->user->username,
                             'profile_name' => $message->user->profile->profile_name ?? $message->user->username,
-                            'avatar_url' => config('app.url')."/v1.0/users/{$message->user->username}/avatar",
+                            'avatar_url' => $message->user->avatarUrl(),
                         ],
                         'created_at' => $message->created_at ? $message->created_at->toISOString() : null,
                     ],
@@ -712,7 +712,7 @@ class StoryController extends Controller
                 'id' => $viewer->user->id,
                 'username' => $viewer->user->username,
                 'profile_name' => $viewer->user->profile->profile_name ?? $viewer->user->username,
-                'profile_picture' => config('app.url')."/v1.0/users/{$viewer->user->username}/avatar",
+                'profile_picture' => $viewer->user->avatarUrl(),
                 'viewed_at' => $viewer->viewed_at ? $viewer->viewed_at->toISOString() : null,
                 'viewed_at_human' => $viewer->viewed_at ? $viewer->viewed_at->diffForHumans() : null,
                 'reactions' => $userReactions->map(function ($reaction) {
@@ -738,7 +738,7 @@ class StoryController extends Controller
                     'id' => $user->id,
                     'username' => $user->username,
                     'profile_name' => $user->profile->profile_name ?? $user->username,
-                    'profile_picture' => config('app.url')."/v1.0/users/{$user->username}/avatar",
+                    'profile_picture' => $user->avatarUrl(),
                     'viewed_at' => null,
                     'viewed_at_human' => null,
                     'reactions' => $userReactions->map(function ($reaction) {
