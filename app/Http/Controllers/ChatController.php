@@ -401,12 +401,42 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    return $this->buildMediaResponse($conversation, $user);
+  }
+
+  /**
+   * Same Gallery feature as getConversationMedia(), for the singleton
+   * app-wide public chat - mirrors getPublicChatMessages()'s optional-auth,
+   * no-conversationId-param shape (the web/mobile public chat UI has no
+   * conversation id to pass, unlike a private/group chat).
+   */
+  public function getPublicChatMedia()
+  {
+    $user = Auth::guard('sanctum')->user() ?? Auth::user();
+    $conversation = Conversation::where('is_public', true)->first();
+
+    if (!$conversation) {
+      return response()->json(['message' => 'Public chat not found'], 404);
+    }
+
+    return $this->buildMediaResponse($conversation, $user);
+  }
+
+  /**
+   * @param  \App\Models\Conversation  $conversation
+   * @param  \App\Models\AuthAccount|null  $user
+   * @return \Illuminate\Http\JsonResponse
+   */
+  private function buildMediaResponse(Conversation $conversation, $user)
+  {
     $type = request()->get('type', 'image');
     if (!in_array($type, ['image', 'video', 'file', 'link'], true)) {
       return response()->json(['message' => 'Invalid type'], 422);
     }
 
-    $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
+    $blockedUserIds = $user
+      ? UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray()
+      : [];
     $perPage = 30;
 
     $baseQuery = $conversation

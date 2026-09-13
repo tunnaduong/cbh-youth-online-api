@@ -141,6 +141,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('messages', [ChatController::class, 'getPublicChatMessages']);
     Route::post('messages', [ChatController::class, 'sendPublicMessage']);
     Route::get('participants', [ChatController::class, 'getPublicChatParticipants']);
+    Route::get('media', [ChatController::class, 'getPublicChatMedia']);
   });
 
   // Group invite link preview (accessible to everyone — the web landing page needs
