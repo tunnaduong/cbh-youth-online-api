@@ -106,6 +106,17 @@ class ChatController extends Controller
             'sender' => $previewMessage->user
               ? $previewMessage->user->username
               : ($previewMessage->type === 'system' ? 'system' : ($previewMessage->guest_name ?? 'Ẩn danh')),
+            // A private (1-on-1) conversation's thread header shows the
+            // other participant's name, and this preview omits any sender
+            // prefix for their messages on the assumption there's only ever
+            // one possible "not me" sender there - which stops being true
+            // when Yoyo AI also posts into that same conversation (e.g. a
+            // reply to someone's /ai). Without these, the AI's reply reads
+            // as if the human partner said it.
+            'sender_is_ai' => $previewMessage->user ? (bool) $previewMessage->user->is_ai : false,
+            'sender_profile_name' => $previewMessage->user
+              ? ($previewMessage->user->profile->profile_name ?? $previewMessage->user->username)
+              : null,
             'is_myself' => $previewMessage->user_id === $user->id,
             'is_recalled' => (bool) $previewMessage->is_recalled,
             'created_at' => $previewMessage->created_at ? $previewMessage->created_at->toISOString() : null,
@@ -150,6 +161,10 @@ class ChatController extends Controller
             'type' => $publicPreviewMessage->type,
             'metadata' => $publicPreviewMessage->metadata,
             'sender' => $publicPreviewMessage->user ? $publicPreviewMessage->user->username : ($publicPreviewMessage->guest_name ?? 'Ẩn danh'),
+            'sender_is_ai' => $publicPreviewMessage->user ? (bool) $publicPreviewMessage->user->is_ai : false,
+            'sender_profile_name' => $publicPreviewMessage->user
+              ? ($publicPreviewMessage->user->profile->profile_name ?? $publicPreviewMessage->user->username)
+              : null,
             'is_myself' => $publicPreviewMessage->user_id === $user->id,
             'is_recalled' => (bool) $publicPreviewMessage->is_recalled,
             'created_at' => $publicPreviewMessage->created_at ? $publicPreviewMessage->created_at->toISOString() : null,

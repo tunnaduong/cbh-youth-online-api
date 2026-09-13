@@ -70,7 +70,7 @@ PROMPT;
       $contextMessages
     ));
 
-    $attributionNote = 'Mỗi dòng trong đoạn hội thoại bên dưới đã ghi rõ tên người gửi (dạng "Tên: nội dung") - hãy gắn tên người nói vào những ý/quyết định quan trọng khi điều đó giúp rõ nghĩa hơn (ví dụ: "Phúc nói đã sửa xong lỗi" thay vì chỉ "lỗi đã được sửa"), nhưng không cần liệt kê tên ở mọi câu - tự linh hoạt lược bớt tên ở những chỗ không quan trọng ai là người nói để bản tóm tắt gọn gàng, tự nhiên.';
+    $attributionNote = 'Mỗi dòng trong đoạn hội thoại bên dưới đã ghi rõ tên người gửi (dạng "Tên: nội dung") - hãy gắn tên người nói vào những ý/quyết định quan trọng khi điều đó giúp rõ nghĩa hơn (ví dụ: "Phúc nói đã sửa xong lỗi" thay vì chỉ "lỗi đã được sửa"), nhưng không cần liệt kê tên ở mọi câu - tự linh hoạt lược bớt tên ở những chỗ không quan trọng ai là người nói để bản tóm tắt gọn gàng, tự nhiên. Chỉ diễn đạt lại ở mức tối thiểu cần thiết để tóm tắt - không tự ý "sửa" hay suy diễn thêm ý mà người nói không thực sự nói, tránh làm sai lệch nội dung gốc.';
 
     $instruction = $customRequest !== null && trim($customRequest) !== ''
       ? "Hãy trả lời yêu cầu sau đây của người dùng DỰA TRÊN đoạn hội thoại bên dưới (đây không phải một tóm tắt chung, hãy tập trung vào đúng điều họ hỏi). {$attributionNote}\n\"{$customRequest}\""

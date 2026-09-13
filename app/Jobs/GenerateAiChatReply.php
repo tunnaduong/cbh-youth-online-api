@@ -83,6 +83,9 @@ class GenerateAiChatReply implements ShouldQueue
   private function runAsk(AiChatService $aiChatService, Message $triggerMessage): array
   {
     $repliedTo = $triggerMessage->replyTo;
+    if ($repliedTo && $repliedTo->is_recalled) {
+      return ['content' => 'Xin lỗi, tin nhắn bạn trả lời đã bị thu hồi nên Yoyo AI không thể đọc được nội dung đó nữa.', 'reaction' => null];
+    }
     if ($repliedTo && $repliedTo->type !== 'text') {
       return ['content' => $this->unsupportedMediaReply($repliedTo->type), 'reaction' => null];
     }
@@ -168,6 +171,9 @@ class GenerateAiChatReply implements ShouldQueue
     // /summary as a reply (e.g. replying to a specific message and asking to
     // summarize from there) only makes sense against text - same rule as /ai.
     $repliedTo = $triggerMessage->replyTo;
+    if ($repliedTo && $repliedTo->is_recalled) {
+      return ['content' => 'Xin lỗi, tin nhắn bạn trả lời đã bị thu hồi nên Yoyo AI không thể đọc được nội dung đó nữa.', 'reaction' => null];
+    }
     if ($repliedTo && $repliedTo->type !== 'text') {
       return ['content' => $this->unsupportedMediaReply($repliedTo->type), 'reaction' => null];
     }
@@ -244,18 +250,25 @@ class GenerateAiChatReply implements ShouldQueue
     return [
       'role' => $isAi ? 'assistant' : 'user',
       'name' => $isAi ? null : $name,
-      // Older messages further back in a reply chain/history that are media
-      // (not the immediate reply target, which is blocked outright in
-      // runAsk()) are labeled rather than sent as empty/garbled content -
-      // the AI still can't see them, but knows something was there.
-      'content' => $message->type === 'text'
-        ? (string) $message->content
-        : '[' . match ($message->type) {
-          'image' => 'đã gửi một hình ảnh',
-          'video' => 'đã gửi một video',
-          'file' => 'đã gửi một tệp đính kèm',
-          default => 'nội dung không phải văn bản',
-        } . ']',
+      // A recalled/unsent message's content is never actually deleted from
+      // the DB (recall is a display-only flag, same as getMessages() hiding
+      // it) - without this check it would otherwise leak straight into the
+      // AI's context even though every other part of the app already treats
+      // it as gone. Same reasoning as the media placeholder below: labeled,
+      // not silently included or skipped, so the AI knows something was
+      // there but can't see what. Only relevant for older messages further
+      // back in a reply chain/history - the immediate reply target is
+      // checked and refused outright in runAsk()/runSummary() instead.
+      'content' => $message->is_recalled
+        ? '[tin nhắn đã bị thu hồi]'
+        : ($message->type === 'text'
+          ? (string) $message->content
+          : '[' . match ($message->type) {
+            'image' => 'đã gửi một hình ảnh',
+            'video' => 'đã gửi một video',
+            'file' => 'đã gửi một tệp đính kèm',
+            default => 'nội dung không phải văn bản',
+          } . ']'),
     ];
   }
 
