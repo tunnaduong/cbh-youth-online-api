@@ -612,7 +612,13 @@ class PushNotificationService
       'channelId' => 'default',
       'sound' => 'default',
       'badge' => null,  // Will be set by app based on unread count
-      'data' => [
+      // Forward every id/field the Notification model stored for this type
+      // (conversation_id, message_id, story_id, material_id, topic_id,
+      // comment_id, etc. - whatever NotificationService::createAndPushNotification
+      // was given) instead of allowlisting just topic_id/comment_id, so the
+      // client always has whatever it needs to route the tap correctly.
+      // Merged last so computed fields win over any same-named raw key.
+      'data' => array_merge($data, [
         'notification_id' => $notification->id,
         'type' => $notification->type,
         'url' => $data['url'] ?? '/',
@@ -622,16 +628,8 @@ class PushNotificationService
           'profile_name' => $actor->profile->profile_name ?? $actor->username,
           'avatar_url' => config('app.url') . "/v1.0/users/{$actor->username}/avatar",
         ] : null,
-      ],
+      ]),
     ];
-
-    // Add additional data from notification data
-    if (isset($data['topic_id'])) {
-      $payload['data']['topic_id'] = $data['topic_id'];
-    }
-    if (isset($data['comment_id'])) {
-      $payload['data']['comment_id'] = $data['comment_id'];
-    }
 
     return $payload;
   }
