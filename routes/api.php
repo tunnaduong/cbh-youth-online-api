@@ -226,6 +226,8 @@ Route::prefix('v1.0')->group(function () {
         'role' => $user->role ?? null,
         'total_points' => $userPoints,
         'rank' => $rank,
+        'avatar_url' => $user->avatarUrl(),
+        'cover_photo_url' => $user->profile->cover_photo ? $user->coverUrl() : null,
       ]);
     });
     Route::get('/user/current-points', [UserController::class, 'getCurrentPoints']);

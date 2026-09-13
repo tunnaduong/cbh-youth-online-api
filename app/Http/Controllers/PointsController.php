@@ -33,6 +33,7 @@ class PointsController extends Controller
           'profile_name' => $user->profile->profile_name ?? $user->username,
           'profile_picture' => $user->profile->profile_picture ?? null,
           'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
+          'avatar_url' => $user->avatarUrl(),
           'total_points' => $user->getPoints()
         ];
       });
