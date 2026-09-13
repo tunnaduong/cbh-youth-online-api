@@ -383,6 +383,127 @@ class ChatController extends Controller
   }
 
   /**
+   * Messenger-style per-conversation "Gallery": every photo/video, file, or
+   * link ever shared in this chat, grouped by type. Images/videos/files are
+   * already distinguished by `messages.type`; links have no dedicated column
+   * so text messages are scanned for URLs on the fly.
+   *
+   * @param  int  $conversationId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getConversationMedia($conversationId)
+  {
+    $user = Auth::user();
+    $conversation = Conversation::findOrFail($conversationId);
+
+    $isPublicChat = $conversation->is_public;
+    if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $type = request()->get('type', 'image');
+    if (!in_array($type, ['image', 'video', 'file', 'link'], true)) {
+      return response()->json(['message' => 'Invalid type'], 422);
+    }
+
+    $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
+    $perPage = 30;
+
+    $baseQuery = $conversation
+      ->messages()
+      ->where('is_recalled', false)
+      ->whereNotIn('user_id', $blockedUserIds);
+
+    if ($type === 'link') {
+      $baseQuery->where('type', 'text')->where('content', 'like', '%http%');
+    } else {
+      $baseQuery->where('type', $type);
+    }
+
+    $total = (clone $baseQuery)->count();
+    $lastPage = (int) max(1, ceil($total / $perPage));
+    $page = (int) request()->get('page', 1);
+    $page = max(1, min($page, $lastPage));
+
+    $rows = $baseQuery
+      ->with('user.profile')
+      ->orderBy('created_at', 'desc')
+      ->skip(($page - 1) * $perPage)
+      ->take($perPage)
+      ->get();
+
+    if ($type === 'link') {
+      // A candidate row (content LIKE '%http%') might not actually contain a
+      // well-formed URL, or might contain several - expand to one entry per
+      // extracted URL rather than one per message.
+      $items = [];
+      foreach ($rows as $message) {
+        foreach (self::extractUrls((string) $message->content) as $url) {
+          $items[] = [
+            'message_id' => $message->id,
+            'url' => $url,
+            'content' => $message->content,
+            'created_at' => $message->created_at,
+            'user' => $this->formatMediaSender($message->user),
+          ];
+        }
+      }
+    } else {
+      $items = $rows->map(function ($message) use ($type) {
+        return [
+          'message_id' => $message->id,
+          'type' => $type,
+          'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
+          'file_urls' => $message->file_urls ? array_map(fn($p) => $this->absoluteStorageUrl($p), $message->file_urls) : null,
+          'thumbnail_url' => $message->metadata['thumbnail_url'] ?? null,
+          'content' => $message->content,
+          'created_at' => $message->created_at,
+          'user' => $this->formatMediaSender($message->user),
+        ];
+      })->values()->all();
+    }
+
+    return response()->json([
+      'data' => $items,
+      'current_page' => $page,
+      'last_page' => $lastPage,
+      'total' => $total,
+      'per_page' => $perPage,
+    ]);
+  }
+
+  /**
+   * Extract every http(s) URL from a message's plain-text content.
+   *
+   * @return array<int, string>
+   */
+  private static function extractUrls(string $content): array
+  {
+    preg_match_all('/https?:\/\/\S+/i', $content, $matches);
+    // Trim common trailing punctuation a URL regex greedily swallows
+    // ("check this out: https://example.com." -> drop the period).
+    return array_map(fn($url) => rtrim($url, '.,!?)"\''), $matches[0] ?? []);
+  }
+
+  /**
+   * @param  \App\Models\AuthAccount|null  $user
+   * @return array|null
+   */
+  private function formatMediaSender($user)
+  {
+    if (!$user) {
+      return null;
+    }
+
+    return [
+      'id' => $user->id,
+      'username' => $user->username,
+      'profile_name' => $user->profile->profile_name ?? $user->username,
+      'avatar_url' => $user->avatarUrl(),
+    ];
+  }
+
+  /**
    * Create a new private conversation.
    *
    * @param  \Illuminate\Http\Request  $request

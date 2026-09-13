@@ -337,6 +337,7 @@ Route::prefix('v1.0')->group(function () {
     Route::prefix('chat')->group(function () {
       Route::get('conversations', [ChatController::class, 'getConversations']);
       Route::get('conversations/{conversationId}/messages', [ChatController::class, 'getMessages']);
+      Route::get('conversations/{conversationId}/media', [ChatController::class, 'getConversationMedia']);
       Route::post('conversations', [ChatController::class, 'createPrivateConversation']);
       Route::post('conversations/{conversationId}/messages', [ChatController::class, 'sendMessage']);
       Route::post('conversations/{conversationId}/read', [ChatController::class, 'markAsRead']);
