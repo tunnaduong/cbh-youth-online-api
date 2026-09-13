@@ -215,24 +215,38 @@ class UserController extends Controller
         }
         $sourcePath = Storage::disk('public')->path($converted['path']);
         $fileName = $converted['file_name'];
-        $fileType = $converted['mime'];
       } else {
         $sourcePath = $file->getRealPath();
         // Generate a unique filename
         $fileName = time() . '_' . $file->getClientOriginalName();
-        $fileType = $file->getClientMimeType();
       }
+
+      // Avatars only ever render small (list rows, comments, headers) - the
+      // uploaded original (which can be several MB, especially straight off
+      // a phone camera) was being stored close to as-is (a 500x500 crop with
+      // no explicit re-encode quality), so every avatar request/CDN copy paid
+      // for that weight for no visible benefit. 156x156 covers every place
+      // this app actually displays an avatar, and re-encoding to JPEG at a
+      // sane quality (rather than preserving the original PNG/GIF/etc)
+      // avoids also carrying over an uncompressed source format.
+      // Always re-encoded to JPEG below regardless of the upload's original
+      // extension, so normalize the stored filename/type to match - the
+      // Content-Type getAvatar() serves has to agree with the actual bytes.
+      $fileName = preg_replace('/\.\w+$/', '', $fileName) . '.jpg';
+      $fileType = 'image/jpeg';
 
       // Use Intervention Image to crop and resize to a 1:1 ratio
       $image = Image::make($sourcePath);
       $size = min($image->width(), $image->height());  // Get the smallest dimension
-      $image->crop($size, $size)->resize(500, 500);  // Crop and resize to 500x500 pixels (or any preferred size)
+      $image->crop($size, $size)->resize(156, 156);  // Crop and resize to 156x156 pixels - the only size avatars render at
 
       // Define the file path
       $filePath = 'avatars/' . $fileName;
 
-      // Save the cropped image to the public disk
-      Storage::disk('public')->put($filePath, (string) $image->encode());
+      // Save the cropped image to the public disk, re-encoded as JPEG at
+      // quality 82 - well above visible artifacting at this size, and a
+      // fraction of the weight of the untouched original.
+      Storage::disk('public')->put($filePath, (string) $image->encode('jpg', 82));
 
       // Clean up the temporary HEIC->JPEG intermediate file, if any.
       if (isset($converted)) {
