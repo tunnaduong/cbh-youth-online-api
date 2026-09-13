@@ -70,9 +70,11 @@ PROMPT;
       $contextMessages
     ));
 
+    $attributionNote = 'Mỗi dòng trong đoạn hội thoại bên dưới đã ghi rõ tên người gửi (dạng "Tên: nội dung") - LUÔN nêu rõ AI nói/làm gì trong bản tóm tắt (ví dụ: "Phúc nói đã sửa xong lỗi", "An hỏi về lịch thi") thay vì chỉ tóm tắt nội dung chung chung không gắn với người nói, để người đọc hiểu rõ ai đã nói/làm gì.';
+
     $instruction = $customRequest !== null && trim($customRequest) !== ''
-      ? "Hãy trả lời yêu cầu sau đây của người dùng DỰA TRÊN đoạn hội thoại bên dưới (đây không phải một tóm tắt chung, hãy tập trung vào đúng điều họ hỏi):\n\"{$customRequest}\""
-      : 'Hãy tóm tắt ngắn gọn, dễ hiểu nội dung chính của đoạn hội thoại sau (nêu các chủ đề/quyết định chính, không cần liệt kê từng tin nhắn):';
+      ? "Hãy trả lời yêu cầu sau đây của người dùng DỰA TRÊN đoạn hội thoại bên dưới (đây không phải một tóm tắt chung, hãy tập trung vào đúng điều họ hỏi). {$attributionNote}\n\"{$customRequest}\""
+      : "Hãy tóm tắt ngắn gọn, dễ hiểu nội dung chính của đoạn hội thoại sau (nêu các chủ đề/quyết định chính, không cần liệt kê từng tin nhắn). {$attributionNote}";
 
     $messages = [['role' => 'system', 'content' => self::SYSTEM_PROMPT]];
 
