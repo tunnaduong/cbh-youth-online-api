@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Events\AiTyping;
 use App\Http\Controllers\ChatController;
 use App\Models\AuthAccount;
 use App\Models\Conversation;
@@ -48,32 +49,43 @@ class GenerateAiChatReply implements ShouldQueue
       return;
     }
 
+    // Fire the AI's "typing" indicator now, since the Groq call below can
+    // take several seconds - the AI has no client to whisper the way humans
+    // do (see ChatProvider.js/ChatSocketContext.js), so this is a real
+    // broadcast instead. Always stopped in `finally`, including on error,
+    // so a failed job never leaves a stuck indicator.
+    broadcast(new AiTyping($conversation->id, $aiAccount->id, $aiAccount->avatarUrl(), true));
+
     try {
-      $result = $this->mode === 'summary'
-        ? $this->runSummary($aiChatService, $conversation, $triggerMessage)
-        : $this->runAsk($aiChatService, $triggerMessage);
-    } catch (\Throwable $e) {
-      Log::error('GenerateAiChatReply failed: ' . $e->getMessage());
-      $result = ['content' => 'Xin lỗi, hiện tại AI đang gặp sự cố và không thể trả lời. Vui lòng thử lại sau.', 'reaction' => null];
-    }
+      try {
+        $result = $this->mode === 'summary'
+          ? $this->runSummary($aiChatService, $conversation, $triggerMessage)
+          : $this->runAsk($aiChatService, $triggerMessage);
+      } catch (\Throwable $e) {
+        Log::error('GenerateAiChatReply failed: ' . $e->getMessage());
+        $result = ['content' => 'Xin lỗi, hiện tại AI đang gặp sự cố và không thể trả lời. Vui lòng thử lại sau.', 'reaction' => null];
+      }
 
-    $aiMessage = Message::create([
-      'conversation_id' => $conversation->id,
-      'user_id' => $aiAccount->id,
-      'content' => $result['content'],
-      'type' => 'text',
-      'reply_to_message_id' => $triggerMessage->id,
-    ]);
+      $aiMessage = Message::create([
+        'conversation_id' => $conversation->id,
+        'user_id' => $aiAccount->id,
+        'content' => $result['content'],
+        'type' => 'text',
+        'reply_to_message_id' => $triggerMessage->id,
+      ]);
 
-    $chatController = app(ChatController::class);
-    $chatController->broadcastAiMessage($conversation, $aiMessage, $aiAccount);
+      $chatController = app(ChatController::class);
+      $chatController->broadcastAiMessage($conversation, $aiMessage, $aiAccount);
 
-    // Optional: the AI can also react to the original message it was called
-    // on (its own choice, expressed via the "[REACT:type]" marker parsed out
-    // in AiChatService) - never on its own canned fallback/error/help replies,
-    // only when it actually got a real model response.
-    if ($result['reaction']) {
-      $chatController->reactAsAi($triggerMessage, $aiAccount, $result['reaction']);
+      // Optional: the AI can also react to the original message it was called
+      // on (its own choice, expressed via the "[REACT:type]" marker parsed out
+      // in AiChatService) - never on its own canned fallback/error/help replies,
+      // only when it actually got a real model response.
+      if ($result['reaction']) {
+        $chatController->reactAsAi($triggerMessage, $aiAccount, $result['reaction']);
+      }
+    } finally {
+      broadcast(new AiTyping($conversation->id, $aiAccount->id, $aiAccount->avatarUrl(), false));
     }
   }
 
