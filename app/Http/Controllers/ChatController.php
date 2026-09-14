@@ -1413,7 +1413,7 @@ TEXT;
   {
     $excerpt = $message->content ? \Illuminate\Support\Str::limit($message->content, 100) : null;
 
-    \App\Models\Notification::where('notifiable_type', Message::class)
+    Notification::where('notifiable_type', Message::class)
       ->where('notifiable_id', $message->id)
       ->get()
       ->each(function ($notification) use ($excerpt) {
@@ -1430,7 +1430,7 @@ TEXT;
         $notification->update(['data' => $data]);
       });
 
-    \App\Models\Notification::where('type', 'message_replied')
+    Notification::where('type', 'message_replied')
       ->where('data->original_message_id', $message->id)
       ->get()
       ->each(function ($notification) use ($excerpt) {
@@ -1463,15 +1463,9 @@ TEXT;
       'is_recalled' => true,
     ]);
 
-    // Delete notifications directly tied to this message (reactions, reply-sent notifications)
-    Notification::where('notifiable_type', Message::class)
-      ->where('notifiable_id', $message->id)
-      ->delete();
-
-    // Delete reply notifications sent to this message's owner (original_message_id in data)
-    Notification::where('type', 'message_replied')
-      ->where('data->original_message_id', $message->id)
-      ->delete();
+    // Notifications about this message (reactions, reply-sent) are left
+    // as-is - once a notification has already been sent to a client, it
+    // shouldn't change just because the message was recalled afterward.
 
     broadcast(new MessageRecalled($message->conversation_id, $message->id))->toOthers();
 
