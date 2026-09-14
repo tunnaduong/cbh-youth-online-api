@@ -1378,6 +1378,12 @@ TEXT;
 
     $message->edit($request->content);
 
+    // Existing notifications about this message (mentions, reactions,
+    // replies) embed a content snapshot taken at send time - without this,
+    // editing the message leaves every notification referencing it
+    // permanently showing the pre-edit text.
+    $this->refreshMessageNotificationSnapshots($message);
+
     $responseData = [
       'id' => $message->id,
       'content' => $message->content,
@@ -1394,6 +1400,44 @@ TEXT;
     ))->toOthers();
 
     return response()->json($responseData);
+  }
+
+  /**
+   * Refreshes the text snapshot embedded in every Notification row that
+   * references this message, after its content changed - covers "mentioned"
+   * (content_excerpt), "message_reacted" (message_content), and
+   * "message_replied" (either side: reply_content when this message IS the
+   * reply, original_content when it's the message that was replied to).
+   */
+  private function refreshMessageNotificationSnapshots(Message $message): void
+  {
+    $excerpt = $message->content ? \Illuminate\Support\Str::limit($message->content, 100) : null;
+
+    \App\Models\Notification::where('notifiable_type', Message::class)
+      ->where('notifiable_id', $message->id)
+      ->get()
+      ->each(function ($notification) use ($excerpt) {
+        $data = $notification->data ?? [];
+        if (array_key_exists('content_excerpt', $data)) {
+          $data['content_excerpt'] = $excerpt;
+        }
+        if (array_key_exists('message_content', $data)) {
+          $data['message_content'] = $excerpt;
+        }
+        if ($notification->type === 'message_replied' && array_key_exists('reply_content', $data)) {
+          $data['reply_content'] = $excerpt;
+        }
+        $notification->update(['data' => $data]);
+      });
+
+    \App\Models\Notification::where('type', 'message_replied')
+      ->where('data->original_message_id', $message->id)
+      ->get()
+      ->each(function ($notification) use ($excerpt) {
+        $data = $notification->data ?? [];
+        $data['original_content'] = $excerpt;
+        $notification->update(['data' => $data]);
+      });
   }
 
   /**
