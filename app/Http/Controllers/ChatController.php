@@ -1377,9 +1377,11 @@ TEXT;
 
     $message->edit($request->content);
 
-    // Notifications about this message keep their original content
-    // snapshot - once a notification has already been sent to a client, it
-    // shouldn't change just because the message was edited afterward.
+    // Notifications about this message (mentions, reactions, replies) embed
+    // a content snapshot taken at send time - without this, the bell list
+    // (and anything a client cached from it) keeps showing the pre-edit
+    // text forever.
+    $this->refreshMessageNotificationSnapshots($message);
 
     $responseData = [
       'id' => $message->id,
@@ -1422,9 +1424,10 @@ TEXT;
       'is_recalled' => true,
     ]);
 
-    // Notifications about this message (reactions, reply-sent) are left
-    // as-is - once a notification has already been sent to a client, it
-    // shouldn't change just because the message was recalled afterward.
+    // Notifications about this message (mentions, reactions, replies) embed
+    // a content snapshot taken at send time - without this the bell list
+    // keeps showing the recalled message's original text forever.
+    $this->refreshMessageNotificationSnapshots($message);
 
     broadcast(new MessageRecalled($message->conversation_id, $message->id))->toOthers();
 
@@ -1432,6 +1435,47 @@ TEXT;
       'id' => $message->id,
       'is_recalled' => true,
     ]);
+  }
+
+  /**
+   * Refreshes the text snapshot embedded in every Notification row that
+   * references this message, after its content changed (edited) or it was
+   * recalled - covers "mentioned" (content_excerpt), "message_reacted"
+   * (message_content), and "message_replied" (either side: reply_content
+   * when this message IS the reply, original_content when it's the message
+   * that was replied to).
+   */
+  private function refreshMessageNotificationSnapshots(Message $message): void
+  {
+    $excerpt = $message->is_recalled
+      ? 'Tin nhắn đã bị thu hồi'
+      : ($message->content ? \Illuminate\Support\Str::limit($message->content, 100) : null);
+
+    \App\Models\Notification::where('notifiable_type', Message::class)
+      ->where('notifiable_id', $message->id)
+      ->get()
+      ->each(function ($notification) use ($excerpt) {
+        $data = $notification->data ?? [];
+        if (array_key_exists('content_excerpt', $data)) {
+          $data['content_excerpt'] = $excerpt;
+        }
+        if (array_key_exists('message_content', $data)) {
+          $data['message_content'] = $excerpt;
+        }
+        if ($notification->type === 'message_replied' && array_key_exists('reply_content', $data)) {
+          $data['reply_content'] = $excerpt;
+        }
+        $notification->update(['data' => $data]);
+      });
+
+    \App\Models\Notification::where('type', 'message_replied')
+      ->where('data->original_message_id', $message->id)
+      ->get()
+      ->each(function ($notification) use ($excerpt) {
+        $data = $notification->data ?? [];
+        $data['original_content'] = $excerpt;
+        $notification->update(['data' => $data]);
+      });
   }
 
   /**
