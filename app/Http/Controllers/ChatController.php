@@ -796,11 +796,7 @@ class ChatController extends Controller
    */
   private function isPrivateAiConversation(Conversation $conversation): bool
   {
-    if ($conversation->type !== 'private') {
-      return false;
-    }
-
-    return $conversation->participants()->where('is_ai', true)->exists();
+    return $conversation->isPrivateAiConversation();
   }
 
   private const AI_HELP_TEXT = <<<TEXT

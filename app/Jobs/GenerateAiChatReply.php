@@ -102,14 +102,54 @@ class GenerateAiChatReply implements ShouldQueue
       return ['content' => $this->unsupportedMediaReply($repliedTo->type), 'reaction' => null];
     }
 
-    $chain = $this->collectReplyChain($triggerMessage);
+    $conversation = $triggerMessage->conversation;
+    $chainMessages = $this->collectReplyChainMessages($triggerMessage);
+
+    // A private 1-on-1 with Yoyo AI is a real back-and-forth conversation,
+    // not a series of one-off commands - every earlier turn is relevant
+    // context whether or not the user bothered to reply/quote a specific
+    // message, so pull in recent history automatically here instead of
+    // requiring an explicit /summary first. Elsewhere (group chats, the
+    // public room) context still only ever comes from an explicit reply
+    // chain, same as before.
+    $contextMessages = $conversation->isPrivateAiConversation()
+      ? $this->collectRecentHistory($conversation, $triggerMessage)
+          ->merge($chainMessages)
+          ->unique('id')
+          ->sortBy('created_at')
+          ->values()
+      : $chainMessages;
+
+    $chain = $contextMessages->map(fn($m) => $this->toContext($m))->all();
     $question = $this->stripCommandPrefix($triggerMessage->content ?? '', '/ai');
 
     return $aiChatService->askAi(
       $chain,
       $question !== '' ? $question : ($triggerMessage->content ?? ''),
-      $this->buildConversationInfo($triggerMessage->conversation)
+      $this->buildConversationInfo($conversation)
     );
+  }
+
+  /**
+   * The last $limit messages in the conversation (oldest first), excluding
+   * the trigger message itself and recalled messages - same window
+   * /summary already uses (see runSummary), reused here so a private AI
+   * chat gets that same context automatically on every turn.
+   *
+   * @return \Illuminate\Support\Collection<int, Message>
+   */
+  private function collectRecentHistory(Conversation $conversation, Message $excludeMessage, int $limit = 30): \Illuminate\Support\Collection
+  {
+    return $conversation->messages()
+      ->whereNotNull('content')
+      ->where('is_recalled', false)
+      ->where('id', '!=', $excludeMessage->id)
+      ->with('user.profile')
+      ->orderBy('created_at', 'desc')
+      ->limit($limit)
+      ->get()
+      ->reverse()
+      ->values();
   }
 
   /**
@@ -231,21 +271,21 @@ class GenerateAiChatReply implements ShouldQueue
    * sane depth, oldest first, so the AI sees the full quoted conversation
    * a user built up without needing every message re-sent to it manually.
    *
-   * @return array<int, array{role: string, name: ?string, content: string}>
+   * @return \Illuminate\Support\Collection<int, Message>
    */
-  private function collectReplyChain(Message $message, int $maxDepth = 20): array
+  private function collectReplyChainMessages(Message $message, int $maxDepth = 20): \Illuminate\Support\Collection
   {
-    $chain = [];
+    $chain = collect();
     $current = $message->replyTo()->with('user.profile')->first();
     $depth = 0;
 
     while ($current && $depth < $maxDepth) {
-      array_unshift($chain, $this->toContext($current));
+      $chain->prepend($current);
       $current = $current->replyTo()->with('user.profile')->first();
       $depth++;
     }
 
-    return $chain;
+    return $chain->values();
   }
 
   /**

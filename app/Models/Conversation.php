@@ -157,6 +157,19 @@ class Conversation extends Model
     }
 
     /**
+     * True when this is a private 1-on-1 conversation between a human and
+     * the Yoyo AI account - the one place a plain message with no /ai and no
+     * reply-to-AI still gets an AI reply automatically (see
+     * ChatController::maybeTriggerAi()), and where GenerateAiChatReply pulls
+     * in recent chat history as context even without an explicit /summary,
+     * since the whole conversation is with the AI anyway.
+     */
+    public function isPrivateAiConversation(): bool
+    {
+        return $this->type === 'private' && $this->participants()->where('is_ai', true)->exists();
+    }
+
+    /**
      * Check if a user is the owner of this group conversation.
      *
      * @param  int  $userId
