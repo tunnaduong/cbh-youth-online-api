@@ -269,7 +269,14 @@ class Conversation extends Model
         $lastRead = $participant->pivot->last_read_at;
 
         return $this->messages()
-            ->where('user_id', '!=', $userId)
+            // "!= $userId" alone evaluates to NULL (not true) in SQL for a
+            // guest-authored message (user_id IS NULL, e.g. an unauthenticated
+            // visitor in the public chat) or a system message, silently
+            // excluding those from the count even though they're genuinely
+            // unread content from someone else.
+            ->where(function ($query) use ($userId) {
+                $query->whereNull('user_id')->orWhere('user_id', '!=', $userId);
+            })
             ->when($lastRead, function ($query) use ($lastRead) {
                 return $query->where('created_at', '>', $lastRead);
             })

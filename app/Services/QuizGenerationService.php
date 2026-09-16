@@ -60,6 +60,17 @@ class QuizGenerationService
       }
     }
 
+    // Each batch numbers its own questions 1..N independently (see
+    // parseAndValidate), so a top-up round's ids collide with the first
+    // batch's (e.g. both start at 1) once merged above - renumber the
+    // combined set here so this method's own output always has unique,
+    // sequential ids regardless of what the caller happens to do with them.
+    $result['questions'] = array_values(array_map(
+      fn($q, $i) => array_merge($q, ['id' => $i + 1]),
+      $result['questions'],
+      array_keys($result['questions']),
+    ));
+
     return $result;
   }
 

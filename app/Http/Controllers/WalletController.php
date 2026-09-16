@@ -94,6 +94,19 @@ class WalletController extends Controller
     // Deduct points immediately (hold)
     try {
       DB::transaction(function () use ($request, $user, &$withdrawalRequest) {
+        // Re-check the balance here, under a row lock, instead of trusting
+        // the canWithdraw() check above alone - that one runs before any
+        // lock is held, so two concurrent withdrawal requests can both pass
+        // it against the same starting balance, then both proceed to
+        // deduct (deductPoints() clamps at 0 rather than failing, so it
+        // wouldn't reject the second one on its own). Locking first makes
+        // the second request wait for the first to commit, then this check
+        // sees the already-reduced balance and rejects it.
+        $lockedUser = \App\Models\AuthAccount::where('id', $user->id)->lockForUpdate()->first();
+        if (!$lockedUser || ($lockedUser->points ?? 0) < $request->amount) {
+          throw new \Exception('Số điểm không đủ để thực hiện yêu cầu rút tiền này.');
+        }
+
         $deducted = PointsService::deductPoints(
           $user->id,
           $request->amount,

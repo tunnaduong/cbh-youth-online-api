@@ -365,18 +365,26 @@ class ChatController extends Controller
       'total' => $totalMessages,
     ];
 
-    // Mark messages as read
-    $conversation
-      ->messages()
-      ->where('user_id', '!=', $user->id)
-      ->whereNull('read_at')
-      ->update(['read_at' => now()]);
+    // Mark messages as read - gated behind the same chat_read_receipts
+    // setting markAsRead() already respects. This runs on every ordinary
+    // "open a conversation" load (unlike markAsRead(), which is a separate
+    // explicit call from the client), so leaving it ungated made disabling
+    // read receipts silently ineffective for the actual common path.
+    $settings = NotificationSettings::where('user_id', $user->id)->first();
+    $readReceiptsEnabled = $settings ? ($settings->chat_read_receipts ?? true) : true;
 
-    // Update last_read_at for the user
-    $conversation
-      ->participants()
-      ->where('user_id', $user->id)
-      ->update(['last_read_at' => now()]);
+    if ($readReceiptsEnabled) {
+      $conversation
+        ->messages()
+        ->where('user_id', '!=', $user->id)
+        ->whereNull('read_at')
+        ->update(['read_at' => now()]);
+
+      $conversation
+        ->participants()
+        ->where('user_id', $user->id)
+        ->update(['last_read_at' => now()]);
+    }
 
     return response()->json($paginationData);
   }

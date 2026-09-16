@@ -23,8 +23,15 @@ class PointsService
   {
     try {
       DB::transaction(function () use ($userId, $amount, $type, $description, $relatedId) {
-        // Update user's points
-        $user = AuthAccount::find($userId);
+        // lockForUpdate() - without it, two concurrent point mutations for
+        // the same user (e.g. a double-tapped withdrawal, or two award
+        // events landing at once) both read the same starting balance and
+        // each save their own read-modify-write, silently losing one of the
+        // two changes (lost update). This matters most for
+        // WalletController::requestWithdrawal(), where the lost update can
+        // let a second concurrent withdrawal request through against a
+        // balance that should already have been reduced by the first.
+        $user = AuthAccount::where('id', $userId)->lockForUpdate()->first();
         if (!$user) {
           throw new \Exception('User not found');
         }
@@ -68,8 +75,8 @@ class PointsService
   {
     try {
       DB::transaction(function () use ($userId, $amount, $type, $description, $relatedId) {
-        // Update user's points
-        $user = AuthAccount::find($userId);
+        // See addPoints() above for why this needs lockForUpdate().
+        $user = AuthAccount::where('id', $userId)->lockForUpdate()->first();
         if (!$user) {
           throw new \Exception('User not found');
         }
