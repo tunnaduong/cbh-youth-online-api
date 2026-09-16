@@ -957,18 +957,20 @@ TEXT;
   }
 
   /**
-   * Broadcast a Yoyo AI-authored reply (created out of band by GenerateAiChatReply)
-   * the same way a human message is broadcast, minus the notification/mention
-   * pipeline (the AI never @-mentions anyone and there's no separate push
-   * notification path for it yet). Broadcast to everyone rather than
-   * ->toOthers(), since there is no client-side optimistic render for it.
+   * Broadcast a message authored out of band (i.e. not through the normal
+   * sendMessage() HTTP request) the same way a human message is broadcast -
+   * originally just Yoyo AI's replies (created by GenerateAiChatReply), now
+   * also the admin welcome message (see sendWelcomeMessage()). Skips the
+   * @-mention pipeline since neither of those senders ever mentions anyone.
+   * Broadcasts to everyone rather than ->toOthers(), since there is no
+   * client-side optimistic render for either.
    *
    * @param  \App\Models\Conversation  $conversation
    * @param  \App\Models\Message  $message
-   * @param  \App\Models\AuthAccount  $aiAccount
+   * @param  \App\Models\AuthAccount  $sender  The AI account or an admin account.
    * @return array
    */
-  public function broadcastAiMessage(Conversation $conversation, Message $message, AuthAccount $aiAccount): array
+  public function broadcastAiMessage(Conversation $conversation, Message $message, AuthAccount $sender): array
   {
     $conversation->touch();
 
@@ -984,11 +986,11 @@ TEXT;
       'is_forwarded' => false,
       'is_myself' => false,
       'sender' => [
-        'id' => $aiAccount->id,
-        'username' => $aiAccount->username,
-        'profile_name' => $aiAccount->profile->profile_name ?? 'Yoyo AI',
-        'avatar_url' => $aiAccount->avatarUrl(),
-        'is_ai' => true,
+        'id' => $sender->id,
+        'username' => $sender->username,
+        'profile_name' => $sender->profile->profile_name ?? $sender->username,
+        'avatar_url' => $sender->avatarUrl(),
+        'is_ai' => (bool) $sender->is_ai,
       ],
       'created_at' => $message->created_at?->toISOString(),
       'created_at_human' => $message->created_at?->diffForHumans(),
@@ -1001,14 +1003,48 @@ TEXT;
 
     broadcast(new MessageSent($conversation->id, $messageData));
 
-    $this->sendChatPushNotifications($conversation, $messageData, $aiAccount->id);
+    $this->sendChatPushNotifications($conversation, $messageData, $sender->id);
 
     if ($message->reply_to_message_id && $message->replyTo) {
-      NotificationService::createMessageReplyNotification($message->replyTo, $message, $aiAccount->id);
+      NotificationService::createMessageReplyNotification($message->replyTo, $message, $sender->id);
     }
 
     return $messageData;
   }
+
+  /**
+   * Sends a one-time welcome inbox message from an admin account to a
+   * brand new user, right after registration - AuthController::register()
+   * (and the new-account branch of loginWithProvider()) calls this, so it
+   * covers both the mobile app and the web frontend since both hit that
+   * same shared register endpoint, plus OAuth signup.
+   */
+  public function sendWelcomeMessage(AuthAccount $newUser): void
+  {
+    $admin = AuthAccount::where('role', 'admin')->orderBy('id')->first();
+    if (!$admin) {
+      return;
+    }
+
+    $conversation = $this->findOrCreatePrivateConversation($admin->id, $newUser->id);
+
+    $message = Message::create([
+      'conversation_id' => $conversation->id,
+      'user_id' => $admin->id,
+      'content' => self::WELCOME_MESSAGE,
+      'type' => 'text',
+    ]);
+
+    $this->broadcastAiMessage($conversation, $message, $admin);
+  }
+
+  private const WELCOME_MESSAGE = <<<TEXT
+Chào mừng bạn đến với Chuyên Biên Hòa Youth Online (CYO)! 🎉
+
+Đây là cộng đồng học sinh Chuyên Biên Hòa - nơi bạn có thể trò chuyện, tham gia diễn đàn, làm đố vui, và kết nối với các bạn học sinh khác. Nếu cần hỗ trợ hoặc có góp ý gì, cứ nhắn ngay tại đây nhé!
+
+Chúc bạn có những trải nghiệm thật vui trên CYO!
+TEXT;
 
   /**
    * Let Yoyo AI react to the message it was triggered on (its own optional

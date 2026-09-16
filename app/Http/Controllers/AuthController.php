@@ -224,6 +224,18 @@ class AuthController extends Controller
       ]);
     }
 
+    // Also drop a welcome chat message into their inbox from an admin
+    // account - covers both the mobile app and the web frontend, since both
+    // register through this same endpoint.
+    try {
+      app(ChatController::class)->sendWelcomeMessage($account);
+    } catch (\Exception $e) {
+      \Log::warning('Failed to send welcome chat message', [
+        'user_id' => $account->id,
+        'error' => $e->getMessage(),
+      ]);
+    }
+
     // Retrieve the user by username or email
     $user = AuthAccount::where('username', $request->username)
       ->orWhere('email', $request->username)
@@ -558,6 +570,17 @@ class AuthController extends Controller
         } catch (\Exception $e) {
           // Log error but don't fail login
           \Log::warning('Failed to create welcome notification for OAuth user', [
+            'user_id' => $user->id,
+            'error' => $e->getMessage(),
+          ]);
+        }
+
+        // Same admin welcome chat message as a regular register() signup -
+        // this branch is also a brand new account, just created via OAuth.
+        try {
+          app(ChatController::class)->sendWelcomeMessage($user);
+        } catch (\Exception $e) {
+          \Log::warning('Failed to send welcome chat message for OAuth user', [
             'user_id' => $user->id,
             'error' => $e->getMessage(),
           ]);
