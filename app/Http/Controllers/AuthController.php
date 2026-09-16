@@ -431,28 +431,28 @@ class AuthController extends Controller
           return response()->json(['message' => 'Apple Sign In yêu cầu idToken'], 400);
         }
 
-        // Basic decoding of JWT to get user info (sub, email)
-        // In production, you should verify the signature against Apple's public keys
-        $parts = explode('.', $idToken);
-        if (count($parts) === 3) {
-          $payload = json_decode(base64_decode(str_replace('_', '/', str_replace('-', '+', $parts[1]))), true);
-          if ($payload) {
-            $verified = [
-              'id' => $payload['sub'],
-              'email' => $payload['email'] ?? $request->input('email'),
-              'email_verified' => $payload['email_verified'] ?? false,
-            ];
+        // Verifies the RS256 signature against Apple's published public keys
+        // plus issuer/expiry (see AppleIdTokenVerifier) - previously this just
+        // base64-decoded the payload and trusted whatever "sub"/"email" it
+        // contained, so anyone could forge a token claiming to be any Apple
+        // user and get logged in (or a new account created) under that identity.
+        $payload = \App\Services\AppleIdTokenVerifier::verify($idToken);
+        if ($payload) {
+          $verified = [
+            'id' => $payload['sub'],
+            'email' => $payload['email'] ?? $request->input('email'),
+            'email_verified' => $payload['email_verified'] ?? false,
+          ];
 
-            // Get name from request if available (only sent on first login)
-            $fullName = $request->input('fullName');
-            if ($fullName) {
-              if (is_array($fullName)) {
-                $givenName = $fullName['givenName'] ?? '';
-                $familyName = $fullName['familyName'] ?? '';
-                $verified['name'] = trim("$givenName $familyName");
-              } else {
-                $verified['name'] = $fullName;
-              }
+          // Get name from request if available (only sent on first login)
+          $fullName = $request->input('fullName');
+          if ($fullName) {
+            if (is_array($fullName)) {
+              $givenName = $fullName['givenName'] ?? '';
+              $familyName = $fullName['familyName'] ?? '';
+              $verified['name'] = trim("$givenName $familyName");
+            } else {
+              $verified['name'] = $fullName;
             }
           }
         }
