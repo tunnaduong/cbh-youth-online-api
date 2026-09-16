@@ -1013,15 +1013,17 @@ TEXT;
   }
 
   /**
-   * Sends a one-time welcome inbox message from an admin account to a
+   * Sends a one-time welcome inbox message from the "Admin" account to a
    * brand new user, right after registration - AuthController::register()
    * (and the new-account branch of loginWithProvider()) calls this, so it
    * covers both the mobile app and the web frontend since both hit that
-   * same shared register endpoint, plus OAuth signup.
+   * same shared register endpoint, plus OAuth signup. Always this one
+   * specific account (not just any account with role=admin) - there's only
+   * ever one sender for this message.
    */
   public function sendWelcomeMessage(AuthAccount $newUser): void
   {
-    $admin = AuthAccount::where('role', 'admin')->orderBy('id')->first();
+    $admin = AuthAccount::where('username', 'Admin')->first();
     if (!$admin) {
       return;
     }
