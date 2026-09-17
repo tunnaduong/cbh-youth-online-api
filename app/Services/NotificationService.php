@@ -82,6 +82,17 @@ class NotificationService
       return;
     }
 
+    // Yoyo AI replying to a message (every /ai answer, and every turn of a
+    // private 1-on-1 chat with it - see ChatController::maybeTriggerAi())
+    // creates a message_replied notification like any other reply, but it
+    // isn't a real person reaching out - emailing the user about it every
+    // single time is just noise, not a "someone contacted you" moment. The
+    // in-app/push notification still goes through unaffected; only the
+    // email is skipped here.
+    if (optional($notification->actor)->is_ai) {
+      return;
+    }
+
     $recipient = $notification->user;
     $settings = NotificationSettings::where('user_id', $recipient->id)->first();
     if (($settings && !$settings->{$setting}) || !$recipient->email) {

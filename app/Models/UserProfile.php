@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $birthday
  * @property string|null $gender
  * @property string|null $location
+ * @property bool $hide_email
  * @property bool $verified
  * @property \Illuminate\Support\Carbon|null $last_username_change
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -43,7 +44,14 @@ class UserProfile extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'cover_photo', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'verified', 'last_username_change'];
+    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'cover_photo', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'hide_email', 'verified', 'last_username_change'];
+
+    /**
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'hide_email' => 'boolean',
+    ];
 
     /**
      * Get the user account that owns the profile.

@@ -229,6 +229,7 @@ Route::prefix('v1.0')->group(function () {
         'rank' => $rank,
         'avatar_url' => $user->avatarUrl(),
         'cover_photo_url' => $user->profile->cover_photo ? $user->coverUrl() : null,
+        'hide_email' => (bool) ($user->profile->hide_email ?? false),
       ]);
     });
     Route::get('/user/current-points', [UserController::class, 'getCurrentPoints']);

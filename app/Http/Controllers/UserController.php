@@ -443,6 +443,12 @@ class UserController extends Controller
     // Check if the user is online
     $isOnline = $user->last_activity > now()->subMinutes(5);
 
+    // Respect the profile owner's own "hide email" choice for anyone else
+    // viewing it - the owner always sees their own real email regardless.
+    $visibleEmail = ($isOwnProfile || !($user->profile->hide_email ?? false))
+      ? $user->email
+      : null;
+
     // Adjust posts_count if not viewing own profile - exclude anonymous and non-visible posts from count
     $displayedPostsCount = $user->posts_count;
     if (!$isOwnProfile) {
@@ -456,7 +462,7 @@ class UserController extends Controller
     return response()->json([
       'id' => $user->id,
       'username' => $user->username,
-      'email' => $user->email,
+      'email' => $visibleEmail,
       'created_at' => $user->created_at,
       'updated_at' => $user->updated_at,
       'profile' => [
@@ -468,7 +474,8 @@ class UserController extends Controller
         'birthday_raw' => $user->profile->birthday ?? null,
         'gender' => $user->profile->gender ?? null,
         'location' => $user->profile->location ?? null,
-        'email' => $user->email,
+        'email' => $visibleEmail,
+        'hide_email' => $isOwnProfile ? (bool) ($user->profile->hide_email ?? false) : null,
         'verified' => $user->profile->verified == 1 ? true : false,
         'role' => $user->role ?? null,
         'last_username_change' => $user->profile->last_username_change ?? null,
@@ -598,6 +605,7 @@ class UserController extends Controller
       'birthday' => 'nullable|date|after:1899-12-31|before:today',
       'gender' => 'nullable|string|in:Male,Female',
       'location' => 'nullable|string|max:255',
+      'hide_email' => 'nullable|boolean',
     ]);
 
     // Track if username or email was changed (will need new token)
