@@ -417,6 +417,48 @@ Route::prefix('v1.0')->group(function () {
       Route::post('/admin/users/{id}/unban', [AdminController::class, 'unbanUser']);
     });
 
+    // Admin panel (Next.js /admin)
+    Route::middleware('role:admin')->prefix('admin')->controller(\App\Http\Controllers\Admin\AdminPanelController::class)->group(function () {
+      Route::get('/overview', 'overview');
+
+      Route::get('/topics', 'topics');
+      Route::patch('/topics/{id}', 'updateTopic');
+      Route::delete('/topics/{id}', 'deleteTopic');
+
+      Route::get('/comments', 'comments');
+      Route::delete('/comments/{id}', 'deleteComment');
+
+      Route::get('/users', 'users');
+      Route::patch('/users/{id}', 'updateUser');
+
+      Route::get('/pending-deposits', 'pendingDeposits');
+      Route::post('/pending-deposits/{id}/approve', 'approveDeposit');
+      Route::post('/pending-deposits/{id}/expire', 'expireDeposit');
+
+      Route::get('/withdrawal-requests', 'withdrawals');
+
+      Route::get('/shop/categories', 'shopCategories');
+      Route::post('/shop/categories', 'saveShopCategory');
+      Route::put('/shop/categories/{id}', 'saveShopCategory');
+      Route::delete('/shop/categories/{id}', 'deleteShopCategory');
+
+      Route::get('/shop/products', 'shopProducts');
+      Route::post('/shop/products', 'saveShopProduct');
+      Route::put('/shop/products/{id}', 'saveShopProduct');
+      Route::delete('/shop/products/{id}', 'deleteShopProduct');
+
+      Route::get('/shop/orders', 'shopOrders');
+      Route::patch('/shop/orders/{id}', 'updateShopOrder');
+
+      Route::get('/study-materials', 'studyMaterials');
+      Route::patch('/study-materials/{id}', 'updateStudyMaterial');
+      Route::delete('/study-materials/{id}', 'deleteStudyMaterial');
+
+      Route::get('/broadcasts', 'broadcasts');
+      Route::get('/broadcasts/audience', 'broadcastAudience');
+      Route::post('/broadcasts', 'sendBroadcast');
+    });
+
     // SePay Webhook
     Route::post('/hooks/sepay-payment', [\SePay\SePay\Http\Controllers\SePayController::class, 'webhook']);
   });

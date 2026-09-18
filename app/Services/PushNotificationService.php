@@ -716,6 +716,103 @@ class PushNotificationService
   }
 
   /**
+   * Broadcast a custom web push to every valid subscription of the given users.
+   * Uses WebPush's batch queue so one flush sends the whole chunk.
+   *
+   * @param int[] $userIds
+   * @return int Number of pushes delivered successfully
+   */
+  public static function broadcastWebPush(array $userIds, string $title, string $body, array $data = []): int
+  {
+    $vapidPublicKey = config('services.vapid.public_key');
+    $vapidPrivateKey = config('services.vapid.private_key');
+    if (!$vapidPublicKey || !$vapidPrivateKey || empty($userIds)) {
+      return 0;
+    }
+
+    $subscriptions = NotificationSubscription::whereIn('user_id', $userIds)
+      ->where(fn($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+      ->get();
+    if ($subscriptions->isEmpty()) {
+      return 0;
+    }
+
+    $payload = json_encode([
+      'title' => $title,
+      'body' => $body,
+      'icon' => '/images/icon.png',
+      'badge' => '/images/badge.png',
+      'tag' => 'broadcast-' . ($data['broadcast_id'] ?? uniqid()),
+      'data' => $data + ['url' => '/'],
+      'requireInteraction' => false,
+    ], JSON_UNESCAPED_UNICODE);
+
+    try {
+      $webPush = new WebPush([
+        'VAPID' => [
+          'subject' => config('services.vapid.subject'),
+          'publicKey' => $vapidPublicKey,
+          'privateKey' => $vapidPrivateKey,
+        ],
+      ]);
+
+      foreach ($subscriptions as $subscription) {
+        $webPush->queueNotification(Subscription::create([
+          'endpoint' => $subscription->endpoint,
+          'keys' => ['p256dh' => $subscription->p256dh, 'auth' => $subscription->auth],
+        ]), $payload);
+      }
+
+      $sent = 0;
+      $expiredEndpoints = [];
+      foreach ($webPush->flush() as $report) {
+        if ($report->isSuccess()) {
+          $sent++;
+        } elseif (in_array($report->getResponse()?->getStatusCode(), [404, 410])) {
+          $expiredEndpoints[] = $report->getEndpoint();
+        }
+      }
+
+      if ($expiredEndpoints) {
+        NotificationSubscription::whereIn('endpoint', $expiredEndpoints)->delete();
+      }
+
+      return $sent;
+    } catch (\Exception $e) {
+      Log::error('Error broadcasting web push', ['error' => $e->getMessage()]);
+      return 0;
+    }
+  }
+
+  /**
+   * Broadcast a custom Expo push to every active token of the given users.
+   *
+   * @param int[] $userIds
+   * @return int Number of pushes accepted by Expo
+   */
+  public static function broadcastExpoPush(array $userIds, string $title, string $body, array $data = []): int
+  {
+    if (empty($userIds)) {
+      return 0;
+    }
+
+    $tokens = ExpoPushToken::whereIn('user_id', $userIds)
+      ->where('is_active', true)
+      ->pluck('expo_push_token')
+      ->unique()
+      ->values()
+      ->all();
+
+    return self::sendExpoPushNotifications($tokens, [
+      'title' => $title,
+      'body' => $body,
+      'channelId' => 'default',
+      'sound' => 'default',
+      'data' => empty($data) ? (object) [] : $data,
+    ]);
+  }
+
+  /**
    * Send Expo push notifications for chat messages.
    *
    * @param int $userId
