@@ -13,15 +13,21 @@ class ShopProduct extends Model
   protected $table = 'cyo_shop_products';
 
   protected $fillable = [
-    'name', 'slug', 'description', 'price',
-    'stock', 'image_url', 'category_id', 'is_active'
+    'name', 'slug', 'sku', 'description', 'price',
+    'stock', 'image_url', 'options', 'category_id', 'is_active'
   ];
 
   protected $casts = [
     'is_active' => 'boolean',
     'price' => 'integer',
     'stock' => 'integer',
+    'options' => 'array',
   ];
+
+  public function variants()
+  {
+    return $this->hasMany(ShopProductVariant::class, 'product_id');
+  }
 
   public function category()
   {

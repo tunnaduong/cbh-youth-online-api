@@ -15,6 +15,7 @@ use App\Models\PendingDeposit;
 use App\Models\ShopCategory;
 use App\Models\ShopOrder;
 use App\Models\ShopProduct;
+use App\Models\ShopProductVariant;
 use App\Models\StudyMaterial;
 use App\Models\Topic;
 use App\Models\TopicComment;
@@ -339,8 +340,8 @@ class AdminPanelController extends Controller
 
   public function shopProducts(Request $request)
   {
-    $query = ShopProduct::query()->with('category:id,name');
-    $this->applySearch($query, $request, ['name', 'slug'], false);
+    $query = ShopProduct::query()->with(['category:id,name', 'variants']);
+    $this->applySearch($query, $request, ['name', 'slug', 'sku'], false);
 
     if ($request->filled('category_id')) {
       $query->where('category_id', $request->category_id);
@@ -357,19 +358,69 @@ class AdminPanelController extends Controller
     $data = $request->validate([
       'name' => 'required|string|max:255',
       'slug' => 'nullable|string|max:255|unique:cyo_shop_products,slug' . ($id ? ",{$id}" : ''),
+      'sku' => 'nullable|string|max:64|unique:cyo_shop_products,sku' . ($id ? ",{$id}" : ''),
       'description' => 'nullable|string',
       'price' => 'required|integer|min:0',
       'stock' => 'required|integer|min:0',
       'image_url' => 'nullable|string|max:255',
       'category_id' => 'required|exists:cyo_shop_categories,id',
       'is_active' => 'boolean',
+      'options' => 'nullable|array|max:3',
+      'options.*.name' => 'required|string|max:50|distinct',
+      'options.*.values' => 'required|array|min:1|max:30',
+      'options.*.values.*' => 'required|string|max:50|distinct',
+      'variants' => 'nullable|array|max:200',
+      'variants.*.id' => 'nullable|integer',
+      'variants.*.options' => 'required|array',
+      'variants.*.sku' => 'nullable|string|max:64|distinct',
+      'variants.*.price' => 'required|integer|min:0',
+      'variants.*.stock' => 'required|integer|min:0',
+      'variants.*.image_url' => 'nullable|string|max:255',
     ]);
     $data['slug'] = $data['slug'] ?: Str::slug($data['name']) . '-' . Str::lower(Str::random(4));
 
-    $product = $id ? ShopProduct::findOrFail($id) : new ShopProduct();
-    $product->fill($data)->save();
+    $options = array_values($data['options'] ?? []);
+    $variants = $options ? ($data['variants'] ?? []) : [];
+    unset($data['variants']);
+    $data['options'] = $options ?: null;
 
-    return response()->json(['message' => 'Đã lưu sản phẩm.', 'product' => $product]);
+    if ($options && !$variants) {
+      return response()->json(['message' => 'Sản phẩm có phân loại cần ít nhất một biến thể.'], 422);
+    }
+    if ($variants) {
+      // Listing shows the cheapest variant; stock is the sum of all variants.
+      $data['price'] = min(array_column($variants, 'price'));
+      $data['stock'] = array_sum(array_column($variants, 'stock'));
+    }
+
+    $product = $id ? ShopProduct::findOrFail($id) : new ShopProduct();
+
+    try {
+      DB::transaction(function () use ($product, $data, $variants) {
+        $product->fill($data)->save();
+
+        $keep = [];
+        foreach ($variants as $v) {
+          $variant = !empty($v['id'])
+            ? $product->variants()->find($v['id']) ?? new ShopProductVariant()
+            : new ShopProductVariant();
+          $variant->fill([
+            'product_id' => $product->id,
+            'options' => $v['options'],
+            'sku' => $v['sku'] ?: null,
+            'price' => $v['price'],
+            'stock' => $v['stock'],
+            'image_url' => $v['image_url'] ?? null,
+          ])->save();
+          $keep[] = $variant->id;
+        }
+        $product->variants()->whereNotIn('id', $keep)->delete();
+      });
+    } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+      return response()->json(['message' => 'Mã biến thể (SKU) bị trùng.'], 422);
+    }
+
+    return response()->json(['message' => 'Đã lưu sản phẩm.', 'product' => $product->load('variants')]);
   }
 
   public function deleteShopProduct($id)
@@ -407,7 +458,7 @@ class AdminPanelController extends Controller
       // Return stock when an order is cancelled.
       if ($data['status'] === 'cancelled') {
         foreach ($order->items as $item) {
-          ShopProduct::withTrashed()->where('id', $item->product_id)->increment('stock', $item->quantity);
+          $item->restock();
         }
       }
       $order->update(['status' => $data['status']]);

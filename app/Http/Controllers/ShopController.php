@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ShopCategory;
 use App\Models\ShopOrder;
 use App\Models\ShopProduct;
+use App\Models\ShopProductVariant;
 use App\Services\PointsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +23,7 @@ class ShopController extends Controller
 
   public function index(Request $request)
   {
-    $query = ShopProduct::where('is_active', true)->with('category');
+    $query = ShopProduct::where('is_active', true)->with('category')->withCount('variants');
 
     if ($request->has('category_id')) {
       $query->where('category_id', $request->category_id);
@@ -37,7 +38,7 @@ class ShopController extends Controller
 
   public function show($id)
   {
-    $product = ShopProduct::with('category')->findOrFail($id);
+    $product = ShopProduct::with(['category', 'variants'])->findOrFail($id);
     return response()->json($product);
   }
 
@@ -52,6 +53,7 @@ class ShopController extends Controller
     $request->validate([
       'items' => 'required|array|min:1',
       'items.*.product_id' => 'required|exists:cyo_shop_products,id',
+      'items.*.variant_id' => 'nullable|integer',
       'items.*.quantity' => 'required|integer|min:1',
       'shipping_address' => 'required|string',
       'phone' => 'required|string',
@@ -67,19 +69,36 @@ class ShopController extends Controller
 
       foreach ($request->items as $itemData) {
         $product = ShopProduct::lockForUpdate()->findOrFail($itemData['product_id']);
+        $variant = null;
 
-        if ($product->stock < $itemData['quantity']) {
-          throw new \Exception("Sản phẩm {$product->name} không đủ hàng.");
+        if ($product->variants()->exists()) {
+          $variant = ShopProductVariant::lockForUpdate()
+            ->where('product_id', $product->id)
+            ->find($itemData['variant_id'] ?? null);
+          if (!$variant) {
+            throw new \Exception("Vui lòng chọn phân loại cho sản phẩm {$product->name}.");
+          }
         }
 
-        $product->decrement('stock', $itemData['quantity']);
-        $itemTotal = $product->price * $itemData['quantity'];
-        $totalAmount += $itemTotal;
+        $stockHolder = $variant ?? $product;
+        if ($stockHolder->stock < $itemData['quantity']) {
+          throw new \Exception("Sản phẩm {$product->name}" . ($variant ? " ({$variant->label()})" : '') . " không đủ hàng.");
+        }
+
+        $stockHolder->decrement('stock', $itemData['quantity']);
+        if ($variant) {
+          // Product stock mirrors the sum of its variants.
+          $product->decrement('stock', $itemData['quantity']);
+        }
+        $price = $stockHolder->price;
+        $totalAmount += $price * $itemData['quantity'];
 
         $items[] = [
           'product_id' => $product->id,
+          'variant_id' => $variant?->id,
+          'variant_label' => $variant?->label(),
           'quantity' => $itemData['quantity'],
-          'price' => $product->price,
+          'price' => $price,
         ];
       }
 
@@ -216,7 +235,7 @@ class ShopController extends Controller
 
     DB::transaction(function () use ($order) {
       foreach ($order->items as $item) {
-        ShopProduct::where('id', $item->product_id)->increment('stock', $item->quantity);
+        $item->restock();
       }
       $order->update(['status' => 'cancelled', 'payment_status' => 'failed']);
     });
