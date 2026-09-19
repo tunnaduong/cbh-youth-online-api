@@ -32,6 +32,10 @@ class EnsureNotBanned
                 ? 'Tài khoản của bạn đã bị khóa đến ' . $bannedUntil->format('d/m/Y H:i') . '.'
                 : 'Tài khoản của bạn đã bị khóa vĩnh viễn.';
 
+            if ($user->ban_reason) {
+                $message .= ' Lý do: ' . $user->ban_reason;
+            }
+
             return response()->json([
                 'message' => $message,
                 'banned' => true,
