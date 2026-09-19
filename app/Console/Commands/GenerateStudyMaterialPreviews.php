@@ -76,13 +76,35 @@ class GenerateStudyMaterialPreviews extends Command
         $tempPdfPath = null;
 
         // 2.1 If it's NOT a PDF but we have LibreOffice, convert it to PDF first
-        if (!$isPdf && shell_exec('command -v libreoffice')) {
+        $officeBin = trim((string) (shell_exec('command -v soffice') ?: shell_exec('command -v libreoffice')));
+        if (!$isPdf && $officeBin) {
           $this->line('Converting Office document to PDF via LibreOffice...');
-          $convCommand = 'libreoffice --headless --convert-to pdf --outdir ' . escapeshellarg($tempDir) . ' ' . escapeshellarg($filePath);
-          shell_exec($convCommand);
 
-          $originalBaseName = pathinfo($filePath, PATHINFO_FILENAME);
-          $tempPdfPath = $tempDir . '/' . $originalBaseName . '.pdf';
+          // Copy to an ASCII-only filename: non-ASCII paths make LibreOffice fail with
+          // "source file could not be loaded" when no UTF-8 locale is set.
+          $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+          $workBase = 'material_' . $material->id;
+          $workSource = $tempDir . '/' . $workBase . '.' . $ext;
+          copy($filePath, $workSource);
+
+          // Isolated, writable profile so it works regardless of the running user's HOME.
+          $profileDir = $tempDir . '/lo_profile';
+          if (!file_exists($profileDir)) {
+            mkdir($profileDir, 0755, true);
+          }
+
+          $convCommand = 'HOME=' . escapeshellarg($tempDir) . ' LANG=C.UTF-8 LC_ALL=C.UTF-8 '
+            . escapeshellarg($officeBin) . ' --headless --norestore --nolockcheck'
+            . ' ' . escapeshellarg('-env:UserInstallation=file://' . $profileDir)
+            . ' --convert-to pdf --outdir ' . escapeshellarg($tempDir) . ' ' . escapeshellarg($workSource) . ' 2>&1';
+          $convOutput = shell_exec($convCommand);
+
+          @unlink($workSource);
+          $tempPdfPath = $tempDir . '/' . $workBase . '.pdf';
+
+          if (!file_exists($tempPdfPath)) {
+            $this->error('LibreOffice output: ' . trim((string) $convOutput));
+          }
         } elseif ($isPdf) {
           $this->line('Using Linux pdftoppm...');
           $tempPdfPath = $filePath;
