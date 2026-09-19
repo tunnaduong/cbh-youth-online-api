@@ -457,6 +457,11 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/broadcasts', 'broadcasts');
       Route::get('/broadcasts/audience', 'broadcastAudience');
       Route::post('/broadcasts', 'sendBroadcast');
+
+      Route::get('/conversations', 'conversations');
+      Route::get('/conversations/{id}/messages', 'conversationMessages');
+      Route::get('/messages/search', 'searchMessages');
+      Route::get('/messages/access-logs', 'messageAccessLogs');
     });
 
     // SePay Webhook

@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendAdminBroadcast;
 use App\Models\AdminBroadcast;
+use App\Models\AdminMessageAccessLog;
+use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\AuthAccount;
 use App\Models\ExpoPushToken;
 use App\Models\NotificationSubscription;
@@ -525,5 +528,113 @@ class AdminPanelController extends Controller
       'message' => 'Đã gửi thông báo.',
       'broadcast' => $broadcast->fresh(),
     ], 201);
+  }
+
+  // ---------------------------------------------------------------- Messages (audited)
+
+  private function logMessageAccess(Request $request, string $action, ?int $conversationId = null, ?string $query = null): void
+  {
+    AdminMessageAccessLog::create([
+      'admin_id' => Auth::id(),
+      'conversation_id' => $conversationId,
+      'action' => $action,
+      'query' => $query ? Str::limit($query, 250, '') : null,
+      'ip' => $request->ip(),
+    ]);
+  }
+
+  /**
+   * Conversations list. Does not expose message content, so it is not logged.
+   */
+  public function conversations(Request $request)
+  {
+    $query = Conversation::query()
+      ->select(['id', 'type', 'name', 'is_public', 'created_by', 'created_at', 'updated_at'])
+      ->with('participants:id,username')
+      ->withCount('messages')
+      ->withMax('messages', 'created_at');
+
+    $search = trim((string) $request->input('search', ''));
+    if ($search !== '') {
+      $query->where(function ($q) use ($search) {
+        $q->where('name', 'like', "%{$search}%")
+          ->orWhereHas('participants', fn($p) => $p->where('username', 'like', "%{$search}%"));
+        if (ctype_digit($search)) {
+          $q->orWhere('cyo_conversations.id', (int) $search);
+        }
+      });
+    }
+    if ($request->filled('user_id')) {
+      $query->whereHas('participants', fn($p) => $p->where('cyo_auth_accounts.id', $request->user_id));
+    }
+    if ($request->filled('type')) {
+      $query->where('type', $request->type);
+    }
+
+    return response()->json(
+      $query->orderByDesc('messages_max_created_at')->paginate($this->perPage($request))
+    );
+  }
+
+  /**
+   * Messages of one conversation, newest page first (use before_id to page back).
+   * Includes deleted/recalled messages, flagged, so moderators see the full record.
+   */
+  public function conversationMessages(Request $request, $id)
+  {
+    $conversation = Conversation::with('participants:id,username')->findOrFail($id);
+
+    // Log once per conversation open, not on every "load older" page.
+    if (!$request->filled('before_id')) {
+      $this->logMessageAccess($request, 'view_conversation', $conversation->id);
+    }
+
+    $messages = Message::withTrashed()
+      ->where('conversation_id', $conversation->id)
+      ->when($request->filled('before_id'), fn($q) => $q->where('id', '<', (int) $request->before_id))
+      ->with('user:id,username')
+      ->orderByDesc('id')
+      ->limit(50)
+      ->get(['id', 'conversation_id', 'user_id', 'guest_name', 'content', 'type', 'file_url', 'file_urls',
+        'is_edited', 'is_recalled', 'reply_to_message_id', 'is_forwarded', 'created_at', 'deleted_at']);
+
+    return response()->json([
+      'conversation' => $conversation,
+      'messages' => $messages->reverse()->values(),
+      'has_more' => $messages->count() === 50,
+    ]);
+  }
+
+  /**
+   * Full-text-ish search across all messages (logged).
+   */
+  public function searchMessages(Request $request)
+  {
+    $data = $request->validate([
+      'search' => 'nullable|string|min:2|max:250',
+      'user_id' => 'nullable|integer',
+    ]);
+    if (empty($data['search']) && empty($data['user_id'])) {
+      return response()->json(['message' => 'Nhập từ khóa hoặc chọn người dùng.'], 422);
+    }
+
+    $this->logMessageAccess($request, 'search_messages', null,
+      trim(($data['search'] ?? '') . (isset($data['user_id']) ? " user:{$data['user_id']}" : '')));
+
+    $query = Message::withTrashed()
+      ->with(['user:id,username', 'conversation:id,type,name'])
+      ->when($data['search'] ?? null, fn($q, $s) => $q->where('content', 'like', "%{$s}%"))
+      ->when($data['user_id'] ?? null, fn($q, $u) => $q->where('user_id', $u));
+
+    return response()->json($query->orderByDesc('id')->paginate($this->perPage($request)));
+  }
+
+  public function messageAccessLogs(Request $request)
+  {
+    return response()->json(
+      AdminMessageAccessLog::with(['admin:id,username', 'conversation:id,type,name'])
+        ->orderByDesc('id')
+        ->paginate($this->perPage($request))
+    );
   }
 }
