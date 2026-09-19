@@ -258,6 +258,8 @@ class StudyMaterialController extends Controller
       'status' => $request->status ?? 'published',
     ]);
 
+    \App\Jobs\GenerateStudyMaterialPreview::dispatch($material->id);
+
     return response()->json($material->load(['user.profile', 'category', 'file']), 201);
   }
 
