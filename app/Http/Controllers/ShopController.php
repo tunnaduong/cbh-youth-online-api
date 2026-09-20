@@ -104,6 +104,9 @@ class ShopController extends Controller
         ];
       }
 
+      $shippingFee = 15000;
+      $totalAmount += $shippingFee;
+
       $order = ShopOrder::create([
         'user_id' => $user->id,
         'total_amount' => $totalAmount,
