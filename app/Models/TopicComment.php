@@ -111,7 +111,35 @@ class TopicComment extends Model
    */
   public function replies()
   {
-    return $this->hasMany(TopicComment::class, 'replying_to')->with(['user.profile', 'votes.user'])->orderBy('created_at', 'asc'); // Recursive
+    return $this->hasMany(TopicComment::class, 'replying_to')
+      ->visibleModeration()
+      ->with(['user.profile', 'votes.user'])
+      ->orderBy('created_at', 'asc'); // Recursive
+  }
+
+  /**
+   * Limit a comment query to what the current viewer is allowed to see under
+   * AI moderation: everything that was approved, plus the viewer's own
+   * pending/rejected comments (so they still see what they just posted and
+   * aren't confused by it vanishing). Admins see everything.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeVisibleModeration($query)
+  {
+    $viewer = auth()->user();
+
+    if ($viewer && $viewer->hasRole('admin')) {
+      return $query;
+    }
+
+    return $query->where(function ($q) use ($viewer) {
+      $q->where('moderation_status', 'approved');
+      if ($viewer) {
+        $q->orWhere('user_id', $viewer->id);
+      }
+    });
   }
 
   /**

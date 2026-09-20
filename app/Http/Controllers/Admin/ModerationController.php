@@ -28,9 +28,64 @@ class ModerationController extends Controller
             $query->where('content_type', $request->type);
         }
 
-        $items = $query->paginate(20);
+        $items = $query->paginate(min(max((int) $request->input('per_page', 20), 1), 100));
+
+        $this->attachContentContext($items->getCollection());
 
         return response()->json($items);
+    }
+
+    /**
+     * Decorate queue rows with what a reviewer needs but the snapshot doesn't
+     * carry: a link to the live content, and whether it has attachments the
+     * AI couldn't read (which is often the very reason it was queued).
+     *
+     * Rows whose content was hard-deleted - the auto-rejected ones - simply
+     * get a null link; the snapshot text is all that's left of them.
+     *
+     * @param  \Illuminate\Support\Collection<int, ModerationQueue>  $rows
+     */
+    private function attachContentContext($rows): void
+    {
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $commentIds = $rows->where('content_type', 'comment')->pluck('content_id')->unique();
+        $comments = $commentIds->isEmpty()
+            ? collect()
+            : TopicComment::whereIn('id', $commentIds)->get(['id', 'topic_id', 'image_urls'])->keyBy('id');
+
+        // Topics to resolve: the queued ones, plus the ones the queued
+        // comments live on (so a comment can link back to its post).
+        $topicIds = $rows->where('content_type', 'topic')->pluck('content_id')
+            ->merge($comments->pluck('topic_id'))
+            ->filter()
+            ->unique();
+
+        $topics = $topicIds->isEmpty()
+            ? collect()
+            : Topic::with('author:id,username')
+                ->whereIn('id', $topicIds)
+                ->get(['id', 'title', 'user_id', 'anonymous', 'cdn_image_id', 'cdn_document_id', 'cdn_video_id'])
+                ->keyBy('id');
+
+        foreach ($rows as $row) {
+            $comment = $row->content_type === 'comment' ? $comments->get($row->content_id) : null;
+            $topicId = $row->content_type === 'topic' ? $row->content_id : $comment?->topic_id;
+            $topic = $topicId ? $topics->get($topicId) : null;
+
+            $row->setAttribute('topic', $topic ? [
+                'id' => $topic->id,
+                'title' => $topic->title,
+                // Anonymous posts live under the literal /anonymous/ path.
+                'username' => $topic->anonymous ? 'anonymous' : $topic->author?->username,
+            ] : null);
+
+            $row->setAttribute('has_attachments', $comment
+                ? !empty($comment->image_urls)
+                : (bool) ($topic && $topic->hasAttachments()));
+        }
     }
 
     /**
@@ -42,9 +97,14 @@ class ModerationController extends Controller
         $entry = ModerationQueue::findOrFail($id);
 
         if ($entry->content_type === 'topic') {
+            // Restore the author's own visibility choice rather than forcing
+            // the post public - holding it for review is what set hidden=true.
+            $snapshot = json_decode($entry->content_snapshot, true);
+            $originalHidden = (bool) ($snapshot['original_hidden'] ?? false);
+
             Topic::where('id', $entry->content_id)->update([
                 'moderation_status' => 'approved',
-                'hidden' => false,
+                'hidden' => $originalHidden,
             ]);
         } elseif ($entry->content_type === 'comment') {
             TopicComment::where('id', $entry->content_id)->update([
