@@ -238,6 +238,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
   Route::get('/monitor-reports/{id}/edit', [AdminController::class, 'editMonitorReport'])->name('monitor-reports.edit');
   Route::put('/monitor-reports/{id}', [AdminController::class, 'updateMonitorReport'])->name('monitor-reports.update');
   Route::delete('/monitor-reports/{id}', [AdminController::class, 'destroyMonitorReport'])->name('monitor-reports.destroy');
+
+  // AI Moderation queue
+  Route::get('/moderation', [\App\Http\Controllers\Admin\ModerationController::class, 'index'])->name('moderation.index');
+  Route::get('/moderation/stats', [\App\Http\Controllers\Admin\ModerationController::class, 'stats'])->name('moderation.stats');
+  Route::post('/moderation/{id}/approve', [\App\Http\Controllers\Admin\ModerationController::class, 'approve'])->name('moderation.approve');
+  Route::post('/moderation/{id}/reject', [\App\Http\Controllers\Admin\ModerationController::class, 'reject'])->name('moderation.reject');
 });
 
 // Include authentication routes

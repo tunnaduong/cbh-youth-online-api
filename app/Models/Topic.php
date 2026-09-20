@@ -85,6 +85,7 @@ class Topic extends Model
     'privacy',
     'is_muted',
     'cdn_video_id',
+    'moderation_status',
   ];
 
   /**

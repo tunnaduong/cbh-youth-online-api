@@ -1297,6 +1297,20 @@ class TopicsController extends Controller
 
     HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
 
+    // AI content moderation
+    $moderationService = new \App\Services\ContentModerationService();
+    $moderationResult = $moderationService->moderateTopic($topic->title, $topic->description ?? '');
+    $moderationOutcome = $moderationService->applyToTopic($topic, $moderationResult);
+
+    if ($moderationOutcome['action'] === 'rejected') {
+      // Delete the topic and return error
+      $topic->delete();
+      return response()->json([
+        'message' => 'Bài viết bị từ chối: ' . $moderationOutcome['message'],
+        'moderation' => ['status' => 'rejected', 'reason' => $moderationOutcome['message']],
+      ], 422);
+    }
+
     $this->bumpFeedVersion();
 
     // Handle @mentions in the post — notify each existing mentioned user
@@ -1378,6 +1392,10 @@ class TopicsController extends Controller
         'views' => 0,  // Initialize view count as 0 or load actual views
         'votes' => [],  // Initialize empty votes array or load actual votes
         'saved' => false,  // Default to false or check if the user has saved the topic
+        'moderation' => [
+          'status' => $moderationOutcome['action'],
+          'message' => $moderationOutcome['message'],
+        ],
       ], 201);
     }
 
@@ -1915,6 +1933,23 @@ class TopicsController extends Controller
       'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
+    // AI content moderation for comment
+    if ($request->comment) {
+      $moderationService = new \App\Services\ContentModerationService();
+      $moderationResult = $moderationService->moderateComment($request->comment);
+      $commentModerationOutcome = $moderationService->applyToComment($comment, $moderationResult);
+
+      if ($commentModerationOutcome['action'] === 'rejected') {
+        $comment->delete();
+        return response()->json([
+          'message' => 'Bình luận bị từ chối: ' . $commentModerationOutcome['message'],
+          'moderation' => ['status' => 'rejected', 'reason' => $commentModerationOutcome['message']],
+        ], 422);
+      }
+    } else {
+      $commentModerationOutcome = ['action' => 'approved', 'message' => null];
+    }
+
     // Load the comment's author profile details
     $author = $comment->user()->with('profile')->first();
 
@@ -1966,6 +2001,10 @@ class TopicsController extends Controller
         ? array_map(fn($p) => config('app.url') . Storage::url($p), $comment->image_urls)
         : [],
       'votes' => [],
+      'moderation' => [
+        'status' => $commentModerationOutcome['action'],
+        'message' => $commentModerationOutcome['message'],
+      ],
     ];
 
     if ($request->wantsJson()) {
