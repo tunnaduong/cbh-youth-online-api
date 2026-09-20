@@ -67,6 +67,7 @@ class TopicComment extends Model
     'image_urls',
     'is_anonymous',
     'deleted_parent_username',
+    'moderation_status',
   ];
 
   protected $casts = [
