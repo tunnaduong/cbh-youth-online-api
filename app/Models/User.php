@@ -45,6 +45,7 @@ class User extends Authenticatable
         'banned_at',
         'banned_until',
         'ban_reason',
+        'student_verified_at',
         'banned_by',
     ];
 
