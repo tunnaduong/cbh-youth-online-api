@@ -19,7 +19,7 @@ class ShopController extends Controller
   // top-up flow the user already knows, instead of a second QR pattern.
   const BANK_ACCOUNT = '99421112003';
   const BANK_NAME = 'TPBank';
-  const BANK_ACCOUNT_HOLDER = 'CHUYEN BIEN HOA';
+  const BANK_ACCOUNT_HOLDER = 'DUONG TUNG ANH';
 
   public function index(Request $request)
   {
