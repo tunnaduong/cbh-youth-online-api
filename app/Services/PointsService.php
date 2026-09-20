@@ -302,4 +302,78 @@ class PointsService
   {
     self::deductPoints($userId, $amount, 'deduction', 'Admin trừ điểm', null);
   }
+
+  /**
+   * Points awarded per streak day (day 1–7+).
+   * Day 7+ always gets the max reward (20 points).
+   */
+  public static function checkinPointsForStreak(int $streakDay): int
+  {
+    $table = [1 => 5, 2 => 7, 3 => 9, 4 => 11, 5 => 13, 6 => 15, 7 => 20];
+    return $table[min($streakDay, 7)];
+  }
+
+  /**
+   * Process daily check-in for a user.
+   *
+   * Returns an array with:
+   *   - already_checked_in (bool)
+   *   - streak_day (int)
+   *   - points_awarded (int)
+   *   - total_points (int)
+   *
+   * @param int $userId
+   * @return array
+   */
+  public static function onDailyCheckin(int $userId): array
+  {
+    $today = now()->toDateString();
+
+    $existing = \App\Models\DailyCheckin::where('user_id', $userId)
+      ->where('checkin_date', $today)
+      ->first();
+
+    if ($existing) {
+      $user = AuthAccount::find($userId);
+      return [
+        'already_checked_in' => true,
+        'streak_day' => $existing->streak_day,
+        'points_awarded' => $existing->points_awarded,
+        'total_points' => $user?->points ?? 0,
+      ];
+    }
+
+    // Determine streak: check if user checked in yesterday
+    $yesterday = now()->subDay()->toDateString();
+    $lastCheckin = \App\Models\DailyCheckin::where('user_id', $userId)
+      ->orderByDesc('checkin_date')
+      ->first();
+
+    if ($lastCheckin && $lastCheckin->checkin_date->toDateString() === $yesterday) {
+      $streakDay = $lastCheckin->streak_day + 1;
+    } else {
+      $streakDay = 1;
+    }
+
+    $points = self::checkinPointsForStreak($streakDay);
+
+    DB::transaction(function () use ($userId, $today, $streakDay, $points) {
+      \App\Models\DailyCheckin::create([
+        'user_id' => $userId,
+        'checkin_date' => $today,
+        'points_awarded' => $points,
+        'streak_day' => $streakDay,
+      ]);
+
+      self::addPoints($userId, $points, 'checkin', "Điểm danh ngày {$streakDay}", null);
+    });
+
+    $user = AuthAccount::find($userId);
+    return [
+      'already_checked_in' => false,
+      'streak_day' => $streakDay,
+      'points_awarded' => $points,
+      'total_points' => $user?->points ?? 0,
+    ];
+  }
 }

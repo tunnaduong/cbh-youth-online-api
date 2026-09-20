@@ -213,6 +213,87 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   }
 
   /**
+   * Member tiers based on total accumulated points.
+   * Returns tier info: id, name, badge_key, min_points, privileges.
+   */
+  public static function tiers(): array
+  {
+    return [
+      [
+        'id' => 'trainee',
+        'name' => 'Thành viên tập sự',
+        'badge_key' => 'badge_trainee',
+        'min_points' => 50,
+        'privileges' => [
+          'custom_profile',
+          'highlighted_name',
+          'avatar_frame_trainee',
+          'can_request_feature',
+          'giftshop_discount_50_first_time',
+        ],
+      ],
+      [
+        'id' => 'active',
+        'name' => 'Thành viên tích cực',
+        'badge_key' => 'badge_active',
+        'min_points' => 150,
+        'privileges' => [
+          'gift_points_to_others',
+          'increased_post_limit',
+          'priority_comment_display',
+        ],
+      ],
+      [
+        'id' => 'distinguished',
+        'name' => 'Thành viên tiêu biểu',
+        'badge_key' => 'badge_distinguished',
+        'min_points' => 500,
+        'privileges' => [
+          'redeem_points_to_cash',
+          'post_without_approval',
+        ],
+      ],
+      [
+        'id' => 'veteran',
+        'name' => 'Thành viên kỳ cựu',
+        'badge_key' => 'badge_veteran',
+        'min_points' => 1000,
+        'privileges' => [],
+      ],
+    ];
+  }
+
+  /**
+   * Get current member tier based on total accumulated points.
+   * Returns the highest tier the user qualifies for, or null if below 50 pts.
+   */
+  public function getMemberTier(): ?array
+  {
+    $points = $this->getPoints();
+    $current = null;
+    foreach (self::tiers() as $tier) {
+      if ($points >= $tier['min_points']) {
+        $current = $tier;
+      }
+    }
+    return $current;
+  }
+
+  /**
+   * Check if user has a specific privilege from their tier (or higher tiers).
+   */
+  public function hasPrivilege(string $privilege): bool
+  {
+    $points = $this->getPoints();
+    foreach (self::tiers() as $tier) {
+      if ($points >= $tier['min_points'] && in_array($privilege, $tier['privileges'])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Send the password reset notification.
    *
    * @param  string  $token

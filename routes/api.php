@@ -33,6 +33,7 @@ use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\UniversityController;
 use App\Http\Controllers\YouthNewsController;
+use App\Http\Controllers\DailyCheckinController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -105,6 +106,7 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
   Route::get('/users/top-active', [UserController::class, 'getTop8ActiveUsers']);
   Route::get('/users/ranking', [PointsController::class, 'getTopUsers']);
+  Route::get('/member-tiers', fn() => response()->json(\App\Models\AuthAccount::tiers()));
 
   // Search & Stories (optional auth so followers-only content stays visible to followers)
   Route::middleware('optional.auth')->group(function () {
@@ -227,12 +229,15 @@ Route::prefix('v1.0')->group(function () {
         'role' => $user->role ?? null,
         'total_points' => $userPoints,
         'rank' => $rank,
+        'member_tier' => $user->getMemberTier(),
         'avatar_url' => $user->avatarUrl(),
         'cover_photo_url' => $user->profile->cover_photo ? $user->coverUrl() : null,
         'hide_email' => (bool) ($user->profile->hide_email ?? false),
       ]);
     });
     Route::get('/user/current-points', [UserController::class, 'getCurrentPoints']);
+    Route::post('/checkin', [DailyCheckinController::class, 'checkin']);
+    Route::get('/checkin/status', [DailyCheckinController::class, 'status']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/user/delete-account', [UserController::class, 'deleteAccount']);
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
