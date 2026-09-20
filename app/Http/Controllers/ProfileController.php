@@ -113,6 +113,8 @@ class ProfileController extends Controller
         'location' => $user->profile->location ?? null,
         'posts' => $this->getUserPosts($user, $username),
         'verified' => $user->profile->verified ?? 0,
+        'member_tier' => $user->getMemberTier(),
+        'points_milestones' => $this->getPointsMilestones($user),
         'stats' => [
           'posts' => $user->posts()->where('anonymous', false)->count() ?? 0,
           'followers' => $user->followers()->count() ?? 0,
@@ -142,6 +144,46 @@ class ProfileController extends Controller
       ],
       'activeTab' => $tab,
     ]);
+  }
+
+  /**
+   * Calculate the date each points milestone was first reached by scanning
+   * the cumulative sum of PointsTransactions in chronological order.
+   */
+  private function getPointsMilestones(\App\Models\AuthAccount $user): array
+  {
+    $tiers = \App\Models\AuthAccount::tiers();
+    $milestones = [];
+    foreach ($tiers as $tier) {
+      $milestones[$tier['id']] = [
+        'id' => $tier['id'],
+        'name' => $tier['name'],
+        'min_points' => $tier['min_points'],
+        'achieved_at' => null,
+      ];
+    }
+
+    // Walk transactions in chronological order and track running total
+    $transactions = \App\Models\PointsTransaction::where('user_id', $user->id)
+      ->orderBy('created_at')
+      ->select('amount', 'created_at')
+      ->get();
+
+    $running = 0;
+    $remaining = array_column($tiers, 'min_points', 'id');
+
+    foreach ($transactions as $tx) {
+      $running += $tx->amount;
+      foreach ($remaining as $tierId => $minPts) {
+        if ($running >= $minPts) {
+          $milestones[$tierId]['achieved_at'] = $tx->created_at->format('d/m/Y');
+          unset($remaining[$tierId]);
+        }
+      }
+      if (empty($remaining)) break;
+    }
+
+    return array_values($milestones);
   }
 
   /**
