@@ -21,10 +21,12 @@ use App\Models\Topic;
 use App\Models\TopicComment;
 use App\Models\UserReport;
 use App\Models\WithdrawalRequest;
+use App\Mail\ShopOrderCompletedMail;
 use App\Services\PointsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 /**
@@ -449,10 +451,12 @@ class AdminPanelController extends Controller
       'status' => 'required|string|in:pending,processing,shipped,completed,cancelled',
     ]);
 
-    $order = ShopOrder::with('items')->findOrFail($id);
+    $order = ShopOrder::with(['items.product', 'user'])->findOrFail($id);
     if ($order->status === 'cancelled') {
       return response()->json(['message' => 'Đơn hàng đã hủy, không thể thay đổi.'], 400);
     }
+
+    $previousStatus = $order->status;
 
     DB::transaction(function () use ($order, $data) {
       // Return stock when an order is cancelled.
@@ -463,6 +467,13 @@ class AdminPanelController extends Controller
       }
       $order->update(['status' => $data['status']]);
     });
+
+    if ($data['status'] === 'completed' && $previousStatus !== 'completed') {
+      $email = $order->user?->email;
+      if ($email) {
+        Mail::to($email)->queue(new ShopOrderCompletedMail($order));
+      }
+    }
 
     return response()->json(['message' => 'Đã cập nhật đơn hàng.']);
   }
