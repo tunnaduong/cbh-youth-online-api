@@ -39,7 +39,8 @@ class UserReportController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
-    $query = UserReport::with(['reporter', 'reportedUser', 'topic', 'reviewedBy']);
+    // topic.author lets the admin table link straight to the reported post.
+    $query = UserReport::with(['reporter', 'reportedUser', 'topic', 'topic.author:id,username', 'reviewedBy']);
 
     // Filter by status
     if ($request->has('status')) {

@@ -175,7 +175,9 @@ class AdminPanelController extends Controller
   {
     $query = TopicComment::query()
       ->select(['id', 'topic_id', 'user_id', 'replying_to', 'comment', 'is_anonymous', 'created_at'])
-      ->with(['user:id,username', 'topic:id,title']);
+      // topic.user_id/anonymous + author feed the admin table's link back to
+      // the post each comment sits on (anonymous posts live under /anonymous).
+      ->with(['user:id,username', 'topic:id,title,user_id,anonymous', 'topic.author:id,username']);
 
     $this->applySearch($query, $request, ['comment']);
 
