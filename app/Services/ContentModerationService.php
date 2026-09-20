@@ -22,6 +22,9 @@ class ContentModerationService
     private const MODEL = 'gemini-flash-lite';
     private const API_KEY = 'sk-ilovecyo';
 
+    /** Shown in the queue when media (not the text) is what needs a human. */
+    private const ATTACHMENT_REVIEW_REASON = 'Có ảnh/video/tệp đính kèm - AI không đọc được, cần người kiểm duyệt xem.';
+
     private const SYSTEM_PROMPT = <<<PROMPT
 Bạn là hệ thống kiểm duyệt nội dung tự động của Chuyên Biên Hòa Youth Online (CYO) - cộng đồng học sinh THPT Chuyên Biên Hòa.
 
@@ -69,9 +72,23 @@ PROMPT;
         $verdict = $result['verdict'];
         $reason = $result['reason'] ?? '';
 
+        // The model only ever saw the title and body - it cannot look at an
+        // attached image, video or document. Never let it clear a post whose
+        // attachments nobody has reviewed: a clean caption over an abusive
+        // image would sail straight through. A rejection stands, since the
+        // text alone was already enough to refuse it.
+        if ($verdict === 'approved' && $topic->hasAttachments()) {
+            $verdict = 'needs_review';
+            $reason = self::ATTACHMENT_REVIEW_REASON;
+        }
+
         $snapshot = json_encode([
             'title' => $topic->title,
             'body' => mb_substr($topic->description ?? '', 0, 2000),
+            // Remember the author's own visibility choice: holding a post for
+            // review forces hidden=true, so approving it must restore this
+            // rather than blindly publishing a post they wanted hidden.
+            'original_hidden' => (bool) $topic->hidden,
         ]);
 
         if ($verdict === 'approved') {
@@ -114,6 +131,12 @@ PROMPT;
     {
         $verdict = $result['verdict'];
         $reason = $result['reason'] ?? '';
+
+        // Same rule as applyToTopic: the model never saw these images.
+        if ($verdict === 'approved' && !empty($comment->image_urls)) {
+            $verdict = 'needs_review';
+            $reason = self::ATTACHMENT_REVIEW_REASON;
+        }
 
         $snapshot = json_encode([
             'topic_id' => $comment->topic_id,

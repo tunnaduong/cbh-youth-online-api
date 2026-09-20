@@ -155,6 +155,23 @@ class Topic extends Model
   }
 
   /**
+   * Whether the post carries media (image, document or video). The cdn_*
+   * columns hold comma-separated CDN ids and are empty/null when unused.
+   *
+   * @return bool
+   */
+  public function hasAttachments(): bool
+  {
+    foreach (['cdn_image_id', 'cdn_document_id', 'cdn_video_id'] as $column) {
+      if (trim((string) $this->{$column}) !== '') {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Check if the topic is pinned.
    *
    * @return bool

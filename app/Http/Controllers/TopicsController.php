@@ -791,6 +791,18 @@ class TopicsController extends Controller
       return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);  // Not Found
     }
 
+    // A post the AI held for review (or rejected) must not be reachable by
+    // direct link either - dropping it from the feeds isn't enough. The
+    // author and admins can still open it so they can see its status.
+    if (in_array($topic->moderation_status, ['pending', 'rejected'], true)) {
+      $viewer = auth()->user();
+      $canBypass = $viewer && ($viewer->id === $topic->user_id || $viewer->hasRole('admin'));
+
+      if (!$canBypass) {
+        return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);
+      }
+    }
+
     // Check privacy settings
     if ($topic->privacy === 'private') {
       // Only the author can see private posts (privacy = private)
@@ -818,6 +830,7 @@ class TopicsController extends Controller
     // Need to load nested replies recursively with all levels
     $comments = $topic
       ->comments()
+      ->visibleModeration()
       ->whereNull('replying_to')
       ->with([
         'user.profile',
@@ -1717,6 +1730,7 @@ class TopicsController extends Controller
   public function getComments(Request $request, $topicId)
   {
     $comments = TopicComment::with(['user', 'user.profile'])
+      ->visibleModeration()
       ->where('topic_id', $topicId)
       ->orderBy('created_at', 'desc')
       ->get();
@@ -1937,10 +1951,15 @@ class TopicsController extends Controller
       'is_anonymous' => $request->boolean('is_anonymous', false),
     ]);
 
-    // AI content moderation for comment
-    if ($request->comment) {
+    // AI content moderation for comment. An image-only comment still has to
+    // go through this: the model can't read the image, so applyToComment
+    // routes it to a human on the strength of the attachment alone - skipping
+    // the check entirely would auto-publish images nobody has looked at.
+    if ($request->comment || !empty($imagePaths)) {
       $moderationService = new \App\Services\ContentModerationService();
-      $moderationResult = $moderationService->moderateComment($request->comment);
+      $moderationResult = $request->comment
+        ? $moderationService->moderateComment($request->comment)
+        : ['verdict' => 'approved', 'reason' => ''];
       $commentModerationOutcome = $moderationService->applyToComment($comment, $moderationResult);
 
       if ($commentModerationOutcome['action'] === 'rejected') {

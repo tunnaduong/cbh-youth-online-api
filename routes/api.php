@@ -464,6 +464,12 @@ Route::prefix('v1.0')->group(function () {
       Route::post('/student-verifications/{id}/reject', [\App\Http\Controllers\StudentVerificationController::class, 'adminReject']);
       Route::post('/student-verifications/revoke/{userId}', [\App\Http\Controllers\StudentVerificationController::class, 'adminRevoke']);
 
+      // AI moderation queue - content the moderation bot flagged for a human.
+      Route::get('/moderation', [\App\Http\Controllers\Admin\ModerationController::class, 'index']);
+      Route::get('/moderation/stats', [\App\Http\Controllers\Admin\ModerationController::class, 'stats']);
+      Route::post('/moderation/{id}/approve', [\App\Http\Controllers\Admin\ModerationController::class, 'approve']);
+      Route::post('/moderation/{id}/reject', [\App\Http\Controllers\Admin\ModerationController::class, 'reject']);
+
       Route::get('/study-materials', 'studyMaterials');
       Route::patch('/study-materials/{id}', 'updateStudyMaterial');
       Route::delete('/study-materials/{id}', 'deleteStudyMaterial');
