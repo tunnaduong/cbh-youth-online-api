@@ -62,8 +62,9 @@ class ShopController extends Controller
     ]);
 
     $user = $request->user();
+    $studentDiscount = $user->student_verified_at ? 0.10 : 0;
 
-    $order = DB::transaction(function () use ($request, $user) {
+    $order = DB::transaction(function () use ($request, $user, $studentDiscount) {
       $totalAmount = 0;
       $items = [];
 
@@ -91,20 +92,22 @@ class ShopController extends Controller
           $product->decrement('stock', $itemData['quantity']);
         }
         $price = $stockHolder->price;
-        $totalAmount += $price * $itemData['quantity'];
+        $discountedPrice = round($price * (1 - $studentDiscount));
+        $totalAmount += $discountedPrice * $itemData['quantity'];
 
         $items[] = [
           'product_id' => $product->id,
           'variant_id' => $variant?->id,
           'variant_label' => $variant?->label(),
           'quantity' => $itemData['quantity'],
-          'price' => $price,
+          'price' => $discountedPrice,
         ];
       }
 
       $order = ShopOrder::create([
         'user_id' => $user->id,
         'total_amount' => $totalAmount,
+        'discount_percent' => $studentDiscount > 0 ? intval($studentDiscount * 100) : null,
         // COD is accepted straight into fulfillment since nothing is owed
         // up front; points/qr stay "pending" until payment actually lands
         // (points: a few lines below in this same transaction; qr: the

@@ -12,7 +12,7 @@ class ShopOrder extends Model
   protected $table = 'cyo_shop_orders';
 
   protected $fillable = [
-    'user_id', 'total_amount', 'status',
+    'user_id', 'total_amount', 'discount_percent', 'status',
     'shipping_address', 'phone', 'note',
     'payment_method', 'payment_status', 'payment_code', 'paid_at',
   ];

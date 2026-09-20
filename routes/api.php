@@ -399,6 +399,10 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/shop/orders/{id}/payment-status', [ShopController::class, 'paymentStatus']);
     Route::post('/shop/orders/{id}/cancel', [ShopController::class, 'cancelOrder']);
 
+    // Student Verification (eKYC)
+    Route::post('/student-verification', [\App\Http\Controllers\StudentVerificationController::class, 'submit']);
+    Route::get('/student-verification/status', [\App\Http\Controllers\StudentVerificationController::class, 'status']);
+
     // Wallet
     Route::get('/wallet/balance', [WalletController::class, 'getBalance']);
     Route::get('/wallet/transactions', [WalletController::class, 'getTransactions']);
@@ -449,6 +453,11 @@ Route::prefix('v1.0')->group(function () {
 
       Route::get('/shop/orders', 'shopOrders');
       Route::patch('/shop/orders/{id}', 'updateShopOrder');
+
+      Route::get('/student-verifications', [\App\Http\Controllers\StudentVerificationController::class, 'adminIndex']);
+      Route::post('/student-verifications/{id}/approve', [\App\Http\Controllers\StudentVerificationController::class, 'adminApprove']);
+      Route::post('/student-verifications/{id}/reject', [\App\Http\Controllers\StudentVerificationController::class, 'adminReject']);
+      Route::post('/student-verifications/revoke/{userId}', [\App\Http\Controllers\StudentVerificationController::class, 'adminRevoke']);
 
       Route::get('/study-materials', 'studyMaterials');
       Route::patch('/study-materials/{id}', 'updateStudyMaterial');
