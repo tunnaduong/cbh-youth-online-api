@@ -67,7 +67,7 @@ class StudentVerificationController extends Controller
 
     public function adminIndex(Request $request)
     {
-        $query = StudentVerification::with(['user:id,username,name,email', 'reviewer:id,username'])
+        $query = StudentVerification::with(['user:id,username,email', 'reviewer:id,username'])
             ->orderByDesc('created_at');
 
         if ($request->filled('status')) {
