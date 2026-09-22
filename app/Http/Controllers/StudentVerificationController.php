@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\StudentVerificationApprovedMail;
 use App\Models\StudentVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class StudentVerificationController extends Controller
 {
@@ -92,6 +95,17 @@ class StudentVerificationController extends Controller
         ]);
 
         $verification->user->update(['student_verified_at' => now()]);
+
+        if ($verification->user->email) {
+            try {
+                Mail::to($verification->user->email)->queue(new StudentVerificationApprovedMail($verification->user));
+            } catch (\Throwable $e) {
+                Log::error('Failed to send student verification approved email', [
+                    'verification_id' => $verification->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return response()->json(['message' => 'Đã duyệt xác minh học sinh thành công.', 'verification' => $verification]);
     }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ModerationQueue;
 use App\Models\Topic;
 use App\Models\TopicComment;
+use App\Services\ContentModerationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -106,10 +107,18 @@ class ModerationController extends Controller
                 'moderation_status' => 'approved',
                 'hidden' => $originalHidden,
             ]);
+
+            if ($topic = Topic::find($entry->content_id)) {
+                ContentModerationService::sendApprovedEmail($topic, 'topic');
+            }
         } elseif ($entry->content_type === 'comment') {
             TopicComment::where('id', $entry->content_id)->update([
                 'moderation_status' => 'approved',
             ]);
+
+            if ($comment = TopicComment::find($entry->content_id)) {
+                ContentModerationService::sendApprovedEmail($comment, 'comment');
+            }
         }
 
         $entry->update([
