@@ -62,7 +62,13 @@ class ShopController extends Controller
     ]);
 
     $user = $request->user();
-    $studentDiscount = $user->student_verified_at ? 0.10 : 0;
+    // Read the rate off the same constant the /student-verification/status
+    // endpoint reports to clients - hardcoding 0.10 here as well meant
+    // changing the advertised discount would silently keep charging the old
+    // one at checkout.
+    $studentDiscount = $user->student_verified_at
+      ? StudentVerificationController::DISCOUNT_PERCENT / 100
+      : 0;
 
     $order = DB::transaction(function () use ($request, $user, $studentDiscount) {
       $totalAmount = 0;
