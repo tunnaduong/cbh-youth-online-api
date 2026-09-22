@@ -32,12 +32,20 @@ Bạn là hệ thống kiểm duyệt nội dung tự động của Chuyên Biê
 
 Nhiệm vụ: Đánh giá nội dung bài đăng/bình luận và trả về JSON quyết định kiểm duyệt.
 
-Tiêu chuẩn cộng đồng:
-- TỪ CHỐI (rejected): Nội dung chứa ngôn từ thù địch, phân biệt chủng tộc/giới tính/tôn giáo rõ ràng; spam quảng cáo thương mại không liên quan; nội dung khiêu dâm; kêu gọi bạo lực; thông tin cá nhân nhạy cảm của người khác; lừa đảo; nội dung hoàn toàn vô nghĩa/ký tự rác.
-- CẦN XEM XÉT (needs_review): Nội dung có thể vi phạm nhưng cần ngữ cảnh để xác định (tranh luận nhạy cảm, chính trị, tôn giáo, sức khỏe tâm thần, nội dung buồn/tiêu cực nhưng không rõ ràng vi phạm); nội dung có liên kết ngoài đáng ngờ; nội dung có thể là spam nhưng không chắc.
-- CHẤP THUẬN (approved): Mọi nội dung hợp lệ khác, kể cả thảo luận học tập, chia sẻ kinh nghiệm, góp ý, hỏi đáp, tin tức, sáng tác, tâm sự bình thường, humor lành mạnh.
+Đây là cộng đồng của học sinh THPT (phần lớn dưới 18 tuổi). TUYỆT ĐỐI KHÔNG cho phép nội dung 18+/NSFW.
 
-Lưu ý: Hãy bao dung với học sinh - ngôn ngữ teen, tiếng lóng thông thường, cách viết không chính thống là bình thường. Chỉ từ chối khi vi phạm rõ ràng và nghiêm trọng.
+Tiêu chuẩn cộng đồng:
+- TỪ CHỐI (rejected) - nội dung 18+/NSFW, áp dụng nghiêm ngặt nhất:
+  * Nội dung khiêu dâm, mô tả hành vi tình dục, truyện/thơ/tâm sự có yếu tố tình dục lộ liễu.
+  * Khỏa thân, bán khỏa thân, mô tả hoặc yêu cầu ảnh nhạy cảm ("nude", "ảnh hở", "check hàng"...).
+  * Liên kết, tên trang web, nhóm chat hoặc từ khóa dẫn tới nội dung người lớn; rao bán/chia sẻ/xin nội dung khiêu dâm.
+  * Gạ gẫm, mời gọi quan hệ tình dục, quấy rối tình dục người khác.
+  * Mọi nội dung tự gắn nhãn "18+", "NSFW", "chỉ dành cho người lớn".
+- TỪ CHỐI (rejected) - các vi phạm khác: ngôn từ thù địch, phân biệt chủng tộc/giới tính/tôn giáo rõ ràng; spam quảng cáo thương mại không liên quan; kêu gọi bạo lực; thông tin cá nhân nhạy cảm của người khác; lừa đảo; nội dung hoàn toàn vô nghĩa/ký tự rác.
+- CẦN XEM XÉT (needs_review): Nội dung có thể vi phạm nhưng cần ngữ cảnh để xác định (tranh luận nhạy cảm, chính trị, tôn giáo, sức khỏe tâm thần, nội dung buồn/tiêu cực nhưng không rõ ràng vi phạm); ám chỉ/đùa cợt mang màu sắc tình dục nhưng chưa lộ liễu; nội dung có liên kết ngoài đáng ngờ; nội dung có thể là spam nhưng không chắc.
+- CHẤP THUẬN (approved): Mọi nội dung hợp lệ khác, kể cả thảo luận học tập, chia sẻ kinh nghiệm, góp ý, hỏi đáp, tin tức, sáng tác, tâm sự bình thường, humor lành mạnh. Giáo dục giới tính/sức khỏe sinh sản nghiêm túc, đúng mực vẫn được chấp thuận - điều bị cấm là nội dung khiêu dâm, không phải kiến thức.
+
+Lưu ý: Hãy bao dung với học sinh - ngôn ngữ teen, tiếng lóng thông thường, cách viết không chính thống là bình thường. Chỉ từ chối khi vi phạm rõ ràng và nghiêm trọng. NGOẠI LỆ: sự bao dung này KHÔNG áp dụng cho nội dung 18+/NSFW - với nhóm này hãy từ chối ngay cả khi chỉ ở mức vừa phải.
 
 Trả về JSON theo đúng format sau (không có markdown, không có text khác):
 {"verdict":"approved|rejected|needs_review","reason":"lý do ngắn gọn bằng tiếng Việt, tối đa 100 ký tự"}
@@ -229,7 +237,7 @@ PROMPT;
 
             if (!$response->successful()) {
                 Log::warning('ContentModerationService: API error', ['status' => $response->status()]);
-                return $this->fallback();
+                return $this->fallback($userContent);
             }
 
             $text = trim($response->json('choices.0.message.content') ?? '');
@@ -237,7 +245,7 @@ PROMPT;
 
             if (!isset($decoded['verdict']) || !in_array($decoded['verdict'], ['approved', 'rejected', 'needs_review'])) {
                 Log::warning('ContentModerationService: unexpected response', ['text' => $text]);
-                return $this->fallback();
+                return $this->fallback($userContent);
             }
 
             return [
@@ -246,13 +254,52 @@ PROMPT;
             ];
         } catch (\Throwable $e) {
             Log::error('ContentModerationService: exception', ['error' => $e->getMessage()]);
-            return $this->fallback();
+            return $this->fallback($userContent);
         }
     }
 
-    // If AI is unavailable, approve (fail open) to avoid blocking users.
-    private function fallback(): array
+    /**
+     * Blatant 18+/NSFW markers, checked only when the AI is unreachable.
+     *
+     * Deliberately short and unambiguous: this is a safety net for an outage,
+     * not a general profanity filter (the model handles nuance when it's up).
+     * Anything matched goes to a human rather than being rejected outright, so
+     * a false positive costs one review instead of wrongly blocking a post.
+     */
+    private const NSFW_FALLBACK_TERMS = [
+        'khiêu dâm', 'khoả thân', 'khỏa thân', 'ảnh nóng', 'lộ hàng', 'check hàng',
+        'gạ tình', 'phim sex', 'clip sex', 'sex chat', 'porn', 'pornhub', 'xvideos',
+        'onlyfans', 'hentai', 'nsfw', 'nude',
+    ];
+
+    /**
+     * Used when the AI can't be reached. Still fails open so an outage never
+     * blocks the forum - except for content carrying an unmistakable 18+
+     * marker, which is held for review rather than auto-published. Without
+     * this, every NSFW post would sail through during an AI outage.
+     */
+    private function fallback(string $userContent = ''): array
     {
+        $haystack = mb_strtolower($userContent);
+
+        foreach (self::NSFW_FALLBACK_TERMS as $term) {
+            if (str_contains($haystack, $term)) {
+                return [
+                    'verdict' => 'needs_review',
+                    'reason' => 'Nghi ngờ nội dung 18+ (AI kiểm duyệt tạm thời không khả dụng).',
+                ];
+            }
+        }
+
+        // "18+" on its own, but not inside a sum like "18+5" - this is a
+        // school forum, maths posts shouldn't trip the filter.
+        if (preg_match('/\b18\s*\+(?!\s*\d)/u', $haystack)) {
+            return [
+                'verdict' => 'needs_review',
+                'reason' => 'Nghi ngờ nội dung 18+ (AI kiểm duyệt tạm thời không khả dụng).',
+            ];
+        }
+
         return ['verdict' => 'approved', 'reason' => ''];
     }
 }
