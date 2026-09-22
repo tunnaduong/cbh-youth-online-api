@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Mail\ContentApprovedMail;
 use App\Models\ModerationQueue;
 use App\Models\Topic;
 use App\Models\TopicComment;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * AI-powered content moderation for forum topics and comments.
@@ -93,6 +95,7 @@ PROMPT;
 
         if ($verdict === 'approved') {
             $topic->update(['moderation_status' => 'approved']);
+            self::sendApprovedEmail($topic, 'topic');
             return ['action' => 'approved', 'message' => null];
         }
 
@@ -145,6 +148,7 @@ PROMPT;
 
         if ($verdict === 'approved') {
             $comment->update(['moderation_status' => 'approved']);
+            self::sendApprovedEmail($comment, 'comment');
             return ['action' => 'approved', 'message' => null];
         }
 
@@ -174,6 +178,35 @@ PROMPT;
             'ai_reason' => $reason,
         ]);
         return ['action' => 'pending', 'message' => 'Bình luận của bạn đang chờ kiểm duyệt.'];
+    }
+
+    /**
+     * Email the author that their topic/comment was approved and is now public.
+     * Used both by AI auto-approval here and by the human admin approve flow
+     * (ModerationController::approve()).
+     *
+     * @param  Topic|TopicComment  $content
+     */
+    public static function sendApprovedEmail($content, string $type): void
+    {
+        $user = $content->user;
+        $topic = $type === 'comment' ? $content->topic : $content;
+
+        if (!$user || !$user->email || !$topic) {
+            return;
+        }
+
+        $baseUrl = rtrim(config('app.ui_url', env('APP_UI_URL', 'http://localhost:3000')), '/');
+
+        try {
+            Mail::to($user->email)->queue(new ContentApprovedMail($user, $type, $topic->title, $baseUrl . $topic->getUrl()));
+        } catch (\Throwable $e) {
+            Log::error('Failed to send content approved email', [
+                'content_type' => $type,
+                'content_id' => $content->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function callApi(string $userContent): array
