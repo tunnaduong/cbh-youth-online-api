@@ -43,6 +43,13 @@ class RouteServiceProvider extends ServiceProvider
       return Limit::perMinute(1)->by($request->user()?->id ?: $request->ip());
     });
 
+    // In-app feedback is open to guests, so keep bots from flooding the
+    // admin inbox: a few per minute, a couple dozen per day.
+    RateLimiter::for('feedback', function (Request $request) {
+      $key = $request->user()?->id ?: $request->ip();
+      return [Limit::perMinute(3)->by('feedback-min:' . $key), Limit::perDay(20)->by('feedback-day:' . $key)];
+    });
+
     $this->routes(function () {
       Route::middleware('api')
         ->group(base_path('routes/api.php'));
