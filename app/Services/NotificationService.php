@@ -1018,6 +1018,63 @@ class NotificationService
   }
 
   /**
+   * Tell every admin that a post/comment is sitting in the moderation queue
+   * waiting on a human.
+   *
+   * The content itself is still hidden at this point, so the notification
+   * deliberately links to /admin/moderation rather than to the post: the
+   * queue is where an admin can actually act on it. Keeping `topic_id` out
+   * of `data` is what makes the clients route there (see
+   * buildNotificationTargetUrl on web / notificationRouting on mobile).
+   *
+   * The author is skipped when they are an admin themselves - nobody needs
+   * to be paged about their own post - but the other admins still get it.
+   *
+   * @param  \App\Models\Topic|\App\Models\TopicComment  $content
+   * @param  string  $contentType  'topic' | 'comment'
+   * @param  string  $reason       The AI's reason for flagging it
+   * @return void
+   */
+  public static function notifyAdminsPendingModeration($content, string $contentType, string $reason = ''): void
+  {
+    // Only what the alert itself needs to read - the queue page already
+    // carries the full snapshot, so there's no point copying the content
+    // into a notification row per admin.
+    $data = [
+      'content_type' => $contentType,
+      'content_id' => $content->id,
+      'author_username' => $content->user?->username,
+      'reason' => $reason,
+      'url' => '/admin/moderation',
+    ];
+
+    $admins = \App\Models\AuthAccount::where('role', 'admin')
+      ->where('id', '!=', $content->user_id)
+      ->get();
+
+    foreach ($admins as $admin) {
+      try {
+        self::createAndPushNotification([
+          'user_id' => $admin->id,
+          'actor_id' => null,  // System action
+          'type' => 'moderation_pending',
+          'notifiable_type' => get_class($content),
+          'notifiable_id' => $content->id,
+          'data' => $data,
+        ]);
+      } catch (\Throwable $e) {
+        // Never let a failed admin alert break the user's post/comment.
+        \Illuminate\Support\Facades\Log::error('Failed to notify admin of pending moderation', [
+          'admin_id' => $admin->id,
+          'content_type' => $contentType,
+          'content_id' => $content->id,
+          'error' => $e->getMessage(),
+        ]);
+      }
+    }
+  }
+
+  /**
    * Notify all admins about a system event.
    *
    * @param string $title

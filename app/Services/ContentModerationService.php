@@ -132,6 +132,8 @@ PROMPT;
             'ai_verdict' => 'needs_review',
             'ai_reason' => $reason,
         ]);
+        NotificationService::notifyAdminsPendingModeration($topic, 'topic', $reason);
+
         return ['action' => 'pending', 'message' => 'Bài viết của bạn đang chờ kiểm duyệt và sẽ được duyệt sớm.'];
     }
 
@@ -185,6 +187,8 @@ PROMPT;
             'ai_verdict' => 'needs_review',
             'ai_reason' => $reason,
         ]);
+        NotificationService::notifyAdminsPendingModeration($comment, 'comment', $reason);
+
         return ['action' => 'pending', 'message' => 'Bình luận của bạn đang chờ kiểm duyệt.'];
     }
 
