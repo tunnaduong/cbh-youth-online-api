@@ -337,6 +337,9 @@ class TopicsController extends Controller
         'member_tier' => $topic->user->getMemberTier(),
       ],
       'anonymous' => $topic->anonymous,
+      // Archived posts are filtered out of every listing except the author's
+      // own profile and archive, so this is really only ever true there.
+      'archived' => (bool) $topic->hidden,
       'is_edited' => $topic->is_edited,
       'is_muted' => $topic->is_muted,
       'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
@@ -2254,6 +2257,81 @@ class TopicsController extends Controller
     ]);
 
     return response()->json(['message' => 'Topic saved successfully.']);
+  }
+
+  /**
+   * Move a topic into its author's archive (`hidden` = 1).
+   *
+   * Different from hideTopicForUser(): this is a property of the topic itself,
+   * so it disappears for everyone (feeds, search, and other people's view of
+   * the author's profile). Only the author sees it afterwards, on their own
+   * profile and in /v1.0/user/archived-topics, from where it can be restored.
+   *
+   * @param  int  $id
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function archiveTopic($id)
+  {
+    return $this->setTopicArchived($id, true);
+  }
+
+  /**
+   * Restore an archived topic (`hidden` = 0).
+   *
+   * @param  int  $id
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function unarchiveTopic($id)
+  {
+    return $this->setTopicArchived($id, false);
+  }
+
+  /**
+   * Shared owner/admin check and `hidden` flip behind archive/unarchive.
+   *
+   * @param  int  $id
+   * @param  bool  $archived
+   * @return \Illuminate\Http\JsonResponse
+   */
+  private function setTopicArchived($id, bool $archived)
+  {
+    $topic = Topic::findOrFail($id);
+
+    if ($topic->user_id !== auth()->id() && !auth()->user()->hasRole('admin')) {
+      return response()->json(['message' => 'Bạn không có quyền lưu trữ bài viết này'], 403);
+    }
+
+    $topic->hidden = $archived ? 1 : 0;
+    $topic->save();
+
+    // Every user's cached feed order is a plain list of topic IDs that isn't
+    // re-filtered when the page is fetched, so an archived topic would keep
+    // showing up in other people's feeds until their cache expired.
+    $this->bumpFeedVersion();
+
+    return response()->json([
+      'message' => $archived ? 'Đã chuyển bài viết vào kho lưu trữ.' : 'Đã khôi phục bài viết.',
+      'archived' => $archived,
+    ]);
+  }
+
+  /**
+   * List the authenticated user's archived topics, newest first.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getArchivedTopics(Request $request)
+  {
+    $topics = Topic::where('user_id', auth()->id())
+      ->where('hidden', 1)
+      ->withCount(['views', 'comments'])
+      ->with(['user', 'votes.user', 'cdnUserContent'])
+      ->orderBy('created_at', 'desc')
+      ->paginate(min((int) $request->input('per_page', 10), 30))
+      ->through(fn($topic) => $this->formatTopicForList($topic, $request));
+
+    return response()->json($topics);
   }
 
   /**
