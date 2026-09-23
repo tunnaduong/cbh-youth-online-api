@@ -15,6 +15,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageReaction;
 use App\Models\NotificationSettings;
+use App\Models\Topic;
 use App\Models\ConversationBackgroundHistory;
 use App\Models\UserBlock;
 use App\Models\UserContent;
@@ -1644,6 +1645,132 @@ TEXT;
 
     return response()->json(['results' => $results]);
   }
+
+  /**
+   * Share a forum post into one or more conversations as a quick message.
+   *
+   * Mirrors forwardMessage()'s target resolution (existing conversations plus
+   * find-or-create 1-on-1 threads for raw user ids) but builds the message body
+   * server-side from the topic, so the client can't spoof what gets sent.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function sharePost(Request $request)
+  {
+    $request->validate([
+      'topic_id' => 'required|integer|exists:cyo_topics,id',
+      'conversation_ids' => 'required_without:user_ids|array',
+      'conversation_ids.*' => 'integer|exists:cyo_conversations,id',
+      'user_ids' => 'required_without:conversation_ids|array',
+      'user_ids.*' => 'integer|exists:cyo_auth_accounts,id',
+      'note' => 'nullable|string|max:1000',
+    ]);
+
+    $user = Auth::user();
+
+    // Only share what the sharer is actually allowed to see (privacy + hidden).
+    $topic = Topic::visibleToCurrentUser()
+      ->where('hidden', false)
+      ->with('user')
+      ->find($request->input('topic_id'));
+
+    if (!$topic) {
+      return response()->json(['message' => 'Không tìm thấy bài viết hoặc bạn không có quyền chia sẻ bài viết này.'], 404);
+    }
+
+    $conversationIds = array_map('intval', $request->input('conversation_ids', []));
+    $userIds = array_unique(array_map('intval', $request->input('user_ids', [])));
+
+    foreach ($userIds as $targetUserId) {
+      if ($targetUserId === $user->id) {
+        continue;
+      }
+      $conversationIds[] = $this->findOrCreatePrivateConversation($user->id, $targetUserId)->id;
+    }
+
+    $conversationIds = array_values(array_unique($conversationIds));
+
+    if (empty($conversationIds)) {
+      return response()->json(['message' => 'Vui lòng chọn ít nhất một cuộc trò chuyện hoặc người dùng để chia sẻ.'], 422);
+    }
+
+    if (count($conversationIds) > 20) {
+      return response()->json(['message' => 'Chỉ có thể chia sẻ đến tối đa 20 cuộc trò chuyện cùng lúc.'], 422);
+    }
+
+    // Anonymous posts are addressed under /anonymous/, same as the web + app routers do.
+    $authorSegment = $topic->anonymous ? 'anonymous' : ($topic->user?->username ?? 'unknown');
+    $baseUrl = rtrim(env('APP_UI_URL', 'https://chuyenbienhoa.com'), '/');
+    $url = $baseUrl . "/{$authorSegment}/posts/{$topic->id}-" . $topic->getSlug() . '?source=share';
+
+    $title = trim((string) $topic->title);
+    $note = trim((string) $request->input('note', ''));
+
+    $content = ($note !== '' ? $note . "\n\n" : '')
+      . ($title !== '' ? $title . "\n" : '')
+      . $url;
+
+    $metadata = [
+      'shared_topic' => [
+        'id' => $topic->id,
+        'title' => $title,
+        'url' => $url,
+      ],
+    ];
+
+    $results = [];
+
+    foreach ($conversationIds as $targetConversationId) {
+      $targetConversation = Conversation::find($targetConversationId);
+
+      if (!$targetConversation) {
+        $results[] = ['conversation_id' => $targetConversationId, 'status' => 'error', 'error' => 'Cuộc trò chuyện không tồn tại.'];
+        continue;
+      }
+
+      if (!$targetConversation->isAccessibleBy($user->id)) {
+        $results[] = ['conversation_id' => $targetConversationId, 'status' => 'error', 'error' => 'Bạn không phải thành viên của cuộc trò chuyện này.'];
+        continue;
+      }
+
+      if ($targetConversation->type === 'private') {
+        $otherParticipant = $targetConversation->participants()->where('cyo_auth_accounts.id', '!=', $user->id)->first();
+        if ($otherParticipant) {
+          $isBlocked = UserBlock::where('user_id', $user->id)->where('blocked_user_id', $otherParticipant->id)->exists()
+            || UserBlock::where('user_id', $otherParticipant->id)->where('blocked_user_id', $user->id)->exists();
+          if ($isBlocked) {
+            $results[] = ['conversation_id' => $targetConversationId, 'status' => 'error', 'error' => 'Không thể gửi tin nhắn cho người dùng này.'];
+            continue;
+          }
+        }
+      }
+
+      // Auto-join the public chat, mirroring sendMessage()'s behavior.
+      if ($targetConversation->is_public && !$targetConversation->hasParticipant($user->id)) {
+        $targetConversation->participants()->attach($user->id, ['last_read_at' => now()]);
+      }
+
+      $sharedMessage = Message::create([
+        'conversation_id' => $targetConversation->id,
+        'user_id' => $user->id,
+        'content' => $content,
+        'type' => 'text',
+        'metadata' => $metadata,
+      ]);
+
+      $sharedMessageData = $this->finalizeAndBroadcastMessage($targetConversation, $sharedMessage, $user);
+
+      $results[] = [
+        'conversation_id' => $targetConversation->id,
+        'status' => 'sent',
+        'message' => $sharedMessageData,
+      ];
+    }
+
+    return response()->json(['results' => $results]);
+  }
+
 
   /**
    * Create a new group conversation.
