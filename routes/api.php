@@ -298,6 +298,8 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/user/saved-topics', [TopicsController::class, 'getSavedTopics']);
     Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
     Route::delete('/user/saved-topics/{id}', [TopicsController::class, 'destroySavedTopic']);
+    Route::post('/user/hidden-topics', [TopicsController::class, 'hideTopicForUser']);
+    Route::delete('/user/hidden-topics/{id}', [TopicsController::class, 'unhideTopicForUser']);
     Route::delete('/user-content/{id}', [FileUploadController::class, 'destroy']);
     Route::delete('/topics/{id}', [TopicsController::class, 'destroyTopic']);
     Route::put('/topics/{id}', [TopicsController::class, 'update']);
@@ -362,6 +364,7 @@ Route::prefix('v1.0')->group(function () {
       Route::post('messages/{messageId}/reactions', [ChatController::class, 'reactToMessage']);
       Route::delete('messages/{messageId}/reactions', [ChatController::class, 'removeMessageReaction']);
       Route::post('messages/{messageId}/forward', [ChatController::class, 'forwardMessage']);
+      Route::post('share/topic', [ChatController::class, 'sharePost']);
       Route::post('groups', [ChatController::class, 'createGroupConversation']);
       Route::get('groups/{conversationId}', [ChatController::class, 'getGroupDetails']);
       Route::get('groups/{conversationId}/seen', [ChatController::class, 'getGroupSeenReceipts']);

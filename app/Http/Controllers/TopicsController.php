@@ -10,6 +10,7 @@ use App\Models\TopicView;
 use App\Models\TopicVote;
 use App\Models\UserBlock;
 use App\Models\UserContent;
+use App\Models\UserHiddenTopic;
 use App\Models\UserSavedTopic;
 use App\Services\HashtagService;
 use App\Models\AuthAccount;
@@ -222,6 +223,11 @@ class TopicsController extends Controller
 
     $query->whereNotIn('user_id', array_merge($blockedUserIds, $blockedByUserIds));
 
+    // Posts this user chose to hide from their own feed ("Ẩn bài viết"). The
+    // post itself stays public and reachable by direct link - show() doesn't
+    // apply this filter, only the listings do.
+    $query->whereNotIn('id', $this->hiddenTopicIds($userId));
+
     $query->where(function ($q) use ($userId, $followingIds) {
       $q
         ->where(function ($subQ) {
@@ -237,6 +243,23 @@ class TopicsController extends Controller
     });
 
     return $query;
+  }
+
+  /**
+   * IDs of the topics a user has hidden from their own feed.
+   *
+   * @param  int|null  $userId
+   * @return array<int, int>
+   */
+  private function hiddenTopicIds(?int $userId): array
+  {
+    if (!$userId) {
+      return [];
+    }
+
+    return UserHiddenTopic::where('user_id', $userId)
+      ->pluck('topic_id')
+      ->toArray();
   }
 
   /**
@@ -480,6 +503,7 @@ class TopicsController extends Controller
     $topics = Topic::where('hidden', 0)
       ->whereIn('user_id', $followingIds)
       ->whereNotIn('user_id', array_merge($blockedUserIds, $blockedByUserIds))
+      ->whereNotIn('id', $this->hiddenTopicIds($userId))
       ->where(function ($q) use ($userId, $followingIds) {
         $q->where('privacy', 'public')
           ->orWhere('user_id', $userId)
@@ -2230,6 +2254,69 @@ class TopicsController extends Controller
     ]);
 
     return response()->json(['message' => 'Topic saved successfully.']);
+  }
+
+  /**
+   * Hide a topic from the authenticated user's own feed.
+   *
+   * Unlike the moderation-level `hidden` column on the topic, this only
+   * affects the feed of the user making the request - the post stays public
+   * and is still reachable by direct link.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function hideTopicForUser(Request $request)
+  {
+    $request->validate([
+      'topic_id' => 'required|exists:cyo_topics,id',
+    ]);
+
+    $userId = auth()->id();
+
+    // firstOrCreate rather than an existence check + 409: hiding an already
+    // hidden post is harmless, and the client shouldn't have to care.
+    UserHiddenTopic::firstOrCreate([
+      'user_id' => $userId,
+      'topic_id' => $request->topic_id,
+    ]);
+
+    $this->forgetPersonalizedFeedCache($userId);
+
+    return response()->json(['message' => 'Topic hidden successfully.']);
+  }
+
+  /**
+   * Un-hide a topic the authenticated user previously hid ("undo").
+   *
+   * @param  int  $topicId
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function unhideTopicForUser($topicId)
+  {
+    $userId = auth()->id();
+
+    UserHiddenTopic::where('user_id', $userId)
+      ->where('topic_id', $topicId)
+      ->delete();
+
+    $this->forgetPersonalizedFeedCache($userId);
+
+    return response()->json(['message' => 'Topic unhidden successfully.']);
+  }
+
+  /**
+   * Drop a single user's cached personalized feed order so a post they just
+   * hid (or un-hid) doesn't linger for up to the 30-minute cache TTL. Mirrors
+   * the cache key built in feed().
+   *
+   * @param  int  $userId
+   * @return void
+   */
+  private function forgetPersonalizedFeedCache(int $userId): void
+  {
+    $feedVersion = Cache::get('feed_version', 1);
+    Cache::forget("feed_scores_v3_user_{$userId}_v{$feedVersion}");
   }
 
   /**
