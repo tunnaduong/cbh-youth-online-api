@@ -300,6 +300,9 @@ Route::prefix('v1.0')->group(function () {
     Route::delete('/user/saved-topics/{id}', [TopicsController::class, 'destroySavedTopic']);
     Route::post('/user/hidden-topics', [TopicsController::class, 'hideTopicForUser']);
     Route::delete('/user/hidden-topics/{id}', [TopicsController::class, 'unhideTopicForUser']);
+    Route::get('/user/archived-topics', [TopicsController::class, 'getArchivedTopics']);
+    Route::post('/topics/{id}/archive', [TopicsController::class, 'archiveTopic']);
+    Route::delete('/topics/{id}/archive', [TopicsController::class, 'unarchiveTopic']);
     Route::delete('/user-content/{id}', [FileUploadController::class, 'destroy']);
     Route::delete('/topics/{id}', [TopicsController::class, 'destroyTopic']);
     Route::put('/topics/{id}', [TopicsController::class, 'update']);

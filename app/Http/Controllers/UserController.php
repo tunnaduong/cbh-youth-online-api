@@ -539,6 +539,9 @@ class UserController extends Controller
         'verified' => $post->author->profile->verified == 1 ? true : false,
       ],
       'anonymous' => $post->anonymous,
+      // Only ever true for the author's own profile - getUserPosts() filters
+      // archived posts out for everyone else.
+      'archived' => (bool) $post->hidden,
       'saved' => auth()->check() ? UserSavedTopic::where('user_id', auth()->id())->where('topic_id', $post->id)->exists() : false,
     ];
   }
@@ -562,6 +565,9 @@ class UserController extends Controller
 
     if (!$isOwnProfile) {
       $postsQuery->where('anonymous', false);
+      // Archived posts (`hidden` = 1) stay on the author's own profile so they
+      // can restore them from there, but nobody else sees them.
+      $postsQuery->where('hidden', 0);
     }
 
     $perPage = min((int) $request->input('per_page', 10), 30);
