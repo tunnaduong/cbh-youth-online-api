@@ -250,6 +250,8 @@ class PushNotificationService
       'content_deleted' => 'Nội dung của bạn đã bị xóa',
       'study_material_purchased' => $actorName . ' đã mua tài liệu của bạn (+' . ($notification->data['price'] ?? 0) . ' điểm)',
       'study_material_rated' => $actorName . ' đã đánh giá ' . ($notification->data['rating'] ?? 0) . '/5 ⭐ cho tài liệu của bạn',
+      'moderation_pending' => (($notification->data['content_type'] ?? '') === 'comment' ? 'Bình luận' : 'Bài viết')
+        . ' của @' . ($notification->data['author_username'] ?? 'người dùng') . ' đang chờ kiểm duyệt',
       'system_message' => $notification->data['message'] ?? 'Bạn có thông báo mới',
     ];
 
