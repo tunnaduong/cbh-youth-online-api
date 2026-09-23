@@ -1067,6 +1067,8 @@ class NotificationService
       ->where('id', '!=', $content->user_id)
       ->get();
 
+    $baseUrl = rtrim(config('app.ui_url', env('APP_UI_URL', 'http://localhost:3000')), '/');
+
     foreach ($admins as $admin) {
       try {
         self::createAndPushNotification([
@@ -1085,6 +1087,25 @@ class NotificationService
           'content_id' => $content->id,
           'error' => $e->getMessage(),
         ]);
+      }
+
+      if ($admin->email) {
+        try {
+          \Illuminate\Support\Facades\Mail::to($admin->email)->queue(new \App\Mail\AdminModerationPendingMail(
+            $admin,
+            $contentType,
+            $content->user?->username,
+            $reason,
+            $baseUrl . '/admin/moderation',
+          ));
+        } catch (\Throwable $e) {
+          \Illuminate\Support\Facades\Log::error('Failed to send admin moderation pending email', [
+            'admin_id' => $admin->id,
+            'content_type' => $contentType,
+            'content_id' => $content->id,
+            'error' => $e->getMessage(),
+          ]);
+        }
       }
     }
   }
