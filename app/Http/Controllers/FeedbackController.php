@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\FeedbackReceivedMail;
+use App\Models\AuthAccount;
 use App\Models\Feedback;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 /**
@@ -46,10 +50,38 @@ class FeedbackController extends Controller
       'ip_address' => $request->ip(),
     ]);
 
+    $this->notifyAdmins($feedback);
+
     return response()->json([
       'message' => 'Cảm ơn bạn đã gửi góp ý! Đội ngũ phát triển sẽ xem xét sớm nhất.',
       'feedback' => $feedback,
     ], 201);
+  }
+
+  /**
+   * Email every admin about the new submission. A mail failure must never
+   * fail the user's submit - it's already saved and visible in /admin/feedback.
+   */
+  private function notifyAdmins(Feedback $feedback): void
+  {
+    $feedback->load('user:id,username,email');
+
+    $emails = AuthAccount::where('role', 'admin')
+      ->whereNotNull('email')
+      ->pluck('email')
+      ->filter()
+      ->unique();
+
+    foreach ($emails as $email) {
+      try {
+        Mail::to($email)->queue(new FeedbackReceivedMail($feedback));
+      } catch (\Throwable $e) {
+        Log::error('Failed to email admin about new feedback', [
+          'feedback_id' => $feedback->id,
+          'error' => $e->getMessage(),
+        ]);
+      }
+    }
   }
 
   /**
