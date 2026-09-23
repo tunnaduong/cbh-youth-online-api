@@ -77,6 +77,8 @@ class StoryController extends Controller
                             'background_color' => $story->background_color,
                             'font_style' => $story->font_style,
                             'text_position' => $story->text_position,
+                            'overlays' => $story->overlays,
+                            'music' => $story->music,
                             'created_at' => $story->created_at ? $story->created_at->toISOString() : null,
                             'created_at_human' => $story->created_at->diffForHumans(),
                             'duration' => $story->duration ?? 10,
@@ -123,6 +125,8 @@ class StoryController extends Controller
             'duration' => 'nullable|integer|min:1|max:30',
             'expires_at' => 'nullable|date',
             'is_muted' => 'nullable',
+            'overlays' => 'nullable',
+            'music' => 'nullable',
         ];
 
         // Add media-specific validation based on media_type
@@ -165,6 +169,11 @@ class StoryController extends Controller
         } else {
             $data['is_muted'] = false;
         }
+
+        // Editor overlays / soundtrack arrive as JSON strings because the
+        // story itself is posted as multipart form data.
+        $data['overlays'] = $this->sanitizeOverlays($request->input('overlays'));
+        $data['music'] = $this->sanitizeMusic($request->input('music'));
 
         // Set expires_at only if not provided
         if (! isset($data['expires_at'])) {
@@ -209,6 +218,8 @@ class StoryController extends Controller
 
         $story = Story::create($data);
 
+        $this->notifyStoryMentions($story);
+
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'success',
@@ -217,6 +228,291 @@ class StoryController extends Controller
         }
 
         return back()->with('success', 'Story created successfully!');
+    }
+
+    /**
+     * Overlay item types the editor is allowed to persist.
+     *
+     * @var array<int, string>
+     */
+    private const OVERLAY_TYPES = ['text', 'sticker', 'mention', 'link', 'music'];
+
+    /**
+     * Normalize and harden the overlay payload sent by the story editor.
+     *
+     * Coordinates are stored normalized (0..1) against the 9:16 canvas so any
+     * client can lay the overlays out at its own screen size. Everything is
+     * clamped and length-capped here because it is rendered back to other
+     * users verbatim.
+     *
+     * @param  mixed  $raw  JSON string (multipart) or already-decoded array
+     * @return array<string, mixed>|null
+     */
+    private function sanitizeOverlays($raw): ?array
+    {
+        $payload = $this->decodeJsonPayload($raw);
+
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $items = [];
+
+        foreach ($payload['items'] ?? [] as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $type = is_string($item['type'] ?? null) ? $item['type'] : null;
+
+            if (! in_array($type, self::OVERLAY_TYPES, true)) {
+                continue;
+            }
+
+            $clean = [
+                'type' => $type,
+                'x' => $this->clampFloat($item['x'] ?? 0.5, -1, 2, 0.5),
+                'y' => $this->clampFloat($item['y'] ?? 0.5, -1, 2, 0.5),
+                'scale' => $this->clampFloat($item['scale'] ?? 1, 0.1, 8, 1),
+                'rotation' => $this->clampFloat($item['rotation'] ?? 0, -360, 360, 0),
+                'width' => $this->clampFloat($item['width'] ?? 0.8, 0.05, 2, 0.8),
+            ];
+
+            switch ($type) {
+                case 'text':
+                    $text = trim((string) ($item['text'] ?? ''));
+
+                    if ($text === '') {
+                        continue 2;
+                    }
+
+                    $clean['text'] = Str::limit($text, 500, '');
+                    $clean['color'] = $this->sanitizeColor($item['color'] ?? null, '#FFFFFF');
+                    $clean['font'] = $this->sanitizeSlug($item['font'] ?? null, 'classic');
+                    $clean['effect'] = $this->sanitizeSlug($item['effect'] ?? null, 'none');
+                    $clean['align'] = in_array($item['align'] ?? null, ['left', 'center', 'right'], true)
+                        ? $item['align']
+                        : 'center';
+                    $clean['fontSize'] = $this->clampFloat($item['fontSize'] ?? 0.08, 0.01, 0.4, 0.08);
+                    break;
+
+                case 'sticker':
+                    $emoji = trim((string) ($item['emoji'] ?? ''));
+
+                    if ($emoji === '') {
+                        continue 2;
+                    }
+
+                    $clean['emoji'] = Str::limit($emoji, 16, '');
+                    break;
+
+                case 'mention':
+                    $username = ltrim(trim((string) ($item['username'] ?? '')), '@');
+
+                    if ($username === '') {
+                        continue 2;
+                    }
+
+                    $clean['username'] = Str::limit($username, 64, '');
+                    $clean['user_id'] = isset($item['user_id']) ? (int) $item['user_id'] : null;
+                    $clean['style'] = $this->sanitizeSlug($item['style'] ?? null, 'light');
+                    break;
+
+                case 'link':
+                    $url = $this->sanitizeUrl($item['url'] ?? null);
+
+                    if ($url === null) {
+                        continue 2;
+                    }
+
+                    $clean['url'] = $url;
+                    $clean['label'] = Str::limit(trim((string) ($item['label'] ?? '')), 60, '');
+                    $clean['style'] = $this->sanitizeSlug($item['style'] ?? null, 'light');
+                    break;
+
+                case 'music':
+                    $clean['title'] = Str::limit(trim((string) ($item['title'] ?? '')), 120, '');
+                    $clean['artist'] = Str::limit(trim((string) ($item['artist'] ?? '')), 120, '');
+                    $clean['artwork_url'] = $this->sanitizeUrl($item['artwork_url'] ?? null, ['apple.com', 'mzstatic.com']);
+                    $clean['style'] = $this->sanitizeSlug($item['style'] ?? null, 'light');
+                    break;
+            }
+
+            $items[] = $clean;
+
+            if (count($items) >= 60) {
+                break;
+            }
+        }
+
+        $filter = $this->sanitizeSlug($payload['filter'] ?? null, 'none');
+
+        if ($items === [] && $filter === 'none') {
+            return null;
+        }
+
+        return [
+            'version' => 1,
+            // Image/text stories are flattened into the uploaded picture, so
+            // clients only need the items to place invisible tap targets.
+            // Video stories keep their overlays live on top of the video.
+            'flattened' => (bool) ($payload['flattened'] ?? false),
+            'filter' => $filter,
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * Normalize the soundtrack payload attached to a story.
+     *
+     * Only preview URLs served by Apple's iTunes Search API are accepted -
+     * the field ends up in an <audio>/player on every client, so it must not
+     * become an open redirect to arbitrary media.
+     *
+     * @param  mixed  $raw  JSON string (multipart) or already-decoded array
+     * @return array<string, mixed>|null
+     */
+    private function sanitizeMusic($raw): ?array
+    {
+        $payload = $this->decodeJsonPayload($raw);
+
+        if (! is_array($payload)) {
+            return null;
+        }
+
+        $previewUrl = $this->sanitizeUrl($payload['preview_url'] ?? null, ['apple.com', 'mzstatic.com']);
+
+        if ($previewUrl === null) {
+            return null;
+        }
+
+        return [
+            'provider' => 'itunes',
+            'track_id' => isset($payload['track_id']) ? (string) $payload['track_id'] : null,
+            'title' => Str::limit(trim((string) ($payload['title'] ?? '')), 120, ''),
+            'artist' => Str::limit(trim((string) ($payload['artist'] ?? '')), 120, ''),
+            'artwork_url' => $this->sanitizeUrl($payload['artwork_url'] ?? null, ['apple.com', 'mzstatic.com']),
+            'preview_url' => $previewUrl,
+            'start_ms' => (int) max(0, min(300000, (int) ($payload['start_ms'] ?? 0))),
+            'duration_ms' => (int) max(0, min(300000, (int) ($payload['duration_ms'] ?? 0))),
+        ];
+    }
+
+    /**
+     * Notify every user tagged with a mention sticker on a freshly posted story.
+     */
+    private function notifyStoryMentions(Story $story): void
+    {
+        $items = $story->overlays['items'] ?? [];
+
+        if (! is_array($items) || $items === []) {
+            return;
+        }
+
+        $usernames = collect($items)
+            ->filter(fn ($item) => ($item['type'] ?? null) === 'mention')
+            ->pluck('username')
+            ->filter()
+            ->unique()
+            ->take(20);
+
+        if ($usernames->isEmpty()) {
+            return;
+        }
+
+        $mentionedUsers = \App\Models\AuthAccount::whereIn('username', $usernames->all())->get();
+
+        foreach ($mentionedUsers as $user) {
+            if ($user->id === $story->user_id || $this->isBlockedEitherWay($user->id, $story->user_id)) {
+                continue;
+            }
+
+            try {
+                NotificationService::createStoryMentionNotification($story, $user->id, $story->user_id);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to send story mention notification', [
+                    'story_id' => $story->id,
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Decode a payload that may arrive as a JSON string (multipart) or array.
+     *
+     * @param  mixed  $raw
+     * @return array<mixed>|null
+     */
+    private function decodeJsonPayload($raw): ?array
+    {
+        if (is_array($raw)) {
+            return $raw;
+        }
+
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private function clampFloat($value, float $min, float $max, float $fallback): float
+    {
+        if (! is_numeric($value)) {
+            return $fallback;
+        }
+
+        return round(max($min, min($max, (float) $value)), 5);
+    }
+
+    private function sanitizeColor($value, string $fallback): string
+    {
+        return is_string($value) && preg_match('/^#[0-9A-Fa-f]{6}$/', $value) ? $value : $fallback;
+    }
+
+    private function sanitizeSlug($value, string $fallback): string
+    {
+        return is_string($value) && preg_match('/^[a-z0-9_-]{1,32}$/i', $value) ? $value : $fallback;
+    }
+
+    /**
+     * @param  array<int, string>  $allowedHostSuffixes  Empty means any host.
+     */
+    private function sanitizeUrl($value, array $allowedHostSuffixes = []): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $url = trim($value);
+
+        if ($url === '' || mb_strlen($url) > 2048 || ! filter_var($url, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        $parts = parse_url($url);
+        $scheme = strtolower($parts['scheme'] ?? '');
+        $host = strtolower($parts['host'] ?? '');
+
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
+            return null;
+        }
+
+        if ($allowedHostSuffixes !== []) {
+            foreach ($allowedHostSuffixes as $suffix) {
+                if ($host === $suffix || str_ends_with($host, '.'.$suffix)) {
+                    return $url;
+                }
+            }
+
+            return null;
+        }
+
+        return $url;
     }
 
     private function createVideoPreviewGif(string $videoPath): ?string
@@ -791,6 +1087,9 @@ class StoryController extends Controller
                     'background_color' => $story->background_color,
                     'font_style' => $story->font_style,
                     'text_position' => $story->text_position,
+                    'overlays' => $story->overlays,
+                    'music' => $story->music,
+                    'is_muted' => $story->is_muted,
                     'created_at' => $story->created_at ? $story->created_at->toISOString() : null,
                     'created_at_human' => $story->created_at->diffForHumans(),
                     'expires_at' => $story->expires_at ? $story->expires_at->toISOString() : null,
