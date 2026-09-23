@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $background_color
  * @property string|null $font_style
  * @property array|null $text_position
+ * @property array|null $overlays
+ * @property array|null $music
  * @property string $privacy
  * @property \Illuminate\Support\Carbon|null $expires_at
  * @property int|null $duration
@@ -57,6 +59,8 @@ class Story extends Model
         'background_color',
         'font_style',
         'text_position',
+        'overlays',
+        'music',
         'privacy',
         'expires_at',
         'duration',
@@ -72,6 +76,8 @@ class Story extends Model
      */
     protected $casts = [
         'text_position' => 'array',
+        'overlays' => 'array',
+        'music' => 'array',
         'expires_at' => 'datetime',
         'duration' => 'integer',
         'pinned' => 'boolean',

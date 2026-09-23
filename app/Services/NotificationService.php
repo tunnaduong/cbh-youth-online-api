@@ -808,6 +808,41 @@ class NotificationService
   }
 
   /**
+   * Create a notification for a user tagged with a mention sticker on a story.
+   *
+   * Uses the existing 'mentioned' type (so notification settings and the
+   * clients' mention handling apply) and carries story_id so the apps can
+   * open the story itself.
+   *
+   * @param Story $story The story the mention sticker is on
+   * @param int $mentionedUserId User that was tagged
+   * @param int $actorId User who posted the story
+   * @return Notification|null
+   */
+  public static function createStoryMentionNotification(Story $story, int $mentionedUserId, int $actorId): ?Notification
+  {
+    if ($mentionedUserId === $actorId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($mentionedUserId, 'mentioned')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $mentionedUserId,
+      'actor_id' => $actorId,
+      'type' => 'mentioned',
+      'notifiable_type' => Story::class,
+      'notifiable_id' => $story->id,
+      'data' => [
+        'story_id' => $story->id,
+        'url' => '/',  // Will navigate to the story in the mobile app
+      ],
+    ]);
+  }
+
+  /**
    * Create a notification for a chat message being reacted to.
    *
    * @param Message $message
