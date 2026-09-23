@@ -175,6 +175,20 @@ class ModerationController extends Controller
     }
 
     /**
+     * Delete a queue row.
+     *
+     * Only the review record goes away - the post or comment it points at is
+     * untouched, and is managed from the Posts/Comments screens.
+     * DELETE /api/admin/moderation/{id}
+     */
+    public function destroy(int $id)
+    {
+        ModerationQueue::findOrFail($id)->delete();
+
+        return response()->json(['message' => 'Đã xóa mục kiểm duyệt.']);
+    }
+
+    /**
      * Queue stats summary.
      * GET /api/admin/moderation/stats
      */
