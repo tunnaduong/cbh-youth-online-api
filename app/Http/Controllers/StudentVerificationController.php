@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\StudentVerificationApprovedMail;
+use App\Mail\StudentVerificationRejectedMail;
 use App\Models\StudentVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -126,6 +127,17 @@ class StudentVerificationController extends Controller
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
         ]);
+
+        if ($verification->user->email) {
+            try {
+                Mail::to($verification->user->email)->queue(new StudentVerificationRejectedMail($verification->user, $request->reason));
+            } catch (\Throwable $e) {
+                Log::error('Failed to send student verification rejected email', [
+                    'verification_id' => $verification->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return response()->json(['message' => 'Đã từ chối yêu cầu xác minh.', 'verification' => $verification]);
     }
