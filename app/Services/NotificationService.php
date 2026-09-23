@@ -636,10 +636,12 @@ class NotificationService
   }
 
   /**
-   * Create a notification for content being reported/hidden/deleted.
+   * Create a notification about the state of a user's own content:
+   * reported/hidden/deleted, and the AI moderation outcomes
+   * (content_pending_review, content_approved, content_rejected).
    *
    * @param int $userId
-   * @param string $type (content_reported, content_hidden, content_deleted)
+   * @param string $type
    * @param mixed $content Topic or TopicComment
    * @param string $reason
    * @return Notification|null
@@ -652,16 +654,29 @@ class NotificationService
 
     $data = ['reason' => $reason];
 
-    if ($content instanceof Topic) {
-      $data['topic_id'] = $content->id;
-      $data['topic_title'] = $content->title;
-      $data['url'] = $content->getUrl();
-    } elseif ($content instanceof TopicComment) {
-      $topic = $content->topic;
+    $topic = $content instanceof TopicComment ? $content->topic : $content;
+
+    if ($content instanceof TopicComment) {
       $data['comment_id'] = $content->id;
+    }
+
+    // A comment whose post is gone has nothing to link to - still worth
+    // telling the author about, so fall through with no topic metadata
+    // rather than dereferencing a null topic.
+    if ($topic) {
       $data['topic_id'] = $topic->id;
       $data['topic_title'] = $topic->title;
-      $data['url'] = $topic->getUrl() . "#comment-{$content->id}";
+      // An anonymous post lives under the literal /anonymous/ path, so the
+      // clients must not build its URL from the author's real username -
+      // that link 404s even for the author themselves.
+      $data['topic_is_anonymous'] = (bool) $topic->anonymous;
+      $authorUsername = $topic->anonymous ? 'anonymous' : ($topic->user?->username ?? 'unknown');
+      $data['topic_author_username'] = $authorUsername;
+      // Built here rather than via Topic::getUrl(), which always uses the
+      // real username - the push-notification click handler follows this
+      // `url` verbatim, so it has to be the /anonymous/ one too.
+      $data['url'] = "/{$authorUsername}/posts/{$topic->id}-" . $topic->getSlug()
+        . ($content instanceof TopicComment ? "#comment-{$content->id}" : '');
     }
 
     return self::createAndPushNotification([

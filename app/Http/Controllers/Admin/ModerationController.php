@@ -110,6 +110,7 @@ class ModerationController extends Controller
 
             if ($topic = Topic::find($entry->content_id)) {
                 ContentModerationService::sendApprovedEmail($topic, 'topic');
+                ContentModerationService::notifyAuthorApproved($topic, 'topic');
             }
         } elseif ($entry->content_type === 'comment') {
             TopicComment::where('id', $entry->content_id)->update([
@@ -118,6 +119,7 @@ class ModerationController extends Controller
 
             if ($comment = TopicComment::find($entry->content_id)) {
                 ContentModerationService::sendApprovedEmail($comment, 'comment');
+                ContentModerationService::notifyAuthorApproved($comment, 'comment');
             }
         }
 
@@ -139,15 +141,27 @@ class ModerationController extends Controller
     {
         $entry = ModerationQueue::findOrFail($id);
 
+        // The reviewer's own note is what the author is told; the AI's
+        // internal reason isn't written for them to read.
+        $reason = trim((string) $request->note);
+
         if ($entry->content_type === 'topic') {
             Topic::where('id', $entry->content_id)->update([
                 'moderation_status' => 'rejected',
                 'hidden' => true,
             ]);
+
+            if ($topic = Topic::find($entry->content_id)) {
+                ContentModerationService::notifyAuthorRejected($topic, 'topic', $reason);
+            }
         } elseif ($entry->content_type === 'comment') {
             TopicComment::where('id', $entry->content_id)->update([
                 'moderation_status' => 'rejected',
             ]);
+
+            if ($comment = TopicComment::find($entry->content_id)) {
+                ContentModerationService::notifyAuthorRejected($comment, 'comment', $reason);
+            }
         }
 
         $entry->update([

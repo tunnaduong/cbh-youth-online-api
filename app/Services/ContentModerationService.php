@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Mail\ContentApprovedMail;
+use App\Mail\ContentPendingMail;
+use App\Mail\ContentRejectedMail;
 use App\Models\ModerationQueue;
 use App\Models\Topic;
 use App\Models\TopicComment;
@@ -133,6 +135,7 @@ PROMPT;
             'ai_reason' => $reason,
         ]);
         NotificationService::notifyAdminsPendingModeration($topic, 'topic', $reason);
+        self::notifyAuthorPending($topic, 'topic', $reason);
 
         return ['action' => 'pending', 'message' => 'Bài viết của bạn đang chờ kiểm duyệt và sẽ được duyệt sớm.'];
     }
@@ -188,8 +191,67 @@ PROMPT;
             'ai_reason' => $reason,
         ]);
         NotificationService::notifyAdminsPendingModeration($comment, 'comment', $reason);
+        self::notifyAuthorPending($comment, 'comment', $reason);
 
         return ['action' => 'pending', 'message' => 'Bình luận của bạn đang chờ kiểm duyệt.'];
+    }
+
+    /**
+     * Tell the author their topic/comment is being held for a human review:
+     * an in-app/push notification plus an email.
+     *
+     * The author can still open their own pending content (see
+     * TopicsController::show() and TopicComment::scopeVisibleModeration()),
+     * so both the notification and the email link straight to it.
+     *
+     * @param  Topic|TopicComment  $content
+     */
+    public static function notifyAuthorPending($content, string $type, string $reason = ''): void
+    {
+        NotificationService::createContentModerationNotification(
+            $content->user_id,
+            'content_pending_review',
+            $content,
+            $reason
+        );
+
+        self::mailAuthor($content, $type, 'pending', $reason);
+    }
+
+    /**
+     * Tell the author a human reviewer turned their content down.
+     *
+     * Only reachable from the admin reject flow - AI rejections delete the
+     * content and report the reason inline instead.
+     *
+     * @param  Topic|TopicComment  $content
+     */
+    public static function notifyAuthorRejected($content, string $type, string $reason = ''): void
+    {
+        NotificationService::createContentModerationNotification(
+            $content->user_id,
+            'content_rejected',
+            $content,
+            $reason
+        );
+
+        self::mailAuthor($content, $type, 'rejected', $reason);
+    }
+
+    /**
+     * In-app counterpart of sendApprovedEmail(), so an approval shows up in
+     * the bell and not only in the author's inbox.
+     *
+     * @param  Topic|TopicComment  $content
+     */
+    public static function notifyAuthorApproved($content, string $type): void
+    {
+        NotificationService::createContentModerationNotification(
+            $content->user_id,
+            'content_approved',
+            $content,
+            ''
+        );
     }
 
     /**
@@ -201,7 +263,24 @@ PROMPT;
      */
     public static function sendApprovedEmail($content, string $type): void
     {
+        self::mailAuthor($content, $type, 'approved');
+    }
+
+    /**
+     * Queue one of the moderation-outcome emails to the content's author.
+     *
+     * Transactional, so unlike the social interaction emails it isn't gated
+     * on the user's notification settings - it's about their own content's
+     * status, which they have no other reliable way to learn.
+     *
+     * @param  Topic|TopicComment  $content
+     * @param  string  $type     'topic' | 'comment'
+     * @param  string  $outcome  'approved' | 'pending' | 'rejected'
+     */
+    private static function mailAuthor($content, string $type, string $outcome, string $reason = ''): void
+    {
         $user = $content->user;
+        // A comment's title comes from the post it lives on.
         $topic = $type === 'comment' ? $content->topic : $content;
 
         if (!$user || !$user->email || !$topic) {
@@ -209,11 +288,20 @@ PROMPT;
         }
 
         $baseUrl = rtrim(config('app.ui_url', env('APP_UI_URL', 'http://localhost:3000')), '/');
+        $url = $baseUrl . $topic->getUrl();
+
+        $mailable = match ($outcome) {
+            'approved' => new ContentApprovedMail($user, $type, $topic->title, $url),
+            'pending' => new ContentPendingMail($user, $type, $topic->title, $url, $reason),
+            // Rejected content stays hidden, so that mail carries no link.
+            'rejected' => new ContentRejectedMail($user, $type, $topic->title, $reason),
+        };
 
         try {
-            Mail::to($user->email)->queue(new ContentApprovedMail($user, $type, $topic->title, $baseUrl . $topic->getUrl()));
+            Mail::to($user->email)->queue($mailable);
         } catch (\Throwable $e) {
-            Log::error('Failed to send content approved email', [
+            Log::error('Failed to send content moderation email', [
+                'outcome' => $outcome,
                 'content_type' => $type,
                 'content_id' => $content->id,
                 'error' => $e->getMessage(),
