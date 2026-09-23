@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $user_id The ID of the user who submitted the report.
  * @property int $reported_user_id The ID of the user being reported.
  * @property int|null $topic_id The ID of the topic related to the report.
+ * @property int|null $message_id The ID of the chat message related to the report.
  * @property string|null $reason
  * @property string $status
  * @property string|null $admin_notes
@@ -45,6 +46,7 @@ class UserReport extends Model
     'reported_user_id',
     'topic_id',
     'story_id',
+    'message_id',
     'reason',
     'status',  // pending, reviewed, resolved, dismissed
     'admin_notes',
@@ -99,6 +101,16 @@ class UserReport extends Model
   public function story()
   {
     return $this->belongsTo(Story::class, 'story_id');
+  }
+
+  /**
+   * Get the chat message associated with the report.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function message()
+  {
+    return $this->belongsTo(Message::class, 'message_id')->withTrashed();
   }
 
   /**

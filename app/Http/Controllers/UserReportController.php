@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuthAccount;
+use App\Models\Message;
 use App\Models\Story;
 use App\Models\Topic;
 use App\Models\UserReport;
@@ -40,11 +41,38 @@ class UserReportController extends Controller
     }
 
     // topic.author lets the admin table link straight to the reported post.
-    $query = UserReport::with(['reporter', 'reportedUser', 'topic', 'topic.author:id,username', 'reviewedBy']);
+    // The message (and its conversation) is loaded so a reported chat message
+    // can be read in context without opening the whole thread.
+    $query = UserReport::with([
+      'reporter',
+      'reportedUser',
+      'topic',
+      'topic.author:id,username',
+      'message',
+      'message.conversation:id,name,type,is_public',
+      'reviewedBy',
+    ]);
 
     // Filter by status
     if ($request->has('status')) {
       $query->where('status', $request->status);
+    }
+
+    // Filter by what was reported, so message reports can be triaged on their
+    // own - they're handled differently from post or story reports.
+    switch ($request->input('type')) {
+      case 'message':
+        $query->whereNotNull('message_id');
+        break;
+      case 'topic':
+        $query->whereNotNull('topic_id');
+        break;
+      case 'story':
+        $query->whereNotNull('story_id');
+        break;
+      case 'user':
+        $query->whereNull('message_id')->whereNull('topic_id')->whereNull('story_id');
+        break;
     }
 
     // Filter by date range
@@ -83,8 +111,31 @@ class UserReportController extends Controller
       'reported_user_id' => 'nullable|exists:cyo_auth_accounts,id',
       'topic_id' => 'nullable|exists:cyo_topics,id',
       'story_id' => 'nullable|exists:cyo_stories,id',
+      'message_id' => 'nullable|exists:cyo_conversation_messages,id',
       'reason' => 'nullable|string|min:1',
     ]);
+
+    // A message report is only legitimate from someone who can actually see
+    // the message, otherwise any id could be probed to learn who sent what.
+    // The reported user always comes from the message itself rather than the
+    // request, so it can't be pinned on a bystander.
+    if ($request->message_id) {
+      $message = Message::withTrashed()->with('conversation')->find($request->message_id);
+
+      if (!$message || !$message->conversation || !$message->conversation->isAccessibleBy(Auth::id())) {
+        return response()->json([
+          'message' => 'Message not found'
+        ], 404);
+      }
+
+      if (!$message->user_id) {
+        return response()->json([
+          'message' => 'This message cannot be reported'
+        ], 400);
+      }
+
+      $request->merge(['reported_user_id' => $message->user_id]);
+    }
 
     $reportedUserId = $request->reported_user_id;
 
@@ -116,15 +167,20 @@ class UserReportController extends Controller
       ->where('reported_user_id', $reportedUserId)
       ->where('status', 'pending');
 
-    if ($request->topic_id) {
+    if ($request->message_id) {
+      $duplicateQuery->where('message_id', $request->message_id);
+    } elseif ($request->topic_id) {
       $duplicateQuery->where('topic_id', $request->topic_id)
-        ->whereNull('story_id');
+        ->whereNull('story_id')
+        ->whereNull('message_id');
     } elseif ($request->story_id) {
       $duplicateQuery->where('story_id', $request->story_id)
-        ->whereNull('topic_id');
+        ->whereNull('topic_id')
+        ->whereNull('message_id');
     } else {
       $duplicateQuery->whereNull('topic_id')
-        ->whereNull('story_id');
+        ->whereNull('story_id')
+        ->whereNull('message_id');
     }
 
     $existingReport = $duplicateQuery->first();
@@ -141,6 +197,7 @@ class UserReportController extends Controller
       'reported_user_id' => $reportedUserId,
       'topic_id' => $request->topic_id,
       'story_id' => $request->story_id,
+      'message_id' => $request->message_id,
       'reason' => $request->reason,
       'status' => 'pending'
     ]);
@@ -240,6 +297,12 @@ class UserReportController extends Controller
         if ($report->topic_id) {
           Topic::where('id', $report->topic_id)->update(['hidden' => true]);
         }
+
+        // Same idea for a reported chat message: recalling it is what clients
+        // already know how to render, so it disappears everywhere at once.
+        if ($report->message_id) {
+          Message::where('id', $report->message_id)->update(['is_recalled' => true]);
+        }
       }
 
       DB::commit();
@@ -276,6 +339,7 @@ class UserReportController extends Controller
       'resolved' => UserReport::where('status', 'resolved')->count(),
       'dismissed' => UserReport::where('status', 'dismissed')->count(),
       'recent' => UserReport::where('created_at', '>=', Carbon::now()->subDays(7))->count(),
+      'messages' => UserReport::whereNotNull('message_id')->count(),
       'most_reported_users' => UserReport::select('reported_user_id', DB::raw('count(*) as total'))
         ->with('reportedUser')
         ->groupBy('reported_user_id')
