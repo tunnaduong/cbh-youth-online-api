@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\MessageDeleted;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendAdminBroadcast;
 use App\Models\AdminBroadcast;
@@ -10,6 +11,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\AuthAccount;
 use App\Models\ExpoPushToken;
+use App\Models\Notification;
 use App\Models\NotificationSubscription;
 use App\Models\PendingDeposit;
 use App\Models\ShopCategory;
@@ -244,6 +246,29 @@ class AdminPanelController extends Controller
     return response()->json(['message' => 'Đã cập nhật người dùng.', 'user' => $user->only(['id', 'role', 'points'])]);
   }
 
+  /**
+   * Permanently delete an account. Everything hanging off it (posts, comments,
+   * messages, wallet history, ...) goes with it through the schema's cascades,
+   * so this is not reversible - banning is the recoverable option.
+   */
+  public function deleteUser($id)
+  {
+    $user = AuthAccount::findOrFail($id);
+
+    if ($user->id === Auth::id()) {
+      return response()->json(['message' => 'Không thể tự xóa tài khoản của chính bạn.'], 403);
+    }
+    if ($user->role === 'admin') {
+      return response()->json(['message' => 'Không thể xóa tài khoản quản trị viên. Hãy hạ quyền trước khi xóa.'], 403);
+    }
+
+    $username = $user->username;
+    $user->tokens()->delete();
+    $user->delete();
+
+    return response()->json(['message' => "Đã xóa tài khoản @{$username} và toàn bộ dữ liệu liên quan."]);
+  }
+
   // ---------------------------------------------------------------- Pending deposits
 
   public function pendingDeposits(Request $request)
@@ -292,6 +317,20 @@ class AdminPanelController extends Controller
     return response()->json(['message' => 'Đã hủy yêu cầu nạp tiền.']);
   }
 
+  /**
+   * Remove a deposit request from the list. Completed ones are kept: the points
+   * they credited live on in the wallet history that references this row.
+   */
+  public function deleteDeposit($id)
+  {
+    $deposit = PendingDeposit::findOrFail($id);
+    if ($deposit->status === 'completed') {
+      return response()->json(['message' => 'Giao dịch đã cộng điểm nên phải giữ lại để đối chiếu.'], 400);
+    }
+    $deposit->delete();
+    return response()->json(['message' => 'Đã xóa yêu cầu nạp tiền.']);
+  }
+
   // ---------------------------------------------------------------- Withdrawals
 
   public function withdrawals(Request $request)
@@ -304,6 +343,20 @@ class AdminPanelController extends Controller
     }
 
     return response()->json($query->orderByDesc('id')->paginate($this->perPage($request)));
+  }
+
+  /**
+   * Remove a withdrawal request. Pending ones are still holding the user's
+   * points, so they have to be approved or rejected first.
+   */
+  public function deleteWithdrawal($id)
+  {
+    $withdrawal = WithdrawalRequest::findOrFail($id);
+    if ($withdrawal->status === 'pending') {
+      return response()->json(['message' => 'Yêu cầu đang chờ xử lý: hãy duyệt hoặc từ chối trước khi xóa.'], 400);
+    }
+    $withdrawal->delete();
+    return response()->json(['message' => 'Đã xóa yêu cầu rút tiền.']);
   }
 
   // ---------------------------------------------------------------- Shop categories
@@ -480,6 +533,26 @@ class AdminPanelController extends Controller
     return response()->json(['message' => 'Đã cập nhật đơn hàng.']);
   }
 
+  /**
+   * Delete an order and its items. Stock goes back the same way cancelling an
+   * order returns it - unless the order was already cancelled, which returned it.
+   */
+  public function deleteShopOrder($id)
+  {
+    $order = ShopOrder::with('items')->findOrFail($id);
+
+    DB::transaction(function () use ($order) {
+      if ($order->status !== 'cancelled') {
+        foreach ($order->items as $item) {
+          $item->restock();
+        }
+      }
+      $order->delete();
+    });
+
+    return response()->json(['message' => 'Đã xóa đơn hàng.']);
+  }
+
   // ---------------------------------------------------------------- Study materials
 
   public function studyMaterials(Request $request)
@@ -594,6 +667,28 @@ class AdminPanelController extends Controller
     ], 201);
   }
 
+  /**
+   * Delete a broadcast, together with the inbox rows it created (they carry its
+   * id in data->broadcast_id). Push notifications already on a device can't be
+   * taken back - only the in-app list is cleaned up.
+   */
+  public function deleteBroadcast($id)
+  {
+    $broadcast = AdminBroadcast::findOrFail($id);
+    if ($broadcast->status === 'sending') {
+      return response()->json(['message' => 'Thông báo đang được gửi, hãy thử lại sau khi gửi xong.'], 400);
+    }
+
+    DB::transaction(function () use ($broadcast) {
+      Notification::where('type', 'system_message')
+        ->where('data->broadcast_id', $broadcast->id)
+        ->delete();
+      $broadcast->delete();
+    });
+
+    return response()->json(['message' => 'Đã xóa thông báo.']);
+  }
+
   // ---------------------------------------------------------------- Messages (audited)
 
   private function logMessageAccess(Request $request, string $action, ?int $conversationId = null, ?string $query = null): void
@@ -691,6 +786,73 @@ class AdminPanelController extends Controller
       ->when($data['user_id'] ?? null, fn($q, $u) => $q->where('user_id', $u));
 
     return response()->json($query->orderByDesc('id')->paginate($this->perPage($request)));
+  }
+
+  /**
+   * Remove a message on a user's behalf (moderation).
+   *
+   * The default is a soft delete: it disappears from the chat for everyone but
+   * stays visible here, flagged, so the moderation record survives. Pass
+   * purge=1 to wipe it from the database for good.
+   */
+  public function deleteMessage(Request $request, $id)
+  {
+    $message = Message::withTrashed()->findOrFail($id);
+    $purge = $request->boolean('purge');
+
+    $this->logMessageAccess(
+      $request,
+      $purge ? 'purge_message' : 'delete_message',
+      $message->conversation_id,
+      "message:{$message->id}"
+    );
+
+    if ($purge) {
+      DB::transaction(function () use ($message) {
+        // Bell items quoting this message would otherwise outlive it.
+        Notification::where('notifiable_type', Message::class)
+          ->where('notifiable_id', $message->id)
+          ->delete();
+        $message->forceDelete();
+      });
+    } elseif (!$message->trashed()) {
+      $message->delete();
+    }
+
+    // Participants with the chat open get it removed live. Not ->toOthers():
+    // the admin isn't one of them, so nobody should be skipped.
+    broadcast(new MessageDeleted($message->conversation_id, $message->id));
+
+    return response()->json(['message' => $purge ? 'Đã xóa vĩnh viễn tin nhắn.' : 'Đã xóa tin nhắn.']);
+  }
+
+  /**
+   * Delete a whole conversation: messages, reactions and participants go with
+   * it through the schema's cascades. Not reversible.
+   */
+  public function deleteConversation(Request $request, $id)
+  {
+    $conversation = Conversation::findOrFail($id);
+
+    if ($conversation->is_public) {
+      return response()->json(['message' => 'Đây là phòng chat chung của cả trường, không thể xóa.'], 400);
+    }
+
+    $this->logMessageAccess($request, 'delete_conversation', $conversation->id, $conversation->name);
+
+    DB::transaction(function () use ($conversation) {
+      $messageIds = Message::withTrashed()
+        ->where('conversation_id', $conversation->id)
+        ->pluck('id');
+
+      Notification::where('notifiable_type', Message::class)
+        ->whereIn('notifiable_id', $messageIds)
+        ->delete();
+
+      $conversation->delete();
+    });
+
+    return response()->json(['message' => 'Đã xóa cuộc trò chuyện.']);
   }
 
   public function messageAccessLogs(Request $request)

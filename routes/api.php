@@ -325,6 +325,7 @@ Route::prefix('v1.0')->group(function () {
         Route::get('/', [UserReportController::class, 'index']);
         Route::get('/stats', [UserReportController::class, 'getStats']);
         Route::post('/{report}/review', [UserReportController::class, 'review']);
+        Route::delete('/{report}', [UserReportController::class, 'destroy']);
       });
     });
 
@@ -446,12 +447,15 @@ Route::prefix('v1.0')->group(function () {
 
       Route::get('/users', 'users');
       Route::patch('/users/{id}', 'updateUser');
+      Route::delete('/users/{id}', 'deleteUser');
 
       Route::get('/pending-deposits', 'pendingDeposits');
       Route::post('/pending-deposits/{id}/approve', 'approveDeposit');
       Route::post('/pending-deposits/{id}/expire', 'expireDeposit');
+      Route::delete('/pending-deposits/{id}', 'deleteDeposit');
 
       Route::get('/withdrawal-requests', 'withdrawals');
+      Route::delete('/withdrawal-requests/{id}', 'deleteWithdrawal');
 
       Route::get('/shop/categories', 'shopCategories');
       Route::post('/shop/categories', 'saveShopCategory');
@@ -465,17 +469,20 @@ Route::prefix('v1.0')->group(function () {
 
       Route::get('/shop/orders', 'shopOrders');
       Route::patch('/shop/orders/{id}', 'updateShopOrder');
+      Route::delete('/shop/orders/{id}', 'deleteShopOrder');
 
       Route::get('/student-verifications', [\App\Http\Controllers\StudentVerificationController::class, 'adminIndex']);
       Route::post('/student-verifications/{id}/approve', [\App\Http\Controllers\StudentVerificationController::class, 'adminApprove']);
       Route::post('/student-verifications/{id}/reject', [\App\Http\Controllers\StudentVerificationController::class, 'adminReject']);
       Route::post('/student-verifications/revoke/{userId}', [\App\Http\Controllers\StudentVerificationController::class, 'adminRevoke']);
+      Route::delete('/student-verifications/{id}', [\App\Http\Controllers\StudentVerificationController::class, 'adminDestroy']);
 
       // AI moderation queue - content the moderation bot flagged for a human.
       Route::get('/moderation', [\App\Http\Controllers\Admin\ModerationController::class, 'index']);
       Route::get('/moderation/stats', [\App\Http\Controllers\Admin\ModerationController::class, 'stats']);
       Route::post('/moderation/{id}/approve', [\App\Http\Controllers\Admin\ModerationController::class, 'approve']);
       Route::post('/moderation/{id}/reject', [\App\Http\Controllers\Admin\ModerationController::class, 'reject']);
+      Route::delete('/moderation/{id}', [\App\Http\Controllers\Admin\ModerationController::class, 'destroy']);
 
       // In-app feedback (bug reports & suggestions)
       Route::get('/feedback', [FeedbackController::class, 'adminIndex']);
@@ -490,11 +497,14 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/broadcasts', 'broadcasts');
       Route::get('/broadcasts/audience', 'broadcastAudience');
       Route::post('/broadcasts', 'sendBroadcast');
+      Route::delete('/broadcasts/{id}', 'deleteBroadcast');
 
       Route::get('/conversations', 'conversations');
       Route::get('/conversations/{id}/messages', 'conversationMessages');
+      Route::delete('/conversations/{id}', 'deleteConversation');
       Route::get('/messages/search', 'searchMessages');
       Route::get('/messages/access-logs', 'messageAccessLogs');
+      Route::delete('/messages/{id}', 'deleteMessage');
     });
 
     // SePay Webhook

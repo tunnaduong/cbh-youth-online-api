@@ -142,6 +142,23 @@ class StudentVerificationController extends Controller
         return response()->json(['message' => 'Đã từ chối yêu cầu xác minh.', 'verification' => $verification]);
     }
 
+    /**
+     * Delete a verification request. An approved one loses the badge it granted,
+     * so the account doesn't stay verified with no record behind it.
+     */
+    public function adminDestroy($id)
+    {
+        $verification = StudentVerification::with('user')->findOrFail($id);
+
+        if ($verification->status === 'approved') {
+            $verification->user?->update(['student_verified_at' => null]);
+        }
+
+        $verification->delete();
+
+        return response()->json(['message' => 'Đã xóa yêu cầu xác minh.']);
+    }
+
     public function adminRevoke(Request $request, $userId)
     {
         $user = \App\Models\User::findOrFail($userId);

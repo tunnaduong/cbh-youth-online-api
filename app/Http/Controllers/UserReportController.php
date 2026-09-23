@@ -243,14 +243,20 @@ class UserReportController extends Controller
   }
 
   /**
-   * Remove the specified user report from storage.
+   * Remove the specified user report from storage (Admin only).
    *
    * @param  \App\Models\UserReport  $userReport
-   * @return void
+   * @return \Illuminate\Http\JsonResponse
    */
   public function destroy(UserReport $userReport)
   {
-    //
+    if (!Auth::user()->hasRole('admin')) {
+      return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $userReport->delete();
+
+    return response()->json(['message' => 'Đã xóa báo cáo.']);
   }
 
   /**
