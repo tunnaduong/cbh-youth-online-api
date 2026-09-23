@@ -1672,7 +1672,7 @@ TEXT;
     // Only share what the sharer is actually allowed to see (privacy + hidden).
     $topic = Topic::visibleToCurrentUser()
       ->where('hidden', false)
-      ->with('user')
+      ->with('user.profile')
       ->find($request->input('topic_id'));
 
     if (!$topic) {
@@ -1707,15 +1707,31 @@ TEXT;
     $title = trim((string) $topic->title);
     $note = trim((string) $request->input('note', ''));
 
-    $content = ($note !== '' ? $note . "\n\n" : '')
-      . ($title !== '' ? $title . "\n" : '')
-      . $url;
+    // The note (if any) plus the bare link. Clients that know about
+    // metadata.shared_topic render the preview card and strip this trailing
+    // url from the bubble; older ones still get a working link.
+    $content = ($note !== '' ? $note . "\n" : '') . $url;
+
+    $excerpt = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string) $topic->content_html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    if (mb_strlen($excerpt) > 200) {
+      $excerpt = mb_substr($excerpt, 0, 200) . '...';
+    }
+
+    $thumbnail = $topic->getImageUrls()
+      ->map(fn($content) => config('app.url') . Storage::url($content->file_path))
+      ->first();
 
     $metadata = [
       'shared_topic' => [
         'id' => $topic->id,
         'title' => $title,
         'url' => $url,
+        'excerpt' => $excerpt,
+        'thumbnail' => $thumbnail,
+        'author_name' => $topic->anonymous
+          ? 'Người dùng ẩn danh'
+          : ($topic->user?->profile?->profile_name ?: ($topic->user?->username ?? '')),
+        'author_avatar' => $topic->anonymous ? null : $topic->user?->avatarUrl(),
       ],
     ];
 
