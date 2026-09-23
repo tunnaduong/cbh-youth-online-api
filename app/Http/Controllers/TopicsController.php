@@ -782,7 +782,8 @@ class TopicsController extends Controller
       'comments.user.profile',
       'user',
       'votes.user',
-      'cdnUserContent'
+      'cdnUserContent',
+      'subforum'
     ])
       ->withCount(['comments as reply_count', 'views'])
       ->find($id);
@@ -1059,6 +1060,19 @@ class TopicsController extends Controller
           'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
         ],
         'anonymous' => $topic->anonymous,
+        // The composer reads these back when opening a post for editing. They
+        // used to be missing from this payload, so the edit form fell back to
+        // its own defaults (no subforum, privacy "public") and then submitted
+        // those - wiping the post's chuyên mục and quietly making a
+        // followers-only or private post public on every edit. See update(),
+        // which assigns $request->subforum_id / privacy unconditionally.
+        'subforum_id' => $topic->subforum_id,
+        'subforum' => $topic->subforum ? [
+          'id' => $topic->subforum->id,
+          'name' => $topic->subforum->name,
+        ] : null,
+        'privacy' => $topic->privacy,
+        'visibility' => (int) $topic->hidden,
         'is_saved' => $isSaved,
         'is_owner' => auth()->check() && $topic->user_id === auth()->id(),
         'comments' => $formattedComments,
