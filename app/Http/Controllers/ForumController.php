@@ -327,6 +327,15 @@ class ForumController extends Controller
       }
     ]);
 
+    // Không để lộ thông tin tác giả của bài viết ẩn danh
+    foreach ($category->subforums as $subforum) {
+      $topic = $subforum->latestPublicTopic;
+      if ($topic && $topic->anonymous) {
+        $topic->setRelation('user', null);
+        $topic->makeHidden('user_id');
+      }
+    }
+
     return response()->json([
       'category' => $category
     ]);
@@ -671,11 +680,8 @@ class ForumController extends Controller
               'id' => $latestPost->id,
               'title' => $latestPost->title,
               'created_at' => $latestPost->created_at->diffForHumans(),
-              'user' => [
-                'name' => $latestPost->user->profile->profile_name ?? null,
-                'username' => $latestPost->user->username,
-                'verified' => $latestPost->user->profile->verified ?? null,
-              ],
+              'anonymous' => (bool) $latestPost->anonymous,
+              'user' => $this->formatLatestPostUser($latestPost),
             ] : null,
           ];
         })
@@ -749,11 +755,8 @@ class ForumController extends Controller
           'id' => $latestPost->id,
           'title' => $latestPost->title,
           'created_at' => $latestPost->created_at->diffForHumans(),
-          'user' => [
-            'name' => $latestPost->user->profile->profile_name ?? null,
-            'username' => $latestPost->user->username,
-            'verified' => $latestPost->user->profile->verified ?? null,
-          ],
+          'anonymous' => (bool) $latestPost->anonymous,
+          'user' => $this->formatLatestPostUser($latestPost),
         ] : null,
       ];
     });
@@ -1042,6 +1045,29 @@ class ForumController extends Controller
     }
 
     return $query->get();
+  }
+
+  /**
+   * Format the author of a subforum's latest post, hiding identity for anonymous posts.
+   *
+   * @param \App\Models\Topic $topic
+   * @return array
+   */
+  private function formatLatestPostUser($topic)
+  {
+    if ($topic->anonymous) {
+      return [
+        'name' => 'Người dùng ẩn danh',
+        'username' => null,
+        'verified' => false,
+      ];
+    }
+
+    return [
+      'name' => $topic->user->profile->profile_name ?? null,
+      'username' => $topic->user->username,
+      'verified' => $topic->user->profile->verified ?? null,
+    ];
   }
 
   /**
