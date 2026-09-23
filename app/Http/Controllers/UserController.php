@@ -583,6 +583,83 @@ class UserController extends Controller
   }
 
   /**
+   * Flat photo gallery for a profile: every image from that user's posts,
+   * newest post first, in each post's own image order.
+   *
+   * Paginated over the flattened photo list rather than over posts, since one
+   * post can hold several images - the candidate pool of posts is capped so a
+   * very prolific account doesn't turn this into an unbounded query.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  string  $username
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getUserPhotos(Request $request, $username)
+  {
+    $user = AuthAccount::where('username', $username)->firstOrFail();
+    $isOwnProfile = auth()->check() && auth()->id() === $user->id;
+
+    $postsQuery = $user->posts()
+      ->visibleToCurrentUser()
+      ->whereNotNull('cdn_image_id')
+      ->where('cdn_image_id', '!=', '')
+      ->latest();
+
+    if (!$isOwnProfile) {
+      $postsQuery->where('anonymous', false)->where('hidden', 0);
+    }
+
+    $posts = $postsQuery->limit(200)->get(['id', 'title', 'anonymous', 'cdn_image_id', 'created_at']);
+
+    // Collect every image id first and resolve them in one query - calling
+    // $post->getImageUrls() per post would be one query per post.
+    $idsByPost = [];
+    $allIds = [];
+    foreach ($posts as $post) {
+      $ids = array_values(array_filter(explode(',', (string) $post->cdn_image_id)));
+      $idsByPost[$post->id] = $ids;
+      $allIds = array_merge($allIds, $ids);
+    }
+
+    $contents = empty($allIds)
+      ? collect()
+      : UserContent::whereIn('id', $allIds)->get()->keyBy('id');
+
+    $photos = [];
+    foreach ($posts as $post) {
+      foreach ($idsByPost[$post->id] as $imageId) {
+        $content = $contents->get($imageId);
+        if (!$content) {
+          continue;
+        }
+
+        $photos[] = [
+          'id' => $content->id,
+          'url' => config('app.url') . Storage::url($content->file_path),
+          'post_id' => $post->id,
+          'post_title' => $post->title,
+          // The post URL uses "anonymous" instead of the username for
+          // anonymous posts, same as the post cards do.
+          'post_anonymous' => (bool) $post->anonymous,
+          'created_at' => $post->created_at ? $post->created_at->toISOString() : null,
+        ];
+      }
+    }
+
+    $perPage = min(max((int) $request->input('per_page', 12), 1), 60);
+    $page = max(1, (int) $request->input('page', 1));
+    $total = count($photos);
+
+    return response()->json([
+      'data' => array_slice($photos, ($page - 1) * $perPage, $perPage),
+      'total' => $total,
+      'current_page' => $page,
+      'per_page' => $perPage,
+      'has_more' => ($page * $perPage) < $total,
+    ]);
+  }
+
+  /**
    * Update the profile for the authenticated user.
    *
    * @param  \Illuminate\Http\Request  $request
