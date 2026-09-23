@@ -4,6 +4,7 @@ use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ForgotPasswordController;
@@ -149,6 +150,9 @@ Route::prefix('v1.0')->group(function () {
   // Group invite link preview (accessible to everyone — the web landing page needs
   // this before the visitor necessarily logs in; joining still requires auth below).
   Route::middleware('optional.auth')->get('chat/groups/invite/{token}', [ChatController::class, 'getGroupInvitePreview']);
+
+  // In-app bug reports & suggestions (guests allowed, replaces the Google Form)
+  Route::middleware(['optional.auth', 'throttle:feedback'])->post('/feedback', [FeedbackController::class, 'store']);
 
   // Online Users (Public)
   Route::get('/online-users/stats', [OnlineUserController::class, 'getStats']);
@@ -324,6 +328,9 @@ Route::prefix('v1.0')->group(function () {
       });
     });
 
+    // Own feedback history
+    Route::get('/feedback/mine', [FeedbackController::class, 'mine']);
+
     // User Blocking
     Route::post('/users/block', [UserBlockController::class, 'store']);
     Route::post('/users/unblock', [UserBlockController::class, 'destroy']);
@@ -469,6 +476,12 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/moderation/stats', [\App\Http\Controllers\Admin\ModerationController::class, 'stats']);
       Route::post('/moderation/{id}/approve', [\App\Http\Controllers\Admin\ModerationController::class, 'approve']);
       Route::post('/moderation/{id}/reject', [\App\Http\Controllers\Admin\ModerationController::class, 'reject']);
+
+      // In-app feedback (bug reports & suggestions)
+      Route::get('/feedback', [FeedbackController::class, 'adminIndex']);
+      Route::get('/feedback/stats', [FeedbackController::class, 'adminStats']);
+      Route::patch('/feedback/{id}', [FeedbackController::class, 'adminUpdate']);
+      Route::delete('/feedback/{id}', [FeedbackController::class, 'adminDestroy']);
 
       Route::get('/study-materials', 'studyMaterials');
       Route::patch('/study-materials/{id}', 'updateStudyMaterial');
