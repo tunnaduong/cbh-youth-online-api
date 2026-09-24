@@ -209,6 +209,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/comments/{commentId}/replies', [TopicsController::class, 'getReplies']);
     Route::get('/users/{username}/profile', [UserController::class, 'getProfile']);
     Route::get('/users/{username}/posts', [UserController::class, 'getUserPosts']);
+    Route::get('/users/{username}/likes', [UserController::class, 'getUserLikes']);
     Route::get('/users/{username}/photos', [UserController::class, 'getUserPhotos']);
     Route::get('/forum/subforums', [ForumController::class, 'getSubforumsByRole']);
     Route::get('/forum/subforums/{subforum}/topics', [ForumController::class, 'getSubforumPosts']);
