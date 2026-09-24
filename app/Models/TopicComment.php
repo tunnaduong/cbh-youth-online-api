@@ -113,8 +113,23 @@ class TopicComment extends Model
   {
     return $this->hasMany(TopicComment::class, 'replying_to')
       ->visibleModeration()
+      ->notFromBlockedUsers()
       ->with(['user.profile', 'votes.user'])
       ->orderBy('created_at', 'asc'); // Recursive
+  }
+
+  /**
+   * Drop comments authored by anyone the current viewer has blocked or who
+   * has blocked the viewer. No-op for guests.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeNotFromBlockedUsers($query)
+  {
+    $ids = \App\Support\UserBlocks::eitherWayIdsForViewer();
+
+    return empty($ids) ? $query : $query->whereNotIn('user_id', $ids);
   }
 
   /**

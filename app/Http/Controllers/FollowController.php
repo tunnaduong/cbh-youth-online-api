@@ -26,7 +26,7 @@ class FollowController extends Controller
         // Retrieve the user being followed by their username
         $followedUser = AuthAccount::where('username', $username)->first();
 
-        if (!$followedUser) {
+        if (!$followedUser || $followedUser->isBlockedWithViewer()) {
             return response()->json(['message' => 'Người dùng không tồn tại.'], 404);
         }
 

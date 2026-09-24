@@ -85,7 +85,7 @@ class ActivityController extends Controller
       // Get liked and disliked posts (votes)
       $votes = TopicVote::where('user_id', $userId)
         ->whereIn('vote_value', [1, -1])
-        ->whereHas('topic')
+        ->whereHas('topic', fn($q) => $q->notFromBlockedUsers())
         ->with([
           'topic' => function ($query) {
             $query->whereNotNull('id');
@@ -123,8 +123,8 @@ class ActivityController extends Controller
       // Get comment votes (likes/dislikes)
       $commentVotes = TopicCommentVote::where('user_id', $userId)
         ->whereIn('vote_value', [1, -1])
-        ->whereHas('comment')
-        ->whereHas('comment.topic')
+        ->whereHas('comment', fn($q) => $q->notFromBlockedUsers())
+        ->whereHas('comment.topic', fn($q) => $q->notFromBlockedUsers())
         ->with([
           'comment' => function ($query) {
             $query->whereNotNull('id');
@@ -164,7 +164,7 @@ class ActivityController extends Controller
 
       // Get comments
       $comments = TopicComment::where('user_id', $userId)
-        ->whereHas('topic')
+        ->whereHas('topic', fn($q) => $q->notFromBlockedUsers())
         ->whereHas('topic.user')
         ->with([
           'topic' => function ($query) {
@@ -233,6 +233,7 @@ class ActivityController extends Controller
       $savedPosts = Topic::whereHas('savedTopics', function ($query) use ($userId) {
         $query->where('user_id', $userId);
       })
+        ->notFromBlockedUsers()
         ->whereHas('user')
         ->with([
           'user.profile',
@@ -426,7 +427,7 @@ class ActivityController extends Controller
 
     $likedPosts = TopicVote::where('user_id', $userId)
       ->where('vote_value', 1)
-      ->whereHas('topic')
+      ->whereHas('topic', fn($q) => $q->notFromBlockedUsers())
       ->whereHas('topic.user')
       ->with(['topic.user.profile', 'topic.cdnUserContent'])
       ->orderBy('updated_at', 'desc')
@@ -471,7 +472,7 @@ class ActivityController extends Controller
     $userId = Auth::id();
 
     $comments = TopicComment::where('user_id', $userId)
-      ->whereHas('topic')
+      ->whereHas('topic', fn($q) => $q->notFromBlockedUsers())
       ->whereHas('topic.user')
       ->with(['topic.user.profile', 'topic.cdnUserContent'])
       ->orderBy('created_at', 'desc')

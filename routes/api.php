@@ -53,8 +53,8 @@ Route::prefix('v1.0')->group(function () {
   // --- PUBLIC ROUTES ---
   // These routes are accessible to everyone, authenticated or not.
 
-  // Home Route
-  Route::get('/home', [ForumController::class, 'index']);
+  // Home Route (optional auth so blocked users' posts can be hidden per viewer)
+  Route::middleware('optional.auth')->get('/home', [ForumController::class, 'index']);
 
   // File and User Content
   Route::post('/upload', [FileUploadController::class, 'upload']);
@@ -73,20 +73,23 @@ Route::prefix('v1.0')->group(function () {
   Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
   Route::post('/password/email', [ForgotPasswordController::class, 'sendResetLinkEmail']);
 
-  // Forum & Topic Browsing
-  Route::get('/forum/categories', [ForumController::class, 'getCategories']);
-  Route::get('/forum/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
-  Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
+  // Forum & Topic Browsing (optional auth: content from users blocked either
+  // way relative to the viewer is dropped, guests see everything public)
+  Route::middleware('optional.auth')->group(function () {
+    Route::get('/forum/categories', [ForumController::class, 'getCategories']);
+    Route::get('/forum/categories/{mainCategory}/subforums', [ForumController::class, 'getSubforums']);
+    Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
+    Route::get('/topics/{id}/votes', [TopicsController::class, 'getVotes']);
+    Route::get('/topics/{id}/comments', [TopicsController::class, 'getComments']);
+    Route::get('/comments/{id}/votes', [TopicsController::class, 'getVotesForComment']);
+
+    // Mention suggestions (accessible with optional auth)
+    Route::get('/mention-suggestions', [TopicsController::class, 'mentionSuggestions']);
+  });
   Route::get('/topics/sitemap', [TopicsController::class, 'getSitemapTopics']);
   Route::get('/topics/{id}/views', [TopicsController::class, 'getViews']);
-  Route::get('/topics/{id}/votes', [TopicsController::class, 'getVotes']);
-  Route::get('/topics/{id}/comments', [TopicsController::class, 'getComments']);
-  Route::get('/comments/{id}/votes', [TopicsController::class, 'getVotesForComment']);
   Route::post('/topics/{id}/views', [TopicsController::class, 'registerView']);
   Route::get('/post-url', [ForumController::class, 'getPostUrl']);
-
-  // Mention suggestions (accessible with optional auth)
-  Route::get('/mention-suggestions', [TopicsController::class, 'mentionSuggestions']);
 
   // Universities (proxy to Cốc Cốc hoctap API)
   Route::get('/universities/options', [UniversityController::class, 'options']);
@@ -96,17 +99,21 @@ Route::prefix('v1.0')->group(function () {
   // Games (browsing is public; starting/tracking a session requires auth, see below)
   Route::get('/games', [GameController::class, 'index']);
   Route::get('/games/random', [GameController::class, 'random']);
-  Route::get('/games/leaderboard', [GameController::class, 'leaderboard']);
-  Route::get('/games/now-playing', [GameController::class, 'nowPlaying']);
-  Route::get('/quiz/leaderboard', [QuizController::class, 'leaderboard']);
+  Route::middleware('optional.auth')->group(function () {
+    Route::get('/games/leaderboard', [GameController::class, 'leaderboard']);
+    Route::get('/games/now-playing', [GameController::class, 'nowPlaying']);
+    Route::get('/quiz/leaderboard', [QuizController::class, 'leaderboard']);
+  });
   Route::get('/quiz/topics', [QuizController::class, 'topics']);
   Route::get('/quiz/{quizSetId}/preview', [QuizController::class, 'preview']);
   Route::get('/games/{slug}', [GameController::class, 'show']);
 
   // User Information
-  Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
-  Route::get('/users/top-active', [UserController::class, 'getTop8ActiveUsers']);
-  Route::get('/users/ranking', [PointsController::class, 'getTopUsers']);
+  Route::middleware('optional.auth')->group(function () {
+    Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
+    Route::get('/users/top-active', [UserController::class, 'getTop8ActiveUsers']);
+    Route::get('/users/ranking', [PointsController::class, 'getTopUsers']);
+  });
   Route::get('/member-tiers', fn() => response()->json(\App\Models\AuthAccount::tiers()));
 
   // Search & Stories (optional auth so followers-only content stays visible to followers)

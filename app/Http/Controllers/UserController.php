@@ -356,6 +356,22 @@ class UserController extends Controller
     ]);
   }
 
+  /**
+   * Resolve a username to an account the current viewer is allowed to see.
+   * A user blocked either way is reported as missing (404), exactly like a
+   * username that doesn't exist, so the block can't be probed.
+   */
+  private function findVisibleUserOrFail(string $username): AuthAccount
+  {
+    $user = AuthAccount::where('username', $username)->first();
+
+    if (!$user || $user->isBlockedWithViewer()) {
+      abort(404, 'Không tìm thấy người dùng.');
+    }
+
+    return $user;
+  }
+
   public function getProfile($username)
   {
     // Find the user by username
@@ -364,7 +380,9 @@ class UserController extends Controller
       ->withCount(['followers', 'following', 'posts'])  // Count followers, following, and posts
       ->first();
 
-    if (!$user) {
+    // A blocked user (either direction) is indistinguishable from a
+    // non-existent one: same 404, same message.
+    if (!$user || $user->isBlockedWithViewer()) {
       return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
     }
 
@@ -377,8 +395,16 @@ class UserController extends Controller
     // Get activity points directly from database
     $activityPoints = $user->getPoints();
 
+    // Anyone blocked either way relative to the viewer is dropped from the
+    // follower/following lists (and the counts below) so they don't leak
+    // through someone else's profile.
+    $hiddenIds = \App\Support\UserBlocks::eitherWayIdsForViewer();
+
     // Transform followers
-    $followers = $user->followers->map(function ($follower) {
+    $followers = $user->followers
+      ->filter(fn($follower) => $follower->follower && !in_array((int) $follower->follower->id, $hiddenIds, true))
+      ->values()
+      ->map(function ($follower) {
       $response = [
         'id' => $follower->follower->id,
         'username' => $follower->follower->username,
@@ -402,7 +428,10 @@ class UserController extends Controller
     });
 
     // Transform following
-    $following = $user->following->map(function ($followed) {
+    $following = $user->following
+      ->filter(fn($followed) => $followed->followed && !in_array((int) $followed->followed->id, $hiddenIds, true))
+      ->values()
+      ->map(function ($followed) {
       $response = [
         'id' => $followed->followed->id,
         'username' => $followed->followed->username,
@@ -482,8 +511,8 @@ class UserController extends Controller
         'joined_at' => $user->created_at->translatedFormat('\T\h\á\n\g m Y'),
       ],
       'stats' => [
-        'followers' => $user->followers_count,
-        'following' => $user->following_count,
+        'followers' => $followers->count(),
+        'following' => $following->count(),
         'posts' => $displayedPostsCount,
         'total_likes_count' => $totalLikesCount,
         'activity_points' => $activityPoints,
@@ -498,39 +527,12 @@ class UserController extends Controller
     ]);
   }
 
+  /**
+   * The date each member tier was first reached - see PointsService::milestonesFor().
+   */
   private function getPointsMilestones(\App\Models\AuthAccount $user): array
   {
-    $tiers = \App\Models\AuthAccount::tiers();
-    $milestones = [];
-    foreach ($tiers as $tier) {
-      $milestones[$tier['id']] = [
-        'id' => $tier['id'],
-        'name' => $tier['name'],
-        'min_points' => $tier['min_points'],
-        'achieved_at' => null,
-      ];
-    }
-
-    $transactions = \App\Models\PointsTransaction::where('user_id', $user->id)
-      ->orderBy('created_at')
-      ->select('amount', 'created_at')
-      ->get();
-
-    $running = 0;
-    $remaining = array_column($tiers, 'min_points', 'id');
-
-    foreach ($transactions as $tx) {
-      $running += $tx->amount;
-      foreach ($remaining as $tierId => $minPts) {
-        if ($running >= $minPts) {
-          $milestones[$tierId]['achieved_at'] = $tx->created_at->format('d/m/Y');
-          unset($remaining[$tierId]);
-        }
-      }
-      if (empty($remaining)) break;
-    }
-
-    return array_values($milestones);
+    return \App\Services\PointsService::milestonesFor($user);
   }
 
   /**
@@ -553,7 +555,7 @@ class UserController extends Controller
       'is_edited' => $post->is_edited,
       'comments' => $this->roundToNearestFive($post->comments_count),
       'views' => $post->views_count ?? 0,
-      'votes' => $post->votes->map(function ($vote) {
+      'votes' => \App\Support\UserBlocks::withoutBlockedUsers($post->votes)->map(function ($vote) {
         return [
           'username' => $vote->user->username,
           'vote_value' => $vote->vote_value,
@@ -592,7 +594,7 @@ class UserController extends Controller
    */
   public function getUserPosts(Request $request, $username)
   {
-    $user = AuthAccount::where('username', $username)->firstOrFail();
+    $user = $this->findVisibleUserOrFail($username);
     $isOwnProfile = auth()->check() && auth()->id() === $user->id;
 
     $postsQuery = $user->posts()
@@ -633,7 +635,7 @@ class UserController extends Controller
    */
   public function getUserPhotos(Request $request, $username)
   {
-    $user = AuthAccount::where('username', $username)->firstOrFail();
+    $user = $this->findVisibleUserOrFail($username);
     $isOwnProfile = auth()->check() && auth()->id() === $user->id;
 
     $postsQuery = $user->posts()
@@ -853,7 +855,7 @@ class UserController extends Controller
     // Find the user by username
     $user = AuthAccount::where('username', $username)->first();
 
-    if (!$user) {
+    if (!$user || $user->isBlockedWithViewer()) {
       return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
     }
 
@@ -874,6 +876,7 @@ class UserController extends Controller
     try {
       $topUsers = AuthAccount::with(['profile'])
         ->where('role', '!=', 'admin')  // Exclude admin users
+        ->notBlockedWithViewer()
         ->orderByDesc('points')  // Use points for sorting
         ->limit(8)
         ->get()

@@ -18,6 +18,7 @@ use App\Models\NotificationSettings;
 use App\Models\Topic;
 use App\Models\ConversationBackgroundHistory;
 use App\Models\UserBlock;
+use App\Support\UserBlocks;
 use App\Models\UserContent;
 use App\Services\NotificationService;
 use App\Services\PushNotificationService;
@@ -42,16 +43,13 @@ class ChatController extends Controller
   public function getConversations()
   {
     $user = Auth::user();
-    $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
-    // Private conversations with a blocked participant are dropped entirely
-    // below, but group/public chats stay visible - their "latest message"
-    // preview still needs to skip a message from someone blocked in either
-    // direction, otherwise it leaks the blocked user's text even though
-    // opening the conversation itself already hides it.
-    $blockedEitherWayIds = array_values(array_unique(array_merge(
-      $blockedUserIds,
-      UserBlock::where('blocked_user_id', $user->id)->pluck('user_id')->toArray()
-    )));
+    // Private conversations with a participant blocked in EITHER direction
+    // are dropped entirely below (the blocked side must not keep seeing the
+    // thread either). Group/public chats stay visible - their "latest
+    // message" preview still needs to skip a message from someone blocked,
+    // otherwise it leaks the blocked user's text even though opening the
+    // conversation itself already hides it.
+    $blockedEitherWayIds = UserBlocks::eitherWayIds((int) $user->id);
 
     $conversations = Conversation::whereHas('participants', function ($query) use ($user) {
       $query->where('user_id', $user->id);
@@ -59,10 +57,10 @@ class ChatController extends Controller
       ->orderBy('updated_at', 'desc')
       ->with(['participants.profile', 'latestMessage.user.profile', 'backgroundContent'])
       ->get()
-      ->filter(function ($conversation) use ($blockedUserIds, $user) {
+      ->filter(function ($conversation) use ($blockedEitherWayIds, $user) {
         if ($conversation->type === 'private') {
           foreach ($conversation->participants as $participant) {
-            if ($participant->id !== $user->id && in_array($participant->id, $blockedUserIds)) {
+            if ($participant->id !== $user->id && in_array((int) $participant->id, $blockedEitherWayIds, true)) {
               return false;
             }
           }
@@ -76,7 +74,7 @@ class ChatController extends Controller
         // (including yourself) — otherwise it always reads one member short
         // compared to Group Info, which does include you.
         $displayParticipants = $conversation->type === 'group'
-          ? $conversation->participants
+          ? $conversation->participants->reject(fn($p) => in_array((int) $p->id, $blockedEitherWayIds, true))->values()
           : $conversation->participants->where('id', '!=', $user->id)->values();
 
         $previewMessage = $this->previewSafeLatestMessage($conversation, $blockedEitherWayIds);
@@ -219,16 +217,17 @@ class ChatController extends Controller
       return response()->json(['message' => 'Unauthorized'], 403);
     }
 
+    // A private thread with someone blocked either way no longer exists as
+    // far as this viewer is concerned (it's also dropped from the list).
+    if ($this->isPrivateConversationBlocked($conversation, (int) $user->id)) {
+      return response()->json(['message' => 'Không tìm thấy cuộc trò chuyện.'], 404);
+    }
+
     // For participant-restricted mention resolution (private/group, non-public)
     $participantIds = $isPublicChat ? null : $conversation->participants()->pluck('cyo_auth_accounts.id')->toArray();
 
-    // Get blocked user IDs
-    $blockedUserIds = UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray();
-
     $perPage = 50;
-    $totalMessages = $conversation
-      ->messages()
-      ->whereNotIn('user_id', $blockedUserIds)
+    $totalMessages = $this->messagesWithoutBlockedSenders($conversation->messages(), (int) $user->id)
       ->count();
     $lastPage = (int) max(1, ceil($totalMessages / $perPage));
     $page = (int) request()->get('page', 1);
@@ -238,9 +237,7 @@ class ChatController extends Controller
     $offset = max(0, $totalMessages - ($page * $perPage));
     $limit = max(0, min($perPage, $totalMessages - (($page - 1) * $perPage)));
 
-    $rawMessages = $conversation
-      ->messages()
-      ->whereNotIn('user_id', $blockedUserIds)
+    $rawMessages = $this->messagesWithoutBlockedSenders($conversation->messages(), (int) $user->id)
       ->with(['user.profile', 'reactions.user.profile', 'replyTo.user.profile'])
       ->orderBy('created_at', 'asc')
       ->skip($offset)
@@ -442,15 +439,14 @@ class ChatController extends Controller
       return response()->json(['message' => 'Invalid type'], 422);
     }
 
-    $blockedUserIds = $user
-      ? UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray()
-      : [];
     $perPage = 30;
 
     $baseQuery = $conversation
       ->messages()
-      ->where('is_recalled', false)
-      ->whereNotIn('user_id', $blockedUserIds);
+      ->where('is_recalled', false);
+    if ($user) {
+      $baseQuery = $this->messagesWithoutBlockedSenders($baseQuery, (int) $user->id);
+    }
 
     if ($type === 'link') {
       $baseQuery->where('type', 'text')->where('content', 'like', '%http%');
@@ -554,7 +550,13 @@ class ChatController extends Controller
     ]);
 
     $user = Auth::user();
-    $conversation = $this->findOrCreatePrivateConversation($user->id, (int) $request->participant_id);
+    $participantId = (int) $request->participant_id;
+
+    if ($this->isBlockedEitherWay((int) $user->id, $participantId)) {
+      return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
+    }
+
+    $conversation = $this->findOrCreatePrivateConversation($user->id, $participantId);
 
     return response()->json(['conversation_id' => $conversation->id], $conversation->wasRecentlyCreated ? 201 : 200);
   }
@@ -1300,6 +1302,12 @@ TEXT;
       return null;
     }
 
+    // Quoting a blocked user's message would leak its text into a thread
+    // the viewer can otherwise see (group/public chat) - treat it as gone.
+    if ($message->user_id !== null && UserBlocks::viewerIsBlockedWith((int) $message->user_id)) {
+      return null;
+    }
+
     $isGuest = $message->user_id === null;
 
     if ($isGuest) {
@@ -1354,8 +1362,12 @@ TEXT;
 
     $summary = [];
     $myReactions = [];
+    $hiddenReactorIds = UserBlocks::eitherWayIds($currentUserId);
 
     foreach ($reactions as $reaction) {
+      if ($reaction->user_id !== null && in_array((int) $reaction->user_id, $hiddenReactorIds, true)) {
+        continue;
+      }
       $type = $reaction->reaction_type;
 
       if (!isset($summary[$type])) {
@@ -1810,6 +1822,10 @@ TEXT;
       return response()->json(['message' => 'Nhóm cần có ít nhất một thành viên khác ngoài bạn.'], 422);
     }
 
+    if ($this->containsBlockedUser((int) $user->id, $otherParticipantIds)) {
+      return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
+    }
+
     // Create new group conversation
     $conversation = Conversation::create([
       'type' => 'group',
@@ -1948,13 +1964,59 @@ TEXT;
     return response()->json(['avatar_url' => $this->absoluteStorageUrl($path)]);
   }
 
+  /**
+   * Narrow a message query to senders the viewer is allowed to see. System
+   * and guest messages (NULL user_id) are always kept - a plain
+   * whereNotIn() would silently drop them because NULL NOT IN (...) is
+   * never true in SQL.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation  $query
+   * @param  int  $viewerId
+   * @return \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation
+   */
+  private function messagesWithoutBlockedSenders($query, int $viewerId)
+  {
+    $hidden = UserBlocks::eitherWayIds($viewerId);
+    if (empty($hidden)) {
+      return $query;
+    }
+
+    return $query->where(function ($q) use ($hidden) {
+      $q->whereNull('user_id')->orWhereNotIn('user_id', $hidden);
+    });
+  }
+
+  /**
+   * Whether this is a 1-on-1 thread whose other participant is blocked
+   * either way relative to $viewerId.
+   */
+  private function isPrivateConversationBlocked(Conversation $conversation, int $viewerId): bool
+  {
+    if ($conversation->type !== 'private' || $conversation->is_public) {
+      return false;
+    }
+
+    $other = $conversation->participants()->where('cyo_auth_accounts.id', '!=', $viewerId)->first();
+
+    return $other ? $this->isBlockedEitherWay($viewerId, (int) $other->id) : false;
+  }
+
   private function isBlockedEitherWay(int $userIdA, int $userIdB): bool
   {
-    return UserBlock::where(function ($q) use ($userIdA, $userIdB) {
-      $q->where('user_id', $userIdA)->where('blocked_user_id', $userIdB);
-    })->orWhere(function ($q) use ($userIdA, $userIdB) {
-      $q->where('user_id', $userIdB)->where('blocked_user_id', $userIdA);
-    })->exists();
+    return UserBlocks::isBlockedEitherWay($userIdA, $userIdB);
+  }
+
+  /**
+   * Whether any of $userIds is blocked either way relative to $viewerId.
+   *
+   * @param  int  $viewerId
+   * @param  int[]  $userIds
+   */
+  private function containsBlockedUser(int $viewerId, array $userIds): bool
+  {
+    $hidden = UserBlocks::eitherWayIds($viewerId);
+
+    return !empty(array_intersect(array_map('intval', $userIds), $hidden));
   }
 
   /**
@@ -2215,7 +2277,10 @@ TEXT;
       'is_deputy' => $conversation->isDeputy($user->id),
       'can_manage' => $conversation->isManager($user->id),
       'permissions' => $this->formatGroupPermissions($conversation, $user->id),
-      'participants' => $conversation->participants->map(fn($p) => $this->formatParticipant($p, true)),
+      'participants' => $conversation->participants
+        ->reject(fn($p) => $this->isBlockedEitherWay((int) $user->id, (int) $p->id))
+        ->values()
+        ->map(fn($p) => $this->formatParticipant($p, true)),
     ]);
   }
 
@@ -2442,6 +2507,10 @@ TEXT;
 
     if (empty($newParticipantIds)) {
       return response()->json(['message' => 'Tất cả người dùng đã ở trong nhóm.'], 422);
+    }
+
+    if ($this->containsBlockedUser((int) $user->id, $newParticipantIds)) {
+      return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
     }
 
     foreach ($newParticipantIds as $participantId) {
@@ -3032,6 +3101,7 @@ TEXT;
     $users = $conversation->participants()
       ->where('cyo_auth_accounts.id', '!=', $user->id)
       ->where('cyo_auth_accounts.is_ai', false)
+      ->notBlockedWithViewer()
       ->where(function ($q) use ($query) {
         $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
           ->orWhereHas('profile', function ($q2) use ($query) {
@@ -3086,7 +3156,7 @@ TEXT;
       ->with('profile')
       ->first();
 
-    if (!$foundUser) {
+    if (!$foundUser || $this->isBlockedEitherWay((int) $user->id, (int) $foundUser->id)) {
       return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
     }
 
@@ -3129,11 +3199,7 @@ TEXT;
 
     // Never suggest yourself, anyone already in the target conversation (if given),
     // or anyone with a mutual block against the current user.
-    $excludeIds = array_merge(
-      [$user->id],
-      UserBlock::where('user_id', $user->id)->pluck('blocked_user_id')->toArray(),
-      UserBlock::where('blocked_user_id', $user->id)->pluck('user_id')->toArray()
-    );
+    $excludeIds = array_merge([$user->id], UserBlocks::eitherWayIds((int) $user->id));
 
     if ($request->exclude_conversation_id) {
       $conversation = Conversation::find($request->exclude_conversation_id);
@@ -3179,8 +3245,10 @@ TEXT;
     }
 
     $perPage = 50;
-    $totalMessages = $conversation
-      ->messages()
+    $publicMessagesQuery = fn() => $currentUser
+      ? $this->messagesWithoutBlockedSenders($conversation->messages(), (int) $currentUser->id)
+      : $conversation->messages();
+    $totalMessages = $publicMessagesQuery()
       ->where('conversation_id', $conversation->id)
       ->whereNull('deleted_at')
       ->count();
@@ -3192,8 +3260,7 @@ TEXT;
     // Order by created_at DESC to get newest first
     $offset = ($page - 1) * $perPage;
 
-    $rawPublicMessages = $conversation
-      ->messages()
+    $rawPublicMessages = $publicMessagesQuery()
       ->where('conversation_id', $conversation->id)
       ->whereNull('deleted_at')
       ->with(['user.profile', 'reactions.user.profile', 'replyTo.user.profile'])
@@ -3555,6 +3622,7 @@ TEXT;
     $users = $conversation
       ->participants()
       ->where('is_ai', false)
+      ->notBlockedWithViewer()
       ->with('profile')
       ->get()
       ->map(function ($user) use ($now) {

@@ -96,6 +96,29 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   }
 
   /**
+   * Drop accounts the current viewer has blocked or that have blocked the
+   * viewer (search, suggestions, follower lists...). No-op for guests.
+   *
+   * @param \Illuminate\Database\Eloquent\Builder $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeNotBlockedWithViewer($query)
+  {
+    $ids = \App\Support\UserBlocks::eitherWayIdsForViewer();
+
+    return empty($ids) ? $query : $query->whereNotIn($this->getTable() . '.id', $ids);
+  }
+
+  /**
+   * Whether this account and the current viewer are blocked in either
+   * direction. False for guests and for the viewer themselves.
+   */
+  public function isBlockedWithViewer(): bool
+  {
+    return \App\Support\UserBlocks::viewerIsBlockedWith((int) $this->id);
+  }
+
+  /**
    * Get the user's role.
    *
    * @return string|null
