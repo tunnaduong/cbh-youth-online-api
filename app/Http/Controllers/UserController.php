@@ -490,10 +490,47 @@ class UserController extends Controller
         'is_online' => $isOnline,
         'last_activity' => $user->last_activity,
       ],
+      'member_tier' => $user->getMemberTier(),
+      'points_milestones' => $this->getPointsMilestones($user),
       'followers' => $followers,
       'following' => $following,
       'recent_posts' => $recentPosts,
     ]);
+  }
+
+  private function getPointsMilestones(\App\Models\AuthAccount $user): array
+  {
+    $tiers = \App\Models\AuthAccount::tiers();
+    $milestones = [];
+    foreach ($tiers as $tier) {
+      $milestones[$tier['id']] = [
+        'id' => $tier['id'],
+        'name' => $tier['name'],
+        'min_points' => $tier['min_points'],
+        'achieved_at' => null,
+      ];
+    }
+
+    $transactions = \App\Models\PointsTransaction::where('user_id', $user->id)
+      ->orderBy('created_at')
+      ->select('amount', 'created_at')
+      ->get();
+
+    $running = 0;
+    $remaining = array_column($tiers, 'min_points', 'id');
+
+    foreach ($transactions as $tx) {
+      $running += $tx->amount;
+      foreach ($remaining as $tierId => $minPts) {
+        if ($running >= $minPts) {
+          $milestones[$tierId]['achieved_at'] = $tx->created_at->format('d/m/Y');
+          unset($remaining[$tierId]);
+        }
+      }
+      if (empty($remaining)) break;
+    }
+
+    return array_values($milestones);
   }
 
   /**
