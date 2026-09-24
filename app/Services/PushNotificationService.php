@@ -245,6 +245,7 @@ class PushNotificationService
       'rank_up' => 'Bạn đã được thăng hạng!',
       'badge_earned' => 'Bạn đã nhận được huy hiệu',
       'points_earned' => 'Bạn đã nhận được điểm thưởng',
+      'points_gifted' => "{$actorName} đã tặng bạn " . number_format((int) ($notification->data['amount'] ?? 0)) . ' điểm',
       'content_reported' => 'Nội dung của bạn đã bị báo cáo',
       'content_hidden' => 'Nội dung của bạn đã bị ẩn',
       'content_deleted' => 'Nội dung của bạn đã bị xóa',

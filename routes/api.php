@@ -241,6 +241,7 @@ Route::prefix('v1.0')->group(function () {
       ]);
     });
     Route::get('/user/current-points', [UserController::class, 'getCurrentPoints']);
+    Route::post('/points/gift', [PointsController::class, 'gift']);
     Route::post('/checkin', [DailyCheckinController::class, 'checkin']);
     Route::get('/checkin/status', [DailyCheckinController::class, 'status']);
     Route::post('/logout', [AuthController::class, 'logout']);
