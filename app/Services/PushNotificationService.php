@@ -361,10 +361,7 @@ class PushNotificationService
             ? "{$senderName} trong {$conversation->name}"
             : $senderName;
 
-          $body = $messageData['content'] ?? '';
-          if (mb_strlen($body) > 50) {
-            $body = mb_substr($body, 0, 50) . '...';
-          }
+          $body = self::chatPushBody($messageData);
 
           $payload = [
             'title' => $title,
@@ -408,6 +405,37 @@ class PushNotificationService
       ]);
       return 0;
     }
+  }
+
+  /**
+   * The one-line preview of a chat message shown as the push body (web push
+   * and Expo push alike).
+   *
+   * A shared post (ChatController::sharePost) is stored as a text message
+   * whose content is "<note>\n<url>" with the post in metadata.shared_topic,
+   * so the raw content would show up as a bare link in the notification.
+   * Chat clients render that message as "đã chia sẻ một bài viết" + a card,
+   * and the push should read the same way.
+   *
+   * @param array $messageData
+   * @return string
+   */
+  private static function chatPushBody(array $messageData): string
+  {
+    $content = trim((string) ($messageData['content'] ?? ''));
+
+    $sharedTopic = $messageData['metadata']['shared_topic'] ?? null;
+    if (is_array($sharedTopic)) {
+      $url = (string) ($sharedTopic['url'] ?? '');
+      $note = $url !== '' ? trim(str_replace($url, '', $content)) : '';
+      $content = 'Đã chia sẻ một bài viết' . ($note !== '' ? ": {$note}" : '');
+    }
+
+    if (mb_strlen($content) > 50) {
+      $content = mb_substr($content, 0, 50) . '...';
+    }
+
+    return $content;
   }
 
   /**
@@ -846,10 +874,7 @@ class PushNotificationService
         ? "{$senderName} trong {$conversation->name}"
         : $senderName;
 
-      $body = $messageData['content'] ?? '';
-      if (mb_strlen($body) > 50) {
-        $body = mb_substr($body, 0, 50) . '...';
-      }
+      $body = self::chatPushBody($messageData);
 
       $payload = [
         'to' => $tokens->pluck('expo_push_token')->toArray(),
