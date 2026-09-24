@@ -376,4 +376,105 @@ class PointsService
       'total_points' => $user?->points ?? 0,
     ];
   }
+
+  /** Tier privilege that unlocks gifting points to other members. */
+  public const GIFT_PRIVILEGE = 'gift_points_to_others';
+  public const GIFT_MIN_AMOUNT = 1;
+  public const GIFT_MAX_AMOUNT = 1000;
+
+  /**
+   * Whether this user is allowed to gift points at all (tier privilege,
+   * admins always can).
+   */
+  public static function canGiftPoints(AuthAccount $user): bool
+  {
+    return ($user->role ?? null) === 'admin' || $user->hasPrivilege(self::GIFT_PRIVILEGE);
+  }
+
+  /**
+   * Move points from one member to another as a gift.
+   *
+   * Both balances are updated inside one DB transaction with row locks
+   * (taken in id order so two members gifting each other at once can't
+   * deadlock), and each side gets its own 'gift' transaction record so the
+   * transfer shows up in both wallets' history.
+   *
+   * @param int $senderId
+   * @param int $recipientId
+   * @param int $amount Points to transfer (positive)
+   * @param string $senderDescription History line for the sender
+   * @param string $recipientDescription History line for the recipient
+   * @param int|null $relatedId Topic id the gift was made from, if any
+   * @return array{sender_points:int,recipient_points:int}
+   * @throws \InvalidArgumentException when the transfer is not allowed
+   */
+  public static function giftPoints(
+    int $senderId,
+    int $recipientId,
+    int $amount,
+    string $senderDescription,
+    string $recipientDescription,
+    ?int $relatedId = null
+  ): array {
+    if ($senderId === $recipientId) {
+      throw new \InvalidArgumentException('Bạn không thể tự tặng điểm cho chính mình.');
+    }
+    if ($amount < self::GIFT_MIN_AMOUNT || $amount > self::GIFT_MAX_AMOUNT) {
+      throw new \InvalidArgumentException(
+        'Số điểm tặng phải từ ' . self::GIFT_MIN_AMOUNT . ' đến ' . number_format(self::GIFT_MAX_AMOUNT) . ' điểm.'
+      );
+    }
+
+    return DB::transaction(function () use ($senderId, $recipientId, $amount, $senderDescription, $recipientDescription, $relatedId) {
+      // Lock in a stable order regardless of who is sending - see addPoints()
+      // for why the lock is needed in the first place.
+      $ids = [$senderId, $recipientId];
+      sort($ids);
+      $locked = AuthAccount::whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+      $sender = $locked->get($senderId);
+      $recipient = $locked->get($recipientId);
+
+      if (!$sender || !$recipient) {
+        throw new \InvalidArgumentException('Không tìm thấy người nhận.');
+      }
+      if (!self::canGiftPoints($sender)) {
+        throw new \InvalidArgumentException('Bạn cần đạt hạng Thành viên tích cực (150 điểm) để tặng điểm cho người khác.');
+      }
+
+      $senderPoints = (int) ($sender->points ?? 0);
+      if ($senderPoints < $amount) {
+        throw new \InvalidArgumentException('Số dư không đủ. Bạn đang có ' . number_format($senderPoints) . ' điểm.');
+      }
+
+      $sender->points = $senderPoints - $amount;
+      $sender->save();
+
+      $recipient->points = (int) ($recipient->points ?? 0) + $amount;
+      $recipient->save();
+
+      PointsTransaction::create([
+        'user_id' => $senderId,
+        'type' => 'gift',
+        'amount' => -$amount,
+        'status' => 'completed',
+        'description' => $senderDescription,
+        'related_id' => $relatedId,
+      ]);
+      PointsTransaction::create([
+        'user_id' => $recipientId,
+        'type' => 'gift',
+        'amount' => $amount,
+        'status' => 'completed',
+        'description' => $recipientDescription,
+        'related_id' => $relatedId,
+      ]);
+
+      Log::info("Points gifted: user {$senderId} -> user {$recipientId} ({$amount})");
+
+      return [
+        'sender_points' => (int) $sender->points,
+        'recipient_points' => (int) $recipient->points,
+      ];
+    });
+  }
 }

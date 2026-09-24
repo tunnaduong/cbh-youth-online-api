@@ -1014,6 +1014,42 @@ class NotificationService
   }
 
   /**
+   * Create a notification for a member receiving gifted points.
+   *
+   * @param int $recipientId
+   * @param int $senderId
+   * @param int $amount
+   * @param string $message Optional note from the sender
+   * @param Topic|null $topic Topic the gift was made from, if any
+   * @return Notification|null
+   */
+  public static function createPointsGiftedNotification(int $recipientId, int $senderId, int $amount, string $message = '', ?Topic $topic = null): ?Notification
+  {
+    if ($recipientId === $senderId) {
+      return null;
+    }
+
+    if (!self::shouldNotify($recipientId, 'points_gifted')) {
+      return null;
+    }
+
+    return self::createAndPushNotification([
+      'user_id' => $recipientId,
+      'actor_id' => $senderId,
+      'type' => 'points_gifted',
+      'notifiable_type' => $topic ? Topic::class : null,
+      'notifiable_id' => $topic?->id,
+      'data' => [
+        'amount' => $amount,
+        'message' => $message !== '' ? $message : null,
+        'topic_id' => $topic?->id,
+        'topic_title' => $topic?->title,
+        'url' => '/wallet',
+      ],
+    ]);
+  }
+
+  /**
    * Create a notification for a study material being rated.
    *
    * @param \App\Models\StudyMaterial $material
