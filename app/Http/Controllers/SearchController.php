@@ -73,6 +73,7 @@ class SearchController extends Controller
   private function searchUsers($query, $limit)
   {
     return AuthAccount::where('is_ai', false)
+      ->notBlockedWithViewer()
       ->where(function ($q) use ($query) {
         $q->where('username', 'LIKE', "%{$query}%")
           ->orWhereHas('profile', function ($q) use ($query) {
@@ -107,6 +108,7 @@ class SearchController extends Controller
         ->orWhere('description', 'LIKE', "%{$query}%");
     })
       ->visibleToCurrentUser()
+      ->notFromBlockedUsers()
       ->where('hidden', 0)
       ->with(['user.profile', 'cdnUserContent'])
       ->orderBy('created_at', 'desc')
@@ -133,6 +135,7 @@ class SearchController extends Controller
         $q->where('cyo_hashtags.id', $hashtag->id);
       })
         ->visibleToCurrentUser()
+        ->notFromBlockedUsers()
         ->where('hidden', 0)
         ->with(['user.profile', 'cdnUserContent'])
         ->orderBy('created_at', 'desc')

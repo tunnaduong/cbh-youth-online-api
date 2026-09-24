@@ -985,14 +985,17 @@ class StoryController extends Controller
         }
 
         // Get all viewers (excluding current user)
+        $hiddenViewerIds = \App\Support\UserBlocks::eitherWayIds((int) Auth::id());
         $viewersData = StoryViewer::where('story_id', $story->id)
             ->where('user_id', '!=', Auth::id())
+            ->when(!empty($hiddenViewerIds), fn($q) => $q->whereNotIn('user_id', $hiddenViewerIds))
             ->with(['user.profile'])
             ->orderBy('viewed_at', 'desc')
             ->get();
 
         // Get all reactions for the story
         $reactionsData = StoryReaction::where('story_id', $story->id)
+            ->when(!empty($hiddenViewerIds), fn($q) => $q->whereNotIn('user_id', $hiddenViewerIds))
             ->with(['user.profile'])
             ->orderBy('created_at', 'desc')
             ->get();

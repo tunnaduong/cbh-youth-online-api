@@ -28,6 +28,10 @@ class NotificationController extends Controller
       ->with(['actor.profile', 'notifiable'])
       ->orderBy('created_at', 'desc');
 
+    // Notifications created before a block (or by someone who blocked the
+    // viewer since) must not keep surfacing that person.
+    $this->excludeBlockedActors($query, (int) $user->id);
+
     // Filter by type if provided
     if ($request->has('type')) {
       $query->where('type', $request->type);
@@ -73,13 +77,33 @@ class NotificationController extends Controller
   {
     $user = Auth::user();
 
-    $count = Notification::where('user_id', $user->id)
-      ->unread()
-      ->count();
+    $query = Notification::where('user_id', $user->id)->unread();
+    $this->excludeBlockedActors($query, (int) $user->id);
+    $count = $query->count();
 
     return response()->json([
       'unread_count' => $count,
     ]);
+  }
+
+  /**
+   * Drop notifications whose actor is blocked either way relative to the
+   * viewer. Actor-less (system) notifications are kept.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @param  int  $viewerId
+   * @return void
+   */
+  private function excludeBlockedActors($query, int $viewerId): void
+  {
+    $hidden = \App\Support\UserBlocks::eitherWayIds($viewerId);
+    if (empty($hidden)) {
+      return;
+    }
+
+    $query->where(function ($q) use ($hidden) {
+      $q->whereNull('actor_id')->orWhereNotIn('actor_id', $hidden);
+    });
   }
 
   /**

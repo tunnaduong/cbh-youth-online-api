@@ -30,6 +30,11 @@ class StudyMaterialController extends Controller
       $query = StudyMaterial::with(['user.profile', 'category', 'file'])
         ->where('status', 'published');
 
+      $hiddenAuthorIds = \App\Support\UserBlocks::eitherWayIdsForViewer();
+      if (!empty($hiddenAuthorIds)) {
+        $query->whereNotIn('user_id', $hiddenAuthorIds);
+      }
+
       // Filter by category
       if ($request->has('category_id') && $request->category_id) {
         $query->where('category_id', $request->category_id);
@@ -156,6 +161,10 @@ class StudyMaterialController extends Controller
   {
     $material = StudyMaterial::with(['user.profile', 'category', 'file', 'ratings.user.profile'])
       ->findOrFail($id);
+
+    if ($material->user && $material->user->isBlockedWithViewer()) {
+      abort(404, 'Không tìm thấy tài liệu.');
+    }
 
     if ($material->status !== 'published' && (!$request->user() || $request->user()->id !== $material->user_id)) {
       return response()->json(['message' => 'Tài liệu không tồn tại'], 404);
@@ -459,7 +468,10 @@ class StudyMaterialController extends Controller
    */
   public function getUserMaterials($username, Request $request)
   {
-    $user = \App\Models\AuthAccount::where('username', $username)->firstOrFail();
+    $user = \App\Models\AuthAccount::where('username', $username)->first();
+    if (!$user || $user->isBlockedWithViewer()) {
+      abort(404, 'Không tìm thấy người dùng.');
+    }
     $currentUser = $request->user();
 
     $query = StudyMaterial::with(['category', 'file'])

@@ -47,6 +47,7 @@ class ForumController extends Controller
     $latestTopics = Topic::select(['id', 'subforum_id', 'title', 'created_at', 'cyo_topics.user_id', 'anonymous'])
       ->with(['user:id,username', 'user.profile:id,auth_account_id,profile_name,verified'])
       ->whereIn('subforum_id', $subforumIds)
+      ->notFromBlockedUsers()
       ->where('cyo_topics.privacy', 'public')
       ->orderBy('subforum_id')
       ->orderBy('created_at', 'desc')
@@ -212,7 +213,8 @@ class ForumController extends Controller
     ])
       ->withCount(['comments as reply_count', 'views'])
       ->orderBy('created_at', 'desc')
-      ->where('hidden', false);
+      ->where('hidden', false)
+      ->notFromBlockedUsers();
 
     // Filter by privacy based on authentication and following status
     if (auth()->check()) {
@@ -285,7 +287,7 @@ class ForumController extends Controller
       'reply_count' => $this->roundToNearestFive($post->reply_count) . '+',
       'view_count' => $post->views_count,
       'is_saved' => $isSaved,
-      'votes' => $post->votes->map(function ($vote) {
+      'votes' => \App\Support\UserBlocks::withoutBlockedUsers($post->votes)->map(function ($vote) {
         return [
           'username' => $vote->user->username,
           'vote_value' => $vote->vote_value,
@@ -321,7 +323,7 @@ class ForumController extends Controller
           ->orderBy('arrange', 'asc')
           ->with([
             'latestPublicTopic' => function ($q) {
-              $q->with(['user.profile']);
+              $q->notFromBlockedUsers()->with(['user.profile']);
             }
           ]);
       }
@@ -352,6 +354,7 @@ class ForumController extends Controller
   {
     $query = $subforum
       ->topics()
+      ->notFromBlockedUsers()
       ->with(['user.profile', 'comments'])
       ->withCount(['comments as reply_count', 'views'])
       ->orderBy('pinned', 'desc')
@@ -645,7 +648,9 @@ class ForumController extends Controller
           ->orderBy('arrange', 'asc');
       },
       // Sử dụng relationship 'latestPublicTopic' để chỉ hiển thị bài viết public
-      'subforums.latestPublicTopic.user.profile'
+      'subforums.latestPublicTopic' => function ($query) {
+        $query->notFromBlockedUsers()->with('user.profile');
+      },
     ])
       ->orderBy('arrange', 'asc')
       ->get();
@@ -706,6 +711,7 @@ class ForumController extends Controller
       ->orderBy('arrange', 'asc')
       ->with([
         'topics' => function ($query) {
+          $query->notFromBlockedUsers();
           // Apply privacy filtering first, then find the latest visible topic
           if (auth()->check()) {
             $userId = auth()->id();
@@ -807,6 +813,7 @@ class ForumController extends Controller
   {
     return Topic::where('pinned', true)
       ->visibleToCurrentUser()
+      ->notFromBlockedUsers()
       ->where('hidden', false)
       ->get();
   }
@@ -850,7 +857,8 @@ class ForumController extends Controller
 
     $query = $subforumModel
       ->topics()
-      ->with(['user.profile', 'comments'])
+      ->notFromBlockedUsers()
+      ->with(['user.profile', 'comments' => fn($q) => $q->notFromBlockedUsers()])
       ->withCount(['comments as reply_count', 'views'])
       ->leftJoin('cyo_topic_comments', function ($join) {
         $join
@@ -946,6 +954,7 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
+      ->notFromBlockedUsers()
       ->excludingNewsSubforum()
       ->orderBy('created_at', 'desc')
       ->take(10);
@@ -981,6 +990,7 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
+      ->notFromBlockedUsers()
       ->excludingNewsSubforum()
       ->withCount('views')
       ->orderBy('views_count', 'desc')
@@ -1017,6 +1027,7 @@ class ForumController extends Controller
     $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
+      ->notFromBlockedUsers()
       ->excludingNewsSubforum()
       ->withCount(['comments', 'votes'])
       ->orderByRaw('(comments_count + votes_count) DESC')

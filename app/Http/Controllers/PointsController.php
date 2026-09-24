@@ -26,6 +26,7 @@ class PointsController extends Controller
 
       $topUsers = AuthAccount::with(['profile'])
         ->where('role', '!=', 'admin')
+        ->notBlockedWithViewer()
         ->orderByDesc('points')
         ->limit($limit)
         ->get();
@@ -93,6 +94,9 @@ class PointsController extends Controller
 
     if ($recipient->id === $sender->id) {
       return response()->json(['message' => 'Bạn không thể tự tặng điểm cho chính mình.'], 422);
+    }
+    if ($recipient->isBlockedWithViewer()) {
+      return response()->json(['message' => 'Không tìm thấy người nhận.'], 404);
     }
     if (!PointsService::canGiftPoints($sender)) {
       return response()->json([

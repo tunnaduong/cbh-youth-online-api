@@ -70,6 +70,18 @@ class TopicsController extends Controller
     return $html;
   }
 
+  /**
+   * Drop votes cast by (or on behalf of) users blocked either way relative
+   * to the viewer, so voter lists / like counts on a post don't surface them.
+   *
+   * @param  \Illuminate\Support\Collection  $votes
+   * @return \Illuminate\Support\Collection
+   */
+  private function votesWithoutBlockedUsers($votes)
+  {
+    return \App\Support\UserBlocks::withoutBlockedUsers($votes);
+  }
+
   private function isBlockedEitherWay(int $userIdA, int $userIdB): bool
   {
     return UserBlock::where(function ($q) use ($userIdA, $userIdB) {
@@ -214,14 +226,7 @@ class TopicsController extends Controller
     // who blocked this account (previously only the first direction was
     // excluded, so a blocked user could still see the blocker's posts in
     // the main feed even though notifications/etc. were already hidden).
-    $blockedUserIds = \App\Models\UserBlock::where('user_id', $userId)
-      ->pluck('blocked_user_id')
-      ->toArray();
-    $blockedByUserIds = \App\Models\UserBlock::where('blocked_user_id', $userId)
-      ->pluck('user_id')
-      ->toArray();
-
-    $query->whereNotIn('user_id', array_merge($blockedUserIds, $blockedByUserIds));
+    $query->whereNotIn('user_id', \App\Support\UserBlocks::eitherWayIds($userId));
 
     // Posts this user chose to hide from their own feed ("Ẩn bài viết"). The
     // post itself stays public and reachable by direct link - show() doesn't
@@ -345,14 +350,14 @@ class TopicsController extends Controller
       'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
       'comments' => $topic->comments_count,  // Comment count in '05+' format (already formatted by accessor)
       'views' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,  // Ensure numeric value
-      'votes' => $topic->votes->map(function ($vote) {
+      'votes' => $this->votesWithoutBlockedUsers($topic->votes)->map(function ($vote) {
         return [
           'username' => $vote->user->username,  // Assuming votes relation includes the user
           'vote_value' => $vote->vote_value,
           'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
           'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
         ];
-      }),
+      })->values(),
     ];
 
     // Check if the user is authenticated
@@ -425,7 +430,10 @@ class TopicsController extends Controller
     $formatted = collect();
 
     if (!empty($pageIds)) {
+      // The ranked id list is cached for up to 30 minutes, so re-apply the
+      // block filter here in case a block happened after it was built.
       $topicsById = Topic::whereIn('id', $pageIds)
+        ->notFromBlockedUsers()
         ->withCount(['views', 'comments'])
         ->with(['user.profile', 'votes.user', 'cdnUserContent'])
         ->get()
@@ -819,6 +827,12 @@ class TopicsController extends Controller
       return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);  // Not Found
     }
 
+    // A post by someone blocked either way relative to the viewer is
+    // reported as missing, same as the author's profile.
+    if (\App\Support\UserBlocks::viewerIsBlockedWith((int) $topic->user_id)) {
+      return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);
+    }
+
     // A post the AI held for review (or rejected) must not be reachable by
     // direct link either - dropping it from the feeds isn't enough. The
     // author and admins can still open it so they can see its status.
@@ -859,6 +873,7 @@ class TopicsController extends Controller
     $comments = $topic
       ->comments()
       ->visibleModeration()
+      ->notFromBlockedUsers()
       ->whereNull('replying_to')
       ->with([
         'user.profile',
@@ -934,7 +949,7 @@ class TopicsController extends Controller
         'image_urls' => $comment->image_urls
           ? array_map(fn($p) => config('app.url') . Storage::url($p), $comment->image_urls)
           : [],
-        'votes' => $comment->votes->map(fn($vote) => [
+        'votes' => $this->votesWithoutBlockedUsers($comment->votes)->map(fn($vote) => [
           'user_id' => $vote->user_id,
           'username' => $vote->user->username,
           'vote_value' => $vote->vote_value,
@@ -980,7 +995,7 @@ class TopicsController extends Controller
             'image_urls' => $reply->image_urls
               ? array_map(fn($p) => config('app.url') . Storage::url($p), $reply->image_urls)
               : [],
-            'votes' => $reply->votes->map(fn($vote) => [
+            'votes' => $this->votesWithoutBlockedUsers($reply->votes)->map(fn($vote) => [
               'user_id' => $vote->user_id,
               'username' => $vote->user->username,
               'vote_value' => $vote->vote_value,
@@ -1020,7 +1035,7 @@ class TopicsController extends Controller
                 'image_urls' => $subReply->image_urls
                   ? array_map(fn($p) => config('app.url') . Storage::url($p), $subReply->image_urls)
                   : [],
-                'votes' => $subReply->votes->map(fn($vote) => [
+                'votes' => $this->votesWithoutBlockedUsers($subReply->votes)->map(fn($vote) => [
                   'user_id' => $vote->user_id,
                   'username' => $vote->user->username,
                   'vote_value' => $vote->vote_value,
@@ -1064,14 +1079,14 @@ class TopicsController extends Controller
         'video_urls' => $topic->getVideos()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
         })->all(),
-        'votes' => $topic->votes->map(function ($vote) {
+        'votes' => $this->votesWithoutBlockedUsers($topic->votes)->map(function ($vote) {
           return [
             'username' => $vote->user->username,
             'vote_value' => $vote->vote_value,
             'created_at' => $vote->created_at ? $vote->created_at->toISOString() : null,
             'updated_at' => $vote->updated_at ? $vote->updated_at->toISOString() : null,
           ];
-        }),
+        })->values(),
         'reply_count' => $this->roundToNearestFive($topic->reply_count ?? 0) . '+',
         'view_count' => is_numeric($topic->views_count) ? (int) $topic->views_count : 0,
         'created_at' => $topic->created_at->diffForHumans(),
@@ -1687,7 +1702,9 @@ class TopicsController extends Controller
   {
     $votes = TopicVote::with('user.profile')
       ->where('topic_id', $topicId)
-      ->get()
+      ->get();
+    $votes = $this->votesWithoutBlockedUsers($votes)
+      ->values()
       ->map(function ($vote) {
         $user = $vote->user;
         return [
@@ -1772,6 +1789,7 @@ class TopicsController extends Controller
   {
     $comments = TopicComment::with(['user', 'user.profile'])
       ->visibleModeration()
+      ->notFromBlockedUsers()
       ->where('topic_id', $topicId)
       ->orderBy('created_at', 'desc')
       ->get();
@@ -2146,7 +2164,9 @@ class TopicsController extends Controller
 
     $votes = TopicCommentVote::with('user.profile')
       ->where('comment_id', $comment->id)
-      ->get()
+      ->get();
+    $votes = $this->votesWithoutBlockedUsers($votes)
+      ->values()
       ->map(function ($vote) {
         $user = $vote->user;
         return [
@@ -2181,6 +2201,7 @@ class TopicsController extends Controller
     $userId = Auth::id();
 
     $result = UserSavedTopic::where('user_id', $userId)
+      ->whereHas('topic', fn($q) => $q->notFromBlockedUsers())
       ->with(['topic.user.profile'])
       ->orderBy('created_at', 'desc')
       ->get();
@@ -2590,6 +2611,7 @@ class TopicsController extends Controller
     $users = AuthAccount::query()
       ->when($currentUserId, fn($q) => $q->where('id', '!=', $currentUserId))
       ->where('is_ai', false)
+      ->notBlockedWithViewer()
       ->where(function ($q) use ($query) {
         $q->whereRaw('LOWER(username) LIKE ?', ['%' . strtolower($query) . '%'])
           ->orWhereHas('profile', function ($q2) use ($query) {

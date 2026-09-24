@@ -417,6 +417,20 @@ class Topic extends Model
   }
 
   /**
+   * Drop topics authored by anyone the current viewer has blocked or who has
+   * blocked the viewer. No-op for guests.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeNotFromBlockedUsers($query)
+  {
+    $ids = \App\Support\UserBlocks::eitherWayIdsForViewer();
+
+    return empty($ids) ? $query : $query->whereNotIn('user_id', $ids);
+  }
+
+  /**
    * Scope a query to only include topics visible to the current user.
    *
    * @param  \Illuminate\Database\Eloquent\Builder  $query
