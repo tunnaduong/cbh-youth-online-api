@@ -6,6 +6,7 @@ use App\Models\AuthAccount;
 use App\Models\AuthEmailVerificationCode;
 use App\Models\Follower;
 use App\Models\TopicComment;
+use App\Models\TopicVote;
 use App\Models\UserContent;
 use App\Models\UserSavedTopic;
 use App\Services\MentionService;
@@ -386,10 +387,13 @@ class UserController extends Controller
       return response()->json(['message' => 'Không tìm thấy người dùng.'], 404);
     }
 
-    // Calculate total likes count
-    $totalLikesCount = $user->posts->sum(function ($post) {
-      return $post->votes->where('vote_value', 1)->count();  // Count only upvotes
-    });
+    // Total likes = upvotes across the posts the viewer can actually see on
+    // this profile - the same set getUserLikes() lists, so tapping the
+    // "likes" stat shows exactly the posts that add up to this number.
+    $totalLikesCount = TopicVote::whereIn(
+      'topic_id',
+      $this->likedPostsBaseQuery($user)->select('cyo_topics.id')
+    )->where('vote_value', 1)->count();
 
     // Calculate activity points
     // Get activity points directly from database
@@ -614,6 +618,91 @@ class UserController extends Controller
 
     return response()->json([
       'data' => $posts->getCollection()->map(fn($post) => $this->transformProfilePost($post))->values(),
+      'current_page' => $posts->currentPage(),
+      'last_page' => $posts->lastPage(),
+      'has_more' => $posts->hasMorePages(),
+      'total' => $posts->total(),
+    ]);
+  }
+
+  /**
+   * Posts on this profile that the viewer may see - the same visibility
+   * rules as getUserPosts(): the author sees everything (anonymous and
+   * archived included), everyone else only public-identity, non-archived
+   * posts. Shared by getUserLikes() and the profile's total-likes stat.
+   */
+  private function likedPostsBaseQuery(AuthAccount $user)
+  {
+    $isOwnProfile = auth()->check() && auth()->id() === $user->id;
+
+    $query = $user->posts()->visibleToCurrentUser();
+
+    if (!$isOwnProfile) {
+      $query->where('anonymous', false)->where('hidden', 0);
+    }
+
+    return $query;
+  }
+
+  /**
+   * The posts that make up a profile's "likes" total - every post of theirs
+   * with at least one upvote - paginated and sortable, for the tab that
+   * opens when the "likes" stat on the profile is tapped.
+   *
+   * ?sort=newest (default) | oldest | most_liked | least_liked
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  string  $username
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function getUserLikes(Request $request, $username)
+  {
+    $user = $this->findVisibleUserOrFail($username);
+
+    $sort = (string) $request->input('sort', 'newest');
+    if (!in_array($sort, ['newest', 'oldest', 'most_liked', 'least_liked'], true)) {
+      $sort = 'newest';
+    }
+
+    $postsQuery = $this->likedPostsBaseQuery($user)
+      ->withCount([
+        'comments',
+        'views',
+        'votes',
+        'votes as likes_count' => fn($q) => $q->where('vote_value', 1),
+      ])
+      ->having('likes_count', '>', 0);
+
+    switch ($sort) {
+      case 'oldest':
+        $postsQuery->orderBy('cyo_topics.created_at', 'asc');
+        break;
+      case 'most_liked':
+        $postsQuery->orderByDesc('likes_count')->orderByDesc('cyo_topics.created_at');
+        break;
+      case 'least_liked':
+        $postsQuery->orderBy('likes_count', 'asc')->orderByDesc('cyo_topics.created_at');
+        break;
+      default:
+        $postsQuery->orderByDesc('cyo_topics.created_at');
+    }
+
+    $perPage = min((int) $request->input('per_page', 10), 30);
+    $posts = $postsQuery->paginate($perPage);
+
+    $totalLikes = TopicVote::whereIn(
+      'topic_id',
+      $this->likedPostsBaseQuery($user)->select('cyo_topics.id')
+    )->where('vote_value', 1)->count();
+
+    return response()->json([
+      'data' => $posts->getCollection()->map(function ($post) {
+        $data = $this->transformProfilePost($post);
+        $data['likes_count'] = (int) $post->likes_count;
+        return $data;
+      })->values(),
+      'sort' => $sort,
+      'total_likes' => $totalLikes,
       'current_page' => $posts->currentPage(),
       'last_page' => $posts->lastPage(),
       'has_more' => $posts->hasMorePages(),

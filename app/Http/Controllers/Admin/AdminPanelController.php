@@ -234,6 +234,7 @@ class AdminPanelController extends Controller
     $data = $request->validate([
       'role' => 'sometimes|string|in:user,student,teacher,volunteer,admin',
       'points' => 'sometimes|integer|min:0',
+      'reason' => 'nullable|string|max:255',
     ]);
 
     $user = AuthAccount::findOrFail($id);
@@ -241,7 +242,18 @@ class AdminPanelController extends Controller
       return response()->json(['message' => 'Không thể tự hạ quyền của chính bạn.'], 403);
     }
 
-    $user->fill($data)->save();
+    if (isset($data['role'])) {
+      $user->role = $data['role'];
+      $user->save();
+    }
+
+    // Points go through the ledger so the wallet history and the tier
+    // milestones see the change, rather than being written straight to
+    // the column.
+    if (array_key_exists('points', $data)) {
+      \App\Services\PointsService::setPointsByAdmin($user->id, (int) $data['points'], Auth::id(), $data['reason'] ?? null);
+      $user->refresh();
+    }
 
     return response()->json(['message' => 'Đã cập nhật người dùng.', 'user' => $user->only(['id', 'role', 'points'])]);
   }

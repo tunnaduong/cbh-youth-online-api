@@ -147,43 +147,11 @@ class ProfileController extends Controller
   }
 
   /**
-   * Calculate the date each points milestone was first reached by scanning
-   * the cumulative sum of PointsTransactions in chronological order.
+   * The date each member tier was first reached - see PointsService::milestonesFor().
    */
   private function getPointsMilestones(\App\Models\AuthAccount $user): array
   {
-    $tiers = \App\Models\AuthAccount::tiers();
-    $milestones = [];
-    foreach ($tiers as $tier) {
-      $milestones[$tier['id']] = [
-        'id' => $tier['id'],
-        'name' => $tier['name'],
-        'min_points' => $tier['min_points'],
-        'achieved_at' => null,
-      ];
-    }
-
-    // Walk transactions in chronological order and track running total
-    $transactions = \App\Models\PointsTransaction::where('user_id', $user->id)
-      ->orderBy('created_at')
-      ->select('amount', 'created_at')
-      ->get();
-
-    $running = 0;
-    $remaining = array_column($tiers, 'min_points', 'id');
-
-    foreach ($transactions as $tx) {
-      $running += $tx->amount;
-      foreach ($remaining as $tierId => $minPts) {
-        if ($running >= $minPts) {
-          $milestones[$tierId]['achieved_at'] = $tx->created_at->format('d/m/Y');
-          unset($remaining[$tierId]);
-        }
-      }
-      if (empty($remaining)) break;
-    }
-
-    return array_values($milestones);
+    return \App\Services\PointsService::milestonesFor($user);
   }
 
   /**

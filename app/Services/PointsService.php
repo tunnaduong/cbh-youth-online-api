@@ -477,4 +477,112 @@ class PointsService
       ];
     });
   }
+
+  /**
+   * The date each member tier was first reached, for the "Điểm thành tích"
+   * modal.
+   *
+   * Walks the user's transactions in chronological order and marks a tier
+   * on the transaction whose running total first crosses it. The ledger
+   * only exists since late 2025, so it usually sums to less than the real
+   * `points` balance (points earned before that were never recorded as
+   * transactions). Without correcting for that, a member sitting at 527
+   * points whose ledger only sums to 480 never gets the 500 milestone,
+   * even when a gift just pushed them past it. So the walk starts from
+   * that pre-ledger remainder, which makes the running total end exactly
+   * at the current balance and attributes each crossing to the right
+   * transaction.
+   *
+   * @return array<int, array{id:string,name:string,min_points:int,achieved_at:?string}>
+   */
+  public static function milestonesFor(AuthAccount $user): array
+  {
+    $tiers = AuthAccount::tiers();
+    $milestones = [];
+    foreach ($tiers as $tier) {
+      $milestones[$tier['id']] = [
+        'id' => $tier['id'],
+        'name' => $tier['name'],
+        'min_points' => $tier['min_points'],
+        'achieved_at' => null,
+      ];
+    }
+
+    $transactions = PointsTransaction::where('user_id', $user->id)
+      ->orderBy('created_at')
+      ->orderBy('id')
+      ->select('amount', 'created_at')
+      ->get();
+
+    $currentPoints = (int) ($user->points ?? 0);
+    $ledgerTotal = (int) $transactions->sum('amount');
+    // Points that predate the ledger; never negative (a ledger that
+    // overcounts is handled by the current-balance guard below).
+    $running = max(0, $currentPoints - $ledgerTotal);
+
+    // A tier the member isn't actually at right now is never marked, even
+    // if the ledger's running total happens to overshoot the real balance.
+    $remaining = array_filter(
+      array_column($tiers, 'min_points', 'id'),
+      fn ($minPts) => $currentPoints >= $minPts
+    );
+
+    foreach ($transactions as $tx) {
+      if (empty($remaining)) {
+        break;
+      }
+      $running += $tx->amount;
+      foreach ($remaining as $tierId => $minPts) {
+        if ($running >= $minPts) {
+          $milestones[$tierId]['achieved_at'] = $tx->created_at->format('d/m/Y');
+          unset($remaining[$tierId]);
+        }
+      }
+    }
+
+    return array_values($milestones);
+  }
+
+  /**
+   * Set a user's balance to an exact value (admin panel edit) and record
+   * the difference as an 'adjustment' transaction, so the change shows up
+   * in the wallet history and counts toward the tier milestones instead of
+   * silently diverging the balance from the ledger.
+   *
+   * @return int The delta that was applied (0 when nothing changed)
+   */
+  public static function setPointsByAdmin(int $userId, int $newTotal, int $adminId, ?string $reason = null): int
+  {
+    return DB::transaction(function () use ($userId, $newTotal, $adminId, $reason) {
+      $user = AuthAccount::where('id', $userId)->lockForUpdate()->firstOrFail();
+      $old = (int) ($user->points ?? 0);
+      $delta = max(0, $newTotal) - $old;
+      if ($delta === 0) {
+        return 0;
+      }
+
+      $user->points = $old + $delta;
+      $user->save();
+
+      $admin = AuthAccount::find($adminId);
+      $adminName = $admin ? '@' . $admin->username : 'quản trị viên';
+      $description = ($delta > 0 ? 'Quản trị viên cộng điểm' : 'Quản trị viên trừ điểm') . " ({$adminName})";
+      if ($reason !== null && trim($reason) !== '') {
+        $description .= ': ' . trim($reason);
+      }
+
+      PointsTransaction::create([
+        'user_id' => $userId,
+        'type' => 'adjustment',
+        'amount' => $delta,
+        'status' => 'completed',
+        'description' => $description,
+        'related_id' => $adminId,
+      ]);
+
+      Log::info("Points adjusted by admin {$adminId} for user {$userId}: {$old} -> {$user->points} ({$delta})");
+
+      return $delta;
+    });
+  }
 }
