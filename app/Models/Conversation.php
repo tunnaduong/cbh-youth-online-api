@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property string|null $name The name of the conversation, used for group chats.
  * @property int|null $created_by The user who created the group (null for private/legacy conversations).
  * @property bool $is_public True only for the single, app-wide public chat ("Tán gẫu linh tinh").
+ * @property bool $is_shop_support True for a customer's shared support thread with every shop admin (see ShopController::contactShop()).
  * @property string|null $avatar_url Group avatar storage path (groups only).
  * @property string|null $invite_token Active invite-link token for this group, if any.
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -42,6 +43,7 @@ class Conversation extends Model
         'name',
         'created_by',
         'is_public',
+        'is_shop_support',
         'avatar_url',
         'invite_token',
         'background_content_id',
@@ -77,6 +79,7 @@ class Conversation extends Model
      */
     protected $casts = [
         'is_public' => 'boolean',
+        'is_shop_support' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
