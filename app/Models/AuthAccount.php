@@ -117,6 +117,28 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
   }
 
   /**
+   * Scope a query to users active within the last 5 minutes - the same
+   * "online" window UserController::getOnlineStatus() and
+   * updateLastActivity() use (kept here instead of repeating the raw
+   * subMinutes(5) comparison at each call site).
+   *
+   * @param \Illuminate\Database\Eloquent\Builder $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeOnline($query)
+  {
+    return $query->where('last_activity', '>', now()->subMinutes(5));
+  }
+
+  /**
+   * @return bool
+   */
+  public function isOnline(): bool
+  {
+    return $this->last_activity !== null && $this->last_activity > now()->subMinutes(5);
+  }
+
+  /**
    * Get the profile associated with the user.
    *
    * @return \Illuminate\Database\Eloquent\Relations\HasOne

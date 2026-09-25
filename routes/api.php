@@ -403,6 +403,8 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/shop/my-orders', [ShopController::class, 'myOrders']);
     Route::get('/shop/orders/{id}/payment-status', [ShopController::class, 'paymentStatus']);
     Route::post('/shop/orders/{id}/cancel', [ShopController::class, 'cancelOrder']);
+    Route::post('/shop/products/{id}/contact', [ShopController::class, 'contactShop']);
+    Route::get('/shop/support/status', [ShopController::class, 'supportStatus']);
 
     // Student Verification (eKYC)
     Route::post('/student-verification', [\App\Http\Controllers\StudentVerificationController::class, 'submit']);

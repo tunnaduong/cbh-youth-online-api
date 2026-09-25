@@ -214,6 +214,8 @@ class ChatController extends Controller
     // Allow access to public chat "Tán gẫu linh tinh" even if user is not a participant
     $isPublicChat = $conversation->is_public;
 
+    $this->autoJoinShopSupportAdmin($conversation, $user);
+
     if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
     }
@@ -559,6 +561,25 @@ class ChatController extends Controller
   }
 
   /**
+   * Lets any admin read/reply in a shop-support thread (see
+   * ShopController::contactShop()) even if they were granted the admin role
+   * after the thread was created and so were never attached as a
+   * participant - attaching them here, on their first visit, is what makes
+   * them show up in the thread's participant list and their own inbox from
+   * then on, mirroring the public chat's auto-join-on-first-message pattern.
+   *
+   * @param  \App\Models\Conversation  $conversation
+   * @param  \App\Models\AuthAccount  $user
+   * @return void
+   */
+  private function autoJoinShopSupportAdmin(Conversation $conversation, AuthAccount $user): void
+  {
+    if ($conversation->is_shop_support && $user->role === 'admin' && !$conversation->hasParticipant($user->id)) {
+      $conversation->participants()->attach($user->id, ['role' => 'member']);
+    }
+  }
+
+  /**
    * Find the existing 1-on-1 private conversation between two users, or create one.
    *
    * @param  int  $userAId
@@ -639,6 +660,8 @@ class ChatController extends Controller
 
     // Allow access to public chat "Tán gẫu linh tinh" even if user is not a participant
     $isPublicChat = $conversation->is_public;
+
+    $this->autoJoinShopSupportAdmin($conversation, $user);
 
     if (!$isPublicChat && !$conversation->hasParticipant($user->id)) {
       return response()->json(['message' => 'Unauthorized'], 403);
