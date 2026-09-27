@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuthAccount;
+use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\ShopCategory;
 use App\Models\ShopOrder;
 use App\Models\ShopProduct;
@@ -262,5 +265,78 @@ class ShopController extends Controller
       ->orderBy('created_at', 'desc')
       ->paginate(10);
     return response()->json($orders);
+  }
+
+  /**
+   * "Nhắn tin" on a product page: posts an inquiry into the customer's one
+   * ongoing shop-support thread, a group conversation shared with every
+   * shop admin (not a 1-on-1 with a single "assigned" admin) so any of them
+   * can pick it up and the customer sees who actually replied. Reuses the
+   * existing chat system (Conversation/Message + ChatController's broadcast
+   * pipeline) rather than a separate inbox, so replies show up in the same
+   * admin chat inbox they already use.
+   */
+  public function contactShop(Request $request, $id)
+  {
+    $product = ShopProduct::findOrFail($id);
+    $user = $request->user();
+
+    $conversation = Conversation::where('is_shop_support', true)
+      ->whereHas('participants', fn($q) => $q->where('user_id', $user->id))
+      ->first();
+
+    $adminIds = AuthAccount::where('role', 'admin')->pluck('id');
+
+    if (!$conversation) {
+      $conversation = Conversation::create([
+        'type' => 'group',
+        'name' => 'Hỗ trợ - ' . ($user->profile->profile_name ?? $user->username),
+        'created_by' => $user->id,
+        'is_shop_support' => true,
+      ]);
+      $conversation->participants()->attach($user->id, ['role' => 'owner']);
+      $conversation->participants()->attach($adminIds->all(), ['role' => 'member']);
+    } else {
+      // Self-heals membership for admins granted the role after the thread
+      // was created, so they see it next time a customer writes in without
+      // needing to already be a participant (attach() is a no-op for ids
+      // already in the pivot table).
+      $existingIds = $conversation->participants()->pluck('cyo_auth_accounts.id');
+      $conversation->participants()->attach($adminIds->diff($existingIds)->all(), ['role' => 'member']);
+    }
+
+    $message = Message::create([
+      'conversation_id' => $conversation->id,
+      'user_id' => $user->id,
+      'content' => sprintf(
+        "Mình quan tâm đến sản phẩm \"%s\" (%s đ), shop tư vấn giúp mình nhé.",
+        $product->name,
+        number_format($product->price, 0, ',', '.'),
+      ),
+      'type' => 'text',
+      'metadata' => [
+        'shop_product_id' => $product->id,
+        'shop_product_name' => $product->name,
+      ],
+    ]);
+
+    app(ChatController::class)->broadcastAiMessage($conversation, $message, $user);
+
+    return response()->json([
+      'conversation_id' => $conversation->id,
+      'admins_online' => AuthAccount::role('admin')->online()->count(),
+    ], $conversation->wasRecentlyCreated ? 201 : 200);
+  }
+
+  /**
+   * Lets the chat widget show "Đang online" / "Ngoại tuyến" for shop admins
+   * without re-posting a message - polled while the widget is open so the
+   * indicator stays live if an admin comes online/offline mid-conversation.
+   */
+  public function supportStatus()
+  {
+    return response()->json([
+      'admins_online' => AuthAccount::role('admin')->online()->count(),
+    ]);
   }
 }
