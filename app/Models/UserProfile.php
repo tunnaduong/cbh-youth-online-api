@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property bool $hide_email
  * @property bool $verified
  * @property \Illuminate\Support\Carbon|null $last_username_change
+ * @property array|null $profile_theme
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\AuthAccount $user
@@ -44,13 +45,14 @@ class UserProfile extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'cover_photo', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'hide_email', 'verified', 'last_username_change'];
+    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'cover_photo', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'hide_email', 'verified', 'last_username_change', 'profile_theme'];
 
     /**
      * @var array<string, string>
      */
     protected $casts = [
         'hide_email' => 'boolean',
+        'profile_theme' => 'array',
     ];
 
     /**
