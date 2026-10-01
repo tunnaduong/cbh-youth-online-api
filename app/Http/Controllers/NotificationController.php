@@ -8,6 +8,7 @@ use App\Models\NotificationSubscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Services\ProfileThemeService;
 
 /**
  * Handles notification-related API requests.
@@ -578,6 +579,7 @@ class NotificationController extends Controller
         'username' => $actor->username,
         'profile_name' => $actor->profile->profile_name ?? $actor->username,
         'avatar_url' => $actor->avatarUrl(),
+        'profile_theme' => ProfileThemeService::forAuthor($actor),
       ] : ($isAnonymous ? [
         'id' => null,
         'username' => 'Ẩn danh',

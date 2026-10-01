@@ -167,6 +167,26 @@ class ProfileThemeServiceTest extends TestCase
         );
     }
 
+    public function test_author_theme_only_carries_the_name_and_avatar_options(): void
+    {
+        $user = $this->user(1000, [
+            'name_font' => 'pixel',
+            'name_effect' => 'neon',
+            'avatar_frame' => 'veteran',
+            'profile_effect' => 'snow',
+            'profile_frame' => 'gold',
+            'banner_color' => '#000000',
+        ]);
+
+        $this->assertSame(
+            ['primary_color', 'accent_color', 'name_font', 'name_effect', 'avatar_frame', 'name_colors'],
+            array_keys(ProfileThemeService::forAuthor($user))
+        );
+        $this->assertSame('veteran', ProfileThemeService::forAuthor($user)['avatar_frame']);
+        $this->assertNull(ProfileThemeService::forAuthor($this->user(49, ['name_effect' => 'solid'])));
+        $this->assertNull(ProfileThemeService::forAuthor(null));
+    }
+
     public function test_animated_avatar_needs_the_veteran_tier(): void
     {
         $this->assertFalse(ProfileThemeService::canUseAnimatedAvatar($this->user(999)));
