@@ -11,6 +11,7 @@ use App\Models\UserContent;
 use App\Models\UserSavedTopic;
 use App\Services\MentionService;
 use App\Services\NotificationService;
+use App\Services\ProfileThemeService;
 use App\Notifications\VerifyEmail;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -207,51 +208,64 @@ class UserController extends Controller
       // Get the uploaded file
       $file = $request->file('avatar');
 
-      // HEIC/HEIF can't be read by Intervention's GD/Imagick driver directly
-      // on most setups, so convert to JPEG first and crop/resize that instead.
-      if (\App\Services\HeicImageConverter::isHeic($file)) {
-        $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'avatars_tmp_heic');
-        if ($converted === null) {
-          return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+      // Member tier perk (Discord's animated avatar): keep a GIF avatar
+      // animated. GD can't resize an animated GIF without dropping its
+      // frames, so the original is stored untouched instead - hence the
+      // tighter size limit and the near-square requirement.
+      if ($file->getMimeType() === 'image/gif' && ProfileThemeService::canUseAnimatedAvatar($user)) {
+        $stored = $this->storeAnimatedAvatar($file);
+        if ($stored instanceof \Illuminate\Http\JsonResponse) {
+          return $stored;
         }
-        $sourcePath = Storage::disk('public')->path($converted['path']);
-        $fileName = $converted['file_name'];
+        [$filePath, $fileName, $fileType] = $stored;
       } else {
-        $sourcePath = $file->getRealPath();
-        // Generate a unique filename
-        $fileName = time() . '_' . $file->getClientOriginalName();
-      }
+        // HEIC/HEIF can't be read by Intervention's GD/Imagick driver directly
+        // on most setups, so convert to JPEG first and crop/resize that instead.
+        if (\App\Services\HeicImageConverter::isHeic($file)) {
+          $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'avatars_tmp_heic');
+          if ($converted === null) {
+            return response()->json(['message' => 'Không thể xử lý ảnh HEIC này, vui lòng thử ảnh khác.'], 422);
+          }
+          $sourcePath = Storage::disk('public')->path($converted['path']);
+          $fileName = $converted['file_name'];
+        } else {
+          $sourcePath = $file->getRealPath();
+          // Generate a unique filename
+          $fileName = time() . '_' . $file->getClientOriginalName();
+        }
 
-      // Avatars only ever render small (list rows, comments, headers) - the
-      // uploaded original (which can be several MB, especially straight off
-      // a phone camera) was being stored close to as-is (a 500x500 crop with
-      // no explicit re-encode quality), so every avatar request/CDN copy paid
-      // for that weight for no visible benefit. 156x156 covers every place
-      // this app actually displays an avatar, and re-encoding to JPEG at a
-      // sane quality (rather than preserving the original PNG/GIF/etc)
-      // avoids also carrying over an uncompressed source format.
-      // Always re-encoded to JPEG below regardless of the upload's original
-      // extension, so normalize the stored filename/type to match - the
-      // Content-Type getAvatar() serves has to agree with the actual bytes.
-      $fileName = preg_replace('/\.\w+$/', '', $fileName) . '.jpg';
-      $fileType = 'image/jpeg';
+        // Avatars only ever render small (list rows, comments, headers) - the
+        // uploaded original (which can be several MB, especially straight off
+        // a phone camera) was being stored close to as-is (a 500x500 crop with
+        // no explicit re-encode quality), so every avatar request/CDN copy paid
+        // for that weight for no visible benefit. 156x156 covers every place
+        // this app actually displays an avatar, and re-encoding to JPEG at a
+        // sane quality (rather than preserving the original PNG/GIF/etc)
+        // avoids also carrying over an uncompressed source format.
+        // Always re-encoded to JPEG below regardless of the upload's original
+        // extension, so normalize the stored filename/type to match - the
+        // Content-Type getAvatar() serves has to agree with the actual bytes.
+        $fileName = preg_replace('/\.\w+$/', '', $fileName) . '.jpg';
+        $fileType = 'image/jpeg';
 
-      // Use Intervention Image to crop and resize to a 1:1 ratio
-      $image = Image::make($sourcePath);
-      $size = min($image->width(), $image->height());  // Get the smallest dimension
-      $image->crop($size, $size)->resize(156, 156);  // Crop and resize to 156x156 pixels - the only size avatars render at
+        // Use Intervention Image to crop and resize to a 1:1 ratio
+        $image = Image::make($sourcePath);
+        $size = min($image->width(), $image->height());  // Get the smallest dimension
+        $image->crop($size, $size)->resize(156, 156);  // Crop and resize to 156x156 pixels - the only size avatars render at
 
-      // Define the file path
-      $filePath = 'avatars/' . $fileName;
+        // Define the file path
+        $filePath = 'avatars/' . $fileName;
 
-      // Save the cropped image to the public disk, re-encoded as JPEG at
-      // quality 82 - well above visible artifacting at this size, and a
-      // fraction of the weight of the untouched original.
-      Storage::disk('public')->put($filePath, (string) $image->encode('jpg', 82));
+        // Save the cropped image to the public disk, re-encoded as JPEG at
+        // quality 82 - well above visible artifacting at this size, and a
+        // fraction of the weight of the untouched original.
+        Storage::disk('public')->put($filePath, (string) $image->encode('jpg', 82));
 
-      // Clean up the temporary HEIC->JPEG intermediate file, if any.
-      if (isset($converted)) {
-        Storage::disk('public')->delete($converted['path']);
+        // Clean up the temporary HEIC->JPEG intermediate file, if any.
+        if (isset($converted)) {
+          Storage::disk('public')->delete($converted['path']);
+        }
+
       }
 
       // Update or create the user content record for the avatar
@@ -285,6 +299,31 @@ class UserController extends Controller
     }
 
     return response()->json(['message' => 'Không có file nào được upload.'], 400);
+  }
+
+  /**
+   * Store an uploaded GIF avatar as-is so it stays animated.
+   *
+   * @return array{0: string, 1: string, 2: string}|\Illuminate\Http\JsonResponse
+   *   [file path, file name, mime type], or a 422 response
+   */
+  private function storeAnimatedAvatar($file)
+  {
+    if ($file->getSize() > 2 * 1024 * 1024) {
+      return response()->json(['message' => 'Ảnh GIF động tối đa 2MB.'], 422);
+    }
+
+    // Avatars render as circles everywhere, and without re-encoding there is
+    // no crop - a wide or tall GIF would be squashed.
+    $size = @getimagesize($file->getRealPath());
+    if (!$size || $size[1] === 0 || abs($size[0] / $size[1] - 1) > 0.1) {
+      return response()->json(['message' => 'Ảnh GIF động cần có dạng hình vuông.'], 422);
+    }
+
+    $fileName = time() . '_' . Str::random(8) . '.gif';
+    Storage::disk('public')->putFileAs('avatars', $file, $fileName);
+
+    return ['avatars/' . $fileName, $fileName, 'image/gif'];
   }
 
   /**
@@ -414,6 +453,7 @@ class UserController extends Controller
         'username' => $follower->follower->username,
         'profile_name' => $follower->follower->profile->profile_name ?? null,
         'profile_picture' => $follower->follower->avatarUrl(),
+        'profile_theme' => ProfileThemeService::forAuthor($follower->follower),
       ];
 
       if (auth()->check()) {
@@ -441,6 +481,7 @@ class UserController extends Controller
         'username' => $followed->followed->username,
         'profile_name' => $followed->followed->profile->profile_name ?? null,
         'profile_picture' => $followed->followed->avatarUrl(),
+        'profile_theme' => ProfileThemeService::forAuthor($followed->followed),
         'isFollowed' => false,  // Default to false
       ];
 
@@ -513,6 +554,8 @@ class UserController extends Controller
         'role' => $user->role ?? null,
         'last_username_change' => $user->profile->last_username_change ?? null,
         'joined_at' => $user->created_at->translatedFormat('\T\h\á\n\g m Y'),
+        'theme' =>ProfileThemeService::forDisplay($user),
+        'theme_editor' => $isOwnProfile ? ProfileThemeService::editorState($user) : null,
       ],
       'stats' => [
         'followers' => $followers->count(),
@@ -579,6 +622,7 @@ class UserController extends Controller
         'username' => $post->author->username,
         'email' => $post->author->email,
         'profile_name' => $post->author->profile->profile_name ?? null,
+        'profile_theme' => ProfileThemeService::forAuthor($post->author),
         'verified' => $post->author->profile->verified == 1 ? true : false,
       ],
       'anonymous' => $post->anonymous,
@@ -817,7 +861,28 @@ class UserController extends Controller
       'gender' => 'nullable|string|in:Male,Female',
       'location' => 'nullable|string|max:255',
       'hide_email' => 'nullable|boolean',
+      ...ProfileThemeService::rules(),
     ]);
+
+    // Profile appearance - resetting it (null) is always allowed, setting it
+    // needs the `custom_profile` privilege plus whatever each option requires.
+    if (isset($validatedData['profile_theme'])) {
+      if (!ProfileThemeService::canCustomize($user)) {
+        return response()->json([
+          'message' => 'Bạn cần đạt hạng "Thành viên tập sự" để tùy chỉnh giao diện trang cá nhân.',
+        ], 403);
+      }
+
+      $validatedData['profile_theme'] = ProfileThemeService::normalize($validatedData['profile_theme']);
+
+      $lockedErrors = ProfileThemeService::lockedErrors($user, $validatedData['profile_theme']);
+      if (!empty($lockedErrors)) {
+        return response()->json([
+          'message' => 'Bạn chưa mở khóa tùy chọn giao diện này.',
+          'errors' => $lockedErrors,
+        ], 422);
+      }
+    }
 
     // Track if username or email was changed (will need new token)
     $usernameChanged = false;
@@ -976,6 +1041,7 @@ class UserController extends Controller
             'profile_name' => $user->profile->profile_name ?? $user->username,
             'profile_picture' => $user->profile->profile_picture ?? null,
             'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
+            'profile_theme' => ProfileThemeService::forAuthor($user),
             'total_points' => $user->getPoints()  // Use points
           ];
         })

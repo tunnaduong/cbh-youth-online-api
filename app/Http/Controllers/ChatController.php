@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
+use App\Services\ProfileThemeService;
 
 /**
  * Handles all chat-related functionalities, including conversations and messages.
@@ -95,6 +96,7 @@ class ChatController extends Controller
               'username' => $participant->username,
               'profile_name' => $participant->profile->profile_name ?? $participant->username,
               'avatar_url' => $participant->avatarUrl(),
+              'profile_theme' => ProfileThemeService::forAuthor($participant),
             ];
           }),
           'latest_message' => $previewMessage ? [
@@ -143,6 +145,7 @@ class ChatController extends Controller
             'username' => $participant->username,
             'profile_name' => $participant->profile->profile_name ?? $participant->username,
             'avatar_url' => $participant->avatarUrl(),
+            'profile_theme' => ProfileThemeService::forAuthor($participant),
           ];
         });
 
@@ -306,6 +309,7 @@ class ChatController extends Controller
 
             if ($message->user->username) {
               $senderData['avatar_url'] = $message->user->avatarUrl();
+              $senderData['profile_theme'] = ProfileThemeService::forAuthor($message->user);
             }
           } catch (\Exception $e) {
             // Fallback if any error occurs accessing user properties
@@ -536,6 +540,7 @@ class ChatController extends Controller
       'username' => $user->username,
       'profile_name' => $user->profile->profile_name ?? $user->username,
       'avatar_url' => $user->avatarUrl(),
+      'profile_theme' => ProfileThemeService::forAuthor($user),
     ];
   }
 
@@ -925,6 +930,7 @@ TEXT;
 
         if ($message->user->username) {
           $senderData['avatar_url'] = $message->user->avatarUrl();
+          $senderData['profile_theme'] = ProfileThemeService::forAuthor($message->user);
         }
       } catch (\Exception $e) {
         // Fallback if any error occurs accessing user properties
@@ -1024,6 +1030,7 @@ TEXT;
         'username' => $sender->username,
         'profile_name' => $sender->profile->profile_name ?? $sender->username,
         'avatar_url' => $sender->avatarUrl(),
+        'profile_theme' => ProfileThemeService::forAuthor($sender),
         'is_ai' => (bool) $sender->is_ai,
       ],
       'created_at' => $message->created_at?->toISOString(),
@@ -1350,6 +1357,7 @@ TEXT;
         'avatar_url' => $message->user->username
           ? $message->user->avatarUrl()
           : null,
+        'profile_theme' => ProfileThemeService::forAuthor($message->user),
         'is_ai' => (bool) $message->user->is_ai,
       ];
     } else {
@@ -2992,6 +3000,7 @@ TEXT;
       'username' => $participant->username,
       'profile_name' => $participant->profile->profile_name ?? $participant->username,
       'avatar_url' => $participant->avatarUrl(),
+      'profile_theme' => ProfileThemeService::forAuthor($participant),
     ];
 
     if ($includeRole && isset($participant->pivot)) {

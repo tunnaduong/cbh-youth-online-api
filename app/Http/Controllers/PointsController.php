@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Services\ProfileThemeService;
 
 class PointsController extends Controller
 {
@@ -39,6 +40,7 @@ class PointsController extends Controller
           'profile_picture' => $user->profile->profile_picture ?? null,
           'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
           'avatar_url' => $user->avatarUrl(),
+          'profile_theme' => ProfileThemeService::forAuthor($user),
           'total_points' => $user->getPoints()
         ];
       });
