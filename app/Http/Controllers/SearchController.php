@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use App\Services\ProfileThemeService;
 
 /**
  * Handles search functionality across different content types like users and posts.
@@ -171,6 +172,7 @@ class SearchController extends Controller
         'id' => $post->user->id,
         'username' => $post->user->username,
         'profile_name' => $post->user->profile->profile_name ?? $post->user->username,
+        'profile_theme' => ProfileThemeService::forAuthor($post->user),
       ],
       'stats' => [
         'views' => $post->views_count,

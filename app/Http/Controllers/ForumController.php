@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use App\Services\ProfileThemeService;
 
 /**
  * Handles the display and interaction with the main forum, categories, subforums, and topics.
@@ -279,6 +280,7 @@ class ForumController extends Controller
         'username' => $post->user->username,
         'email' => $post->user->email,
         'profile_name' => $post->user->profile->profile_name ?? null,
+        'profile_theme' => ProfileThemeService::forAuthor($post->user),
         'verified' => $post->user->profile->verified == 1 ?? false ? true : false,
       ],
       'anonymous' => $post->anonymous,
@@ -409,6 +411,7 @@ class ForumController extends Controller
             'id' => $topic->user->id,
             'username' => $topic->user->username,
             'profile_name' => $topic->user->profile->profile_name ?? null,
+            'profile_theme' => ProfileThemeService::forAuthor($topic->user),
             'avatar' => config('app.url') . '/v1.0/users/' . $topic->user->username . '/avatar',
             'verified' => $topic->user->profile->verified == 1 ? true : false
           ],
@@ -921,6 +924,7 @@ class ForumController extends Controller
             'id' => $topic->user->id,
             'username' => $topic->user->username,
             'profile_name' => $topic->user->profile->profile_name ?? null,
+            'profile_theme' => ProfileThemeService::forAuthor($topic->user),
             'avatar' => config('app.url') . '/v1.0/users/' . $topic->user->username . '/avatar',
             'verified' => $topic->user->profile->verified == 1 ? true : false
           ],

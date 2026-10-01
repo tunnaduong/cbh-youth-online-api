@@ -7,6 +7,7 @@ use App\Models\Topic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\ProfileThemeService;
 
 /**
  * Handles the management of a user's saved posts.
@@ -44,6 +45,7 @@ class SavedPostsController extends Controller
           'author' => [
             'username' => $topic->author->username,
             'profile_name' => $topic->author->profile->profile_name ?? null,
+            'profile_theme' => ProfileThemeService::forAuthor($topic->author),
             'verified' => $topic->author->profile->verified ?? false
           ],
           'stats' => [
