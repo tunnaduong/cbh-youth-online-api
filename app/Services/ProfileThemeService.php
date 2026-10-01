@@ -205,6 +205,29 @@ class ProfileThemeService
   }
 
   /**
+   * The part of forDisplay() shown next to a user's name in posts, comments
+   * and lists: the name style and the avatar frame (plus the theme colors
+   * the "theme" frame is drawn with). Profile effects/frames, banner etc.
+   * only belong on the profile page itself.
+   */
+  public static function forAuthor(?AuthAccount $user): ?array
+  {
+    $theme = $user ? self::forDisplay($user) : null;
+    if ($theme === null) {
+      return null;
+    }
+
+    return array_intersect_key($theme, array_flip([
+      'primary_color',
+      'accent_color',
+      'name_font',
+      'name_effect',
+      'name_colors',
+      'avatar_frame',
+    ]));
+  }
+
+  /**
    * What the owner's editor needs: what they saved, their points and tier
    * progress, and how many points each option needs.
    */

@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
 use League\CommonMark\CommonMarkConverter;
+use App\Services\ProfileThemeService;
 
 /**
  * Handles all API-related actions for topics, including creation, retrieval, voting, and commenting.
@@ -338,6 +339,7 @@ class TopicsController extends Controller
         'username' => $topic->user->username,
         'email' => $topic->user->email,
         'profile_name' => $topic->user->profile->profile_name ?? null,
+        'profile_theme' => ProfileThemeService::forAuthor($topic->user),
         'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
         'member_tier' => $topic->user->getMemberTier(),
       ],
@@ -940,6 +942,7 @@ class TopicsController extends Controller
           'username' => $comment->user->username,
           'email' => $comment->user->email,
           'profile_name' => $comment->user->profile->profile_name ?? null,
+          'profile_theme' => ProfileThemeService::forAuthor($comment->user),
           'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
           'member_tier' => $comment->user->getMemberTier(),
         ],
@@ -986,6 +989,7 @@ class TopicsController extends Controller
               'username' => $reply->user->username,
               'email' => $reply->user->email,
               'profile_name' => $reply->user->profile->profile_name ?? null,
+              'profile_theme' => ProfileThemeService::forAuthor($reply->user),
               'verified' => $reply->user->profile->verified == 1 ?? false ? true : false,
               'member_tier' => $reply->user->getMemberTier(),
             ],
@@ -1026,6 +1030,7 @@ class TopicsController extends Controller
                   'username' => $subReply->user->username,
                   'email' => $subReply->user->email,
                   'profile_name' => $subReply->user->profile->profile_name ?? null,
+                  'profile_theme' => ProfileThemeService::forAuthor($subReply->user),
                   'verified' => $subReply->user->profile->verified == 1 ?? false ? true : false,
                   'member_tier' => $subReply->user->getMemberTier(),
                 ],
@@ -1099,6 +1104,7 @@ class TopicsController extends Controller
         ] : [
           'username' => $topic->author->username,
           'profile_name' => $topic->author->profile->profile_name ?? null,
+          'profile_theme' => ProfileThemeService::forAuthor($topic->author),
           'verified' => $topic->user->profile->verified == 1 ?? false ? true : false,
         ],
         'anonymous' => $topic->anonymous,
@@ -1456,6 +1462,7 @@ class TopicsController extends Controller
           'username' => $author->username,
           'email' => $author->email,
           'profile_name' => $author->profile->profile_name ?? null,  // Ensure profile_name is included
+          'profile_theme' => ProfileThemeService::forAuthor($author),
         ],
         'anonymous' => $topic->anonymous,
         'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // You can dynamically calculate the time difference if needed
@@ -1840,6 +1847,7 @@ class TopicsController extends Controller
             'username' => $comment->user->username,
             'email' => $comment->user->email,
             'profile_name' => $comment->user->profile->profile_name ?? null,  // Handle case where profile might not exist
+            'profile_theme' => ProfileThemeService::forAuthor($comment->user),
             'verified' => $comment->user->profile->verified == 1 ?? false ? true : false,
           ],
         ];
@@ -1903,6 +1911,7 @@ class TopicsController extends Controller
           'id' => $author->id,
           'username' => $author->username,
           'profile_name' => $author->profile->profile_name ?? null,
+          'profile_theme' => ProfileThemeService::forAuthor($author),
           'verified' => $author->profile->verified == 1 ?? false ? true : false,
         ],
         'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
@@ -2075,6 +2084,7 @@ class TopicsController extends Controller
         'id' => $author->id,
         'username' => $author->username,
         'profile_name' => $author->profile->profile_name ?? null,
+        'profile_theme' => ProfileThemeService::forAuthor($author),
         'verified' => $author->profile->verified == 1 ?? false ? true : false,
       ],
       'created_at' => Carbon::parse($comment->created_at)->diffForHumans(),
@@ -2239,6 +2249,7 @@ class TopicsController extends Controller
             'username' => $savedTopic->topic->user->username,
             'email' => $savedTopic->topic->user->email,
             'profile_name' => $savedTopic->topic->user->profile->profile_name ?? null,
+            'profile_theme' => ProfileThemeService::forAuthor($savedTopic->topic->user),
           ],
         ]
       ];

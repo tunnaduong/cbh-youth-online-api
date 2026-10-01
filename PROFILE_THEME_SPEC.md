@@ -74,8 +74,23 @@ Bố cục như Discord: từ 1280px trở lên chia 3 cột (các mục chỉnh
 - Avatar có khung, tên có phông + hiệu ứng.
 - Mọi animation tắt khi hệ điều hành bật "giảm chuyển động" (`prefers-reduced-motion`).
 
-### 3.3. Tên trong bài viết/bình luận
-Component `StyledName` có bản `compact`: chỉ hiện phông, rê chuột mới hiện hiệu ứng (như Discord trong tin nhắn). **Chưa gắn** vào bài viết/bình luận.
+### 3.3. Tên và avatar trong bài viết, bình luận
+Chỉ phần liên quan tới tên và avatar (phông, hiệu ứng tên, màu tên, khung avatar) hiện ngoài trang cá nhân; hiệu ứng hồ sơ, khung hồ sơ, ảnh bìa thì không.
+
+| Nơi | Component |
+|---|---|
+| Bảng tin, danh sách bài trong diễn đàn, trang bài viết, bài trên trang cá nhân | `PostItem` (dòng "Đăng bởi") |
+| Trang chủ: Bài viết nổi bật, Bài viết mới nhất, thẻ Bảng xếp hạng | `FeaturedPosts`, `LatestPosts`, `RankingCard` (qua `UserAvatar` của `HomeCard`, thêm prop `theme`) |
+| Trang Xếp hạng thành viên, thanh bên "Xếp hạng thành viên" | `RankingClient`, `RightSidebar` |
+| Bình luận và trả lời | `Comment` |
+| Chat: danh sách hội thoại và tiêu đề (chỉ chat 1-1), tin nhắn, chat công khai, thành viên nhóm | `ChatThreadsList`, `ChatHeader`, `ChatConversation`, `PublicChat`, `ParticipantsList`, `GroupInfoModal` |
+| Thông báo (chỉ khung avatar, vì tên nằm trong câu) | `NotificationItem` |
+| Danh sách người theo dõi / đang theo dõi trên trang cá nhân | `ProfileClient` |
+| Bài đã lưu, danh sách chủ đề của diễn đàn con | `SavedPostItem`, `SubforumClient` |
+
+Avatar dùng component `ui/avatar` (Radix, `overflow-hidden`) được bọc bằng `AvatarFrameWrap` để khung không bị cắt.
+
+Tên hiện đầy đủ phông + hiệu ứng ở mọi nơi. `StyledName` vẫn có bản `compact` (chỉ phông, rê chuột mới có hiệu ứng) nếu sau này muốn dùng cho danh sách dài. Chưa gắn: story (đã có vòng viền riêng), danh sách người bình chọn, gợi ý @mention, thanh điều hướng của chính mình.
 
 ## 4. Kỹ thuật
 
@@ -100,6 +115,8 @@ Cột `cyo_user_profiles.profile_theme` (JSON, nullable), migration `2026_09_27_
 - `GET /v1.0/users/{username}/profile` trả thêm `profile.theme` (bản mọi người thấy, hoặc `null`) và `profile.theme_editor` (chỉ chủ trang): `can_customize`, `required_points`, `current_points`, `tiers[]`, `animated_avatar`, `saved`, `options{field: [{key, required_points, unlocked}]}`.
 - `PUT /v1.0/users/{username}/profile` nhận `profile_theme` (object hoặc `null`): 200 hợp lệ · 422 sai định dạng hoặc chọn mục chưa đủ điểm ("Tùy chọn này cần đạt X điểm.") · 403 dưới 50 điểm hoặc sửa người khác.
 - `POST /v1.0/users/{username}/avatar`: nhánh GIF động cho hạng 1000 (`storeAnimatedAvatar`).
+- Các payload người dùng sau có thêm `profile_theme` (= `forAuthor()`): bảng xếp hạng (`PointsController::getTopUsers`, `UserController::getTop8ActiveUsers`), chat (thành viên hội thoại, người gửi tin nhắn, tra cứu người dùng trong `ChatController`), `actor` của thông báo (`NotificationController`), danh sách người theo dõi trong `GET /profile`.
+- Payload tác giả bài viết/bình luận có thêm `author.profile_theme` = `ProfileThemeService::forAuthor()` (chỉ `primary_color`, `accent_color`, `name_font`, `name_effect`, `name_colors`, `avatar_frame`), ở `TopicsController` (bảng tin, danh sách, chi tiết, bình luận, trả lời, bài đã lưu), `ForumController`, `SavedPostsController`, `SearchController`, `UserController` (bài trên trang cá nhân).
 - Logic: `app/Services/ProfileThemeService.php`.
 
 ### 4.3. Web
@@ -138,7 +155,8 @@ Cột `cyo_user_profiles.profile_theme` (JSON, nullable), migration `2026_09_27_
 - [ ] Commit trên nhánh riêng (đang lẫn với thay đổi dở trên `feat/composer-page` và `feat/giftshop-shop-support-chat`).
 - [ ] Chạy migration trên staging/production.
 - [ ] Feature test HTTP cho `GET/PUT /profile` và upload avatar GIF.
-- [ ] Gắn khung avatar + tên `compact` vào bài viết, bình luận, bảng xếp hạng (API cần trả `theme` trong payload tác giả, `TopicsController` 4 chỗ).
+- [x] Gắn khung avatar + kiểu tên vào bài viết, bình luận, bài đã lưu, danh sách diễn đàn.
+- [x] Gắn vào bảng xếp hạng, thanh bên, chat, thông báo, danh sách người theo dõi, trang chủ.
 - [ ] Nameplate (khi cần).
 - [ ] Bộ ảnh khung/hiệu ứng làm bằng ChatGPT + Canva thay cho bản CSS.
 - [ ] Hiệu ứng tên Gummy, Prism.

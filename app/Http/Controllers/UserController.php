@@ -453,6 +453,7 @@ class UserController extends Controller
         'username' => $follower->follower->username,
         'profile_name' => $follower->follower->profile->profile_name ?? null,
         'profile_picture' => $follower->follower->avatarUrl(),
+        'profile_theme' => ProfileThemeService::forAuthor($follower->follower),
       ];
 
       if (auth()->check()) {
@@ -480,6 +481,7 @@ class UserController extends Controller
         'username' => $followed->followed->username,
         'profile_name' => $followed->followed->profile->profile_name ?? null,
         'profile_picture' => $followed->followed->avatarUrl(),
+        'profile_theme' => ProfileThemeService::forAuthor($followed->followed),
         'isFollowed' => false,  // Default to false
       ];
 
@@ -620,6 +622,7 @@ class UserController extends Controller
         'username' => $post->author->username,
         'email' => $post->author->email,
         'profile_name' => $post->author->profile->profile_name ?? null,
+        'profile_theme' => ProfileThemeService::forAuthor($post->author),
         'verified' => $post->author->profile->verified == 1 ? true : false,
       ],
       'anonymous' => $post->anonymous,
@@ -1038,6 +1041,7 @@ class UserController extends Controller
             'profile_name' => $user->profile->profile_name ?? $user->username,
             'profile_picture' => $user->profile->profile_picture ?? null,
             'oauth_profile_picture' => $user->profile->oauth_profile_picture ?? null,
+            'profile_theme' => ProfileThemeService::forAuthor($user),
             'total_points' => $user->getPoints()  // Use points
           ];
         })
