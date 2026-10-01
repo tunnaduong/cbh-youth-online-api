@@ -95,6 +95,7 @@ class Topic extends Model
    */
   protected $casts = [
     'is_muted' => 'boolean',
+    'edited_at' => 'datetime',
   ];
 
   /**
@@ -350,7 +351,7 @@ class Topic extends Model
    */
   public function getIsEditedAttribute()
   {
-    return $this->updated_at && $this->created_at && $this->updated_at->diffInSeconds($this->created_at) > 5;
+    return !is_null($this->edited_at);
   }
 
   /**
@@ -544,6 +545,27 @@ class Topic extends Model
     static::creating(function ($topic) {
       if (empty($topic->id)) {
         $topic->id = static::generateRandomizedId();
+      }
+    });
+
+    // Stamp edited_at only when the author actually changes editable
+    // content, not on moderation/admin updates (moderation_status, hidden,
+    // pinned) which also touch the row via update() or save().
+    static::updating(function ($topic) {
+      $editableFields = [
+        'title',
+        'description',
+        'content_html',
+        'subforum_id',
+        'cdn_image_id',
+        'cdn_document_id',
+        'cdn_video_id',
+        'privacy',
+        'anonymous',
+      ];
+
+      if ($topic->isDirty($editableFields)) {
+        $topic->edited_at = now();
       }
     });
 

@@ -42,7 +42,7 @@ class TopicComment extends Model
    */
   public function getIsEditedAttribute()
   {
-    return $this->updated_at && $this->created_at && $this->updated_at->diffInSeconds($this->created_at) > 5;
+    return !is_null($this->edited_at);
   }
 
   /**
@@ -72,6 +72,7 @@ class TopicComment extends Model
 
   protected $casts = [
     'image_urls' => 'array',
+    'edited_at' => 'datetime',
   ];
 
   /**
@@ -165,6 +166,15 @@ class TopicComment extends Model
   protected static function boot()
   {
     parent::boot();
+
+    // Stamp edited_at only when the author actually changes the comment
+    // text, not on moderation updates (moderation_status) which also touch
+    // the row via update().
+    static::updating(function ($comment) {
+      if ($comment->isDirty(['comment', 'comment_html'])) {
+        $comment->edited_at = now();
+      }
+    });
 
     // Add points when a comment is created (+2 points)
     static::created(function ($comment) {
