@@ -18,7 +18,7 @@ This repository is the Laravel 10 backend served at `https://api.chuyenbienhoa.c
 
 ## Key Features
 
-- **User Authentication:** Secure user registration, login (username/password, Google, Facebook, Apple), password reset, email verification, and a one-time handoff that signs the mobile app's user in on the web.
+- **User Authentication:** Secure user registration, login (username/password, Google, Facebook, Apple), password reset, email verification, a one-time handoff that signs the mobile app's user in on the web, optional two-factor login (email code or authenticator app), a list of logged-in devices with remote log-out, and an email when the account is used on a new device.
 - **User Profiles:** Customizable user profiles with avatars, covers, bios, follower/following stats, activity points, and unlockable profile themes (avatar frames, name effects, profile effects).
 - **Forum System:** Multi-level forums with main categories and subforums for organized discussions.
 - **Topics & Comments:** Users can create topics with images and video, post comments, and engage in nested reply threads, with mentions and hashtags.

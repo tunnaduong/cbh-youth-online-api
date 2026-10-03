@@ -26,14 +26,14 @@ Laravel 10 backend behind **https://api.chuyenbienhoa.com** for CBH Youth Online
 
 1. **Public** — login/register/OAuth/password reset, avatars/covers, file serving, gift-shop catalog, SePay webhook, VAPID key, feedback (throttled), web-session redeem.
 2. **`optional.auth`** — works for guests, adds viewer-specific data when a token is sent (forum/topics, profiles, search, stories, study materials, games, public chat, group invite preview). Content from users blocked in either direction is filtered out.
-3. **`auth:sanctum` + `not_banned`** — everything that writes or is personal.
+3. **`auth:sanctum` + `not_banned` + `device_session`** — everything that writes or is personal (`device_session` keeps the token's device details current).
 4. **`role:admin`** (`CheckRole` middleware) — moderation, report admin, broadcasts, deposit/withdrawal approval, student verifications, and `/v1.0/admin/*` (`Admin\AdminPanelController`), which the web `/admin` uses.
 
-Middleware aliases live in `app/Http/Kernel.php` (`optional.auth`, `not_banned`, `role`).
+Middleware aliases live in `app/Http/Kernel.php` (`optional.auth`, `not_banned`, `role`, `device_session`).
 
 ## Features (domain → main code)
 
-- **Auth & accounts** — `AuthController`: username/password login, register with email verification codes, Google/Facebook (Socialite + PKCE code exchange `POST /oauth/exchange`), Apple (`AppleIdTokenVerifier`), logout (revokes the current token), ban checks (`bannedResponse`), **web-session handoff** (mobile → web, see Recent work). Password reset: `ForgotPasswordController`, `PasswordResetController`.
+- **Auth & accounts** — `AuthController`: username/password login, register with email verification codes, Google/Facebook (Socialite + PKCE code exchange `POST /oauth/exchange`), Apple (`AppleIdTokenVerifier`), logout (revokes the current token), ban checks (`bannedResponse`), **web-session handoff** (mobile → web, see Recent work), **two-factor login** (email code or authenticator app, recovery codes, remembered devices; `TwoFactorController`, `TwoFactorService`, `TotpService`), **logged-in devices** (`DeviceSessionController`) and a new-device login email (`DeviceSessionService`). Password reset: `ForgotPasswordController`, `PasswordResetController`.
 - **Users & profiles** — `UserController`, `ProfileController`, `FollowController`, `UserBlockController` (2-way block hides everything; blocked profile returns 404), profile photo gallery, liked-posts list (`GET /users/{username}/likes`), online status (`OnlineUserController`, `ActivityController`), account deletion.
 - **Profile customization** — `ProfileThemeService`: avatar frames, name effects, profile effects/frames unlocked by points milestones; returned on authors of posts, comments, chat, rankings and notifications. Spec: PROFILE_THEME_SPEC.md.
 - **Forum** — `ForumController`, `TopicsController`: main categories → categories → subforums; topics (posts) with images/video; nested comments (3 levels); votes, views, saved posts (`SavedPostsController`), hidden topics, archive/unarchive, hashtags (`HashtagService`), mentions (`MentionService`), home feed.
@@ -72,7 +72,7 @@ resources/             Blade views (emails, legacy app shell), lang
 api/index.php          Vercel PHP entry (just requires public/index.php)
 deploy/                nginx upload-size snippet, supervisor queue-worker config
 scripts/setup-cron.sh  cron for points refresh (points:refresh-all every 30 min)
-tests/                 PHPUnit (Feature: auth, profile, voting; Unit: ProfileThemeService, story overlay sanitizer)
+tests/                 PHPUnit (Feature: auth, profile, voting; Unit: ProfileThemeService, story overlay sanitizer, TotpService)
 .rr.yaml, rr           RoadRunner binary + config (Laravel Octane)
 ```
 
@@ -97,7 +97,7 @@ php artisan test            # PHPUnit (phpunit.xml)
 ./vendor/bin/pint           # code style
 ```
 
-Cache note: the web-session handoff (and other features) store state in `Cache`, so the production `CACHE_DRIVER` must persist across requests (`file`/`redis`, never `array`).
+Cache note: the web-session handoff, two-factor login challenges and emailed codes (and other features) store state in `Cache`, so the production `CACHE_DRIVER` must persist across requests (`file`/`redis`, never `array`).
 
 ## Deploy
 
@@ -112,6 +112,16 @@ Cache note: the web-session handoff (and other features) store state in `Cache`,
 - New client endpoints go in `routes/api.php` under the right access tier. Keep response shapes stable: web, mobile and gift shop all consume them.
 
 ## Recent work (newest first)
+
+- **Two-factor login, logged-in devices, new-device email** (branch `feat/two-factor-auth`, written on a machine without PHP: **not run yet** - run `php artisan migrate` and `php artisan test --filter=TotpServiceTest` before merging):
+  - **2FA, off by default.** Methods: emailed 6-digit code (`TwoFactorCode` notification) or authenticator app (`TotpService`, RFC 6238, no package). `TwoFactorService` holds the logic. Columns `two_factor_*` on `cyo_auth_accounts` (secret and recovery-code hashes are encrypted casts on `AuthAccount`; `hasTwoFactorEnabled()`).
+  - **Login**: `POST /login` and `POST /login/oauth` return `{ two_factor_required, challenge_token, method, email, expires_in }` instead of a token when 2FA is on. `POST /login/two-factor` (`challenge_token`, `code` = app/email/recovery code, `remember_device`, `device_name`, `device_token`) then returns the normal login payload plus `device_token`. `POST /login/two-factor/resend` re-sends the email code. An expired challenge answers **410** with `challenge_expired` (not 401, which clients treat as a dead session). Challenges, email codes and failure counters live in `Cache`/`RateLimiter` (10 min TTL, 5 tries per challenge, 10 wrong codes per account per 15 min).
+  - **Remembered devices**: `cyo_two_factor_trusted_devices` (60 days); clients send the token back as `device_token` on `/login` and `/login/oauth` to skip the challenge. Forgotten on password change/reset and on "log out other devices".
+  - **Settings** (`TwoFactorController`, auth): `GET /two-factor`, `POST /two-factor/{totp,email,email/send,confirm,disable,recovery-codes}`, `DELETE /two-factor/trusted-devices`. Setup needs the password unless the account came from a social provider; disabling needs the password or a current code.
+  - **Logged-in devices** (`DeviceSessionController`): `GET /sessions`, `DELETE /sessions/{id}`, `DELETE /sessions` (all except the current token). `personal_access_tokens` gained `platform`, `app_version`, `device_name`, `device_model`, kept current by the `device_session` middleware (`TrackDeviceSession`) from the URL-encoded headers `X-Client-Platform` (`web`/`ios`/`android`), `X-Client-Version`, `X-Device-Name`, `X-Device-Model`.
+  - **New-device email**: `DeviceSessionService::recordLogin()` runs when a login issues a token; an unseen platform+name+model (table `cyo_known_devices`) sends `NewDeviceLogin`. It counts as a security email, so there is no setting to turn it off. Every account gets one on its first login after deploy.
+  - **Legacy session login** (`routes/auth.php`, `SocialAuthController`) refuses accounts with 2FA on, since it has no second step.
+  - **Still open**: `loginWithProvider` trusts a client-supplied email when the provider returns none (account takeover for accounts without 2FA); 2FA is not forced for admins; no feature tests for these endpoints.
 
 - **Web-session handoff (mobile → web)**: `POST /v1.0/web-session/handoff` (auth) stores a random 64-char code → user id in `Cache` for 60s. `POST /v1.0/web-session/redeem` (public, `throttle:20,1`) pulls the code once, checks the ban, and returns a **separate** Sanctum token named `web-handoff`, so logging out on the web doesn't log out the app. The mobile app's in-app browser uses it by opening `…/auth/set-token?code=…&return=…` on chuyenbienhoa.com and giftshop.chuyenbienhoa.com.
 - Posts: moderation-approved posts no longer flagged as edited.
