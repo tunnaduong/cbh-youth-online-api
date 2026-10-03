@@ -1979,7 +1979,9 @@ class TopicsController extends Controller
         } else {
           $path = $image->store('comment_images', 'public');
         }
-        ProcessImageCompression::dispatch($path);
+        // Obsolete: photos are compressed by the client before upload.
+        // Kept, not deleted.
+        // ProcessImageCompression::dispatch($path);
         $imagePaths[] = $path;
       }
     }

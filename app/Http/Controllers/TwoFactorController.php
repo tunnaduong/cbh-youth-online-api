@@ -323,7 +323,18 @@ class TwoFactorController extends Controller
       ], 409);
     }
 
-    if ($this->passwordRequired($user) && !Hash::check((string) $request->input('password'), $user->password)) {
+    if ($this->passwordRequired($user)) {
+      // Same limiter as wrong codes: a stolen session must not be able to
+      // guess the password here at full speed.
+      if ($response = $this->guardFailures($user)) {
+        return $response;
+      }
+      if (Hash::check((string) $request->input('password'), $user->password)) {
+        return null;
+      }
+
+      TwoFactorService::hitFailure($user);
+
       return response()->json([
         'message' => 'Mật khẩu không chính xác.',
         'errors' => [

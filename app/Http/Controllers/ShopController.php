@@ -410,6 +410,10 @@ class ShopController extends Controller
       ->keyBy(fn($item) => $item['product_id'] . ':' . (int) ($item['variant_id'] ?? 0));
 
     DB::transaction(function () use ($userId, $lines) {
+      // Serialises saves for the same account (e.g. two tabs syncing at once),
+      // which would otherwise collide on the unique index.
+      AuthAccount::whereKey($userId)->lockForUpdate()->first();
+
       ShopCartItem::where('user_id', $userId)->delete();
 
       foreach ($lines as $item) {

@@ -30,6 +30,7 @@ class TrackDeviceSession
         $token = $user && method_exists($user, 'currentAccessToken') ? $user->currentAccessToken() : null;
 
         if ($token instanceof PersonalAccessToken) {
+            try {
             $details = DeviceSessionService::detailsFromRequest($request);
 
             // App versions from before these headers existed: the user agent
@@ -42,6 +43,10 @@ class TrackDeviceSession
 
             if ($token->isDirty()) {
                 $token->save();
+            }
+            } catch (\Throwable $e) {
+                // Bookkeeping only (e.g. the columns don't exist yet because the
+                // migration hasn't run): never fail the request over it.
             }
         }
 

@@ -65,6 +65,11 @@ class TwoFactorService
     ], self::CHALLENGE_TTL);
 
     $methods = self::enabledMethods($user);
+    if (!$methods) {
+      // Marked as on but with nothing usable (e.g. a missing secret): there
+      // is no code the user could enter, so don't lock them out.
+      return null;
+    }
     $default = $methods[0];
     $emailEnabled = in_array(self::METHOD_EMAIL, $methods, true);
 
