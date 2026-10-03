@@ -10,6 +10,7 @@ use App\Notifications\VerifyEmail;
 use App\Services\DeviceSessionService;
 use App\Services\NotificationService;
 use App\Services\TwoFactorService;
+use App\Services\WebAuthnService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -258,6 +259,99 @@ class AuthController extends Controller
     }
 
     return response()->json($data);
+  }
+
+  /**
+   * Start a passkey login: the challenge for navigator.credentials.get().
+   * No username is involved - the device offers the passkeys it holds.
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function passkeyLoginOptions()
+  {
+    return response()->json(WebAuthnService::loginOptions());
+  }
+
+  /**
+   * Finish a passkey login. The passkey is the whole login: no password and
+   * no two-factor step (it is bound to the user's device and unlocked by its
+   * screen lock, which already is two factors).
+   *
+   * The mobile app runs the passkey prompt in its in-app browser, where it
+   * must not receive the token directly: it sends `app_challenge`
+   * (sha256 of a secret it keeps) and gets a one-time `code` back, which the
+   * app itself exchanges through redeemPasskeyLogin() with the secret.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function passkeyLogin(Request $request)
+  {
+    $request->validate([
+      'request_id' => 'required|string|max:64',
+      'credential' => 'required|array',
+      'credential.id' => 'required|string|max:2000',
+      'credential.response.clientDataJSON' => 'required|string',
+      'credential.response.authenticatorData' => 'required|string',
+      'credential.response.signature' => 'required|string',
+      'app_challenge' => 'nullable|string|size:64',
+    ]);
+
+    $user = WebAuthnService::verifyLogin($request->input('credential'), $request->input('request_id'));
+
+    if (!$user) {
+      // 422, not 401: the clients treat 401 as "your session died".
+      return response()->json([
+        'message' => 'Không thể đăng nhập bằng passkey này. Vui lòng thử lại.',
+      ], 422);
+    }
+
+    if ($user->isCurrentlyBanned()) {
+      return $this->bannedResponse($user);
+    }
+
+    if ($request->filled('app_challenge')) {
+      $code = Str::random(64);
+      Cache::put('passkey_login:' . hash('sha256', $code), [
+        'user_id' => $user->id,
+        'app_challenge' => strtolower($request->input('app_challenge')),
+      ], 120);
+
+      return response()->json(['code' => $code]);
+    }
+
+    return response()->json($this->loginResponseData($user, $request));
+  }
+
+  /**
+   * Mobile app: exchange the one-time code from passkeyLogin() for a token,
+   * proving with `verifier` that this is the app that started the login.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function redeemPasskeyLogin(Request $request)
+  {
+    $request->validate([
+      'code' => 'required|string|size:64',
+      'verifier' => 'required|string|min:32|max:128',
+    ]);
+
+    // pull = read + delete, so a code works exactly once.
+    $pending = Cache::pull('passkey_login:' . hash('sha256', $request->input('code')));
+    $user = $pending ? AuthAccount::find($pending['user_id']) : null;
+
+    if (!$user || !hash_equals($pending['app_challenge'], hash('sha256', $request->input('verifier')))) {
+      return response()->json([
+        'message' => 'Phiên đăng nhập bằng passkey đã hết hạn. Vui lòng thử lại.',
+      ], 422);
+    }
+
+    if ($user->isCurrentlyBanned()) {
+      return $this->bannedResponse($user);
+    }
+
+    return response()->json($this->loginResponseData($user, $request));
   }
 
   /**

@@ -54,6 +54,14 @@ return [
     'subject' => env('VAPID_SUBJECT', 'mailto:cbhyouthonline@gmail.com'),
   ],
 
+  // Passkeys (WebAuthnService). rp_id is the domain passkeys are bound to and
+  // must not change once users have registered; origins are the sites
+  // allowed to run the passkey prompt (comma-separated).
+  'webauthn' => [
+    'rp_id' => env('WEBAUTHN_RP_ID', 'chuyenbienhoa.com'),
+    'origins' => env('WEBAUTHN_ORIGINS', 'https://chuyenbienhoa.com,https://www.chuyenbienhoa.com'),
+  ],
+
   'chat_api' => [
     // The Chat with AI feature (AiChatService) uses this key/proxy. Key
     // lives in .env as CYO_AI_API - never commit it or return it from any

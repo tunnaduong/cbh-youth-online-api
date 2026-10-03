@@ -797,6 +797,22 @@ class ChatController extends Controller
 
     $content = trim((string) $message->content);
 
+    // Gift shop support thread: every text message from the customer gets an
+    // AI answer while the thread's AI switch is on. Staff messages never
+    // trigger it, and once the customer turns it off the thread is left to
+    // real people.
+    if ($conversation->is_shop_support) {
+      if (
+        $conversation->shop_ai_enabled
+        && $message->user_id === $conversation->created_by
+        && $message->type === 'text'
+        && $content !== ''
+      ) {
+        \App\Jobs\GenerateAiChatReply::dispatch($conversation->id, $message->id, 'shop');
+      }
+      return;
+    }
+
     // "/help" only counts as the help command completely on its own - any
     // trailing text ("/help ai" etc.) falls through to the normal /ai and
     // /summary checks below instead. Answered instantly from a pregenerated
@@ -3064,7 +3080,7 @@ TEXT;
    *                                new background_url) without a second request.
    * @return \App\Models\Message
    */
-  private function createSystemMessage(Conversation $conversation, string $content, ?array $metadata = null): Message
+  public function createSystemMessage(Conversation $conversation, string $content, ?array $metadata = null): Message
   {
     $message = Message::create([
       'conversation_id' => $conversation->id,

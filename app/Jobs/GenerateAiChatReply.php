@@ -49,6 +49,11 @@ class GenerateAiChatReply implements ShouldQueue
       return;
     }
 
+    // The customer may have switched the AI off while this job was queued.
+    if ($this->mode === 'shop' && !$conversation->shop_ai_enabled) {
+      return;
+    }
+
     // Fire the AI's "typing" indicator now, since the Groq call below can
     // take several seconds - the AI has no client to whisper the way humans
     // do (see ChatProvider.js/ChatSocketContext.js), so this is a real
@@ -58,9 +63,11 @@ class GenerateAiChatReply implements ShouldQueue
 
     try {
       try {
-        $result = $this->mode === 'summary'
-          ? $this->runSummary($aiChatService, $conversation, $triggerMessage)
-          : $this->runAsk($aiChatService, $triggerMessage);
+        $result = match ($this->mode) {
+          'summary' => $this->runSummary($aiChatService, $conversation, $triggerMessage),
+          'shop' => $this->runShopSupport($aiChatService, $conversation, $triggerMessage),
+          default => $this->runAsk($aiChatService, $triggerMessage),
+        };
       } catch (\Throwable $e) {
         Log::error('GenerateAiChatReply failed: ' . $e->getMessage());
         $result = ['content' => 'Xin lỗi, hiện tại AI đang gặp sự cố và không thể trả lời. Vui lòng thử lại sau.', 'reaction' => null];
@@ -71,7 +78,10 @@ class GenerateAiChatReply implements ShouldQueue
         'user_id' => $aiAccount->id,
         'content' => $result['content'],
         'type' => 'text',
-        'reply_to_message_id' => $triggerMessage->id,
+        // A support thread reads as a normal back-and-forth, and a quoted
+        // reply would also send the customer a "replied to you" notification
+        // for every answer.
+        'reply_to_message_id' => $this->mode === 'shop' ? null : $triggerMessage->id,
       ]);
 
       $chatController = app(ChatController::class);
@@ -87,6 +97,116 @@ class GenerateAiChatReply implements ShouldQueue
     } finally {
       broadcast(new AiTyping($conversation->id, $aiAccount->id, $aiAccount->avatarUrl(), false));
     }
+  }
+
+  /**
+   * Gift shop support: answer the customer with the thread's recent history
+   * plus what the shop knows about them and the product they asked about.
+   *
+   * @return array{content: string, reaction: ?string}
+   */
+  private function runShopSupport(AiChatService $aiChatService, Conversation $conversation, Message $triggerMessage): array
+  {
+    $history = $this->collectRecentHistory($conversation, $triggerMessage, 20)
+      ->map(fn($m) => $this->toContext($m))
+      ->all();
+
+    $result = $aiChatService->askShopSupport(
+      $history,
+      (string) $triggerMessage->content,
+      $this->buildShopContext($conversation)
+    );
+
+    // No emoji reactions from the support assistant.
+    $result['reaction'] = null;
+
+    return $result;
+  }
+
+  /**
+   * Everything the support assistant may rely on, as plain text: who the
+   * customer is, the thread and its members, the product they last asked
+   * about (with variants, prices and stock) and their recent orders.
+   * Phone numbers and addresses are left out on purpose.
+   */
+  private function buildShopContext(Conversation $conversation): string
+  {
+    $money = fn($amount) => number_format((int) $amount, 0, ',', '.') . ' đ';
+    $lines = [];
+
+    $customer = AuthAccount::with('profile')->find($conversation->created_by);
+    if ($customer) {
+      $lines[] = 'Khách hàng: ' . ($customer->profile->profile_name ?? $customer->username)
+        . " (@{$customer->username}), hiện có " . $customer->getPoints() . ' điểm.';
+    }
+
+    $staff = $conversation->participants()
+      ->where('is_ai', false)
+      ->where('cyo_auth_accounts.id', '!=', $conversation->created_by)
+      ->with('profile')
+      ->get()
+      ->map(fn($member) => ($member->profile->profile_name ?? $member->username) . " (@{$member->username})")
+      ->implode(', ');
+    $lines[] = 'Nhóm chat hỗ trợ: "' . ($conversation->name ?: 'Hỗ trợ Giftshop') . '". Nhân viên shop trong nhóm: '
+      . ($staff !== '' ? $staff : 'chưa có') . '.';
+
+    // The product is whatever the customer's latest "Nhắn tin" inquiry was
+    // about (ShopController::contactShop stores it in the message metadata).
+    $inquiry = $conversation->messages()
+      ->whereNotNull('metadata->shop_product_id')
+      ->orderByDesc('id')
+      ->first();
+    $product = $inquiry
+      ? \App\Models\ShopProduct::withTrashed()->with(['category', 'variants'])->find($inquiry->metadata['shop_product_id'] ?? null)
+      : null;
+
+    if ($product) {
+      $lines[] = 'Sản phẩm khách đang hỏi: "' . $product->name . '"'
+        . ($product->category ? ' - loại: ' . $product->category->name : '')
+        . ' - giá: ' . $money($product->price)
+        . ' - tồn kho: ' . (int) $product->stock
+        . (!$product->is_active || $product->trashed() ? ' - HIỆN ĐÃ NGỪNG BÁN' : '') . '.';
+
+      if (!empty($inquiry->metadata['shop_variant_label'])) {
+        $lines[] = 'Phân loại khách đang chọn: ' . $inquiry->metadata['shop_variant_label'] . '.';
+      }
+
+      if ($product->description) {
+        $lines[] = 'Mô tả sản phẩm: ' . \Illuminate\Support\Str::limit(trim(strip_tags($product->description)), 800);
+      }
+
+      if ($product->variants->isNotEmpty()) {
+        $lines[] = 'Các phân loại: ' . $product->variants
+          ->map(fn($variant) => $variant->label() . ' (giá ' . $money($variant->price) . ', còn ' . (int) $variant->stock . ')')
+          ->implode('; ') . '.';
+      }
+    } else {
+      $lines[] = 'Chưa xác định được sản phẩm cụ thể mà khách đang hỏi.';
+    }
+
+    $orders = \App\Models\ShopOrder::where('user_id', $conversation->created_by)
+      ->with('items.product')
+      ->orderByDesc('created_at')
+      ->limit(3)
+      ->get();
+
+    if ($orders->isNotEmpty()) {
+      $lines[] = 'Đơn hàng gần đây của khách:';
+      foreach ($orders as $order) {
+        $items = $order->items
+          ->map(fn($item) => ($item->product->name ?? 'Sản phẩm đã xóa')
+            . ($item->variant_label ? " ({$item->variant_label})" : '')
+            . ' x' . $item->quantity)
+          ->implode(', ');
+        $lines[] = "- Đơn #{$order->id} ngày " . $order->created_at->format('d/m/Y')
+          . ": {$items}; tổng " . $money($order->total_amount)
+          . "; trạng thái: {$order->status}; thanh toán: {$order->payment_method} ({$order->payment_status}).";
+      }
+    } else {
+      $lines[] = 'Khách chưa có đơn hàng nào.';
+    }
+
+    return implode("\n", $lines);
   }
 
   /**

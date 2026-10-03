@@ -14,6 +14,8 @@ use Illuminate\Validation\Rule;
  *     "primary_color": "#rrggbb" | null,   Profile Theme (null = normal look)
  *     "accent_color": "#rrggbb" | null,
  *     "banner_color": "#rrggbb" | null,    banner when there is no cover photo
+ *     "primary_color_2" / "accent_color_2" / "banner_color_2": "#rrggbb" | null,
+ *                                          second colour = draw that colour as a gradient
  *     "name_font": one of OPTIONS['name_font'],
  *     "name_effect": one of OPTIONS['name_effect'],
  *     "name_colors": ["#rrggbb", "#rrggbb"],  gradient uses both, others the first
@@ -51,8 +53,6 @@ class ProfileThemeService
       'modern' => null,
       'bubbly' => null,
       'handwritten' => null,
-      'flex' => null,
-      'grotesk' => null,
       'script' => 'active',
       'comic' => 'active',
       'pixel' => 'active',
@@ -60,6 +60,23 @@ class ProfileThemeService
       'gothic' => 'distinguished',
       'heavy' => 'distinguished',
       'spooky' => 'distinguished',
+      // Server-hosted fonts (SERVER_FONTS below) - every key there needs an
+      // entry here.
+      'flex' => 'premium',
+      'grotesk' => 'premium',
+      'montserrat' => 'premium',
+      'bevietnam' => 'premium',
+      'nunito' => 'premium',
+      'quicksand' => 'premium',
+      'comfortaa' => 'premium',
+      'manrope' => 'premium',
+      'raleway' => 'premium',
+      'exo' => 'premium',
+      'playfair' => 'premium',
+      'merriweather' => 'premium',
+      'robotoslab' => 'premium',
+      'lobster' => 'premium',
+      'pacifico' => 'premium',
     ],
     'name_effect' => [
       'none' => null,
@@ -96,10 +113,46 @@ class ProfileThemeService
     ],
   ];
 
+  /**
+   * Name fonts the clients don't bundle: the files live in public/fonts/name
+   * and are listed by GET /v1.0/name-fonts, so adding one here (plus its
+   * OPTIONS['name_font'] entry and the .ttf) needs no client release. All
+   * are static single-weight files with full Vietnamese glyphs, from Google
+   * Fonts (Open Font License). Most also cover Cyrillic; Google Sans Flex,
+   * Space Grotesk, Be Vietnam Pro and Quicksand do not, so Russian names in
+   * those fall back to the system font.
+   */
+  public const SERVER_FONTS = [
+    'flex' => ['label' => 'Google Sans Flex', 'file' => 'GoogleSansFlex.ttf'],
+    'grotesk' => ['label' => 'Space Grotesk', 'file' => 'SpaceGrotesk.ttf'],
+    'montserrat' => ['label' => 'Montserrat', 'file' => 'Montserrat.ttf'],
+    'bevietnam' => ['label' => 'Be Vietnam Pro', 'file' => 'BeVietnamPro.ttf'],
+    'nunito' => ['label' => 'Nunito', 'file' => 'Nunito.ttf'],
+    'quicksand' => ['label' => 'Quicksand', 'file' => 'Quicksand.ttf'],
+    'comfortaa' => ['label' => 'Comfortaa', 'file' => 'Comfortaa.ttf'],
+    'manrope' => ['label' => 'Manrope', 'file' => 'Manrope.ttf'],
+    'raleway' => ['label' => 'Raleway', 'file' => 'Raleway.ttf'],
+    'exo' => ['label' => 'Exo 2', 'file' => 'Exo2.ttf'],
+    'playfair' => ['label' => 'Playfair Display', 'file' => 'PlayfairDisplay.ttf'],
+    'merriweather' => ['label' => 'Merriweather', 'file' => 'Merriweather.ttf'],
+    'robotoslab' => ['label' => 'Roboto Slab', 'file' => 'RobotoSlab.ttf'],
+    'lobster' => ['label' => 'Lobster', 'file' => 'Lobster.ttf'],
+    'pacifico' => ['label' => 'Pacifico', 'file' => 'Pacifico.ttf'],
+  ];
+
   /** Tier needed to keep an uploaded GIF avatar animated. */
   public const ANIMATED_AVATAR_TIER = 'veteran';
 
+  /** Tier needed to pick a second colour (a gradient) for the theme colours. */
+  public const GRADIENT_TIER = 'premium';
+
   private const COLOR_FIELDS = ['primary_color', 'accent_color', 'banner_color'];
+
+  /**
+   * Optional second colour of each COLOR_FIELDS entry: when set, that colour
+   * is drawn as a gradient from the first to this one. Null = solid.
+   */
+  private const GRADIENT_FIELDS = ['primary_color_2', 'accent_color_2', 'banner_color_2'];
 
   private const HEX_COLOR = '/\A#[0-9a-fA-F]{6}\z/';
 
@@ -108,7 +161,7 @@ class ProfileThemeService
    */
   public static function rules(): array
   {
-    $keys = implode(',', [...self::COLOR_FIELDS, ...array_keys(self::OPTIONS), 'name_colors']);
+    $keys = implode(',', [...self::COLOR_FIELDS, ...self::GRADIENT_FIELDS, ...array_keys(self::OPTIONS), 'name_colors']);
 
     $rules = [
       'profile_theme' => 'nullable|array:' . $keys,
@@ -116,7 +169,7 @@ class ProfileThemeService
       'profile_theme.name_colors.*' => ['string', 'regex:' . self::HEX_COLOR],
     ];
 
-    foreach (self::COLOR_FIELDS as $field) {
+    foreach ([...self::COLOR_FIELDS, ...self::GRADIENT_FIELDS] as $field) {
       $rules['profile_theme.' . $field] = ['nullable', 'string', 'regex:' . self::HEX_COLOR];
     }
 
@@ -155,6 +208,13 @@ class ProfileThemeService
       $color($nameColors[1] ?? null, self::DEFAULT_ACCENT),
     ];
 
+    // A second colour only means something next to a first one.
+    foreach (self::GRADIENT_FIELDS as $index => $field) {
+      $normalized[$field] = $normalized[self::COLOR_FIELDS[$index]] !== null
+        ? $color($theme[$field] ?? null, null)
+        : null;
+    }
+
     return $normalized;
   }
 
@@ -185,7 +245,40 @@ class ProfileThemeService
       }
     }
 
+    if (!self::canUseGradientColors($user)) {
+      foreach (self::GRADIENT_FIELDS as $field) {
+        if (($theme[$field] ?? null) !== null) {
+          $errors['profile_theme.' . $field] = [
+            'Màu chuyển sắc cần đạt ' . self::tierMinPoints(self::GRADIENT_TIER) . ' điểm.',
+          ];
+        }
+      }
+    }
+
     return $errors;
+  }
+
+  public static function canUseGradientColors(AuthAccount $user): bool
+  {
+    return self::canCustomize($user) && self::tierReached($user, self::GRADIENT_TIER);
+  }
+
+  /**
+   * The server-hosted name fonts, as GET /v1.0/name-fonts returns them.
+   */
+  public static function serverFonts(): array
+  {
+    $base = rtrim((string) config('app.url'), '/') . '/v1.0/name-fonts/';
+    $requiredPoints = fn($key) => self::tierMinPoints(self::OPTIONS['name_font'][$key] ?? null);
+
+    return collect(self::SERVER_FONTS)->map(fn($font, $key) => [
+      'key' => $key,
+      'label' => $font['label'],
+      // Unique per file, so a client can register it under this name.
+      'family' => 'CYO ' . pathinfo($font['file'], PATHINFO_FILENAME),
+      'url' => $base . $font['file'],
+      'required_points' => $requiredPoints($key),
+    ])->values()->all();
   }
 
   /**
@@ -204,6 +297,12 @@ class ProfileThemeService
     foreach (self::OPTIONS as $field => $options) {
       if (!self::tierReached($user, $options[$theme[$field]])) {
         $theme[$field] = array_key_first($options);
+      }
+    }
+
+    if (!self::canUseGradientColors($user)) {
+      foreach (self::GRADIENT_FIELDS as $field) {
+        $theme[$field] = null;
       }
     }
 
@@ -226,6 +325,8 @@ class ProfileThemeService
     return array_intersect_key($theme, array_flip([
       'primary_color',
       'accent_color',
+      'primary_color_2',
+      'accent_color_2',
       'name_font',
       'name_effect',
       'name_colors',
@@ -247,6 +348,11 @@ class ProfileThemeService
         'key' => $key,
         'required_points' => self::tierMinPoints($tierId ?? $baseTier['id']),
         'unlocked' => self::canCustomize($user) && self::tierReached($user, $tierId),
+        // Server-hosted fonts carry their display name; the clients have
+        // their own labels for everything else.
+        ...($field === 'name_font' && isset(self::SERVER_FONTS[$key])
+          ? ['label' => self::SERVER_FONTS[$key]['label']]
+          : []),
       ])->values()->all();
     }
 
@@ -265,6 +371,11 @@ class ProfileThemeService
       'animated_avatar' => [
         'required_points' => self::tierMinPoints(self::ANIMATED_AVATAR_TIER),
         'unlocked' => self::canUseAnimatedAvatar($user),
+      ],
+      // Second colour (gradient) for primary / accent / banner colours.
+      'color_gradient' => [
+        'required_points' => self::tierMinPoints(self::GRADIENT_TIER),
+        'unlocked' => self::canUseGradientColors($user),
       ],
       'saved' => is_array($saved) && !empty($saved) ? self::normalize($saved) : null,
       'options' => $options,

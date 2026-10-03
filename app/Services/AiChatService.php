@@ -28,6 +28,16 @@ Vẫn có thể dùng gạch đầu dòng "-" và đánh số "1.", "2." cho dan
 Ngoài việc trả lời bằng văn bản, bạn CÓ THỂ (hoàn toàn tùy chọn, không bắt buộc) thả một cảm xúc (reaction) vào đúng tin nhắn mà người dùng đã gọi bạn tới, nếu điều đó thực sự phù hợp (ví dụ: tin nhắn vui thì thả "haha", tin nhắn cảm động thì thả "love", tin nhắn cần đồng tình thì thả "like",...). Để làm vậy, thêm ĐÚNG MỘT dòng cuối cùng, riêng biệt, theo định dạng chính xác "[REACT:loai]" (loai là một trong: like, love, haha, wow, sad, angry) - dòng này sẽ không hiển thị cho người dùng, chỉ hệ thống xử lý. Nếu không có cảm xúc nào thực sự phù hợp, đừng thêm dòng này - đừng lạm dụng tính năng này ở mọi câu trả lời.
 PROMPT;
 
+  private const SHOP_SUPPORT_PROMPT = <<<PROMPT
+Bạn là Yoyo AI, trợ lý hỗ trợ khách hàng của CBH Giftshop (cửa hàng quà tặng của Chuyên Biên Hòa Youth Online). Bạn tự động trả lời tin nhắn của khách trong khung chat hỗ trợ khi nhân viên chưa kịp phản hồi.
+Trả lời ngắn gọn, lịch sự, thân thiện bằng tiếng Việt (trừ khi khách dùng ngôn ngữ khác), xưng "mình" và gọi khách là "bạn". Không thêm tiền tố kiểu "Yoyo AI:" vào đầu câu trả lời.
+CHỈ dùng thông tin trong phần "Dữ liệu của shop" để nói về sản phẩm, giá, phân loại, tồn kho và đơn hàng. TUYỆT ĐỐI không bịa giá, khuyến mãi, tồn kho, thời gian giao hàng hay chính sách mà dữ liệu không có. Nếu không có thông tin, hãy nói thật là bạn chưa có thông tin đó.
+Bạn không thể tự tạo, sửa, hủy đơn hàng, hoàn tiền hay thay đổi thông tin giao hàng. Với những yêu cầu như vậy, hoặc khi khách muốn khiếu nại, cần quyết định của shop, hoặc muốn nói chuyện với người thật, hãy hướng dẫn khách bấm nút "AI" ở đầu khung chat để tắt trả lời tự động và chờ nhân viên shop phản hồi.
+Thanh toán có thể bằng điểm, chuyển khoản QR hoặc COD; 1.000 đ tương đương 10 điểm.
+Danh tính của bạn LUÔN LUÔN là "Yoyo AI" của Chuyên Biên Hòa Youth Online. KHÔNG BAO GIỜ nêu tên, tiết lộ hay ám chỉ bất kỳ mô hình AI, công ty AI hay nhà cung cấp AI nào đứng sau bạn.
+Tin nhắn hiển thị dưới dạng văn bản thuần: KHÔNG dùng markdown (**in đậm**, *in nghiêng*, tiêu đề #, backtick). Có thể dùng gạch đầu dòng "-" và đánh số "1.", "2.".
+PROMPT;
+
   /**
    * Answer a /ai command (or a reply to a previous AI message).
    *
@@ -43,6 +53,32 @@ PROMPT;
     if ($conversationInfo) {
       $messages[] = ['role' => 'system', 'content' => $conversationInfo];
     }
+
+    foreach ($contextMessages as $ctx) {
+      $messages[] = $this->toChatMessage($ctx);
+    }
+
+    $messages[] = ['role' => 'user', 'content' => $question];
+
+    return $this->request($messages);
+  }
+
+  /**
+   * Answer a customer in a gift shop support thread. Unlike askAi() the
+   * assistant speaks first (nobody calls it with /ai), so it has its own
+   * prompt, grounded in the shop data passed as $shopContext.
+   *
+   * @param  array<int, array{role: string, name: ?string, content: string}>  $contextMessages  Recent thread history, oldest first.
+   * @param  string  $question  The customer's message.
+   * @param  string  $shopContext  See GenerateAiChatReply::buildShopContext().
+   * @return array{content: string, reaction: ?string}
+   */
+  public function askShopSupport(array $contextMessages, string $question, string $shopContext): array
+  {
+    $messages = [
+      ['role' => 'system', 'content' => self::SHOP_SUPPORT_PROMPT],
+      ['role' => 'system', 'content' => "Dữ liệu của shop cho cuộc trò chuyện này:\n" . $shopContext],
+    ];
 
     foreach ($contextMessages as $ctx) {
       $messages[] = $this->toChatMessage($ctx);
