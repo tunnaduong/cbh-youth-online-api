@@ -8,9 +8,12 @@ use App\Services\TotpService;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 /**
  * Lets the signed-in user manage two-factor authentication on their account.
+ * The methods (authenticator app, emailed code) are independent: any of them
+ * can be on at the same time, and the user picks one when logging in.
  * The login side (challenge + code check) lives in AuthController.
  */
 class TwoFactorController extends Controller
@@ -28,7 +31,7 @@ class TwoFactorController extends Controller
 
   /**
    * Start setting up an authenticator app: generates the secret to add to
-   * the app. Nothing is enforced until confirm() is called with a code.
+   * the app. The method only counts once confirm() is called with a code.
    *
    * @param  \Illuminate\Http\Request  $request
    * @return \Illuminate\Http\JsonResponse
@@ -37,16 +40,13 @@ class TwoFactorController extends Controller
   {
     $user = $request->user();
 
-    if ($response = $this->guardSetup($request, $user)) {
+    if ($response = $this->guardSetup($request, $user, TwoFactorService::METHOD_TOTP)) {
       return $response;
     }
 
     $secret = TotpService::generateSecret();
 
-    $user->two_factor_method = TwoFactorService::METHOD_TOTP;
     $user->two_factor_secret = $secret;
-    $user->two_factor_recovery_codes = null;
-    $user->two_factor_confirmed_at = null;
     $user->two_factor_last_step = null;
     $user->save();
 
@@ -68,7 +68,7 @@ class TwoFactorController extends Controller
   {
     $user = $request->user();
 
-    if ($response = $this->guardSetup($request, $user)) {
+    if ($response = $this->guardSetup($request, $user, TwoFactorService::METHOD_EMAIL)) {
       return $response;
     }
 
@@ -82,13 +82,7 @@ class TwoFactorController extends Controller
       return $response;
     }
 
-    $user->two_factor_method = TwoFactorService::METHOD_EMAIL;
-    $user->two_factor_secret = null;
-    $user->two_factor_recovery_codes = null;
-    $user->two_factor_confirmed_at = null;
-    $user->two_factor_last_step = null;
-    $user->save();
-
+    TwoFactorService::startEmailSetup($user);
     TwoFactorService::sendEmailCode($user, 'manage');
 
     return response()->json([
@@ -98,8 +92,9 @@ class TwoFactorController extends Controller
   }
 
   /**
-   * Finish setup by proving the chosen method works. Turns two-factor on and
-   * returns the recovery codes (shown once).
+   * Finish setting a method up by proving it works. The first method to be
+   * confirmed turns two-factor on and returns the recovery codes (shown
+   * once); adding another method keeps the existing codes.
    *
    * @param  \Illuminate\Http\Request  $request
    * @return \Illuminate\Http\JsonResponse
@@ -108,23 +103,39 @@ class TwoFactorController extends Controller
   {
     $request->validate([
       'code' => 'required|string|max:20',
+      'method' => ['nullable', Rule::in([TwoFactorService::METHOD_TOTP, TwoFactorService::METHOD_EMAIL])],
     ]);
 
     $user = $request->user();
+    $totpPending = $this->totpPending($user);
 
-    if ($user->hasTwoFactorEnabled()) {
-      return response()->json(['message' => 'Xác thực hai lớp đã được bật.'], 409);
+    // Older clients don't say which method they are confirming: it is
+    // whichever setup is in progress.
+    $method = $request->input('method')
+      ?: ($totpPending ? TwoFactorService::METHOD_TOTP : TwoFactorService::METHOD_EMAIL);
+
+    if (TwoFactorService::isMethodEnabled($user, $method)) {
+      return response()->json(['message' => 'Phương thức này đã được bật.'], 409);
     }
 
-    if (!$user->two_factor_method) {
-      return response()->json(['message' => 'Hãy bắt đầu thiết lập xác thực hai lớp trước.'], 422);
+    $pending = $method === TwoFactorService::METHOD_TOTP
+      ? $totpPending
+      : TwoFactorService::hasEmailSetupPending($user);
+
+    if (!$pending) {
+      return response()->json(['message' => 'Hãy bắt đầu thiết lập phương thức này trước.'], 422);
     }
 
     if ($response = $this->guardFailures($user)) {
       return $response;
     }
 
-    if (!TwoFactorService::verifyCode($user, $request->input('code'), 'manage')) {
+    $code = $request->input('code');
+    $valid = $method === TwoFactorService::METHOD_TOTP
+      ? TwoFactorService::verifyTotp($user, $code)
+      : TwoFactorService::verifyEmailCode($user, preg_replace('/\s+/', '', $code), 'manage');
+
+    if (!$valid) {
       TwoFactorService::hitFailure($user);
 
       return $this->invalidCodeResponse();
@@ -132,21 +143,23 @@ class TwoFactorController extends Controller
 
     TwoFactorService::clearFailures($user);
 
-    $user->two_factor_confirmed_at = now();
-    $user->save();
-
-    $recoveryCodes = TwoFactorService::generateRecoveryCodes($user);
+    $wasEnabled = $user->hasTwoFactorEnabled();
+    TwoFactorService::enableMethod($user, $method);
 
     return response()->json([
-      'message' => 'Đã bật xác thực hai lớp.',
-      'recovery_codes' => $recoveryCodes,
+      'message' => $method === TwoFactorService::METHOD_TOTP
+        ? 'Đã bật xác thực bằng ứng dụng xác thực.'
+        : 'Đã bật xác thực bằng mã gửi qua email.',
+      'method' => $method,
+      // Null when another method was already on: the existing codes stay valid.
+      'recovery_codes' => $wasEnabled ? null : TwoFactorService::generateRecoveryCodes($user),
       'status' => $this->statusPayload($user),
     ]);
   }
 
   /**
-   * Email a code to confirm a settings change (or resend the setup code) for
-   * accounts using the email method.
+   * Email a code to confirm a settings change (email method is on), or
+   * re-send the code of an email setup in progress.
    *
    * @param  \Illuminate\Http\Request  $request
    * @return \Illuminate\Http\JsonResponse
@@ -155,7 +168,10 @@ class TwoFactorController extends Controller
   {
     $user = $request->user();
 
-    if ($user->two_factor_method !== TwoFactorService::METHOD_EMAIL) {
+    if (
+      !TwoFactorService::isMethodEnabled($user, TwoFactorService::METHOD_EMAIL)
+      && !TwoFactorService::hasEmailSetupPending($user)
+    ) {
       return response()->json(['message' => 'Tài khoản này không dùng mã xác thực qua email.'], 422);
     }
 
@@ -172,23 +188,41 @@ class TwoFactorController extends Controller
   }
 
   /**
-   * Turn two-factor off (or abandon a setup that was never confirmed).
+   * Turn one method off (`method`), or all of them when none is named.
+   * Dropping a setup that was never confirmed needs no confirmation.
    *
    * @param  \Illuminate\Http\Request  $request
    * @return \Illuminate\Http\JsonResponse
    */
   public function disable(Request $request)
   {
-    $user = $request->user();
+    $request->validate([
+      'method' => ['nullable', Rule::in([TwoFactorService::METHOD_TOTP, TwoFactorService::METHOD_EMAIL])],
+    ]);
 
-    if ($user->hasTwoFactorEnabled() && ($response = $this->confirmIdentity($request, $user))) {
+    $user = $request->user();
+    $method = $request->input('method');
+
+    // Only something confirmed is protected; an unfinished setup isn't
+    // enforced anywhere yet, so cancelling it is free.
+    $protected = $method
+      ? TwoFactorService::isMethodEnabled($user, $method)
+      : $user->hasTwoFactorEnabled();
+
+    if ($protected && ($response = $this->confirmIdentity($request, $user))) {
       return $response;
     }
 
-    TwoFactorService::disable($user);
+    if ($method) {
+      TwoFactorService::disableMethod($user, $method);
+    } else {
+      TwoFactorService::disable($user);
+    }
 
     return response()->json([
-      'message' => 'Đã tắt xác thực hai lớp.',
+      'message' => $user->hasTwoFactorEnabled()
+        ? 'Đã tắt phương thức xác thực này.'
+        : 'Đã tắt xác thực hai lớp.',
       'status' => $this->statusPayload($user),
     ]);
   }
@@ -240,11 +274,14 @@ class TwoFactorController extends Controller
 
   private function statusPayload(AuthAccount $user): array
   {
-    $enabled = $user->hasTwoFactorEnabled();
+    $methods = TwoFactorService::enabledMethods($user);
+    $enabled = (bool) $methods;
 
     return [
       'enabled' => $enabled,
-      'method' => $enabled ? $user->two_factor_method : null,
+      // Every method that is on, and the one a login offers first.
+      'methods' => $methods,
+      'method' => $methods[0] ?? null,
       'confirmed_at' => $enabled ? $user->two_factor_confirmed_at : null,
       'recovery_codes_remaining' => $enabled ? count($user->two_factor_recovery_codes ?? []) : 0,
       'trusted_devices' => TwoFactorTrustedDevice::where('user_id', $user->id)
@@ -257,6 +294,14 @@ class TwoFactorController extends Controller
   }
 
   /**
+   * An authenticator secret was generated but never confirmed with a code.
+   */
+  private function totpPending(AuthAccount $user): bool
+  {
+    return $user->two_factor_secret && $user->two_factor_totp_confirmed_at === null;
+  }
+
+  /**
    * Accounts created through Google/Facebook/Apple have a random password
    * the user never saw, so they can't be asked for it.
    */
@@ -266,15 +311,15 @@ class TwoFactorController extends Controller
   }
 
   /**
-   * Setup can't start while two-factor is already on, and needs the account
-   * password - otherwise a stolen session could switch it on and lock the
-   * real owner out.
+   * Setting a method up needs the account password - otherwise a stolen
+   * session could switch it on and lock the real owner out - and makes no
+   * sense for a method that is already on.
    */
-  private function guardSetup(Request $request, AuthAccount $user)
+  private function guardSetup(Request $request, AuthAccount $user, string $method)
   {
-    if ($user->hasTwoFactorEnabled()) {
+    if (TwoFactorService::isMethodEnabled($user, $method)) {
       return response()->json([
-        'message' => 'Xác thực hai lớp đang bật. Hãy tắt trước khi thiết lập lại.',
+        'message' => 'Phương thức này đang bật. Hãy tắt trước khi thiết lập lại.',
       ], 409);
     }
 
@@ -292,7 +337,7 @@ class TwoFactorController extends Controller
 
   /**
    * Changing settings while two-factor is on needs either the password or a
-   * current code (from the app/email, or a recovery code).
+   * current code (from any method that is on, or a recovery code).
    */
   private function confirmIdentity(Request $request, AuthAccount $user)
   {

@@ -197,6 +197,9 @@ class AuthController extends Controller
     $request->validate([
       'challenge_token' => 'required|string',
       'code' => 'required|string|max:20',
+      // Which method the user picked when several are on (optional: without
+      // it the code is checked against each of them).
+      'method' => 'nullable|string|in:totp,email',
       'remember_device' => 'nullable|boolean',
       'device_name' => 'nullable|string|max:255',
       'device_token' => 'nullable|string',
@@ -222,7 +225,7 @@ class AuthController extends Controller
       ], 429);
     }
 
-    $used = TwoFactorService::verifyAny($user, $request->input('code'), 'login');
+    $used = TwoFactorService::verifyAny($user, $request->input('code'), 'login', $request->input('method'));
 
     if (!$used) {
       TwoFactorService::hitFailure($user);
@@ -258,7 +261,8 @@ class AuthController extends Controller
   }
 
   /**
-   * Email a new code for a pending two-factor login (email method only).
+   * Email a code for a pending two-factor login: a re-send, or the first
+   * send when the user picks email instead of the method offered first.
    *
    * @param  \Illuminate\Http\Request  $request
    * @return \Illuminate\Http\JsonResponse
@@ -275,9 +279,9 @@ class AuthController extends Controller
       return $this->challengeExpiredResponse();
     }
 
-    if ($user->two_factor_method !== TwoFactorService::METHOD_EMAIL) {
+    if (!TwoFactorService::isMethodEnabled($user, TwoFactorService::METHOD_EMAIL)) {
       return response()->json([
-        'message' => 'Tài khoản này dùng ứng dụng xác thực, không gửi mã qua email.',
+        'message' => 'Tài khoản này chưa bật mã xác thực qua email.',
       ], 422);
     }
 

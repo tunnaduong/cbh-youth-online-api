@@ -31,6 +31,7 @@ class TwoFactorService
   public const EMAIL_CODE_TTL = 600;
   public const EMAIL_CODE_MAX_ATTEMPTS = 5;
   public const EMAIL_RESEND_COOLDOWN = 60;
+  public const EMAIL_SETUP_TTL = 1800;
 
   // Wrong codes allowed per account before verification is locked for a
   // while - a challenge only allows a few tries, but a new one can be
@@ -63,29 +64,67 @@ class TwoFactorService
       'expires_at' => now()->addSeconds(self::CHALLENGE_TTL)->getTimestamp(),
     ], self::CHALLENGE_TTL);
 
-    $isEmail = $user->two_factor_method === self::METHOD_EMAIL;
+    $methods = self::enabledMethods($user);
+    $default = $methods[0];
+    $emailEnabled = in_array(self::METHOD_EMAIL, $methods, true);
 
-    // Logging in again within the resend cooldown reuses the code already
-    // sitting in the inbox instead of sending another one.
-    if ($isEmail && !(self::emailCooldown($user, 'login') > 0 && Cache::has(self::emailCodeKey($user, 'login')))) {
-      try {
-        self::sendEmailCode($user, 'login');
-      } catch (\Throwable $e) {
-        // Don't fail the login over a mail hiccup - the client can ask to resend.
-        Log::warning('Failed to send two-factor login code', [
-          'user_id' => $user->id,
-          'error' => $e->getMessage(),
-        ]);
+    // A code is only emailed up front when email is the method offered
+    // first; with an authenticator app on as well, the client asks for the
+    // email (resend endpoint) if the user picks that method instead.
+    $emailSent = false;
+
+    if ($default === self::METHOD_EMAIL) {
+      $emailSent = true;
+
+      // Logging in again within the resend cooldown reuses the code already
+      // sitting in the inbox instead of sending another one.
+      if (!(self::emailCooldown($user, 'login') > 0 && Cache::has(self::emailCodeKey($user, 'login')))) {
+        try {
+          self::sendEmailCode($user, 'login');
+        } catch (\Throwable $e) {
+          // Don't fail the login over a mail hiccup - the client can ask to resend.
+          $emailSent = false;
+          Log::warning('Failed to send two-factor login code', [
+            'user_id' => $user->id,
+            'error' => $e->getMessage(),
+          ]);
+        }
       }
     }
 
     return [
       'two_factor_required' => true,
       'challenge_token' => $token,
-      'method' => $user->two_factor_method,
-      'email' => $isEmail ? self::maskEmail($user->email) : null,
+      // Every method the user may pick from, and the one to show first.
+      'methods' => $methods,
+      'method' => $default,
+      'email' => $emailEnabled ? self::maskEmail($user->email) : null,
+      'email_sent' => $emailSent,
       'expires_in' => self::CHALLENGE_TTL,
     ];
+  }
+
+  /**
+   * The methods the account has confirmed, strongest first (the first one is
+   * what a login offers by default).
+   */
+  public static function enabledMethods(AuthAccount $user): array
+  {
+    $methods = [];
+
+    if ($user->two_factor_totp_confirmed_at !== null && $user->two_factor_secret) {
+      $methods[] = self::METHOD_TOTP;
+    }
+    if ($user->two_factor_email_confirmed_at !== null) {
+      $methods[] = self::METHOD_EMAIL;
+    }
+
+    return $methods;
+  }
+
+  public static function isMethodEnabled(AuthAccount $user, string $method): bool
+  {
+    return in_array($method, self::enabledMethods($user), true);
   }
 
   /**
@@ -122,38 +161,59 @@ class TwoFactorService
   }
 
   /**
-   * Check a code from the user's 2FA method (authenticator app or email).
+   * Check a code against the account's confirmed methods - only $method
+   * when the client says which one the user picked, otherwise each of them.
    */
-  public static function verifyCode(AuthAccount $user, string $code, string $purpose = 'login'): bool
+  public static function verifyCode(AuthAccount $user, string $code, string $purpose = 'login', ?string $method = null): bool
   {
     $code = preg_replace('/\s+/', '', $code);
+    $methods = self::enabledMethods($user);
 
-    if ($user->two_factor_method === self::METHOD_TOTP) {
-      $step = TotpService::verify((string) $user->two_factor_secret, $code, $user->two_factor_last_step);
-      if ($step === null) {
-        return false;
-      }
-
-      $user->two_factor_last_step = $step;
-      $user->save();
-
-      return true;
+    if ($method !== null) {
+      $methods = array_values(array_intersect($methods, [$method]));
     }
 
-    if ($user->two_factor_method === self::METHOD_EMAIL) {
-      return self::verifyEmailCode($user, $code, $purpose);
+    foreach ($methods as $candidate) {
+      if ($candidate === self::METHOD_TOTP && self::verifyTotp($user, $code)) {
+        return true;
+      }
+      if ($candidate === self::METHOD_EMAIL && self::verifyEmailCode($user, $code, $purpose)) {
+        return true;
+      }
     }
 
     return false;
   }
 
   /**
+   * Check an authenticator-app code against the stored secret, whether or
+   * not the method is confirmed yet (setup confirms it with this).
+   */
+  public static function verifyTotp(AuthAccount $user, string $code): bool
+  {
+    $step = TotpService::verify(
+      (string) $user->two_factor_secret,
+      preg_replace('/\s+/', '', $code),
+      $user->two_factor_last_step
+    );
+
+    if ($step === null) {
+      return false;
+    }
+
+    $user->two_factor_last_step = $step;
+    $user->save();
+
+    return true;
+  }
+
+  /**
    * Check a code that may be either a regular 2FA code or a recovery code.
    * Returns 'code', 'recovery' or null. A recovery code is consumed.
    */
-  public static function verifyAny(AuthAccount $user, string $code, string $purpose = 'login'): ?string
+  public static function verifyAny(AuthAccount $user, string $code, string $purpose = 'login', ?string $method = null): ?string
   {
-    if (self::verifyCode($user, $code, $purpose)) {
+    if (self::verifyCode($user, $code, $purpose, $method)) {
       return 'code';
     }
 
@@ -303,16 +363,100 @@ class TwoFactorService
     return TwoFactorTrustedDevice::where('user_id', $userId)->delete();
   }
 
+  /**
+   * Turn every method off, including anything half set up.
+   */
   public static function disable(AuthAccount $user): void
   {
     $user->two_factor_method = null;
     $user->two_factor_secret = null;
     $user->two_factor_recovery_codes = null;
     $user->two_factor_confirmed_at = null;
+    $user->two_factor_totp_confirmed_at = null;
+    $user->two_factor_email_confirmed_at = null;
     $user->two_factor_last_step = null;
     $user->save();
 
+    self::forgetEmailSetup($user);
     self::forgetTrustedDevices($user->id);
+  }
+
+  /**
+   * Mark one method as confirmed and working.
+   */
+  public static function enableMethod(AuthAccount $user, string $method): void
+  {
+    if ($method === self::METHOD_TOTP) {
+      $user->two_factor_totp_confirmed_at = now();
+    } else {
+      $user->two_factor_email_confirmed_at = now();
+      self::forgetEmailSetup($user);
+    }
+
+    self::syncSummaryColumns($user);
+    $user->save();
+  }
+
+  /**
+   * Turn one method off (or drop its unfinished setup). Turning the last
+   * one off turns two-factor off altogether.
+   */
+  public static function disableMethod(AuthAccount $user, string $method): void
+  {
+    if ($method === self::METHOD_TOTP) {
+      $user->two_factor_secret = null;
+      $user->two_factor_totp_confirmed_at = null;
+      $user->two_factor_last_step = null;
+    } else {
+      $user->two_factor_email_confirmed_at = null;
+      self::forgetEmailSetup($user);
+      Cache::forget(self::emailCodeKey($user, 'manage'));
+    }
+
+    if (!$user->hasTwoFactorEnabled()) {
+      // Nothing confirmed is left. Keep the other method's unfinished setup
+      // (if any) but drop what only makes sense while two-factor is on.
+      $user->two_factor_recovery_codes = null;
+      self::forgetTrustedDevices($user->id);
+    }
+
+    self::syncSummaryColumns($user);
+    $user->save();
+  }
+
+  /**
+   * An email setup is "pending" between asking for it and confirming the
+   * code. There is nothing to store for it on the account, so a short-lived
+   * flag remembers that the code may be re-sent and confirmed.
+   */
+  public static function startEmailSetup(AuthAccount $user): void
+  {
+    Cache::put(self::emailSetupKey($user), true, self::EMAIL_SETUP_TTL);
+  }
+
+  public static function hasEmailSetupPending(AuthAccount $user): bool
+  {
+    return Cache::has(self::emailSetupKey($user));
+  }
+
+  public static function forgetEmailSetup(AuthAccount $user): void
+  {
+    Cache::forget(self::emailSetupKey($user));
+  }
+
+  /**
+   * `two_factor_method` (the default method) and `two_factor_confirmed_at`
+   * ("any method is on") summarise the per-method columns for code that
+   * only needs the overall state.
+   */
+  private static function syncSummaryColumns(AuthAccount $user): void
+  {
+    $methods = self::enabledMethods($user);
+
+    $user->two_factor_method = $methods[0] ?? null;
+    $user->two_factor_confirmed_at = $methods
+      ? ($user->two_factor_confirmed_at ?? now())
+      : null;
   }
 
   public static function tooManyFailures(AuthAccount $user): bool
@@ -363,6 +507,11 @@ class TwoFactorService
   private static function emailCooldownKey(AuthAccount $user, string $purpose): string
   {
     return 'two_factor:email_cooldown:' . $purpose . ':' . $user->id;
+  }
+
+  private static function emailSetupKey(AuthAccount $user): string
+  {
+    return 'two_factor:email_setup:' . $user->id;
   }
 
   private static function failureKey(AuthAccount $user): string
