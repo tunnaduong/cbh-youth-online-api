@@ -25,9 +25,11 @@ use App\Models\UserReport;
 use App\Models\WithdrawalRequest;
 use App\Mail\ShopOrderCompletedMail;
 use App\Services\PointsService;
+use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -201,7 +203,8 @@ class AdminPanelController extends Controller
   public function users(Request $request)
   {
     $query = AuthAccount::query()
-      ->select(['id', 'username', 'email', 'role', 'points', 'email_verified_at', 'last_activity', 'banned_at', 'banned_until', 'ban_reason', 'created_at'])
+      // two_factor_confirmed_at: set while any two-factor method is on
+      ->select(['id', 'username', 'email', 'role', 'points', 'email_verified_at', 'last_activity', 'banned_at', 'banned_until', 'ban_reason', 'created_at', 'two_factor_confirmed_at'])
       ->with('profile:id,auth_account_id,profile_name')
       ->withCount('posts');
 
@@ -256,6 +259,52 @@ class AdminPanelController extends Controller
     }
 
     return response()->json(['message' => 'Đã cập nhật người dùng.', 'user' => $user->only(['id', 'role', 'points'])]);
+  }
+
+  /**
+   * Give a user who can't get into their account a temporary password. It is
+   * returned once for the admin to pass on, and every device is logged out
+   * (including remembered two-factor devices) so only the new password works.
+   */
+  public function resetUserPassword($id)
+  {
+    $user = AuthAccount::findOrFail($id);
+
+    if ($user->id === Auth::id()) {
+      return response()->json(['message' => 'Hãy đổi mật khẩu của chính bạn trong phần Cài đặt.'], 403);
+    }
+    if ($user->role === 'admin') {
+      return response()->json(['message' => 'Không thể đặt lại mật khẩu của quản trị viên khác.'], 403);
+    }
+
+    $password = Str::password(12, true, true, false);
+
+    $user->password = Hash::make($password);
+    $user->save();
+    $user->tokens()->delete();
+    TwoFactorService::forgetTrustedDevices($user->id);
+
+    return response()->json([
+      'message' => "Đã đặt lại mật khẩu cho @{$user->username}. Hãy gửi mật khẩu tạm này cho người dùng và nhắc họ đổi lại ngay.",
+      'password' => $password,
+    ]);
+  }
+
+  /**
+   * Turn two-factor off for a user who lost their authenticator, email
+   * access and recovery codes. Their password is untouched.
+   */
+  public function resetUserTwoFactor($id)
+  {
+    $user = AuthAccount::findOrFail($id);
+
+    if (!$user->hasTwoFactorEnabled()) {
+      return response()->json(['message' => 'Tài khoản này chưa bật xác thực hai lớp.'], 422);
+    }
+
+    TwoFactorService::disable($user);
+
+    return response()->json(['message' => "Đã tắt xác thực hai lớp của @{$user->username}."]);
   }
 
   /**

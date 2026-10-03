@@ -491,6 +491,8 @@ Route::prefix('v1.0')->group(function () {
 
       Route::get('/users', 'users');
       Route::patch('/users/{id}', 'updateUser');
+      Route::post('/users/{id}/reset-password', 'resetUserPassword');
+      Route::post('/users/{id}/reset-two-factor', 'resetUserTwoFactor');
       Route::delete('/users/{id}', 'deleteUser');
 
       Route::get('/pending-deposits', 'pendingDeposits');
