@@ -17,6 +17,11 @@ crosses repos):
 - [cbh-youth-online-mobile](https://github.com/tunnaduong/cbh-youth-online-mobile) - Expo / React Native app
 - [cbh-youth-online-gift-shop](https://github.com/tunnaduong/cbh-youth-online-gift-shop) - gift shop (giftshop.chuyenbienhoa.com)
 
+## Default branch
+
+Work on **`main`** unless the user names another branch: pull, commit and
+push there (it isn't protected).
+
 ## Keep INFO.md (and README.md) current
 
 These files only stay useful if every change lands in them. When you finish a
