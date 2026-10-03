@@ -68,6 +68,7 @@ Route::prefix('v1.0')->group(function () {
   Route::post('/login/oauth', [AuthController::class, 'loginWithProvider']);
   Route::post('/oauth/exchange', [AuthController::class, 'exchangeOAuthCode']);
   Route::get('/oauth/callback', [AuthController::class, 'oauthCallback']);
+  Route::post('/web-session/redeem', [AuthController::class, 'redeemWebHandoff'])->middleware('throttle:20,1');
   Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset']);
   Route::get('/email/verify/{verificationCode}', [VerificationController::class, 'verify']);
   Route::post('/password/reset', [ForgotPasswordController::class, 'sendResetLinkResponse']);
@@ -253,6 +254,7 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/checkin', [DailyCheckinController::class, 'checkin']);
     Route::get('/checkin/status', [DailyCheckinController::class, 'status']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/web-session/handoff', [AuthController::class, 'createWebHandoff']);
     Route::post('/user/delete-account', [UserController::class, 'deleteAccount']);
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
     Route::post('/users/{username}/cover', [UserController::class, 'updateCoverPhoto']);
