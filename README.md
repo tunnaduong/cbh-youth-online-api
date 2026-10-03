@@ -107,6 +107,10 @@ Once the application is running, point a client (web, mobile, or gift shop) at i
 
 - **Deployment:** Production runs on an aaPanel server with nginx and PHP-FPM. See `deploy/` for the nginx upload-size and supervisor queue-worker configs.
 
+## Contributing
+
+The default branch is **`main`**: unless told otherwise, commit and push changes there.
+
 ## License
 
 This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
