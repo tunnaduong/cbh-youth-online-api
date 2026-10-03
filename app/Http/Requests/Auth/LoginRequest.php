@@ -94,6 +94,14 @@ class LoginRequest extends FormRequest
       ]);
     }
 
+    // This session login has no second step, so it must not become a way
+    // around two-factor: such accounts sign in through the API instead.
+    if ($user->two_factor_confirmed_at !== null) {
+      throw ValidationException::withMessages([
+        'email' => 'Tài khoản này đã bật xác thực hai lớp. Vui lòng đăng nhập tại chuyenbienhoa.com.',
+      ]);
+    }
+
     // If credentials are correct, attempt to log in
     if (!Auth::attempt($credentials, $this->boolean('remember'))) {
       RateLimiter::hit($this->throttleKey());

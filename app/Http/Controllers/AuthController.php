@@ -7,7 +7,9 @@ use App\Models\AuthEmailVerificationCode;
 use App\Models\UserContent;
 use App\Models\UserProfile;
 use App\Notifications\VerifyEmail;
+use App\Services\DeviceSessionService;
 use App\Services\NotificationService;
+use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -106,6 +108,7 @@ class AuthController extends Controller
     $request->validate([
       'username' => 'required|string',
       'password' => 'required|string',
+      'device_token' => 'nullable|string',
     ]);
 
     // Retrieve the user by username or email
@@ -136,13 +139,36 @@ class AuthController extends Controller
       return $this->bannedResponse($user);
     }
 
+    // Accounts with two-factor on don't get a token yet - the client has to
+    // finish the challenge through loginTwoFactor() first (unless it comes
+    // from a device the user chose to remember).
+    if ($challenge = TwoFactorService::challengeFor($user, $request->input('device_token'))) {
+      return response()->json($challenge);
+    }
+
+    return response()->json($this->loginResponseData($user, $request));
+  }
+
+  /**
+   * Issue an API token and build the payload every successful login returns.
+   *
+   * @param  \App\Models\AuthAccount  $user
+   * @param  \Illuminate\Http\Request  $request
+   * @return array
+   */
+  private function loginResponseData($user, Request $request)
+  {
     // Load the 'profile' relationship if the user exists
     $user->load('profile');
 
     // Generate an API token (assuming you're using Laravel Sanctum for token-based authentication)
-    $token = $user->createToken('api-token')->plainTextToken;
+    $newToken = $user->createToken('api-token');
 
-    return response()->json([
+    // Note which device this login is on, and email the owner if the account
+    // has never been used on it before (not for an account created just now).
+    DeviceSessionService::recordLogin($user, $newToken->accessToken, $request, !$user->wasRecentlyCreated);
+
+    return [
       'user' => [
         'id' => $user->id,
         'username' => $user->username,
@@ -154,8 +180,134 @@ class AuthController extends Controller
         'verified' => ($user->profile->verified ?? null) == 1 ? true : false,
         'role' => $user->role ?? null,  // Include role if it exists
       ],
-      'token' => $token,
+      'token' => $newToken->plainTextToken,
+    ];
+  }
+
+  /**
+   * Finish a login that was paused for two-factor: check the code (from the
+   * authenticator app, the email, or a recovery code) and issue the token.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function loginTwoFactor(Request $request)
+  {
+    $request->validate([
+      'challenge_token' => 'required|string',
+      'code' => 'required|string|max:20',
+      'remember_device' => 'nullable|boolean',
+      'device_name' => 'nullable|string|max:255',
+      'device_token' => 'nullable|string',
     ]);
+
+    $challengeToken = $request->input('challenge_token');
+    $user = TwoFactorService::challengeUser($challengeToken);
+
+    if (!$user || !$user->hasTwoFactorEnabled()) {
+      return $this->challengeExpiredResponse();
+    }
+
+    if ($user->isCurrentlyBanned()) {
+      TwoFactorService::forgetChallenge($challengeToken);
+
+      return $this->bannedResponse($user);
+    }
+
+    if (TwoFactorService::tooManyFailures($user)) {
+      return response()->json([
+        'message' => 'Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau '
+          . TwoFactorService::failureLockMinutes($user) . ' phút.',
+      ], 429);
+    }
+
+    $used = TwoFactorService::verifyAny($user, $request->input('code'), 'login');
+
+    if (!$used) {
+      TwoFactorService::hitFailure($user);
+      TwoFactorService::recordChallengeFailure($challengeToken);
+
+      return response()->json([
+        'message' => 'Mã xác thực không đúng hoặc đã hết hạn.',
+        'errors' => [
+          'code' => 'Mã xác thực không đúng hoặc đã hết hạn.',
+        ],
+      ], 422);
+    }
+
+    TwoFactorService::clearFailures($user);
+    TwoFactorService::forgetChallenge($challengeToken);
+
+    $data = $this->loginResponseData($user, $request);
+
+    if ($request->boolean('remember_device')) {
+      $data['device_token'] = TwoFactorService::trustDevice(
+        $user,
+        $request->input('device_name') ?: $request->userAgent(),
+        $request->input('device_token')
+      );
+    }
+
+    // Lets the client warn the user when they are running low.
+    if ($used === 'recovery') {
+      $data['recovery_codes_remaining'] = count($user->two_factor_recovery_codes ?? []);
+    }
+
+    return response()->json($data);
+  }
+
+  /**
+   * Email a new code for a pending two-factor login (email method only).
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function resendTwoFactorCode(Request $request)
+  {
+    $request->validate([
+      'challenge_token' => 'required|string',
+    ]);
+
+    $user = TwoFactorService::challengeUser($request->input('challenge_token'));
+
+    if (!$user || !$user->hasTwoFactorEnabled()) {
+      return $this->challengeExpiredResponse();
+    }
+
+    if ($user->two_factor_method !== TwoFactorService::METHOD_EMAIL) {
+      return response()->json([
+        'message' => 'Tài khoản này dùng ứng dụng xác thực, không gửi mã qua email.',
+      ], 422);
+    }
+
+    $wait = TwoFactorService::emailCooldown($user, 'login');
+    if ($wait > 0) {
+      return response()->json([
+        'message' => "Vui lòng đợi {$wait} giây trước khi gửi lại mã.",
+        'retry_after' => $wait,
+      ], 429);
+    }
+
+    TwoFactorService::sendEmailCode($user, 'login');
+
+    return response()->json([
+      'message' => 'Đã gửi lại mã xác thực.',
+      'email' => TwoFactorService::maskEmail($user->email),
+    ]);
+  }
+
+  /**
+   * 410 rather than 401: the clients treat any 401 as "your session died"
+   * and sign the user out, which is not what an expired challenge means.
+   *
+   * @return \Illuminate\Http\JsonResponse
+   */
+  private function challengeExpiredResponse()
+  {
+    return response()->json([
+      'message' => 'Phiên xác thực đã hết hạn. Vui lòng đăng nhập lại.',
+      'challenge_expired' => true,
+    ], 410);
   }
 
   /**
@@ -212,7 +364,12 @@ class AuthController extends Controller
     ]);
 
     // Optionally generate a token if using Sanctum/Passport
-    $token = $account->createToken('authToken')->plainTextToken;
+    $newToken = $account->createToken('authToken');
+    $token = $newToken->plainTextToken;
+
+    // Remember the device they signed up on, so it isn't reported as a new
+    // device the next time they log in from it.
+    DeviceSessionService::recordLogin($account, $newToken->accessToken, $request, false);
 
     // Send the verification email
     $account->notify(new VerifyEmail);
@@ -394,6 +551,7 @@ class AuthController extends Controller
       'profile' => 'nullable|array',
       'email' => 'nullable|string',  // Allow direct email input (from Apple)
       'fullName' => 'nullable',  // Allow direct name input (from Apple)
+      'device_token' => 'nullable|string',
     ]);
 
     $provider = $request->input('provider');
@@ -590,6 +748,17 @@ class AuthController extends Controller
           ]);
         }
       } else {
+        // Two-factor applies to social logins too, and the challenge comes
+        // before anything below touches the account: this branch can match
+        // an existing account by email alone, so nothing may be linked to or
+        // changed on it until the second step has passed.
+        if (
+          !$user->isCurrentlyBanned()
+          && ($challenge = TwoFactorService::challengeFor($user, $request->input('device_token')))
+        ) {
+          return response()->json($challenge);
+        }
+
         // Ensure provider info is stored/updated
         // Use a clear flag to track if we need to save
         $shouldSave = false;
@@ -648,22 +817,10 @@ class AuthController extends Controller
         return $this->bannedResponse($user);
       }
 
-      $token = $user->createToken('api-token')->plainTextToken;
+      $data = $this->loginResponseData($user, $request);
 
-      return response()->json([
-        'user' => [
-          'id' => $user->id,
-          'username' => $user->username,
-          'email' => $user->email,
-          'profile_name' => $user->profile->profile_name ?? null,
-          'created_at' => $user->created_at,
-          'updated_at' => $user->updated_at,
-          'email_verified_at' => $user->email_verified_at,
-          'verified' => ($user->profile->verified ?? null) == 1 ? true : false,
-          'role' => $user->role ?? null,
-        ],
-        'token' => $token,
-        'accessToken' => $token,
+      return response()->json($data + [
+        'accessToken' => $data['token'],
         'refreshToken' => null,
       ]);
     } catch (\Throwable $e) {
