@@ -323,6 +323,15 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
         'min_points' => 1000,
         'privileges' => [],
       ],
+      [
+        'id' => 'premium',
+        'name' => 'Thành viên cao cấp',
+        'badge_key' => 'badge_premium',
+        'min_points' => 1500,
+        'privileges' => [
+          'premium_name_effects',
+        ],
+      ],
     ];
   }
 

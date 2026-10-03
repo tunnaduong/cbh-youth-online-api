@@ -51,6 +51,8 @@ class ProfileThemeService
       'modern' => null,
       'bubbly' => null,
       'handwritten' => null,
+      'flex' => null,
+      'grotesk' => null,
       'script' => 'active',
       'comic' => 'active',
       'pixel' => 'active',
@@ -66,6 +68,10 @@ class ProfileThemeService
       'pop' => 'active',
       'toon' => 'distinguished',
       'neon' => 'distinguished',
+      // rainbow ignores name_colors; outline uses name_colors[0] as the text
+      // colour and name_colors[1] as the border colour.
+      'rainbow' => 'premium',
+      'outline' => 'premium',
     ],
     'avatar_frame' => [
       'none' => null,
