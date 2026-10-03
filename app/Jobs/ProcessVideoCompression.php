@@ -48,10 +48,15 @@ class ProcessVideoCompression implements ShouldQueue
         $fps = $this->probeFrameRate($inputPath);
         $fpsFilter = $fps > 30 ? ',fps=fps=30' : '';
 
-        $scaleFilter = "scale='if(gt(iw\\,1920)\\,1920\\,iw)':'if(gt(ih\\,1080)\\,1080\\,ih)':force_original_aspect_ratio=decrease:flags=lanczos{$fpsFilter}";
+        // force_divisible_by=2: H.264 with yuv420p needs even dimensions.
+        $scaleFilter = "scale='if(gt(iw\\,1920)\\,1920\\,iw)':'if(gt(ih\\,1080)\\,1080\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos{$fpsFilter}";
 
+        // H.264, not H.265: Chrome (without hardware HEVC support) and Firefox
+        // can't decode H.265, so on the web those videos played sound only and
+        // looked like audio players. H.264 High + yuv420p plays everywhere
+        // (browsers, iOS, Android).
         $cmd = sprintf(
-            'ffmpeg -y -i %s -c:v libx265 -b:v 4700k -maxrate 4700k -bufsize 9400k -vf %s -c:a aac -b:a 128k -tag:v hvc1 -movflags +faststart %s 2>&1',
+            'ffmpeg -y -i %s -c:v libx264 -preset medium -crf 23 -maxrate 5000k -bufsize 10000k -profile:v high -pix_fmt yuv420p -vf %s -c:a aac -b:a 128k -movflags +faststart %s 2>&1',
             escapeshellarg($inputPath),
             escapeshellarg($scaleFilter),
             escapeshellarg($tmpPath)
