@@ -18,7 +18,7 @@
 | Profile Banner | **Ảnh bìa** | Upload ngay trong trình chỉnh sửa |
 | Profile Effect | **Hiệu ứng hồ sơ** (4 hiệu ứng) | Chạy ~6 giây mỗi lần mở trang rồi mờ dần |
 | Profile Frame | **Khung hồ sơ** (3 khung) | Viền quanh ảnh bìa/thẻ profile |
-| Display Name Style | **Kiểu tên**: 12 phông + 6 hiệu ứng + màu tên | Phông Google có tiếng Việt |
+| Display Name Style | **Kiểu tên**: 14 phông + 8 hiệu ứng + màu tên | Phông Google có tiếng Việt |
 | Profile Theme | **Màu giao diện** (màu chính, màu phụ) | Tùy chọn; chưa chọn thì trang giữ màu mặc định |
 | Nameplate | Chưa làm | |
 | Nitro, Shop, Wishlist | Không làm | |
@@ -29,10 +29,11 @@ Tùy chỉnh được khi đạt **Thành viên tập sự (50 điểm)** (quy�
 
 | Hạng | Điểm | Mở khóa thêm |
 |---|---|---|
-| Thành viên tập sự | 50 | Màu giao diện, màu ảnh bìa · Phông: Mặc định, Cao gọn, Hiện đại, Tròn trịa, Viết tay · Hiệu ứng tên: Một màu · Khung avatar: Theo màu, Bạc |
+| Thành viên tập sự | 50 | Màu giao diện, màu ảnh bìa · Phông: Mặc định, Cao gọn, Hiện đại, Tròn trịa, Viết tay, Google Sans Flex, Space Grotesk · Hiệu ứng tên: Một màu · Khung avatar: Theo màu, Bạc |
 | Thành viên tích cực | 150 | Phông: Thư pháp, Truyện tranh, Pixel, Công nghệ · Hiệu ứng tên: Chuyển màu, Nổi khối · Khung avatar: Băng · Hiệu ứng hồ sơ: Lấp lánh, Trái tim · Khung hồ sơ: Phát sáng |
 | Thành viên tiêu biểu | 500 | Phông: Cổ điển, Đậm chất, Gai góc · Hiệu ứng tên: Hoạt hình, Neon · Khung avatar: Vàng · Hiệu ứng hồ sơ: Tuyết rơi · Khung hồ sơ: Viền vàng |
 | Thành viên kỳ cựu | 1000 | Khung avatar: Cầu vồng (xoay) · Hiệu ứng hồ sơ: Cực quang · Khung hồ sơ: Neon xoay · Avatar GIF động |
+| Thành viên cao cấp | 1500 | Hiệu ứng tên: Cầu vồng, Viền chữ (tự chọn màu chữ và màu viền) |
 
 Bảng này nằm ở `ProfileThemeService::OPTIONS` (API). Đổi mốc chỉ cần sửa ở đó; trình chỉnh sửa và cột "Mốc điểm" tự đọc từ API.
 
@@ -60,7 +61,7 @@ Bố cục như Discord: từ 1280px trở lên chia 3 cột (các mục chỉnh
   - Nút "Khôi phục mặc định".
 - **Giữa – thẻ profile** (rộng 400px) cập nhật ngay: ảnh bìa, avatar có khung, tên, @username, giới thiệu, ngày tham gia, điểm, hiệu ứng và khung hồ sơ, và dòng "Trong bình luận" (tên bản rút gọn).
 - **Phải – Mốc điểm** (dạng trực quan, ít chữ):
-  - Thanh tiến trình với 4 mốc cách đều (50 / 150 / 500 / 1000), mỗi mốc là huy hiệu hạng; mốc chưa đạt hiện xám.
+  - Thanh tiến trình với 5 mốc cách đều (50 / 150 / 500 / 1000 / 1500), mỗi mốc là huy hiệu hạng; mốc chưa đạt hiện xám.
   - Dòng "Còn X điểm tới <hạng kế tiếp>".
   - Mỗi hạng là một thẻ: tên + huy hiệu, nhãn điểm (✓ nếu đã đạt, 🔒 nếu chưa), và một hàng **ô minh họa nhỏ** cho từng thứ được mở khóa (khung avatar vẽ trên avatar của user, "Aa" theo phông/hiệu ứng, biểu tượng hiệu ứng hồ sơ, khung hồ sơ thu nhỏ, ô màu, "GIF"). Rê chuột để xem tên, **bấm để thử ngay trên preview**.
 - **Thanh đáy** khi có thay đổi: "Đừng quên lưu thay đổi!" + Đặt lại / Lưu. Khi còn thay đổi chưa lưu: bấm link bất kỳ trong trang thì bị chặn, thanh đỏ lên và rung; đóng/tải lại tab thì trình duyệt hỏi xác nhận.

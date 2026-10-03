@@ -199,8 +199,12 @@ class ProfileThemeServiceTest extends TestCase
 
         $this->assertSame(50, $state['required_points']);
         $this->assertSame(150, $state['current_points']);
-        $this->assertSame(['trainee', 'active', 'distinguished', 'veteran'], array_column($state['tiers'], 'id'));
-        $this->assertSame([true, true, false, false], array_column($state['tiers'], 'reached'));
+        $this->assertSame(['trainee', 'active', 'distinguished', 'veteran', 'premium'], array_column($state['tiers'], 'id'));
+        $this->assertSame([true, true, false, false, false], array_column($state['tiers'], 'reached'));
+        $this->assertContains(['key' => 'rainbow', 'required_points' => 1500, 'unlocked' => false], $state['options']['name_effect']);
+        $this->assertContains(['key' => 'outline', 'required_points' => 1500, 'unlocked' => false], $state['options']['name_effect']);
+        $this->assertContains(['key' => 'flex', 'required_points' => 50, 'unlocked' => true], $state['options']['name_font']);
+        $this->assertContains(['key' => 'grotesk', 'required_points' => 50, 'unlocked' => true], $state['options']['name_font']);
         $this->assertSame(['required_points' => 1000, 'unlocked' => false], $state['animated_avatar']);
         $this->assertContains(['key' => 'none', 'required_points' => 50, 'unlocked' => true], $state['options']['profile_effect']);
         $this->assertContains(['key' => 'sparkles', 'required_points' => 150, 'unlocked' => true], $state['options']['profile_effect']);

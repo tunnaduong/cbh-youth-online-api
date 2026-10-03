@@ -113,6 +113,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Profile name style: new tier, fonts and effects** (not run): member tier `premium` ("Thành viên cao cấp", 1500 points, `AuthAccount::tiers()`); name fonts `flex` (Google Sans Flex) and `grotesk` (Space Grotesk), available from the base tier; name effects `rainbow` and `outline`, unlocked at `premium` (`ProfileThemeService::OPTIONS`). `outline` uses `name_colors[0]` as the text colour and `name_colors[1]` as the border colour, so the stored shape is unchanged. Accounts at 1500+ points now get `member_tier.id = premium`: clients need an entry for it (web and mobile updated; the gift shop was not checked).
+
 - **Admin: reset a user's password / two-factor** (not run): `POST /v1.0/admin/users/{id}/reset-password` sets a random 12-character temporary password, returns it once (`password`) and logs the account out everywhere; refused for your own account and for other admins. `POST /v1.0/admin/users/{id}/reset-two-factor` turns two-factor off (password untouched). `GET /admin/users` rows now include `two_factor_confirmed_at` (set while any method is on).
 
 - **2FA: several methods at once** (not run; needs `php artisan migrate` for `two_factor_totp_confirmed_at` / `two_factor_email_confirmed_at`, which are backfilled from the old single-method columns). The authenticator app and the email code are now independent and can both be on. `two_factor_method` is kept as the default method and `two_factor_confirmed_at` as "any method is on". Changes to the contract described in the entry below:
