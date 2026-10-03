@@ -752,6 +752,8 @@ class AuthController extends Controller
           $verified = [
             'id' => $payload['sub'],
             'email' => $payload['email'] ?? $request->input('email'),
+            // Not in the signed token = only the client's word for it.
+            'email_from_client' => !isset($payload['email']),
             'email_verified' => $payload['email_verified'] ?? false,
           ];
 
@@ -777,6 +779,12 @@ class AuthController extends Controller
       $email = trim((string) ($verified['email'] ?? ''));
       $name = trim((string) ($verified['name'] ?? ''));
 
+      // Whether the email was vouched for by the provider itself. Only such
+      // an email may be used to find an existing account: an email the
+      // client merely typed into the request proves nothing, and matching on
+      // it let anyone log in as the owner of any address.
+      $emailTrusted = $email !== '' && empty($verified['email_from_client']);
+
       // Fallback to profile data from client if API doesn't return email
       // (Facebook/Google API sometimes doesn't return email even if user has email)
       $profileData = $request->input('profile');
@@ -784,6 +792,7 @@ class AuthController extends Controller
         $emailFromProfile = trim((string) ($profileData['email'] ?? ''));
         if (!empty($emailFromProfile)) {
           $email = $emailFromProfile;
+          $emailTrusted = false;
         }
         if (empty($name) && isset($profileData['name'])) {
           $name = trim((string) $profileData['name']);
@@ -822,8 +831,14 @@ class AuthController extends Controller
           ->where('provider_id', $providerId)
           ->first();
       }
-      if (!$user && $email) {
+      if (!$user && $email && $emailTrusted) {
         $user = AuthAccount::where('email', $email)->first();
+      }
+
+      // An unverified email that already belongs to an account is not
+      // attached to the new one: it could be someone else's address.
+      if (!$user && $email && !$emailTrusted && AuthAccount::where('email', $email)->exists()) {
+        $email = '';
       }
 
       if (!$user) {
@@ -856,7 +871,7 @@ class AuthController extends Controller
           'email' => $hasEmail ? $email : null,
           // Set email_verified_at immediately if email exists (OAuth providers verify email)
           // Users logging in via OAuth providers have already verified their email with the provider
-          'email_verified_at' => $hasEmail ? now() : null,
+          'email_verified_at' => $hasEmail && $emailTrusted ? now() : null,
           'provider' => $provider,
           'provider_id' => $providerId ?: null,
           'provider_token' => $accessToken,
@@ -926,7 +941,7 @@ class AuthController extends Controller
         }
 
         // Update email if provider returns one and it's different
-        $hasEmailFromProvider = !empty(trim($email));
+        $hasEmailFromProvider = !empty(trim($email)) && $emailTrusted;
         if ($hasEmailFromProvider && $email !== $user->email) {
           $user->email = $email;
           $shouldSave = true;

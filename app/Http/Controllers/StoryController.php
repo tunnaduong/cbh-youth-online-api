@@ -211,10 +211,13 @@ class StoryController extends Controller
             $data['media_url'] = Storage::url($path);
 
             if ($request->media_type === 'video') {
-                ProcessVideoCompression::dispatch($path);
+                // Server-side compression is obsolete: the web and mobile
+                // clients compress photos and videos before uploading.
+                // Kept, not deleted.
+                // ProcessVideoCompression::dispatch($path);
                 $data['video_first_frame_url'] = $this->createVideoPreviewGif($path);
             } elseif ($request->media_type === 'image') {
-                ProcessImageCompression::dispatch($path);
+                // ProcessImageCompression::dispatch($path);
             }
         }
 

@@ -35,7 +35,7 @@ use App\Notifications\VerifyEmail;
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\Follower[] $following
  * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\TopicVote[] $likes
  */
-class AuthAccount extends Authenticatable implements MustVerifyEmail
+class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\Models\Contracts\FilamentUser
 {
   use HasApiTokens;
   use HasFactory;
@@ -78,6 +78,16 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     'two_factor_email_confirmed_at' => 'datetime',
     'two_factor_last_step' => 'integer',
   ];
+
+  /**
+   * Who may use the Filament panel (/admin on the API host): admins only,
+   * and not accounts with two-factor on - that login form has no second
+   * step, so it must not become a way around it (they use the web admin).
+   */
+  public function canAccessPanel(\Filament\Panel $panel): bool
+  {
+    return $this->role === 'admin' && !$this->hasTwoFactorEnabled();
+  }
 
   /**
    * Whether logging in requires a second step: at least one method

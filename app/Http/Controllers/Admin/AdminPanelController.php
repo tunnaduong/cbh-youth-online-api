@@ -301,6 +301,11 @@ class AdminPanelController extends Controller
   {
     $user = AuthAccount::findOrFail($id);
 
+    // Same rule as resetUserPassword: one admin can't weaken another's login.
+    if ($user->role === 'admin' && $user->id !== Auth::id()) {
+      return response()->json(['message' => 'Không thể tắt xác thực hai lớp của quản trị viên khác.'], 403);
+    }
+
     if (!$user->hasTwoFactorEnabled()) {
       return response()->json(['message' => 'Tài khoản này chưa bật xác thực hai lớp.'], 422);
     }

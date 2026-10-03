@@ -51,6 +51,9 @@ class PasswordResetController extends Controller
         // A remembered device plus the password is a full login, so a new
         // password sends every device back through the two-factor challenge.
         TwoFactorService::forgetTrustedDevices($user->id);
+        // A passkey logs in without the password: whoever knew the old one could
+        // have left a passkey behind, so they go too (the owner can add theirs again).
+        \App\Models\Passkey::where('user_id', $user->id)->delete();
 
         return response()->json(["message" => "Đổi mật khẩu thành công!"], 201);
     }

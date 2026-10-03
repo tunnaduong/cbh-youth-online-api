@@ -716,11 +716,13 @@ class ChatController extends Controller
 
         $fileUrls[] = $path;
 
-        if ($request->type === 'video') {
-          ProcessVideoCompression::dispatch($path);
-        } elseif ($request->type === 'image') {
-          ProcessImageCompression::dispatch($path);
-        }
+        // Server-side compression is obsolete: the web and mobile clients
+        // compress photos and videos before uploading. Kept, not deleted.
+        // if ($request->type === 'video') {
+        //   ProcessVideoCompression::dispatch($path);
+        // } elseif ($request->type === 'image') {
+        //   ProcessImageCompression::dispatch($path);
+        // }
       }
 
       $messageData['file_urls'] = $fileUrls;
@@ -748,13 +750,15 @@ class ChatController extends Controller
       $messageData['file_url'] = $path;
 
       if ($request->type === 'video') {
-        ProcessVideoCompression::dispatch($path);
+        // Obsolete: compressed by the client before upload. Kept, not deleted.
+        // ProcessVideoCompression::dispatch($path);
         $thumbnailUrl = $this->createVideoFirstFrame($path);
         if ($thumbnailUrl) {
           $messageData['metadata'] = ['thumbnail_url' => $thumbnailUrl];
         }
       } elseif ($request->type === 'image') {
-        ProcessImageCompression::dispatch($path);
+        // Obsolete: compressed by the client before upload. Kept, not deleted.
+        // ProcessImageCompression::dispatch($path);
       }
     }
 

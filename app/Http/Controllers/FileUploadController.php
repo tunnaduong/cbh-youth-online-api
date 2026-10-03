@@ -105,16 +105,22 @@ class FileUploadController extends Controller
       'file_path'    => $path,
       'file_type'    => $file->getMimeType(),
       'file_size'    => $file->getSize(),
-      'video_status' => $isVideo ? 'pending' : null,
+      // Videos arrive already compressed by the client (720p H.264), so
+      // there is no server-side processing left to wait for.
+      'video_status' => $isVideo ? 'completed' : null,
     ];
 
     $userContent = UserContent::create($data);
 
     if ($isVideo) {
-      ProcessVideoCompression::dispatch($path, $userContent->id);
-
-      // Refresh to get updated size/status after job runs (sync queue runs inline)
-      $userContent->refresh();
+      // Server-side compression is obsolete: the web and mobile clients now
+      // compress photos and videos before uploading. Kept (not deleted) in
+      // case it is ever needed again - re-enable together with the
+      // 'pending' status above.
+      // ProcessVideoCompression::dispatch($path, $userContent->id);
+      //
+      // // Refresh to get updated size/status after job runs (sync queue runs inline)
+      // $userContent->refresh();
 
       return response()->json([
         'message'      => $userContent->video_status === 'completed'
@@ -127,9 +133,11 @@ class FileUploadController extends Controller
     }
 
     if ($isImage) {
-      ProcessImageCompression::dispatch($path, $userContent->id);
-
-      $userContent->refresh();
+      // Obsolete: photos are compressed by the client before upload (see the
+      // note on videos above).
+      // ProcessImageCompression::dispatch($path, $userContent->id);
+      //
+      // $userContent->refresh();
     }
 
     return response()->json([

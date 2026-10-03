@@ -88,6 +88,9 @@ class ForgotPasswordController extends Controller
         // Same as changing the password while signed in: remembered devices
         // have to pass the two-factor challenge again.
         TwoFactorService::forgetTrustedDevices($user->id);
+        // A passkey logs in without the password: whoever knew the old one could
+        // have left a passkey behind, so they go too (the owner can add theirs again).
+        \App\Models\Passkey::where('user_id', $user->id)->delete();
       }
     );
 

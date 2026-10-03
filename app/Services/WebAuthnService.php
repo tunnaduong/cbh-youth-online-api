@@ -77,7 +77,7 @@ class WebAuthnService
         // Stored on the device, so login needs no username.
         'residentKey' => 'required',
         'requireResidentKey' => true,
-        'userVerification' => 'preferred',
+        'userVerification' => 'required',
       ],
       // Stops the same authenticator being registered twice.
       'excludeCredentials' => self::credentialDescriptors($user),
@@ -109,8 +109,9 @@ class WebAuthnService
       }
 
       $parsed = self::parseAuthenticatorData($authData);
-      // 0x40 = attested credential data is present.
-      if (!$parsed || !($parsed['flags'] & 0x40)) {
+      // 0x40 = attested credential data is present; 0x04 = the user was
+      // verified (fingerprint, face or PIN).
+      if (!$parsed || !($parsed['flags'] & 0x40) || !($parsed['flags'] & 0x04)) {
         return null;
       }
 
@@ -165,7 +166,7 @@ class WebAuthnService
         'challenge' => self::b64urlEncode($challenge),
         'rpId' => self::rpId(),
         'timeout' => self::CHALLENGE_TTL * 1000,
-        'userVerification' => 'preferred',
+        'userVerification' => 'required',
         // Empty: the device offers whichever passkeys it holds for this site.
         'allowCredentials' => [],
       ],
@@ -198,15 +199,22 @@ class WebAuthnService
       return null;
     }
 
+    // A passkey login replaces the password AND two-factor, which is only
+    // sound if the device verified its user (0x04: fingerprint, face or PIN)
+    // and not merely that someone touched it.
+    if (!($parsed['flags'] & 0x04)) {
+      return null;
+    }
+
     // The authenticator signs its data followed by the hash of the client data.
     $signed = $authData . hash('sha256', $clientDataJson, true);
     if (openssl_verify($signed, $signature, $passkey->public_key, OPENSSL_ALGO_SHA256) !== 1) {
       return null;
     }
 
-    // A counter that goes backwards means the credential was cloned.
-    // Synced passkeys always report 0, which is fine.
-    if ($parsed['sign_count'] !== 0 && $parsed['sign_count'] <= $passkey->sign_count) {
+    // A counter that doesn't move forward means the credential was cloned.
+    // Synced passkeys always report 0 (and so have 0 stored), which is fine.
+    if (($parsed['sign_count'] !== 0 || $passkey->sign_count > 0) && $parsed['sign_count'] <= $passkey->sign_count) {
       return null;
     }
 

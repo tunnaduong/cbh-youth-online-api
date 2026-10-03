@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Passkey;
+use App\Services\TwoFactorService;
 use App\Services\WebAuthnService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -41,7 +42,17 @@ class PasskeyController extends Controller
 
     // Accounts created through Google/Facebook/Apple have a random password
     // the user never saw, so they can't be asked for it.
+    if ($user->provider === null && TwoFactorService::tooManyFailures($user)) {
+      return response()->json([
+        'message' => 'Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau '
+          . TwoFactorService::failureLockMinutes($user) . ' phút.',
+      ], 429);
+    }
+
     if ($user->provider === null && !Hash::check((string) $request->input('password'), $user->password)) {
+      // Counted, so a stolen session can't guess the password at full speed.
+      TwoFactorService::hitFailure($user);
+
       return response()->json([
         'message' => 'Mật khẩu không chính xác.',
         'errors' => [
