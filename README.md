@@ -12,23 +12,26 @@
 
 ## About This Project
 
-Chuyen Bien Hoa Youth Online is a feature-rich web application designed to foster a vibrant online community. It combines a traditional forum system with modern social media features like user profiles, activity feeds, real-time chat, and stories. The platform also includes a detailed administrative backend for managing users, content, and school-related activities such as class schedules and student violations.
+Chuyen Bien Hoa Youth Online is a feature-rich community platform for students of THPT Chuyên Biên Hòa. It combines a traditional forum system with modern social media features like user profiles, activity feeds, real-time chat, and stories, plus a points wallet, a gift shop, and study tools. The platform also includes administrative tools for managing users, content, and school-related activities such as class schedules and student violations.
 
-This project is built on the Laravel framework, leveraging its powerful features for routing, ORM, and authentication, with a modern frontend powered by Inertia.js.
+This repository is the Laravel 10 backend served at `https://api.chuyenbienhoa.com`. It exposes one JSON API used by the [web app](https://github.com/tunnaduong/cbh-youth-online-next-js) (chuyenbienhoa.com), the [mobile app](https://github.com/tunnaduong/cbh-youth-online-mobile), and the [gift shop](https://github.com/tunnaduong/cbh-youth-online-gift-shop) (giftshop.chuyenbienhoa.com). Authentication uses Laravel Sanctum bearer tokens and real-time features use Laravel Reverb. A legacy Inertia.js frontend still lives in `routes/web.php`, but the clients above don't use it.
 
 ## Key Features
 
-- **User Authentication:** Secure user registration, login, password reset, and email verification.
-- **User Profiles:** Customizable user profiles with avatars, bios, follower/following stats, and activity points.
+- **User Authentication:** Secure user registration, login (username/password, Google, Facebook, Apple), password reset, email verification, and a one-time handoff that signs the mobile app's user in on the web.
+- **User Profiles:** Customizable user profiles with avatars, covers, bios, follower/following stats, activity points, and unlockable profile themes (avatar frames, name effects, profile effects).
 - **Forum System:** Multi-level forums with main categories and subforums for organized discussions.
-- **Topics & Comments:** Users can create topics, post comments, and engage in nested reply threads.
+- **Topics & Comments:** Users can create topics with images and video, post comments, and engage in nested reply threads, with mentions and hashtags.
 - **Voting System:** Upvote and downvote functionality for both topics and comments.
-- **Real-time Chat:** Private and group chat functionality with message read receipts and file sharing.
-- **Stories:** Ephemeral, 24-hour stories similar to Instagram or Facebook, with reactions and viewer tracking.
+- **Real-time Chat:** Private and group chat with read receipts, reactions, file sharing, invite links, a public chat room, and an AI chat assistant.
+- **Stories:** Ephemeral, 24-hour stories similar to Instagram or Facebook, with overlays, music, reactions, and viewer tracking.
 - **Activity Feed:** A personalized feed showing the latest posts from followed users.
 - **Search:** Robust search functionality to find users and posts.
-- **Admin Panel:** A comprehensive dashboard for administrators to manage users, forum content, school classes, schedules, student violations, and user reports.
-- **Notification System:** In-app and email notifications for various events.
+- **Points & Wallet:** Daily check-in, point gifting, deposits via SePay bank transfer, and withdrawals. See [POINTS_SYSTEM_README.md](POINTS_SYSTEM_README.md).
+- **Gift Shop:** Product catalog and orders paid with points, QR transfer, or cash on delivery, with a discount for verified students.
+- **Learning Tools:** Study materials, AI-generated and custom quizzes, and mini games with leaderboards.
+- **Admin Panel:** Admin APIs used by the web app's `/admin` dashboard, plus a Filament panel, for managing users, forum content, moderation, reports, deposits and withdrawals, student verification, the shop, school classes, schedules, and student violations.
+- **Notification System:** In-app, email, Expo push (mobile), and Web Push notifications, plus a weekly newsletter.
 
 ## Getting Started
 
@@ -39,14 +42,14 @@ Follow these instructions to get a local copy of the project up and running for 
 - PHP >= 8.1
 - Composer
 - Node.js & npm
-- A database server (e.g., MySQL, PostgreSQL)
+- A database server (e.g., MySQL)
 
 ### Installation
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/your-repository.git
-    cd your-repository
+    git clone https://github.com/tunnaduong/cbh-youth-online-api.git
+    cd cbh-youth-online-api
     ```
 
 2.  **Install PHP dependencies:**
@@ -67,14 +70,15 @@ Follow these instructions to get a local copy of the project up and running for 
     ```
 
 5.  **Configure your environment (`.env`):**
-    Open the `.env` file and update the database credentials (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`) and any other necessary configuration, such as mail settings.
+    Open the `.env` file and update the database credentials (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`) and any other necessary configuration, such as mail, Reverb, OAuth (Google/Facebook/Apple), VAPID, SePay, and AI keys. Use a persistent `CACHE_DRIVER` (`file` or `redis`, not `array`).
 
-6.  **Run database migrations:**
+6.  **Run database migrations and link storage:**
     ```bash
     php artisan migrate
+    php artisan storage:link
     ```
 
-7.  **Compile frontend assets:**
+7.  **Compile frontend assets (legacy Inertia site only):**
     To build the assets for development and watch for changes:
     ```bash
     npm run dev
@@ -87,16 +91,25 @@ Follow these instructions to get a local copy of the project up and running for 
 8.  **Serve the application:**
     ```bash
     php artisan serve
+    php artisan reverb:start    # websockets for chat
+    php artisan queue:work      # media compression, AI replies, broadcasts
+    php artisan schedule:work   # scheduled jobs (expired stories, newsletter)
     ```
     The application will be available at `http://localhost:8000` by default.
 
 ## Usage
 
-Once the application is running, you can register a new account or log in with an existing one. The main features are accessible through the navigation bar.
+Once the application is running, point a client (web, mobile, or gift shop) at it, or call the API directly.
 
-- **Admin Access:** To access the admin panel, a user must have their `role` set to `admin` in the `cyo_auth_accounts` table. The admin panel is available at the `/admin` prefix.
+- **Admin Access:** To use the admin features, a user must have their `role` set to `admin` in the `cyo_auth_accounts` table. The admin dashboard lives in the web app at `/admin` and calls the `/v1.0/admin/*` endpoints.
 
-- **API:** The application exposes a versioned RESTful API under the `/api/v1.0/` prefix. Refer to the `routes/api.php` file for a full list of available endpoints.
+- **API:** The application exposes a versioned RESTful API under the `/v1.0/` prefix (for example `https://api.chuyenbienhoa.com/v1.0/login`). Refer to the `routes/api.php` file for a full list of available endpoints.
+
+- **Deployment:** Production runs on an aaPanel server with nginx and PHP-FPM. See `deploy/` for the nginx upload-size and supervisor queue-worker configs.
+
+## Contributing
+
+The default branch is **`main`**: unless told otherwise, commit and push changes there.
 
 ## License
 

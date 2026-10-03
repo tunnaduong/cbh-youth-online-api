@@ -1984,27 +1984,25 @@ class TopicsController extends Controller
       }
     }
 
-    // Cap nesting at 3 levels: if the target comment is already level 3+
-    // (i.e. its own parent also has a parent), attach to the level-2 ancestor instead.
-    // Store the original target in target_comment_id so the UI can sandwich the reply
-    // right after the actual comment being replied to.
+    // Cap nesting at 3 levels: replying to a level-1 or level-2 comment nests under it
+    // normally. Only when the target is already level 3+ (its parent also has a parent)
+    // do we attach to the level-2 ancestor instead, storing the original target in
+    // target_comment_id so the UI can sandwich the reply right after it.
     $originalReplyingTo = $request->replying_to;
     $replyingTo = $originalReplyingTo;
     $targetCommentId = null;
 
     if ($replyingTo) {
-      $target = TopicComment::find($replyingTo);
-      if ($target && $target->replying_to) {
-        $grandparent = TopicComment::find($target->replying_to);
-        if ($grandparent && $grandparent->replying_to) {
-          // target is level 4+; walk up until we reach level 2
-          $replyingTo = $grandparent->replying_to;
-          $targetCommentId = $originalReplyingTo;
-        } elseif ($grandparent) {
-          // target is level 3; cap to level 2 (its parent), keep target for ordering
-          $replyingTo = $target->replying_to;
-          $targetCommentId = $originalReplyingTo;
-        }
+      $current = TopicComment::find($replyingTo);
+      $parent = $current && $current->replying_to ? TopicComment::find($current->replying_to) : null;
+      // Walk up while $current sits at level 3 or deeper, until it is the level-2 ancestor
+      while ($current && $parent && $parent->replying_to) {
+        $current = $parent;
+        $parent = TopicComment::find($current->replying_to);
+      }
+      if ($current && $current->id != $originalReplyingTo) {
+        $replyingTo = $current->id;
+        $targetCommentId = $originalReplyingTo;
       }
     }
 
