@@ -74,18 +74,21 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     'two_factor_secret' => 'encrypted',
     'two_factor_recovery_codes' => 'encrypted:array',
     'two_factor_confirmed_at' => 'datetime',
+    'two_factor_totp_confirmed_at' => 'datetime',
+    'two_factor_email_confirmed_at' => 'datetime',
     'two_factor_last_step' => 'integer',
   ];
 
   /**
-   * Whether logging in requires a second step. A method that was picked but
-   * never confirmed with a code (setup abandoned halfway) doesn't count.
+   * Whether logging in requires a second step: at least one method
+   * (authenticator app, email code) is confirmed. A method that was started
+   * but never confirmed with a code doesn't count.
    *
    * @return bool
    */
   public function hasTwoFactorEnabled(): bool
   {
-    return $this->two_factor_method !== null && $this->two_factor_confirmed_at !== null;
+    return $this->two_factor_totp_confirmed_at !== null || $this->two_factor_email_confirmed_at !== null;
   }
 
   /**
