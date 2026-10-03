@@ -9,6 +9,7 @@ use App\Models\UserProfile;
 use App\Notifications\VerifyEmail;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -281,6 +282,56 @@ class AuthController extends Controller
     }
 
     return response()->json(['message' => 'Người dùng chưa xác thực.'], 401);
+  }
+
+  /**
+   * Issue a short-lived, single-use code the mobile app can hand to the web
+   * site (via the in-app browser) so the user lands there already signed in.
+   *
+   * The in-app browser keeps its own cookie jar the app can't write into, so
+   * the only way across is a URL - and a URL ends up in browser history (and,
+   * on Android, Chrome's synced history). Putting the bearer token itself
+   * there would leak a long-lived credential, so the URL carries this code
+   * instead: it expires after a minute and stops working once redeemed.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function createWebHandoff(Request $request)
+  {
+    $code = Str::random(64);
+    Cache::put('web_handoff:' . $code, $request->user()->id, now()->addSeconds(60));
+
+    return response()->json(['code' => $code, 'expires_in' => 60]);
+  }
+
+  /**
+   * Redeem a code from createWebHandoff for a fresh Sanctum token belonging
+   * to the web session. A separate token (rather than the app's own) means
+   * signing out on the web doesn't sign the app out, and vice versa.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function redeemWebHandoff(Request $request)
+  {
+    $request->validate(['code' => 'required|string|size:64']);
+
+    // pull = read + delete, so a code works exactly once.
+    $userId = Cache::pull('web_handoff:' . $request->input('code'));
+    $user = $userId ? AuthAccount::find($userId) : null;
+
+    if (!$user) {
+      return response()->json(['message' => 'Mã đăng nhập không hợp lệ hoặc đã hết hạn.'], 401);
+    }
+
+    if ($user->isCurrentlyBanned()) {
+      return $this->bannedResponse($user);
+    }
+
+    return response()->json([
+      'token' => $user->createToken('web-handoff')->plainTextToken,
+    ]);
   }
 
   /**
