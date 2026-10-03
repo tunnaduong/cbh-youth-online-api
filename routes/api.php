@@ -26,6 +26,7 @@ use App\Http\Controllers\StudyMaterialCategoryController;
 use App\Http\Controllers\StudyMaterialController;
 use App\Http\Controllers\StudyMaterialRatingController;
 use App\Http\Controllers\TopicsController;
+use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\UserBlockController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserPointDeductionController;
@@ -35,6 +36,7 @@ use App\Http\Controllers\WalletController;
 use App\Http\Controllers\UniversityController;
 use App\Http\Controllers\YouthNewsController;
 use App\Http\Controllers\DailyCheckinController;
+use App\Http\Controllers\DeviceSessionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +68,11 @@ Route::prefix('v1.0')->group(function () {
   Route::post('/register', [AuthController::class, 'register']);
   Route::post('/login', [AuthController::class, 'login']);
   Route::post('/login/oauth', [AuthController::class, 'loginWithProvider']);
+  // Second step of a login for accounts with two-factor on. Guessing is
+  // capped per account and per challenge in TwoFactorService; the throttle
+  // here is only a coarse backstop.
+  Route::post('/login/two-factor', [AuthController::class, 'loginTwoFactor'])->middleware('throttle:30,1');
+  Route::post('/login/two-factor/resend', [AuthController::class, 'resendTwoFactorCode'])->middleware('throttle:30,1');
   Route::post('/oauth/exchange', [AuthController::class, 'exchangeOAuthCode']);
   Route::get('/oauth/callback', [AuthController::class, 'oauthCallback']);
   Route::post('/password/reset/verify', [ForgotPasswordController::class, 'reset']);
@@ -219,7 +226,7 @@ Route::prefix('v1.0')->group(function () {
 
   // --- AUTHENTICATION REQUIRED ROUTES ---
   // These routes require a valid Sanctum authentication token.
-  Route::middleware(['auth:sanctum', 'not_banned'])->group(function () {
+  Route::middleware(['auth:sanctum', 'not_banned', 'device_session'])->group(function () {
     // User & Profile
     Route::get('/user', function (Request $request) {
       $user = $request->user()->load('profile');
@@ -258,6 +265,23 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/users/{username}/cover', [UserController::class, 'updateCoverPhoto']);
     Route::put('/users/{username}/profile', [UserController::class, 'updateProfile']);
     Route::post('/password/change', [PasswordResetController::class, 'changePassword']);
+
+    // Two-factor authentication settings
+    Route::prefix('two-factor')->group(function () {
+      Route::get('/', [TwoFactorController::class, 'status']);
+      Route::post('/totp', [TwoFactorController::class, 'setupTotp']);
+      Route::post('/email', [TwoFactorController::class, 'setupEmail']);
+      Route::post('/email/send', [TwoFactorController::class, 'sendEmailCode']);
+      Route::post('/confirm', [TwoFactorController::class, 'confirm']);
+      Route::post('/disable', [TwoFactorController::class, 'disable']);
+      Route::post('/recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes']);
+      Route::delete('/trusted-devices', [TwoFactorController::class, 'forgetTrustedDevices']);
+    });
+
+    // Logged-in devices (one per Sanctum token)
+    Route::get('/sessions', [DeviceSessionController::class, 'index']);
+    Route::delete('/sessions', [DeviceSessionController::class, 'destroyOthers']);
+    Route::delete('/sessions/{id}', [DeviceSessionController::class, 'destroy'])->whereNumber('id');
     Route::post('/email/resend-verification', [VerificationController::class, 'resend']);
     Route::post('/users/{username}/follow', [FollowController::class, 'follow']);
     Route::delete('/users/{username}/unfollow', [FollowController::class, 'unfollow']);

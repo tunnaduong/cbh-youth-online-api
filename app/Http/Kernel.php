@@ -71,5 +71,6 @@ class Kernel extends HttpKernel
     'optional.auth' => \App\Http\Middleware\OptionalAuthSanctum::class,
     'role' => \App\Http\Middleware\CheckRole::class,
     'not_banned' => \App\Http\Middleware\EnsureNotBanned::class,
+    'device_session' => \App\Http\Middleware\TrackDeviceSession::class,
   ];
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -46,6 +47,10 @@ class PasswordResetController extends Controller
         $user->password = Hash::make($request->new_password);
         /** @var \App\Models\AuthAccount $user **/
         $user->save();
+
+        // A remembered device plus the password is a full login, so a new
+        // password sends every device back through the two-factor challenge.
+        TwoFactorService::forgetTrustedDevices($user->id);
 
         return response()->json(["message" => "Đổi mật khẩu thành công!"], 201);
     }

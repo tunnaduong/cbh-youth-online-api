@@ -43,10 +43,20 @@ class SocialAuthController extends Controller
       ->where('provider_id', $socialUser->getId())
       ->first();
 
-    if (!$user) {
+    $matchedByProvider = (bool) $user;
+
+    if (!$matchedByProvider) {
       // If user does not exist, check by email
       $user = AuthAccount::where('email', $socialUser->getEmail())->first();
+    }
 
+    // This session login has no second step, so it must not become a way
+    // around two-factor: such accounts sign in through the API instead.
+    if ($user && $user->hasTwoFactorEnabled()) {
+      return redirect()->route('login')->with('error', 'Tài khoản này đã bật xác thực hai lớp. Vui lòng đăng nhập tại chuyenbienhoa.com.');
+    }
+
+    if (!$matchedByProvider) {
       if ($user) {
         // Update existing user with provider details
         $user->update([

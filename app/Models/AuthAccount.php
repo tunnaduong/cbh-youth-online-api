@@ -60,7 +60,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
    *
    * @var array<int, string>
    */
-  protected $hidden = ['password'];
+  protected $hidden = ['password', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_last_step'];
 
   /**
    * The attributes that should be cast.
@@ -71,7 +71,22 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail
     'banned_at' => 'datetime',
     'banned_until' => 'datetime',
     'is_ai' => 'boolean',
+    'two_factor_secret' => 'encrypted',
+    'two_factor_recovery_codes' => 'encrypted:array',
+    'two_factor_confirmed_at' => 'datetime',
+    'two_factor_last_step' => 'integer',
   ];
+
+  /**
+   * Whether logging in requires a second step. A method that was picked but
+   * never confirmed with a code (setup abandoned halfway) doesn't count.
+   *
+   * @return bool
+   */
+  public function hasTwoFactorEnabled(): bool
+  {
+    return $this->two_factor_method !== null && $this->two_factor_confirmed_at !== null;
+  }
 
   /**
    * Send the email verification notification.

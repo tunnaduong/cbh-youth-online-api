@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Notifications\ResetPassword;
+use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 
@@ -83,6 +84,10 @@ class ForgotPasswordController extends Controller
       function ($user, $password) {
         $user->password = bcrypt($password);
         $user->save();
+
+        // Same as changing the password while signed in: remembered devices
+        // have to pass the two-factor challenge again.
+        TwoFactorService::forgetTrustedDevices($user->id);
       }
     );
 
