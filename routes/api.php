@@ -12,7 +12,9 @@ use App\Http\Controllers\ForumController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\CustomQuizController;
 use App\Http\Controllers\QuizController;
+use App\Http\Controllers\NameFontController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PasskeyController;
 use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\OnlineUserController;
 use App\Http\Controllers\PasswordResetController;
@@ -73,6 +75,15 @@ Route::prefix('v1.0')->group(function () {
   // here is only a coarse backstop.
   Route::post('/login/two-factor', [AuthController::class, 'loginTwoFactor'])->middleware('throttle:30,1');
   Route::post('/login/two-factor/resend', [AuthController::class, 'resendTwoFactorCode'])->middleware('throttle:30,1');
+  // Passkey login: no password and no two-factor step.
+  Route::post('/login/passkey/options', [AuthController::class, 'passkeyLoginOptions'])->middleware('throttle:30,1');
+  Route::post('/login/passkey', [AuthController::class, 'passkeyLogin'])->middleware('throttle:30,1');
+  Route::post('/login/passkey/redeem', [AuthController::class, 'redeemPasskeyLogin'])->middleware('throttle:30,1');
+
+  // Name fonts hosted by this API: the list, and the .ttf files themselves
+  // (served through Laravel so they carry CORS headers for the web).
+  Route::get('/name-fonts', [NameFontController::class, 'index']);
+  Route::get('/name-fonts/{file}', [NameFontController::class, 'show'])->where('file', '[A-Za-z0-9]+\.ttf');
   Route::post('/oauth/exchange', [AuthController::class, 'exchangeOAuthCode']);
   Route::get('/oauth/callback', [AuthController::class, 'oauthCallback']);
   Route::post('/web-session/redeem', [AuthController::class, 'redeemWebHandoff'])->middleware('throttle:20,1');
@@ -280,6 +291,12 @@ Route::prefix('v1.0')->group(function () {
       Route::delete('/trusted-devices', [TwoFactorController::class, 'forgetTrustedDevices']);
     });
 
+    // Passkeys the account can log in with
+    Route::get('/passkeys', [PasskeyController::class, 'index']);
+    Route::post('/passkeys/options', [PasskeyController::class, 'options']);
+    Route::post('/passkeys', [PasskeyController::class, 'store']);
+    Route::delete('/passkeys/{id}', [PasskeyController::class, 'destroy'])->whereNumber('id');
+
     // Logged-in devices (one per Sanctum token)
     Route::get('/sessions', [DeviceSessionController::class, 'index']);
     Route::delete('/sessions', [DeviceSessionController::class, 'destroyOthers']);
@@ -455,6 +472,9 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/shop/orders/{id}/cancel', [ShopController::class, 'cancelOrder']);
     Route::post('/shop/products/{id}/contact', [ShopController::class, 'contactShop']);
     Route::get('/shop/support/status', [ShopController::class, 'supportStatus']);
+    Route::put('/shop/support/{conversationId}/ai', [ShopController::class, 'setSupportAi'])->whereNumber('conversationId');
+    Route::get('/shop/cart', [ShopController::class, 'cart']);
+    Route::put('/shop/cart', [ShopController::class, 'replaceCart']);
 
     // Student Verification (eKYC)
     Route::post('/student-verification', [\App\Http\Controllers\StudentVerificationController::class, 'submit']);

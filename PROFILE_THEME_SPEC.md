@@ -18,7 +18,7 @@
 | Profile Banner | **Ảnh bìa** | Upload ngay trong trình chỉnh sửa |
 | Profile Effect | **Hiệu ứng hồ sơ** (4 hiệu ứng) | Chạy ~6 giây mỗi lần mở trang rồi mờ dần |
 | Profile Frame | **Khung hồ sơ** (3 khung) | Viền quanh ảnh bìa/thẻ profile |
-| Display Name Style | **Kiểu tên**: 14 phông + 8 hiệu ứng + màu tên | Phông Google có tiếng Việt |
+| Display Name Style | **Kiểu tên**: 27 phông (12 có sẵn trong client + 15 phông do API cung cấp) + 8 hiệu ứng + màu tên | Phông Google có tiếng Việt |
 | Profile Theme | **Màu giao diện** (màu chính, màu phụ) | Tùy chọn; chưa chọn thì trang giữ màu mặc định |
 | Nameplate | Chưa làm | |
 | Nitro, Shop, Wishlist | Không làm | |
@@ -29,11 +29,11 @@ Tùy chỉnh được khi đạt **Thành viên tập sự (50 điểm)** (quy�
 
 | Hạng | Điểm | Mở khóa thêm |
 |---|---|---|
-| Thành viên tập sự | 50 | Màu giao diện, màu ảnh bìa · Phông: Mặc định, Cao gọn, Hiện đại, Tròn trịa, Viết tay, Google Sans Flex, Space Grotesk · Hiệu ứng tên: Một màu · Khung avatar: Theo màu, Bạc |
+| Thành viên tập sự | 50 | Màu giao diện, màu ảnh bìa · Phông: Mặc định, Cao gọn, Hiện đại, Tròn trịa, Viết tay · Hiệu ứng tên: Một màu · Khung avatar: Theo màu, Bạc |
 | Thành viên tích cực | 150 | Phông: Thư pháp, Truyện tranh, Pixel, Công nghệ · Hiệu ứng tên: Chuyển màu, Nổi khối · Khung avatar: Băng · Hiệu ứng hồ sơ: Lấp lánh, Trái tim · Khung hồ sơ: Phát sáng |
 | Thành viên tiêu biểu | 500 | Phông: Cổ điển, Đậm chất, Gai góc · Hiệu ứng tên: Hoạt hình, Neon · Khung avatar: Vàng · Hiệu ứng hồ sơ: Tuyết rơi · Khung hồ sơ: Viền vàng |
 | Thành viên kỳ cựu | 1000 | Khung avatar: Cầu vồng (xoay) · Hiệu ứng hồ sơ: Cực quang · Khung hồ sơ: Neon xoay · Avatar GIF động |
-| Thành viên cao cấp | 1500 | Hiệu ứng tên: Cầu vồng, Viền chữ (tự chọn màu chữ và màu viền) |
+| Thành viên cao cấp | 1500 | Hiệu ứng tên: Cầu vồng, Viền chữ (tự chọn màu chữ và màu viền) · 15 phông do API cung cấp (Google Sans Flex, Space Grotesk, Montserrat, Be Vietnam Pro, Nunito, Quicksand, Comfortaa, Manrope, Raleway, Exo 2, Playfair Display, Merriweather, Roboto Slab, Lobster, Pacifico; xem `GET /v1.0/name-fonts`) · Màu chuyển sắc (màu thứ hai) cho màu chính, màu phụ và màu ảnh bìa |
 
 Bảng này nằm ở `ProfileThemeService::OPTIONS` (API). Đổi mốc chỉ cần sửa ở đó; trình chỉnh sửa và cột "Mốc điểm" tự đọc từ API.
 

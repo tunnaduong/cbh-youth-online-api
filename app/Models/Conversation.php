@@ -44,6 +44,7 @@ class Conversation extends Model
         'created_by',
         'is_public',
         'is_shop_support',
+        'shop_ai_enabled',
         'avatar_url',
         'invite_token',
         'background_content_id',
@@ -80,6 +81,7 @@ class Conversation extends Model
     protected $casts = [
         'is_public' => 'boolean',
         'is_shop_support' => 'boolean',
+        'shop_ai_enabled' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

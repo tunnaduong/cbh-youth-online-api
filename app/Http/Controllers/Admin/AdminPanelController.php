@@ -283,6 +283,9 @@ class AdminPanelController extends Controller
     $user->save();
     $user->tokens()->delete();
     TwoFactorService::forgetTrustedDevices($user->id);
+    // A passkey logs in without the password, so whoever had access could
+    // have left one behind.
+    \App\Models\Passkey::where('user_id', $user->id)->delete();
 
     return response()->json([
       'message' => "Đã đặt lại mật khẩu cho @{$user->username}. Hãy gửi mật khẩu tạm này cho người dùng và nhắc họ đổi lại ngay.",

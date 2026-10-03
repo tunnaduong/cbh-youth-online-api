@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AuthAccount;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\ShopCartItem;
 use App\Models\ShopCategory;
 use App\Models\ShopOrder;
 use App\Models\ShopProduct;
@@ -280,6 +281,9 @@ class ShopController extends Controller
   {
     $product = ShopProduct::findOrFail($id);
     $user = $request->user();
+    $variant = $request->filled('variant_id')
+      ? ShopProductVariant::where('product_id', $product->id)->find($request->input('variant_id'))
+      : null;
 
     $conversation = Conversation::where('is_shop_support', true)
       ->whereHas('participants', fn($q) => $q->where('user_id', $user->id))
@@ -314,18 +318,138 @@ class ShopController extends Controller
         number_format($product->price, 0, ',', '.'),
       ),
       'type' => 'text',
-      'metadata' => [
+      'metadata' => array_filter([
         'shop_product_id' => $product->id,
         'shop_product_name' => $product->name,
-      ],
+        // The variant picked on the product page, if any - context for the
+        // staff and for the AI assistant.
+        'shop_variant_id' => $variant?->id,
+        'shop_variant_label' => $variant?->label(),
+      ]),
     ]);
 
     app(ChatController::class)->broadcastAiMessage($conversation, $message, $user);
 
+    // The inquiry is posted here rather than through ChatController, so it
+    // has to ask for its AI answer itself.
+    if ($conversation->shop_ai_enabled ?? true) {
+      \App\Jobs\GenerateAiChatReply::dispatch($conversation->id, $message->id, 'shop');
+    }
+
     return response()->json([
       'conversation_id' => $conversation->id,
       'admins_online' => AuthAccount::role('admin')->online()->count(),
+      'ai_enabled' => (bool) ($conversation->shop_ai_enabled ?? true),
     ], $conversation->wasRecentlyCreated ? 201 : 200);
+  }
+
+  /**
+   * The customer's AI switch for their support thread: on = the AI answers
+   * their messages, off = wait for a real person. Staff see a system message
+   * in the thread whenever it changes.
+   */
+  public function setSupportAi(Request $request, $conversationId)
+  {
+    $data = $request->validate(['enabled' => 'required|boolean']);
+
+    $conversation = Conversation::where('is_shop_support', true)
+      ->where('created_by', $request->user()->id)
+      ->findOrFail($conversationId);
+
+    $enabled = (bool) $data['enabled'];
+
+    if ($conversation->shop_ai_enabled !== $enabled) {
+      $conversation->shop_ai_enabled = $enabled;
+      $conversation->save();
+
+      app(ChatController::class)->createSystemMessage(
+        $conversation,
+        $enabled
+          ? 'Khách đã bật lại trả lời tự động bằng AI.'
+          : 'Khách đã tắt AI và muốn trò chuyện với nhân viên shop.',
+        ['shop_ai_enabled' => $enabled]
+      );
+    }
+
+    return response()->json([
+      'ai_enabled' => $enabled,
+      'message' => $enabled
+        ? 'Đã bật trả lời tự động bằng AI.'
+        : 'Đã tắt AI. Nhân viên shop sẽ trả lời bạn.',
+    ]);
+  }
+
+  /**
+   * The account's cart, so it follows the user across devices. Lines whose
+   * product or variant no longer exists are dropped.
+   */
+  public function cart(Request $request)
+  {
+    return response()->json($this->cartPayload($request->user()->id));
+  }
+
+  /**
+   * Replace the account's cart with the given lines (the client sends its
+   * whole cart after each change).
+   */
+  public function replaceCart(Request $request)
+  {
+    $data = $request->validate([
+      'items' => 'present|array|max:100',
+      'items.*.product_id' => 'required|integer',
+      'items.*.variant_id' => 'nullable|integer',
+      'items.*.quantity' => 'required|integer|min:1|max:999',
+    ]);
+
+    $userId = $request->user()->id;
+    $productIds = ShopProduct::whereIn('id', collect($data['items'])->pluck('product_id'))->pluck('id')->flip();
+
+    // Same product + variant twice in the payload = one line.
+    $lines = collect($data['items'])
+      ->filter(fn($item) => $productIds->has($item['product_id']))
+      ->keyBy(fn($item) => $item['product_id'] . ':' . (int) ($item['variant_id'] ?? 0));
+
+    DB::transaction(function () use ($userId, $lines) {
+      ShopCartItem::where('user_id', $userId)->delete();
+
+      foreach ($lines as $item) {
+        ShopCartItem::create([
+          'user_id' => $userId,
+          'product_id' => $item['product_id'],
+          'variant_id' => (int) ($item['variant_id'] ?? 0),
+          'quantity' => $item['quantity'],
+        ]);
+      }
+    });
+
+    return response()->json($this->cartPayload($userId));
+  }
+
+  private function cartPayload(int $userId): array
+  {
+    $rows = ShopCartItem::where('user_id', $userId)->orderBy('id')->get();
+    $products = ShopProduct::with(['category', 'variants'])
+      ->whereIn('id', $rows->pluck('product_id'))
+      ->get()
+      ->keyBy('id');
+
+    $items = [];
+    foreach ($rows as $row) {
+      $product = $products->get($row->product_id);
+      $variant = $row->variant_id ? $product?->variants->firstWhere('id', $row->variant_id) : null;
+
+      if (!$product || ($row->variant_id && !$variant)) {
+        continue;
+      }
+
+      $items[] = ['product' => $product, 'variant' => $variant, 'quantity' => $row->quantity];
+    }
+
+    return [
+      'items' => $items,
+      // Lets a client tell whether another device changed the cart.
+      'updated_at' => optional($rows->max('updated_at'))->toISOString(),
+    ];
   }
 
   /**
@@ -333,10 +457,16 @@ class ShopController extends Controller
    * without re-posting a message - polled while the widget is open so the
    * indicator stays live if an admin comes online/offline mid-conversation.
    */
-  public function supportStatus()
+  public function supportStatus(Request $request)
   {
+    // The customer's own thread, for its AI switch (null before first contact).
+    $conversation = Conversation::where('is_shop_support', true)
+      ->where('created_by', $request->user()->id)
+      ->first();
+
     return response()->json([
       'admins_online' => AuthAccount::role('admin')->online()->count(),
+      'ai_enabled' => $conversation ? (bool) $conversation->shop_ai_enabled : true,
     ]);
   }
 }

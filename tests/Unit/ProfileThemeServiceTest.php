@@ -79,7 +79,19 @@ class ProfileThemeServiceTest extends TestCase
             'profile_effect' => 'none',
             'profile_frame' => 'none',
             'name_colors' => [ProfileThemeService::DEFAULT_PRIMARY, ProfileThemeService::DEFAULT_ACCENT],
+            'primary_color_2' => null,
+            'accent_color_2' => null,
+            'banner_color_2' => null,
         ], ProfileThemeService::normalize(['primary_color' => '#FF0080', 'junk' => 'x']));
+
+        // A second colour is kept next to its first colour, dropped without one.
+        $gradient = ProfileThemeService::normalize([
+            'primary_color' => '#ff0080',
+            'primary_color_2' => '#00FFAA',
+            'banner_color_2' => '#123456',
+        ]);
+        $this->assertSame('#00ffaa', $gradient['primary_color_2']);
+        $this->assertNull($gradient['banner_color_2']);
 
         $this->assertSame(
             ['#abcdef', ProfileThemeService::DEFAULT_ACCENT],
@@ -179,7 +191,7 @@ class ProfileThemeServiceTest extends TestCase
         ]);
 
         $this->assertSame(
-            ['primary_color', 'accent_color', 'name_font', 'name_effect', 'avatar_frame', 'name_colors'],
+            ['primary_color', 'accent_color', 'name_font', 'name_effect', 'avatar_frame', 'name_colors', 'primary_color_2', 'accent_color_2'],
             array_keys(ProfileThemeService::forAuthor($user))
         );
         $this->assertSame('veteran', ProfileThemeService::forAuthor($user)['avatar_frame']);
@@ -203,8 +215,19 @@ class ProfileThemeServiceTest extends TestCase
         $this->assertSame([true, true, false, false, false], array_column($state['tiers'], 'reached'));
         $this->assertContains(['key' => 'rainbow', 'required_points' => 1500, 'unlocked' => false], $state['options']['name_effect']);
         $this->assertContains(['key' => 'outline', 'required_points' => 1500, 'unlocked' => false], $state['options']['name_effect']);
-        $this->assertContains(['key' => 'flex', 'required_points' => 50, 'unlocked' => true], $state['options']['name_font']);
-        $this->assertContains(['key' => 'grotesk', 'required_points' => 50, 'unlocked' => true], $state['options']['name_font']);
+        // Server-hosted fonts are premium and carry their label.
+        $this->assertContains(
+            ['key' => 'flex', 'required_points' => 1500, 'unlocked' => false, 'label' => 'Google Sans Flex'],
+            $state['options']['name_font']
+        );
+        $this->assertSame(['required_points' => 1500, 'unlocked' => false], $state['color_gradient']);
+        $this->assertTrue(ProfileThemeService::editorState($this->user(1500))['color_gradient']['unlocked']);
+
+        // Every server font has a tier and a file on disk.
+        foreach (ProfileThemeService::SERVER_FONTS as $key => $font) {
+            $this->assertArrayHasKey($key, ProfileThemeService::OPTIONS['name_font']);
+            $this->assertFileExists(dirname(__DIR__, 2) . '/public/fonts/name/' . $font['file']);
+        }
         $this->assertSame(['required_points' => 1000, 'unlocked' => false], $state['animated_avatar']);
         $this->assertContains(['key' => 'none', 'required_points' => 50, 'unlocked' => true], $state['options']['profile_effect']);
         $this->assertContains(['key' => 'sparkles', 'required_points' => 150, 'unlocked' => true], $state['options']['profile_effect']);
