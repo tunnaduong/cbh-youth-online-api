@@ -46,8 +46,13 @@ class TwoFactorService
    * If this login needs a second step, start a challenge and return the
    * payload to send back instead of a token. Null means: go ahead and log in
    * (2FA is off, or the request comes from a device the user trusted).
+   *
+   * $link: a social login matched to this account by email only -
+   * ['provider' => ..., 'provider_id' => ...] to attach once the challenge is
+   * passed (see challengeLink()), so later logins through that provider
+   * need no second step.
    */
-  public static function challengeFor(AuthAccount $user, ?string $deviceToken = null): ?array
+  public static function challengeFor(AuthAccount $user, ?string $deviceToken = null, ?array $link = null): ?array
   {
     if (!$user->hasTwoFactorEnabled()) {
       return null;
@@ -62,6 +67,7 @@ class TwoFactorService
       'user_id' => $user->id,
       'attempts' => 0,
       'expires_at' => now()->addSeconds(self::CHALLENGE_TTL)->getTimestamp(),
+      'link' => $link,
     ], self::CHALLENGE_TTL);
 
     $methods = self::enabledMethods($user);
@@ -141,6 +147,17 @@ class TwoFactorService
     $challenge = Cache::get(self::challengeKey($token));
 
     return $challenge ? AuthAccount::find($challenge['user_id']) : null;
+  }
+
+  /**
+   * The social login waiting to be attached to the challenge's account
+   * (['provider', 'provider_id']), if the challenge came from one.
+   */
+  public static function challengeLink(string $token): ?array
+  {
+    $link = Cache::get(self::challengeKey($token))['link'] ?? null;
+
+    return is_array($link) && !empty($link['provider']) && !empty($link['provider_id']) ? $link : null;
   }
 
   public static function recordChallengeFailure(string $token): void
