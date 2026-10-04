@@ -77,6 +77,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
     'two_factor_totp_confirmed_at' => 'datetime',
     'two_factor_email_confirmed_at' => 'datetime',
     'two_factor_last_step' => 'integer',
+    'two_factor_skip_social' => 'boolean',
   ];
 
   /**
@@ -99,6 +100,16 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
   public function hasTwoFactorEnabled(): bool
   {
     return $this->two_factor_totp_confirmed_at !== null || $this->two_factor_email_confirmed_at !== null;
+  }
+
+  /**
+   * The user's setting: a login through Google/Facebook/Apple skips the
+   * two-factor step. On unless they turned it off (also before the column
+   * exists, so a deploy that hasn't migrated yet behaves like the default).
+   */
+  public function skipsTwoFactorOnSocialLogin(): bool
+  {
+    return $this->two_factor_skip_social ?? true;
   }
 
   /**

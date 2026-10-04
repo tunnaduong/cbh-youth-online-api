@@ -843,8 +843,6 @@ class AuthController extends Controller
           ->where('provider_id', $providerId)
           ->first();
       }
-      // The provider itself says this is the person the account is linked to.
-      $matchedByProvider = (bool) $user;
       if (!$user && $email && $emailTrusted) {
         $user = AuthAccount::where('email', $email)->first();
       }
@@ -926,15 +924,13 @@ class AuthController extends Controller
           ]);
         }
       } else {
-        // A login through Google/Facebook/Apple needs no two-factor step: the
-        // provider has already signed the person in (with its own second
-        // step, if they set one). The one exception is the first time, when
-        // the account is only matched by its email and not yet linked to the
-        // provider: linking gives that provider account a permanent way in,
-        // so it has to pass the challenge once. It comes before anything
-        // below touches the account.
+        // Whether a login through Google/Facebook/Apple still goes through
+        // two-factor is the user's own setting (on = skip, the default: the
+        // provider has already signed the person in). When they turned the
+        // skip off, the challenge comes before anything below touches the
+        // account.
         if (
-          !$matchedByProvider
+          !$user->skipsTwoFactorOnSocialLogin()
           && !$user->isCurrentlyBanned()
           && ($challenge = TwoFactorService::challengeFor($user, $request->input('device_token'), [
             'provider' => $provider,

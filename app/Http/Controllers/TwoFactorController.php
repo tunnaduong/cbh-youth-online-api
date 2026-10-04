@@ -255,6 +255,28 @@ class TwoFactorController extends Controller
   }
 
   /**
+   * Choose whether logins through Google/Facebook/Apple skip the two-factor
+   * step (`skip`: true = no second step for them).
+   *
+   * @param  IlluminateHttpRequest  $request
+   * @return IlluminateHttpJsonResponse
+   */
+  public function setSocialLogin(Request $request)
+  {
+    $request->validate(['skip' => 'required|boolean']);
+
+    $user = $request->user();
+    $user->forceFill(['two_factor_skip_social' => $request->boolean('skip')])->save();
+
+    return response()->json([
+      'message' => $request->boolean('skip')
+        ? 'Đăng nhập bằng Google, Facebook, Apple sẽ không cần xác thực hai lớp.'
+        : 'Đăng nhập bằng Google, Facebook, Apple cũng sẽ cần xác thực hai lớp.',
+      'status' => $this->statusPayload($user),
+    ]);
+  }
+
+  /**
    * Forget every remembered device, so each one is challenged again.
    *
    * @param  \Illuminate\Http\Request  $request
@@ -290,6 +312,8 @@ class TwoFactorController extends Controller
       'email' => TwoFactorService::maskEmail($user->email),
       'email_verified' => (bool) $user->email_verified_at,
       'password_required' => $this->passwordRequired($user),
+      // Logins through Google/Facebook/Apple skip the second step.
+      'skip_social_login' => $user->skipsTwoFactorOnSocialLogin(),
     ];
   }
 
