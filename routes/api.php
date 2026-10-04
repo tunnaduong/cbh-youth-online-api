@@ -289,6 +289,7 @@ Route::prefix('v1.0')->group(function () {
       Route::post('/disable', [TwoFactorController::class, 'disable']);
       Route::post('/recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes']);
       Route::delete('/trusted-devices', [TwoFactorController::class, 'forgetTrustedDevices']);
+      Route::put('/social-login', [TwoFactorController::class, 'setSocialLogin']);
     });
 
     // Passkeys the account can log in with

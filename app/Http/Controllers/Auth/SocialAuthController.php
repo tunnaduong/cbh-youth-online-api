@@ -50,11 +50,10 @@ class SocialAuthController extends Controller
       $user = AuthAccount::where('email', $socialUser->getEmail())->first();
     }
 
-    // A social login already linked to the account needs no two-factor
-    // step. Matched by email only, it would have to pass one before being
-    // linked, and this session login has no second step: such accounts
-    // sign in through the API instead.
-    if ($user && !$matchedByProvider && $user->hasTwoFactorEnabled()) {
+    // Unless the user chose to skip two-factor on social logins (the
+    // default), this login would need a second step, which the session
+    // login doesn't have: such accounts sign in through the API instead.
+    if ($user && $user->hasTwoFactorEnabled() && !$user->skipsTwoFactorOnSocialLogin()) {
       return redirect()->route('login')->with('error', 'Tài khoản này đã bật xác thực hai lớp. Vui lòng đăng nhập tại chuyenbienhoa.com.');
     }
 
