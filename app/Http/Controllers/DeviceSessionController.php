@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\DeviceSessionsRevoked;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -73,6 +74,8 @@ class DeviceSessionController extends Controller
       return response()->json(['message' => 'Không tìm thấy thiết bị này.'], 404);
     }
 
+    $this->announceRevoked($request->user()->id, [(int) $id]);
+
     return response()->json(['message' => 'Đã đăng xuất thiết bị.']);
   }
 
@@ -89,9 +92,13 @@ class DeviceSessionController extends Controller
     $user = $request->user();
     $currentId = $this->currentTokenId($request);
 
-    $deleted = $user->tokens()
+    $revokedIds = $user->tokens()
       ->when($currentId, fn($query) => $query->where('id', '!=', $currentId))
-      ->delete();
+      ->pluck('id')
+      ->all();
+    $deleted = $user->tokens()->whereIn('id', $revokedIds)->delete();
+
+    $this->announceRevoked($user->id, $revokedIds);
 
     TwoFactorService::forgetTrustedDevices($user->id);
 
@@ -99,6 +106,24 @@ class DeviceSessionController extends Controller
       'message' => 'Đã đăng xuất khỏi tất cả thiết bị khác.',
       'logged_out' => $deleted,
     ]);
+  }
+
+  /**
+   * Tells clients still open on the revoked logins to sign out now (see
+   * DeviceSessionsRevoked). Best effort: the tokens are already gone, so a
+   * client that misses this still signs out on its next request (401).
+   */
+  private function announceRevoked(int $userId, array $tokenIds): void
+  {
+    if (empty($tokenIds)) {
+      return;
+    }
+
+    try {
+      broadcast(new DeviceSessionsRevoked($userId, $tokenIds));
+    } catch (\Throwable $e) {
+      // Reverb being down must not fail the logout itself.
+    }
   }
 
   private function currentTokenId(Request $request): ?int
