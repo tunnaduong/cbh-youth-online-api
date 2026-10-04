@@ -348,6 +348,7 @@ Route::prefix('v1.0')->group(function () {
 
     // Topics & Content
     Route::post('/topics', [TopicsController::class, 'store']);
+    Route::post('/topics/preview', [TopicsController::class, 'previewMarkdown']);
     Route::post('/topics/{id}/votes', [TopicsController::class, 'registerVote']);
     Route::get('/user/saved-topics', [TopicsController::class, 'getSavedTopics']);
     Route::post('/user/saved-topics', [TopicsController::class, 'saveTopicForUser']);
