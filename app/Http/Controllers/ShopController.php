@@ -285,8 +285,12 @@ class ShopController extends Controller
       ? ShopProductVariant::where('product_id', $product->id)->find($request->input('variant_id'))
       : null;
 
+    // The customer's own thread, by who opened it - not "any support thread
+    // they are in": a shop admin is a member of every customer's thread, so
+    // their own inquiry used to land in someone else's, where the AI switch
+    // (which checks created_by) then answered 404.
     $conversation = Conversation::where('is_shop_support', true)
-      ->whereHas('participants', fn($q) => $q->where('user_id', $user->id))
+      ->where('created_by', $user->id)
       ->first();
 
     $adminIds = AuthAccount::where('role', 'admin')->pluck('id');
@@ -471,6 +475,8 @@ class ShopController extends Controller
     return response()->json([
       'admins_online' => AuthAccount::role('admin')->online()->count(),
       'ai_enabled' => $conversation ? (bool) $conversation->shop_ai_enabled : true,
+      // Lets the widget drop a thread id it remembered from another account.
+      'conversation_id' => $conversation?->id,
     ]);
   }
 }

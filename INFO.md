@@ -113,6 +113,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Fix: gift shop support thread is found by who opened it** (not run): `ShopController::contactShop()` looked for "any support thread the user is in", and a shop admin is a member of every customer's thread - so an admin's own inquiry was posted into another customer's thread, where the AI switch (`PUT /shop/support/{id}/ai`, checks `created_by`) answered 404 and the AI never replied. It now matches `created_by`. `GET /shop/support/status` also returns `conversation_id` (the caller's own thread, or null) so the shop widget can drop a thread id remembered from another account.
+
 - **Two-factor on social logins is the user's choice** (not run; needs `php artisan migrate` for `cyo_auth_accounts.two_factor_skip_social`, default true): `POST /login/oauth` only answers with a two-factor challenge when the account turned the skip **off** (`AuthAccount::skipsTwoFactorOnSocialLogin()`; treated as on while the column doesn't exist yet). `GET /two-factor` adds `skip_social_login`; `PUT /two-factor/social-login {skip: bool}` sets it (no password asked). When the challenge does run for a social login matched by email, passing it links the provider (`TwoFactorService::challengeFor($user, $deviceToken, $link)` / `challengeLink()`). The legacy session login (`SocialAuthController`) follows the same setting. Passkey login was checked on production: the API answers correctly; the fault was on the web (silent failure when the device has no passkey, web PR 33).
 
 - **Security and correctness fixes from a review of the 2FA / passkey / shop work** (not run):
