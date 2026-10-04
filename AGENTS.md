@@ -17,6 +17,15 @@ crosses repos):
 - [cbh-youth-online-mobile](https://github.com/tunnaduong/cbh-youth-online-mobile) - Expo / React Native app
 - [cbh-youth-online-gift-shop](https://github.com/tunnaduong/cbh-youth-online-gift-shop) - gift shop (giftshop.chuyenbienhoa.com)
 
+## Find code via INFO.md first
+
+Before searching the codebase by hand (grep, find, opening files one by
+one), look up INFO.md's **Project structure** and **Features** sections: they
+say which folder/file owns each feature, screen, route or endpoint. Go
+straight to those files and only fall back to a manual search for what
+INFO.md doesn't cover - it's much faster. If you had to search for something
+INFO.md should have told you, add it there.
+
 ## Default branch
 
 Work on **`main`** unless the user names another branch: pull, commit and
