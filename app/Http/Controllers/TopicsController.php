@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
+use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
 use League\CommonMark\CommonMarkConverter;
 use App\Services\ProfileThemeService;
 
@@ -53,6 +54,8 @@ class TopicsController extends Controller
 
     $converter = new CommonMarkConverter($config);
     $converter->getEnvironment()->addExtension(new AutolinkExtension());
+    // ~~gạch ngang~~ - nút Strikethrough của trình soạn thảo trên app dùng cú pháp này
+    $converter->getEnvironment()->addExtension(new StrikethroughExtension());
 
     // 2. Chuyển Markdown → HTML
     $html = $converter->convert($markdown)->getContent();
@@ -1147,6 +1150,32 @@ class TopicsController extends Controller
       ],
       'ogImage' => $ogImage,
       'comments' => $formattedComments
+    ]);
+  }
+
+  /**
+   * Render a post body the way it will appear once published, without saving
+   * anything - backs the "Preview" tab of the app's post editor. Goes through
+   * the exact same converter and mention resolution as store()/update(), so
+   * the preview can't drift from the real post.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function previewMarkdown(Request $request)
+  {
+    $validated = $request->validate([
+      'markdown' => 'nullable|string|max:100000',
+    ]);
+
+    $markdown = $validated['markdown'] ?? '';
+
+    return response()->json([
+      'html' => $markdown === '' ? '' : $this->convertMarkdownToHtml($markdown),
+      'mentions' => $this->filterMentionsByBlock(
+        $this->resolveTopicMentions($markdown),
+        (int) auth()->id()
+      ),
     ]);
   }
 
