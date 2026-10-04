@@ -241,6 +241,18 @@ class AuthController extends Controller
     }
 
     TwoFactorService::clearFailures($user);
+
+    // The challenge came from a social login matched by email: attach that
+    // provider account now, so its next logins skip the second step. An
+    // account already linked to a provider keeps that link.
+    $link = TwoFactorService::challengeLink($challengeToken);
+    if ($link && !$user->provider && !$user->provider_id) {
+      $user->forceFill([
+        'provider' => $link['provider'],
+        'provider_id' => $link['provider_id'],
+      ])->save();
+    }
+
     TwoFactorService::forgetChallenge($challengeToken);
 
     $data = $this->loginResponseData($user, $request);
@@ -831,6 +843,8 @@ class AuthController extends Controller
           ->where('provider_id', $providerId)
           ->first();
       }
+      // The provider itself says this is the person the account is linked to.
+      $matchedByProvider = (bool) $user;
       if (!$user && $email && $emailTrusted) {
         $user = AuthAccount::where('email', $email)->first();
       }
@@ -912,13 +926,20 @@ class AuthController extends Controller
           ]);
         }
       } else {
-        // Two-factor applies to social logins too, and the challenge comes
-        // before anything below touches the account: this branch can match
-        // an existing account by email alone, so nothing may be linked to or
-        // changed on it until the second step has passed.
+        // A login through Google/Facebook/Apple needs no two-factor step: the
+        // provider has already signed the person in (with its own second
+        // step, if they set one). The one exception is the first time, when
+        // the account is only matched by its email and not yet linked to the
+        // provider: linking gives that provider account a permanent way in,
+        // so it has to pass the challenge once. It comes before anything
+        // below touches the account.
         if (
-          !$user->isCurrentlyBanned()
-          && ($challenge = TwoFactorService::challengeFor($user, $request->input('device_token')))
+          !$matchedByProvider
+          && !$user->isCurrentlyBanned()
+          && ($challenge = TwoFactorService::challengeFor($user, $request->input('device_token'), [
+            'provider' => $provider,
+            'provider_id' => $providerId,
+          ]))
         ) {
           return response()->json($challenge);
         }

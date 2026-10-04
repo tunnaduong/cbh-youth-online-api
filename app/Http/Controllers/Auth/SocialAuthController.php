@@ -50,9 +50,11 @@ class SocialAuthController extends Controller
       $user = AuthAccount::where('email', $socialUser->getEmail())->first();
     }
 
-    // This session login has no second step, so it must not become a way
-    // around two-factor: such accounts sign in through the API instead.
-    if ($user && $user->hasTwoFactorEnabled()) {
+    // A social login already linked to the account needs no two-factor
+    // step. Matched by email only, it would have to pass one before being
+    // linked, and this session login has no second step: such accounts
+    // sign in through the API instead.
+    if ($user && !$matchedByProvider && $user->hasTwoFactorEnabled()) {
       return redirect()->route('login')->with('error', 'Tài khoản này đã bật xác thực hai lớp. Vui lòng đăng nhập tại chuyenbienhoa.com.');
     }
 
