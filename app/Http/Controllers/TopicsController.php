@@ -1748,6 +1748,8 @@ class TopicsController extends Controller
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? null,
           'avatar_url' => $user->avatarUrl(),
+          'profile_theme' => \App\Services\ProfileThemeService::forAuthor($user),
+          'verified' => ($user->profile->verified ?? null) == 1,
           'vote_value' => $vote->vote_value,
         ];
       });
@@ -2213,6 +2215,8 @@ class TopicsController extends Controller
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? null,
           'avatar_url' => $user->avatarUrl(),
+          'profile_theme' => \App\Services\ProfileThemeService::forAuthor($user),
+          'verified' => ($user->profile->verified ?? null) == 1,
           'vote_value' => $vote->vote_value,
         ];
       });

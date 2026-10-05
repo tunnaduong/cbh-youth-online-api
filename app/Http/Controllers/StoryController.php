@@ -69,6 +69,7 @@ class StoryController extends Controller
                     'name' => $user->profile->profile_name ?? $user->username,
                     // Name style + avatar frame, drawn on the story tray and viewer
                     'profile_theme' => \App\Services\ProfileThemeService::forAuthor($user),
+                    'verified' => ($user->profile->verified ?? null) == 1,
                     'stories' => $userStories->map(function ($story) {
                         return [
                             'id' => (string) $story->id,
@@ -1018,6 +1019,7 @@ class StoryController extends Controller
                 'profile_name' => $viewer->user->profile->profile_name ?? $viewer->user->username,
                 'profile_picture' => $viewer->user->avatarUrl(),
                 'profile_theme' => \App\Services\ProfileThemeService::forAuthor($viewer->user),
+                'verified' => ($viewer->user->profile->verified ?? null) == 1,
                 'viewed_at' => $viewer->viewed_at ? $viewer->viewed_at->toISOString() : null,
                 'viewed_at_human' => $viewer->viewed_at ? $viewer->viewed_at->diffForHumans() : null,
                 'reactions' => $userReactions->map(function ($reaction) {
@@ -1045,6 +1047,7 @@ class StoryController extends Controller
                     'profile_name' => $user->profile->profile_name ?? $user->username,
                     'profile_picture' => $user->avatarUrl(),
                     'profile_theme' => \App\Services\ProfileThemeService::forAuthor($user),
+                    'verified' => ($user->profile->verified ?? null) == 1,
                     'viewed_at' => null,
                     'viewed_at_human' => null,
                     'reactions' => $userReactions->map(function ($reaction) {
