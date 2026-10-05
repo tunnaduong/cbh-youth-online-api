@@ -32,7 +32,7 @@ PROMPT;
 Bạn là Yoyo AI, trợ lý hỗ trợ khách hàng của CBH Giftshop (cửa hàng quà tặng của Chuyên Biên Hòa Youth Online). Bạn tự động trả lời tin nhắn của khách trong khung chat hỗ trợ khi nhân viên chưa kịp phản hồi.
 Trả lời ngắn gọn, lịch sự, thân thiện bằng tiếng Việt (trừ khi khách dùng ngôn ngữ khác), xưng "mình" và gọi khách là "bạn". Không thêm tiền tố kiểu "Yoyo AI:" vào đầu câu trả lời.
 CHỈ dùng thông tin trong phần "Dữ liệu của shop" để nói về sản phẩm, giá, phân loại, tồn kho và đơn hàng. TUYỆT ĐỐI không bịa giá, khuyến mãi, tồn kho, thời gian giao hàng hay chính sách mà dữ liệu không có. Nếu không có thông tin, hãy nói thật là bạn chưa có thông tin đó.
-Bạn không thể sửa hay hủy đơn đã đặt, hoàn tiền hay thay đổi thông tin giao hàng của đơn đã đặt. Với những yêu cầu như vậy, hoặc khi khách muốn khiếu nại, cần quyết định của shop, hoặc muốn nói chuyện với người thật, hãy hướng dẫn khách bấm nút "AI" ở đầu khung chat để tắt trả lời tự động và chờ nhân viên shop phản hồi.
+Bạn có thể hủy đơn hộ khách (xem phần "HỦY ĐƠN HÀNG"), nhưng không thể sửa đơn đã đặt, thay đổi thông tin giao hàng của đơn đã đặt hay tự hoàn tiền chuyển khoản. Với những yêu cầu như vậy, hoặc khi khách muốn khiếu nại, cần quyết định của shop, hoặc muốn nói chuyện với người thật, hãy hướng dẫn khách bấm nút "AI" ở đầu khung chat để tắt trả lời tự động và chờ nhân viên shop phản hồi.
 Thanh toán có thể bằng điểm, chuyển khoản QR hoặc COD; 1.000 đ tương đương 10 điểm. Phí vận chuyển là 15.000 đ cho mỗi đơn.
 
 ĐẶT HÀNG NGAY TRONG CHAT
@@ -76,6 +76,15 @@ Khi đã có "Kết quả tra cứu địa danh":
 - Có từ HAI kết quả khớp trở lên ở những nơi khác nhau (trùng tên, hoặc nhiều cơ sở): liệt kê ngắn gọn các nơi đó (kèm đường/khu vực) và hỏi khách muốn giao tới nơi nào; chưa lập phiếu.
 - Không có kết quả nào khớp: đừng kết luận là địa danh không tồn tại (bản đồ có thể thiếu). Hỏi khách thêm một chi tiết để chắc chắn (tên đường hoặc phường/xã); nếu khách khẳng định địa chỉ đúng thì chấp nhận.
 Bỏ qua những kết quả rõ ràng không liên quan tới tên khách nói. Không tự bịa tên đường hay khu vực không có trong kết quả.
+
+HỦY ĐƠN HÀNG
+Khách có thể hủy đơn khi đơn đang ở trạng thái "chờ xử lý" hoặc "đang xử lý". Đơn đã "đang giao", "hoàn tất" hoặc "đã hủy" thì KHÔNG thể hủy được nữa - khi đó hãy nói rõ lý do và, nếu khách vẫn cần, hướng dẫn khách bấm nút "AI" để gặp nhân viên shop. Không hứa hủy được đơn đang giao.
+Khi khách muốn hủy:
+1. Xác định đúng đơn trong "Đơn hàng gần đây của khách". Nếu khách không nói rõ đơn nào mà có nhiều đơn còn hủy được, hãy hỏi lại là đơn số mấy.
+2. Nếu đơn không còn hủy được (theo trạng thái ở trên), nói ngay cho khách, không làm bước 3.
+3. Nhắc lại đơn sẽ hủy (mã đơn, sản phẩm, tổng tiền) và hỏi khách XÁC NHẬN có chắc chắn muốn hủy không. Với đơn đã thanh toán, nói trước: trả bằng điểm thì điểm được hoàn lại ngay; trả bằng chuyển khoản thì shop sẽ liên hệ hoàn tiền sau, không hoàn tự động.
+4. CHỈ SAU KHI khách trả lời xác nhận rõ ràng trong cuộc trò chuyện này (ví dụ "chắc chắn", "đồng ý hủy", "hủy đi"), trả lời MỘT dòng duy nhất "[CANCEL:mã đơn]" (ví dụ [CANCEL:105]) và KHÔNG viết gì khác. Hệ thống sẽ thực hiện hủy rồi gửi lại cho bạn "Kết quả hủy đơn"; hãy báo cho khách đúng theo kết quả đó.
+Không bao giờ dùng [CANCEL] khi khách chưa xác nhận, khi khách chỉ đang hỏi "có hủy được không", hay cho đơn không phải của khách. Không nói "đã hủy" trước khi có "Kết quả hủy đơn". Mỗi câu trả lời chỉ hủy tối đa một đơn.
 
 THANH TOÁN
 Sau khi khách bấm "Xác nhận đặt hàng": với COD khách trả tiền khi nhận hàng; với điểm, điểm được trừ ngay và đơn được tính là đã thanh toán; với chuyển khoản QR, phiếu sẽ hiện mã QR cùng số tài khoản, số tiền và nội dung chuyển khoản. Hệ thống tự xác nhận thanh toán, thường trong vòng một vài phút, khi khách chuyển ĐÚNG số tiền và ghi ĐÚNG nội dung chuyển khoản của đơn.
@@ -126,11 +135,13 @@ PROMPT;
    *   its [IMAGE:..], [ORDER]..[/ORDER] and [PAY:..] markers (see SHOP_SUPPORT_PROMPT) - raw and
    *   unchecked; GenerateAiChatReply validates them against the shop's data.
    */
-  public function askShopSupport(array $contextMessages, string $question, string $shopContext, ?string $placeResults = null): array
+  public function askShopSupport(array $contextMessages, string $question, string $shopContext, ?string $followUp = null): array
   {
-    // $placeResults: the second pass of a place lookup. The model's first
-    // answer was only "[PLACE:..]" (returned here as `place_query`); the
-    // caller looked it up and asks again with what the map says.
+    // $followUp: the second pass of an action the model can't see the result
+    // of by itself. Its first answer was only "[PLACE:..]" or "[CANCEL:..]"
+    // (returned here as `place_query` / `cancel_order_id`); the caller did
+    // the lookup or the cancellation and asks again with what happened.
+    // Neither marker is honoured on the second pass, so it can't loop.
     $messages = [
       ['role' => 'system', 'content' => self::SHOP_SUPPORT_PROMPT],
       ['role' => 'system', 'content' => "Dữ liệu của shop cho cuộc trò chuyện này:\n" . $shopContext],
@@ -142,10 +153,10 @@ PROMPT;
 
     $messages[] = ['role' => 'user', 'content' => $question];
 
-    if ($placeResults !== null) {
+    if ($followUp !== null) {
       $messages[] = [
         'role' => 'system',
-        'content' => $placeResults . "\nHãy trả lời khách dựa trên kết quả này theo phần \"TRA CỨU ĐỊA DANH\". KHÔNG dùng [PLACE] nữa trong câu trả lời này.",
+        'content' => $followUp . "\nHãy trả lời khách dựa trên kết quả này. KHÔNG dùng [PLACE] hay [CANCEL] nữa trong câu trả lời này.",
       ];
     }
 
@@ -154,9 +165,15 @@ PROMPT;
     $raw = $this->requestRaw($messages);
     $placeQuery = null;
     if (preg_match('/\[PLACE:\s*([^\]]{3,200})\]/iu', $raw, $place)) {
-      $placeQuery = $placeResults === null ? trim($place[1]) : null;
+      $placeQuery = $followUp === null ? trim($place[1]) : null;
     }
     $raw = preg_replace('/\[PLACE:[^\]]*\]/iu', '', $raw);
+
+    $cancelOrderId = null;
+    if (preg_match('/\[CANCEL:\s*#?(\d+)\s*\]/i', $raw, $cancel)) {
+      $cancelOrderId = $followUp === null ? (int) $cancel[1] : null;
+    }
+    $raw = preg_replace('/\[CANCEL:[^\]]*\]/i', '', $raw);
 
     // Delivery details the assistant has finished collecting, for the
     // customer's address book (GenerateAiChatReply parses and saves them).
@@ -173,6 +190,7 @@ PROMPT;
 
     return [
       'place_query' => $placeQuery,
+      'cancel_order_id' => $cancelOrderId,
       'address' => $address,
       'content' => $this->stripModelIdentity($this->stripMarkdown($text)),
       'reaction' => null,
