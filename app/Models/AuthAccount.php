@@ -359,7 +359,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
       ],
       [
         'id' => 'promax',
-        'name' => 'Thành viên Pro Max',
+        'name' => 'Thành viên Pro',
         'badge_key' => 'badge_promax',
         'min_points' => 2000,
         'privileges' => [

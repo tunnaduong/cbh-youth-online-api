@@ -870,7 +870,7 @@ class UserController extends Controller
       ...ProfileThemeService::rules(),
     ]);
 
-    // A new display name with emoji or decorative Unicode needs the Pro Max
+    // A new display name with emoji or decorative Unicode needs the Pro
     // tier. Only checked when the name actually changes, so a name set
     // earlier (or while the user had the points) is never rejected.
     if (

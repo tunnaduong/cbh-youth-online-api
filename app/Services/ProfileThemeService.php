@@ -111,7 +111,7 @@ class ProfileThemeService
       'gold' => 'distinguished',
       'neon' => 'veteran',
     ],
-    // A small icon shown right after the name (Pro Max). Deliberately
+    // A small icon shown right after the name (Pro tier). Deliberately
     // playful presets and never a tick: the verified badge must stay
     // unmistakable. The glyph of each key is in NAME_ICONS.
     'name_icon' => [
