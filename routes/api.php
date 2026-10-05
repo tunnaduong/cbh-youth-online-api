@@ -481,6 +481,7 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/shop/orders/{id}/cancel', [ShopController::class, 'cancelOrder']);
     Route::post('/shop/products/{id}/contact', [ShopController::class, 'contactShop']);
     Route::get('/shop/support/status', [ShopController::class, 'supportStatus']);
+    Route::post('/shop/support/open', [ShopController::class, 'openSupport']);
     Route::put('/shop/support/{conversationId}/ai', [ShopController::class, 'setSupportAi'])->whereNumber('conversationId');
     Route::post('/shop/support/messages/{messageId}/order', [ShopController::class, 'confirmChatOrder'])->whereNumber('messageId');
     Route::get('/shop/cart', [ShopController::class, 'cart']);

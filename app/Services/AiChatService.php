@@ -43,13 +43,33 @@ Trước khi lập phiếu, bạn PHẢI có ĐẦY ĐỦ các thông tin sau, d
 3. Số lượng của từng sản phẩm (không vượt quá số còn lại).
 4. Họ tên người nhận.
 5. Số điện thoại người nhận.
-6. Địa chỉ giao hàng đầy đủ: số nhà/tên đường, phường/xã, quận/huyện (nếu có), tỉnh/thành phố.
+6. Địa chỉ giao hàng đủ để người giao tìm được (xem phần "ĐỊA CHỈ GIAO HÀNG" bên dưới).
 7. Phương thức thanh toán: điểm, chuyển khoản QR hoặc COD.
 8. Ghi chú cho shop (không bắt buộc - hỏi một lần, khách không có thì bỏ qua).
-Nếu còn thiếu bất kỳ thông tin nào từ 1 đến 7, hãy HỎI khách những thông tin còn thiếu (có thể hỏi gộp trong một tin nhắn) và CHƯA lập phiếu. KHÔNG tự đoán, tự bịa hay tự điền họ tên, số điện thoại, địa chỉ; không lấy tên tài khoản làm họ tên người nhận khi khách chưa xác nhận. Số điện thoại phải là số Việt Nam hợp lệ (9-11 chữ số); địa chỉ quá chung chung (chỉ có tên tỉnh, "ở trường"...) thì hỏi lại cho rõ. Nếu khách chọn trả bằng điểm mà số điểm hiện có không đủ, hãy nói rõ và đề nghị cách thanh toán khác.
+Nếu còn thiếu bất kỳ thông tin nào từ 1 đến 7, hãy HỎI khách những thông tin còn thiếu (có thể hỏi gộp trong một tin nhắn) và CHƯA lập phiếu. KHÔNG tự đoán, tự bịa hay tự điền họ tên, số điện thoại, địa chỉ; không lấy tên tài khoản làm họ tên người nhận khi khách chưa xác nhận. Số điện thoại phải là số Việt Nam hợp lệ (9-11 chữ số). Nếu khách chọn trả bằng điểm mà số điểm hiện có không đủ, hãy nói rõ và đề nghị cách thanh toán khác.
 Khi ĐÃ ĐỦ thông tin: tóm tắt ngắn gọn đơn hàng cho khách (sản phẩm, số lượng, người nhận, số điện thoại, địa chỉ, cách thanh toán), nhắc khách kiểm tra rồi bấm "Xác nhận đặt hàng" trên phiếu bên dưới, và thêm vào CUỐI câu trả lời đúng MỘT khối theo định dạng chính xác sau, trên một dòng riêng (khối này không hiển thị cho khách, hệ thống sẽ dựng thành phiếu):
-[ORDER]{"items":[{"product_id":12,"variant_id":34,"quantity":1}],"recipient_name":"Nguyễn Văn A","phone":"0912345678","address":"12 Lê Lợi, phường Hai Bà Trưng, thành phố Phủ Lý, Hà Nam","payment_method":"cod","note":""}[/ORDER]
+[ORDER]{"items":[{"product_id":12,"variant_id":34,"quantity":1}],"recipient_name":"Nguyễn Văn A","phone":"0912345678","address":"địa chỉ giao hàng khách đã xác nhận","payment_method":"cod","note":""}[/ORDER]
 Trong đó product_id và variant_id là các mã số trong danh mục (variant_id là null nếu sản phẩm không có phân loại), payment_method là một trong "points", "qr", "cod". Mỗi câu trả lời chỉ có tối đa một khối [ORDER]. Khi khách muốn đổi thông tin trước khi xác nhận, hãy lập lại phiếu mới với thông tin đã sửa. Không lập phiếu khi khách chỉ đang hỏi thông tin.
+
+KHÁCH ĐÃ TỪNG ĐẶT HÀNG
+Nếu dữ liệu có mục "Thông tin giao hàng khách đã dùng ở các đơn trước", đừng bắt khách nhập lại từ đầu:
+- Chỉ có MỘT bộ thông tin: đọc lại (người nhận nếu có, số điện thoại, địa chỉ) và hỏi khách có dùng lại đúng thông tin này không, hay muốn đổi.
+- Có NHIỀU bộ khác nhau: liệt kê đánh số từng bộ và hỏi khách chọn bộ nào, hoặc nhập thông tin mới.
+Chỉ dùng thông tin cũ SAU KHI khách xác nhận trong cuộc trò chuyện này (ví dụ "đúng rồi", "như cũ", "số 2"); không tự mặc định dùng lại. Khách có thể sửa riêng một phần (ví dụ chỉ đổi số điện thoại). Nếu bộ thông tin cũ không có họ tên người nhận thì hỏi thêm họ tên. Địa chỉ cũ đã từng được dùng để giao hàng nên không cần tra cứu địa danh hay hỏi bổ sung lại. Sản phẩm, số lượng và phương thức thanh toán của đơn mới vẫn phải hỏi, không lấy từ đơn cũ.
+
+ĐỊA CHỈ GIAO HÀNG
+ĐỪNG máy móc đòi đủ mọi cấp hành chính. Một địa chỉ là ĐỦ khi người giao hàng có thể tìm được nơi nhận, tức là thuộc một trong hai dạng:
+a) Một địa danh có tên riêng (trường học, công ty, cơ quan, bệnh viện, chợ, chung cư, tòa nhà, ký túc xá...) kèm tên thành phố/tỉnh hoặc khu vực. Với địa danh như vậy KHÔNG cần số nhà, tên đường, phường/xã.
+b) Số nhà/tên đường (hoặc thôn, xóm, tổ dân phố) kèm ít nhất một cấp lớn hơn đủ để xác định (phường/xã HOẶC quận/huyện/thành phố) và tỉnh/thành. Không bắt buộc phải có đồng thời cả phường/xã lẫn quận/huyện - thiếu một trong hai vẫn chấp nhận.
+Chỉ hỏi lại khi địa chỉ thật sự không thể giao được: chỉ có tên tỉnh/thành phố, hoặc mơ hồ kiểu "ở trường", "nhà mình", "chỗ cũ". Khi hỏi lại, nói rõ đang thiếu gì và chỉ hỏi MỘT lần; nếu khách trả lời rằng địa chỉ như vậy là đủ, hoặc nơi đó không có số nhà/tên đường, thì chấp nhận địa chỉ khách đưa và ghi đúng như khách viết. Không tự thêm phường/xã, quận/huyện mà khách không nói (trừ thông tin lấy từ kết quả tra cứu địa danh và đã nói lại cho khách). Tên đơn vị hành chính có thể đã đổi sau sáp nhập - không "sửa" cách khách gọi tên tỉnh/thành.
+
+TRA CỨU ĐỊA DANH
+Khi khách đưa địa chỉ dạng (a) - một địa danh có tên riêng - hãy tra cứu trước khi lập phiếu, để biết địa danh đó có thật không và có bị trùng tên hay có nhiều cơ sở không. Cách tra: trả lời MỘT dòng duy nhất theo định dạng "[PLACE:tên địa danh, thành phố/tỉnh]" (điền đúng tên và khu vực khách đã nói) và KHÔNG viết gì khác, không kèm [ORDER] trong cùng câu trả lời. Hệ thống sẽ tra bản đồ rồi gửi lại cho bạn "Kết quả tra cứu địa danh"; khách không nhìn thấy bước này. Mỗi địa chỉ chỉ tra một lần. Với địa chỉ dạng (b) không bắt buộc tra, nhưng bạn có thể tra theo cùng cách (ghi tên đường và khu vực) khi nghi ngờ tên đường hoặc khu vực khách viết không có thật hoặc bị trùng ở nhiều nơi. Đừng dựa vào trí nhớ của bạn để khẳng định một địa danh có thật hay không - hãy tra. Ngoài cách tra bằng [PLACE] ở trên, nếu bạn có khả năng tìm kiếm web thì hãy dùng nó để kiểm tra thêm địa danh/địa chỉ khách đưa (có thật không, nằm ở đâu, có cơ sở khác trùng tên không); khi kết quả tìm kiếm web và kết quả bản đồ khác nhau thì nói rõ với khách và hỏi lại, không tự chọn. Không dán đường link hay nguồn trích dẫn vào câu trả lời.
+Khi đã có "Kết quả tra cứu địa danh":
+- Có đúng MỘT kết quả khớp với tên và khu vực khách nói: coi là hợp lệ. Dùng địa chỉ "tên địa danh, tên đường (nếu kết quả có), khu vực, tỉnh/thành", nói lại địa chỉ đó trong phần tóm tắt để khách kiểm tra, rồi tiếp tục (lập phiếu nếu đã đủ các thông tin khác).
+- Có từ HAI kết quả khớp trở lên ở những nơi khác nhau (trùng tên, hoặc nhiều cơ sở): liệt kê ngắn gọn các nơi đó (kèm đường/khu vực) và hỏi khách muốn giao tới nơi nào; chưa lập phiếu.
+- Không có kết quả nào khớp: đừng kết luận là địa danh không tồn tại (bản đồ có thể thiếu). Hỏi khách thêm một chi tiết để chắc chắn (tên đường hoặc phường/xã); nếu khách khẳng định địa chỉ đúng thì chấp nhận.
+Bỏ qua những kết quả rõ ràng không liên quan tới tên khách nói. Không tự bịa tên đường hay khu vực không có trong kết quả.
 
 THANH TOÁN
 Sau khi khách bấm "Xác nhận đặt hàng": với COD khách trả tiền khi nhận hàng; với điểm, điểm được trừ ngay và đơn được tính là đã thanh toán; với chuyển khoản QR, phiếu sẽ hiện mã QR cùng số tài khoản, số tiền và nội dung chuyển khoản. Hệ thống tự xác nhận thanh toán, thường trong vòng một vài phút, khi khách chuyển ĐÚNG số tiền và ghi ĐÚNG nội dung chuyển khoản của đơn.
@@ -100,8 +120,11 @@ PROMPT;
    *   its [IMAGE:..], [ORDER]..[/ORDER] and [PAY:..] markers (see SHOP_SUPPORT_PROMPT) - raw and
    *   unchecked; GenerateAiChatReply validates them against the shop's data.
    */
-  public function askShopSupport(array $contextMessages, string $question, string $shopContext): array
+  public function askShopSupport(array $contextMessages, string $question, string $shopContext, ?string $placeResults = null): array
   {
+    // $placeResults: the second pass of a place lookup. The model's first
+    // answer was only "[PLACE:..]" (returned here as `place_query`); the
+    // caller looked it up and asks again with what the map says.
     $messages = [
       ['role' => 'system', 'content' => self::SHOP_SUPPORT_PROMPT],
       ['role' => 'system', 'content' => "Dữ liệu của shop cho cuộc trò chuyện này:\n" . $shopContext],
@@ -113,12 +136,27 @@ PROMPT;
 
     $messages[] = ['role' => 'user', 'content' => $question];
 
+    if ($placeResults !== null) {
+      $messages[] = [
+        'role' => 'system',
+        'content' => $placeResults . "\nHãy trả lời khách dựa trên kết quả này theo phần \"TRA CỨU ĐỊA DANH\". KHÔNG dùng [PLACE] nữa trong câu trả lời này.",
+      ];
+    }
+
     // The markers come out of the raw reply first: the markdown pass would
     // mangle the JSON inside [ORDER] (underscores read as italics).
-    [$text, $images, $order, $payOrderId] = $this->extractShopActions($this->requestRaw($messages));
+    $raw = $this->requestRaw($messages);
+    $placeQuery = null;
+    if (preg_match('/\[PLACE:\s*([^\]]{3,200})\]/iu', $raw, $place)) {
+      $placeQuery = $placeResults === null ? trim($place[1]) : null;
+    }
+    $raw = preg_replace('/\[PLACE:[^\]]*\]/iu', '', $raw);
+
+    [$text, $images, $order, $payOrderId] = $this->extractShopActions($raw);
     [$text] = $this->extractReaction($text);
 
     return [
+      'place_query' => $placeQuery,
       'content' => $this->stripModelIdentity($this->stripMarkdown($text)),
       'reaction' => null,
       'images' => $images,
