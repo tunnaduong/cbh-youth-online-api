@@ -43,6 +43,13 @@ return [
         'redirect' => env('FACEBOOK_REDIRECT_URI'),
     ],
 
+  // Cloudflare Turnstile on the web login (AuthController::passesBotCheck).
+  // Empty = no check. The site key lives in the web app
+  // (NEXT_PUBLIC_TURNSTILE_SITE_KEY).
+  'turnstile' => [
+    'secret' => env('TURNSTILE_SECRET_KEY'),
+  ],
+
   'recaptcha' => [
     'site_key' => env('VITE_RECAPTCHA_SITE_KEY'),
     'secret_key' => env('RECAPTCHA_SECRET_KEY'),
