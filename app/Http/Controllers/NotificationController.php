@@ -424,7 +424,7 @@ class NotificationController extends Controller
           'device_id' => $request->device_id,
           'is_active' => true,
           'last_used_at' => now(),
-        ]
+        ] + $this->pushTokenLogin($request)
       );
 
       Log::info('Expo push token saved', [
@@ -454,6 +454,24 @@ class NotificationController extends Controller
         'error' => $e->getMessage(),
       ], 500);
     }
+  }
+
+  /**
+   * The login registering a push token, stored with it so that ending the
+   * login also stops its pushes (ExpoPushToken::deactivateForLogins). Empty
+   * until the column's migration has run.
+   */
+  private function pushTokenLogin(Request $request): array
+  {
+    if (!ExpoPushToken::linksToLogin()) {
+      return [];
+    }
+
+    $current = $request->user()?->currentAccessToken();
+
+    return [
+      'access_token_id' => $current instanceof \Laravel\Sanctum\PersonalAccessToken ? (int) $current->id : null,
+    ];
   }
 
   /**

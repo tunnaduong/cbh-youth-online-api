@@ -89,6 +89,10 @@ class DeviceSessionService
       if ($isNew && $notify && $user->email) {
         $user->notify(new NewDeviceLogin($details, now()));
       }
+
+      if ($notify) {
+        self::pushNewLogin($user, $token, $details);
+      }
     } catch (\Throwable $e) {
       // Bookkeeping and a courtesy email must never break a login.
       Log::warning('Failed to record device login', [
@@ -96,6 +100,58 @@ class DeviceSessionService
         'error' => $e->getMessage(),
       ]);
     }
+  }
+
+  private const PLATFORM_LABELS = [
+    'web' => 'trình duyệt web',
+    'ios' => 'ứng dụng iOS',
+    'android' => 'ứng dụng Android',
+  ];
+
+  /**
+   * Tell the account's devices - the mobile app and browsers with web push -
+   * that someone just logged in, and on what. Sent for every login (the
+   * email above is only for a device seen for the first time), after the
+   * response so the login itself doesn't wait for the push services. The
+   * device that just logged in has no push token under this login yet, so
+   * it is not told about itself.
+   */
+  private static function pushNewLogin(AuthAccount $user, PersonalAccessToken $token, array $details): void
+  {
+    $device = implode(' · ', array_filter([
+      $details['device_model'] ?? null,
+      $details['device_name'] ?? null,
+    ]));
+    $where = implode(': ', array_filter([
+      self::PLATFORM_LABELS[$details['platform'] ?? ''] ?? null,
+      $device !== '' ? Str::limit($device, 80) : null,
+    ]));
+
+    $title = 'Đăng nhập mới vào tài khoản của bạn';
+    $body = ($where !== ''
+      ? 'Tài khoản của bạn vừa được đăng nhập trên ' . $where . '.'
+      : 'Tài khoản của bạn vừa được đăng nhập trên một thiết bị.')
+      . ' Nếu không phải bạn, hãy đổi mật khẩu và đăng xuất thiết bị đó.';
+    $data = [
+      'type' => 'new_login',
+      'session_id' => (int) $token->id,
+      'url' => '/settings?tab=account',
+    ];
+    $userId = (int) $user->id;
+
+    dispatch(function () use ($userId, $title, $body, $data) {
+      try {
+        PushNotificationService::broadcastExpoPush([$userId], $title, $body, $data);
+      } catch (\Throwable $e) {
+        Log::warning('New login Expo push failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
+      }
+
+      try {
+        PushNotificationService::broadcastWebPush([$userId], $title, $body, $data);
+      } catch (\Throwable $e) {
+        Log::warning('New login web push failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
+      }
+    })->afterResponse();
   }
 
   /**
