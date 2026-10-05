@@ -723,6 +723,20 @@ class AuthController extends Controller
       $current = $user->currentAccessToken();
       if ($current instanceof \Laravel\Sanctum\PersonalAccessToken) {
         DeviceSessionService::revokeHandedOver($user, (int) $current->id);
+        // A logged-out device gets no more pushes for this account.
+        \App\Models\ExpoPushToken::deactivateForLogins([(int) $current->id]);
+      }
+      // The app also names its push token, which covers tokens registered
+      // before they were linked to a login.
+      $pushToken = $request->input('expo_push_token');
+      if (is_string($pushToken) && $pushToken !== '') {
+        try {
+          \App\Models\ExpoPushToken::where('user_id', $user->id)
+            ->where('expo_push_token', $pushToken)
+            ->update(['is_active' => false]);
+        } catch (\Throwable $e) {
+          report($e);
+        }
       }
       $current->delete();
 
