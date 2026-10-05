@@ -116,6 +116,15 @@ class ProfileThemeService
     // unmistakable. The glyph of each key is in NAME_ICONS.
     'name_icon' => [
       'none' => null,
+      // The icons of the member tiers themselves (star, bolt, trophy, shield,
+      // diamond, crown): by default a member shows the icon of the tier they
+      // are in; a Pro member may pick any of them instead, or a preset below.
+      'tier_trainee' => 'pro',
+      'tier_active' => 'pro',
+      'tier_distinguished' => 'pro',
+      'tier_veteran' => 'pro',
+      'tier_premium' => 'pro',
+      'tier_pro' => 'pro',
       'fish' => 'pro',
       'cat' => 'pro',
       'dog' => 'pro',
@@ -426,6 +435,10 @@ class ProfileThemeService
 
     // Derived, never stored: saves every client a table of glyphs.
     $theme['name_icon_emoji'] = self::NAME_ICONS[$theme['name_icon']] ?? null;
+    // "tier_veteran" -> "veteran": draw that tier's icon instead of a glyph.
+    $theme['name_icon_tier'] = str_starts_with($theme['name_icon'], 'tier_')
+      ? substr($theme['name_icon'], 5)
+      : null;
 
     return $theme;
   }
@@ -454,6 +467,7 @@ class ProfileThemeService
       'avatar_frame',
       'name_icon',
       'name_icon_emoji',
+      'name_icon_tier',
       'username_style',
     ]));
   }
@@ -477,7 +491,7 @@ class ProfileThemeService
         ...($field === 'name_font' && isset(self::SERVER_FONTS[$key])
           ? ['label' => self::SERVER_FONTS[$key]['label']]
           : []),
-        ...($field === 'name_icon' ? ['icon' => self::NAME_ICONS[$key] ?? null] : []),
+        ...($field === 'name_icon' ? ['icon' => self::NAME_ICONS[$key] ?? null, 'tier' => str_starts_with($key, 'tier_') ? substr($key, 5) : null] : []),
       ])->values()->all();
     }
 
