@@ -83,6 +83,7 @@ class DeviceSessionController extends Controller
     $this->announceRevoked($request->user()->id, [(int) $id]);
     // ...and gets no more pushes for this account.
     \App\Models\ExpoPushToken::deactivateForLogins([(int) $id]);
+    \App\Models\NotificationSubscription::removeForLogins([(int) $id]);
     // An app login takes the web sessions it handed over with it.
     DeviceSessionService::revokeHandedOver($request->user(), (int) $id);
 
@@ -110,6 +111,7 @@ class DeviceSessionController extends Controller
 
     $this->announceRevoked($user->id, $revokedIds);
     \App\Models\ExpoPushToken::deactivateForLogins($revokedIds);
+    \App\Models\NotificationSubscription::removeForLogins($revokedIds);
 
     TwoFactorService::forgetTrustedDevices($user->id);
 

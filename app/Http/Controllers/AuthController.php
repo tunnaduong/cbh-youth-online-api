@@ -725,6 +725,7 @@ class AuthController extends Controller
         DeviceSessionService::revokeHandedOver($user, (int) $current->id);
         // A logged-out device gets no more pushes for this account.
         \App\Models\ExpoPushToken::deactivateForLogins([(int) $current->id]);
+        \App\Models\NotificationSubscription::removeForLogins([(int) $current->id]);
       }
       // The app also names its push token, which covers tokens registered
       // before they were linked to a login.
@@ -738,9 +739,21 @@ class AuthController extends Controller
           report($e);
         }
       }
+      // A browser names its web push subscription the same way.
+      $pushEndpoint = $request->input('push_endpoint');
+      if (is_string($pushEndpoint) && $pushEndpoint !== '') {
+        try {
+          \App\Models\NotificationSubscription::where('user_id', $user->id)
+            ->where('endpoint', $pushEndpoint)
+            ->delete();
+        } catch (\Throwable $e) {
+          report($e);
+        }
+      }
       $current->delete();
 
       return response()->json(['message' => 'Đăng xuất thành công.']);
+
     }
 
     return response()->json(['message' => 'Người dùng chưa xác thực.'], 401);
