@@ -42,6 +42,24 @@ class DeviceSessionService
    *
    * @param  bool  $notify  False for a brand-new account's first login.
    */
+  /**
+   * Note how a login was made (password, google, facebook, apple, passkey,
+   * register, app) and whether it went through two-factor, for the
+   * "logged-in devices" list. Never fails the login - also not when the
+   * columns don't exist yet (deployed before `php artisan migrate`).
+   */
+  public static function recordLoginMethod(PersonalAccessToken $token, string $method, bool $twoFactor = false): void
+  {
+    try {
+      $token->forceFill([
+        'login_method' => $method,
+        'login_two_factor' => $twoFactor,
+      ])->save();
+    } catch (Throwable $e) {
+      Log::warning('Could not record the login method', ['error' => $e->getMessage()]);
+    }
+  }
+
   public static function recordLogin(AuthAccount $user, PersonalAccessToken $token, Request $request, bool $notify = true): void
   {
     try {

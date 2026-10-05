@@ -40,6 +40,11 @@ class DeviceSessionController extends Controller
         'app_version' => $token->app_version,
         'device_name' => $token->device_name,
         'device_model' => $token->device_model,
+        // How this login was made: password, google, facebook, apple,
+        // passkey, register, app (handed to a browser by the mobile app);
+        // null for logins older than this field.
+        'login_method' => $token->login_method,
+        'login_two_factor' => (bool) $token->login_two_factor,
         'last_used_at' => $token->last_used_at,
         'created_at' => $token->created_at,
         'is_current' => $token->id === $currentId,
