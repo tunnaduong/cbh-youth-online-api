@@ -114,11 +114,20 @@ class GenerateAiChatReply implements ShouldQueue
       ->map(fn($m) => $this->toContext($m))
       ->all();
 
-    $result = $aiChatService->askShopSupport(
-      $history,
-      (string) $triggerMessage->content,
-      $this->buildShopContext($conversation)
-    );
+    $shopContext = $this->buildShopContext($conversation);
+    $result = $aiChatService->askShopSupport($history, (string) $triggerMessage->content, $shopContext);
+
+    // The assistant asked to check a landmark the customer gave as the
+    // delivery address: look it up on the map and ask once more with the
+    // answer. One lookup per reply.
+    if (!empty($result['place_query'])) {
+      $result = $aiChatService->askShopSupport(
+        $history,
+        (string) $triggerMessage->content,
+        $shopContext,
+        $this->describePlaceLookup($result['place_query'])
+      );
+    }
 
     // What the assistant asked to attach, checked against the shop's own
     // data: the model only ever names ids, the photos, prices and payment
@@ -165,6 +174,31 @@ class GenerateAiChatReply implements ShouldQueue
       'reaction' => null,
       'metadata' => $metadata ?: null,
     ];
+  }
+
+  /**
+   * What the map says about a place, as text for the assistant's second
+   * pass (see AiChatService's "TRA CỨU ĐỊA DANH").
+   */
+  private function describePlaceLookup(string $query): string
+  {
+    $lookup = app(\App\Services\PlaceLookupService::class)->search($query);
+
+    if (!$lookup['ok']) {
+      return "Kết quả tra cứu địa danh cho \"{$query}\": hiện không tra cứu được bản đồ. Hãy coi như chưa kiểm tra được: nếu địa chỉ khách đưa đã có tên địa danh và thành phố/tỉnh thì chấp nhận, và nhắc khách kiểm tra lại địa chỉ trong phần tóm tắt.";
+    }
+    if (!$lookup['places']) {
+      return "Kết quả tra cứu địa danh cho \"{$query}\": không tìm thấy kết quả nào trên bản đồ (bản đồ có thể chưa có địa danh này).";
+    }
+
+    $lines = ["Kết quả tra cứu địa danh cho \"{$query}\" (từ bản đồ OpenStreetMap, có thể lẫn kết quả không liên quan):"];
+    foreach ($lookup['places'] as $i => $place) {
+      $lines[] = ($i + 1) . '. ' . $place['name']
+        . ($place['kind'] ? " (loại: {$place['kind']})" : '')
+        . ($place['where'] !== '' ? " - {$place['where']}" : '');
+    }
+
+    return implode("\n", $lines);
   }
 
   /**
@@ -220,6 +254,12 @@ class GenerateAiChatReply implements ShouldQueue
     $address = trim((string) ($raw['address'] ?? ''));
     $method = strtolower(trim((string) ($raw['payment_method'] ?? '')));
     $note = trim((string) ($raw['note'] ?? ''));
+
+    // A reused address from an earlier chat order already starts with the
+    // recipient ("Name - address"): don't end up with the name twice.
+    if ($name !== '' && mb_stripos($address, $name . ' - ') === 0) {
+      $address = trim(mb_substr($address, mb_strlen($name) + 3));
+    }
 
     if (mb_strlen($name) < 2) {
       return [null, 'thiếu họ tên người nhận.'];
@@ -330,7 +370,8 @@ class GenerateAiChatReply implements ShouldQueue
    * Everything the support assistant may rely on, as plain text: who the
    * customer is, the thread and its members, the product they last asked
    * about (with variants, prices and stock) and their recent orders.
-   * Phone numbers and addresses are left out on purpose.
+   * The delivery details of earlier orders (phone, address) are included, so
+   * a returning customer can be offered them instead of typing them again.
    */
   private function buildShopContext(Conversation $conversation): string
   {
@@ -432,6 +473,25 @@ class GenerateAiChatReply implements ShouldQueue
       ->orderByDesc('created_at')
       ->limit(5)
       ->get();
+
+    // Delivery details the customer has used before, newest first and each
+    // distinct set once - offered back on the next order ("same as last
+    // time?", or "which of these?").
+    $savedDeliveries = \App\Models\ShopOrder::where('user_id', $conversation->created_by)
+      ->orderByDesc('created_at')
+      ->limit(15)
+      ->get(['shipping_address', 'phone'])
+      ->filter(fn($order) => trim((string) $order->shipping_address) !== '')
+      ->unique(fn($order) => mb_strtolower(preg_replace('/\s+/u', ' ', trim($order->shipping_address) . '|' . trim((string) $order->phone))))
+      ->take(4)
+      ->values();
+
+    if ($savedDeliveries->isNotEmpty()) {
+      $lines[] = 'Thông tin giao hàng khách đã dùng ở các đơn trước (mới nhất trước; địa chỉ dạng "Họ tên - địa chỉ" thì phần trước dấu " - " đầu tiên là họ tên người nhận):';
+      foreach ($savedDeliveries as $i => $saved) {
+        $lines[] = ($i + 1) . '. Địa chỉ: ' . trim($saved->shipping_address) . '; số điện thoại: ' . trim((string) $saved->phone) . '.';
+      }
+    }
 
     $statusLabels = [
       'pending' => 'chờ xử lý',

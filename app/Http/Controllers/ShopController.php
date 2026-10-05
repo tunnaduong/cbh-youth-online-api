@@ -366,22 +366,11 @@ class ShopController extends Controller
   }
 
   /**
-   * "Nhắn tin" on a product page: posts an inquiry into the customer's one
-   * ongoing shop-support thread, a group conversation shared with every
-   * shop admin (not a 1-on-1 with a single "assigned" admin) so any of them
-   * can pick it up and the customer sees who actually replied. Reuses the
-   * existing chat system (Conversation/Message + ChatController's broadcast
-   * pipeline) rather than a separate inbox, so replies show up in the same
-   * admin chat inbox they already use.
+   * The customer's support thread, created on first use: a group
+   * conversation shared with every shop admin.
    */
-  public function contactShop(Request $request, $id)
+  private function supportThreadFor(AuthAccount $user): Conversation
   {
-    $product = ShopProduct::findOrFail($id);
-    $user = $request->user();
-    $variant = $request->filled('variant_id')
-      ? ShopProductVariant::where('product_id', $product->id)->find($request->input('variant_id'))
-      : null;
-
     // The customer's own thread, by who opened it - not "any support thread
     // they are in": a shop admin is a member of every customer's thread, so
     // their own inquiry used to land in someone else's, where the AI switch
@@ -409,6 +398,44 @@ class ShopController extends Controller
       $existingIds = $conversation->participants()->pluck('cyo_auth_accounts.id');
       $conversation->participants()->attach($adminIds->diff($existingIds)->all(), ['role' => 'member']);
     }
+
+    return $conversation;
+  }
+
+  /**
+   * Opens the support chat without a product in mind (the shop's floating
+   * chat button): returns the customer's thread, creating it if this is
+   * their first time. Nothing is posted - the customer writes first.
+   */
+  public function openSupport(Request $request)
+  {
+    $conversation = $this->supportThreadFor($request->user());
+
+    return response()->json([
+      'conversation_id' => $conversation->id,
+      'admins_online' => AuthAccount::role('admin')->online()->count(),
+      'ai_enabled' => (bool) ($conversation->shop_ai_enabled ?? true),
+    ], $conversation->wasRecentlyCreated ? 201 : 200);
+  }
+
+  /**
+   * "Nhắn tin" on a product page: posts an inquiry into the customer's one
+   * ongoing shop-support thread, a group conversation shared with every
+   * shop admin (not a 1-on-1 with a single "assigned" admin) so any of them
+   * can pick it up and the customer sees who actually replied. Reuses the
+   * existing chat system (Conversation/Message + ChatController's broadcast
+   * pipeline) rather than a separate inbox, so replies show up in the same
+   * admin chat inbox they already use.
+   */
+  public function contactShop(Request $request, $id)
+  {
+    $product = ShopProduct::findOrFail($id);
+    $user = $request->user();
+    $variant = $request->filled('variant_id')
+      ? ShopProductVariant::where('product_id', $product->id)->find($request->input('variant_id'))
+      : null;
+
+    $conversation = $this->supportThreadFor($user);
 
     $message = Message::create([
       'conversation_id' => $conversation->id,
