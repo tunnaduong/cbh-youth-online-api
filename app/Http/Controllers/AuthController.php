@@ -760,6 +760,26 @@ class AuthController extends Controller
   }
 
   /**
+   * End the web sessions this login handed over (the app's WebViews and
+   * in-app browser), keeping the login itself. The mobile app calls it when
+   * the user switches to another saved account or adds one: the account being
+   * left stays signed in on the device, but nothing may stay signed in as it
+   * on the web.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function revokeWebHandoffs(Request $request)
+  {
+    $current = $request->user()->currentAccessToken();
+    $revoked = $current instanceof \Laravel\Sanctum\PersonalAccessToken
+      ? DeviceSessionService::revokeHandedOver($request->user(), (int) $current->id)
+      : [];
+
+    return response()->json(['revoked' => count($revoked)]);
+  }
+
+  /**
    * Redeem a code from createWebHandoff for a fresh Sanctum token belonging
    * to the web session. A separate token (rather than the app's own) means
    * signing out on the web doesn't sign the app out, and vice versa.
