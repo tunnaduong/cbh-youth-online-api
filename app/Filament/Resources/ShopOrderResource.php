@@ -46,6 +46,16 @@ class ShopOrderResource extends Resource
         Forms\Components\TextInput::make('shipping_address')
           ->required()
           ->columnSpanFull(),
+        // The pin the customer dropped on the map at checkout, as a link
+        // (orders from the chat, or from before the map picker, have none).
+        Forms\Components\Placeholder::make('maps_url')
+          ->label('Vị trí trên bản đồ')
+          ->content(fn(?ShopOrder $record) => $record?->maps_url
+            ? new \Illuminate\Support\HtmlString(
+              '<a href="' . e($record->maps_url) . '" target="_blank" rel="noopener" style="color:#319527;font-weight:600;text-decoration:underline">Mở trong Google Maps</a>'
+            )
+            : 'Khách chưa chọn vị trí trên bản đồ')
+          ->columnSpanFull(),
         Forms\Components\Textarea::make('note')
           ->columnSpanFull(),
       ]);
@@ -74,6 +84,12 @@ class ShopOrderResource extends Resource
           ]),
         Tables\Columns\TextColumn::make('phone')
           ->searchable(),
+        Tables\Columns\TextColumn::make('maps_url')
+          ->label('Bản đồ')
+          ->formatStateUsing(fn() => 'Google Maps')
+          ->url(fn(ShopOrder $record) => $record->maps_url, shouldOpenInNewTab: true)
+          ->color('success')
+          ->placeholder('—'),
         Tables\Columns\TextColumn::make('created_at')
           ->dateTime()
           ->sortable(),

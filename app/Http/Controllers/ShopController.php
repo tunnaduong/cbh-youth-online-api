@@ -60,6 +60,10 @@ class ShopController extends Controller
       'items.*.variant_id' => 'nullable|integer',
       'items.*.quantity' => 'required|integer|min:1',
       'shipping_address' => 'required|string',
+      // The pin the customer dropped on the map at checkout (optional here:
+      // orders from the chat and older clients have none).
+      'shipping_lat' => 'nullable|numeric|between:-90,90|required_with:shipping_lng',
+      'shipping_lng' => 'nullable|numeric|between:-180,180|required_with:shipping_lat',
       'phone' => 'required|string',
       'note' => 'nullable|string',
       'payment_method' => 'required|in:points,qr,cod',
@@ -141,6 +145,7 @@ class ShopController extends Controller
         'status' => $data['payment_method'] === 'cod' ? 'processing' : 'pending',
         'shipping_address' => $data['shipping_address'],
         'phone' => $data['phone'],
+        ...$this->orderLocation($data),
         'note' => $data['note'] ?? null,
         'payment_method' => $data['payment_method'],
         'payment_status' => 'pending',
@@ -184,6 +189,25 @@ class ShopController extends Controller
     });
 
     return $order;
+  }
+
+  /**
+   * The map pin for a new order, when the client sent one - and only once
+   * the columns exist, so checkout keeps working on a server that hasn't run
+   * the migration yet.
+   */
+  private function orderLocation(array $data): array
+  {
+    static $hasColumns = null;
+
+    if (!isset($data['shipping_lat'], $data['shipping_lng'])) {
+      return [];
+    }
+    $hasColumns ??= \Illuminate\Support\Facades\Schema::hasColumn('cyo_shop_orders', 'shipping_lat');
+
+    return $hasColumns
+      ? ['shipping_lat' => round((float) $data['shipping_lat'], 7), 'shipping_lng' => round((float) $data['shipping_lng'], 7)]
+      : [];
   }
 
   /** What a client gets back for a freshly placed order (with the QR to pay, if that's the method). */
@@ -324,36 +348,111 @@ class ShopController extends Controller
   }
 
   /**
-   * Lets a user back out of an order that hasn't been paid yet (qr still
-   * pending, or points/cod not yet processed past pending) - restores the
-   * stock that storeOrder reserved.
+   * Lets a customer cancel their own order - see cancelOwnOrder for the rules.
    */
   public function cancelOrder(Request $request, $id)
   {
-    $order = ShopOrder::where('user_id', $request->user()->id)
-      ->with('items')
-      ->findOrFail($id);
+    // 404 for someone else's order, before any rule is looked at.
+    ShopOrder::where('user_id', $request->user()->id)->findOrFail($id);
 
-    if ($order->payment_status === 'paid' && $order->payment_method !== 'cod') {
-      return response()->json([
-        'message' => 'Đơn hàng đã thanh toán, không thể hủy.',
-      ], 422);
+    $result = $this->cancelOwnOrder((int) $request->user()->id, (int) $id);
+
+    return response()->json(
+      ['message' => $result['message'], 'order' => $result['order']],
+      $result['ok'] ? 200 : 422
+    );
+  }
+
+  /**
+   * Cancels a customer's order. Shared by the "Hủy đơn" button and by the
+   * support assistant cancelling on the customer's behalf
+   * (GenerateAiChatReply).
+   *
+   * An order can be cancelled while it is pending or being prepared. Once it
+   * is out for delivery ("shipped") or further, it can't. Cancelling puts the
+   * stock back and settles the payment:
+   *   - not paid yet (QR never transferred, COD): nothing to return;
+   *   - paid with points: the points are given back in the same transaction;
+   *   - paid by bank transfer: the money can't be returned from here, so the
+   *     order keeps payment_status "paid" (cancelled + paid = a refund is
+   *     owed) and the support thread gets a line telling staff to refund.
+   *
+   * @return array{ok: bool, message: string, order: ?ShopOrder, refund: ?string}
+   *   `refund` is "points", "transfer" or null.
+   */
+  public function cancelOwnOrder(int $userId, int $orderId): array
+  {
+    try {
+      return DB::transaction(function () use ($userId, $orderId) {
+        // Locked: a status change by staff or a second cancel can't slip in
+        // between the check and the update.
+        $order = ShopOrder::where('user_id', $userId)->with('items')->lockForUpdate()->find($orderId);
+
+        if (!$order) {
+          return ['ok' => false, 'message' => 'Không tìm thấy đơn hàng này.', 'order' => null, 'refund' => null];
+        }
+        if ($order->status === 'cancelled') {
+          return ['ok' => false, 'message' => 'Đơn hàng này đã được hủy trước đó.', 'order' => $order, 'refund' => null];
+        }
+        if (!in_array($order->status, ['pending', 'processing'], true)) {
+          return [
+            'ok' => false,
+            'message' => 'Đơn hàng đang được giao hoặc đã hoàn tất nên không thể hủy nữa.',
+            'order' => $order,
+            'refund' => null,
+          ];
+        }
+
+        foreach ($order->items as $item) {
+          $item->restock();
+        }
+
+        $refund = null;
+        $message = 'Đơn hàng đã được hủy.';
+        $paid = $order->payment_status === 'paid';
+
+        if ($paid && $order->payment_method === 'points') {
+          $points = PointsService::convertVNDToPoints($order->total_amount);
+          // 'purchase' is the type the payment itself was recorded under.
+          $returned = PointsService::addPoints(
+            $userId,
+            $points,
+            'purchase',
+            "Hoàn điểm đơn hàng Giftshop #{$order->id} đã hủy",
+            $order->id,
+          );
+          if (!$returned) {
+            throw new \Exception('Không hoàn được điểm cho đơn hàng, vui lòng thử lại.');
+          }
+          $refund = 'points';
+          $message = 'Đơn hàng đã được hủy và ' . number_format($points, 0, ',', '.') . ' điểm đã được hoàn lại.';
+        } elseif ($paid && $order->payment_method === 'qr') {
+          $refund = 'transfer';
+          $message = 'Đơn hàng đã được hủy. Shop sẽ liên hệ để hoàn lại ' . number_format($order->total_amount, 0, ',', '.') . ' đ bạn đã chuyển khoản.';
+        }
+
+        $order->update([
+          'status' => 'cancelled',
+          // Money received by transfer is still held until staff refund it.
+          'payment_status' => $refund === 'transfer' ? 'paid' : 'failed',
+        ]);
+
+        if ($refund === 'transfer') {
+          $conversation = Conversation::where('is_shop_support', true)->where('created_by', $userId)->first();
+          if ($conversation) {
+            app(ChatController::class)->createSystemMessage(
+              $conversation,
+              "Khách đã hủy đơn #{$order->id} đã thanh toán bằng chuyển khoản. Cần hoàn lại " . number_format($order->total_amount, 0, ',', '.') . ' đ cho khách.',
+              ['shop_order_id' => $order->id, 'shop_refund_due' => true]
+            );
+          }
+        }
+
+        return ['ok' => true, 'message' => $message, 'order' => $order, 'refund' => $refund];
+      });
+    } catch (\Throwable $e) {
+      return ['ok' => false, 'message' => $e->getMessage(), 'order' => null, 'refund' => null];
     }
-
-    if (in_array($order->status, ['shipped', 'completed', 'cancelled'])) {
-      return response()->json([
-        'message' => 'Đơn hàng ở trạng thái này không thể hủy.',
-      ], 422);
-    }
-
-    DB::transaction(function () use ($order) {
-      foreach ($order->items as $item) {
-        $item->restock();
-      }
-      $order->update(['status' => 'cancelled', 'payment_status' => 'failed']);
-    });
-
-    return response()->json(['message' => 'Đơn hàng đã được hủy.', 'order' => $order]);
   }
 
   public function myOrders(Request $request)
