@@ -379,9 +379,15 @@ class UserController extends Controller
     }
 
     $userPoints = $user->getPoints();
-    $rank = AuthAccount::where('role', '!=', 'admin')
-      ->where('points', '>', $userPoints)
-      ->count() + 1;
+    // Admins are left out of the ranking, so they have no place in it:
+    // counting "members with more points" told an admin with the most
+    // points that they were #1. null = not ranked (the clients then show
+    // the points without a rank).
+    $rank = $user->role === 'admin'
+      ? null
+      : AuthAccount::where('role', '!=', 'admin')
+        ->where('points', '>', $userPoints)
+        ->count() + 1;
 
     return response()->json([
       'id' => $user->id,

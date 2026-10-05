@@ -40,15 +40,16 @@ class WebAuthnService
   }
 
   /**
-   * Origins allowed to run the ceremony (the web site; the mobile app goes
-   * through the site in its in-app browser).
+   * Origins allowed to run the ceremony: the web site (which is also what
+   * the iOS app reports) and the Android app, whose origin is the hash of
+   * its signing certificate (services.webauthn.android_origins).
    */
   public static function origins(): array
   {
-    return array_values(array_filter(array_map(
-      'trim',
-      explode(',', (string) config('services.webauthn.origins', 'https://chuyenbienhoa.com,https://www.chuyenbienhoa.com'))
-    )));
+    $origins = config('services.webauthn.origins', 'https://chuyenbienhoa.com,https://www.chuyenbienhoa.com')
+      . ',' . config('services.webauthn.android_origins', '');
+
+    return array_values(array_filter(array_map('trim', explode(',', $origins))));
   }
 
   /**
@@ -74,6 +75,9 @@ class WebAuthnService
       'timeout' => self::CHALLENGE_TTL * 1000,
       'attestation' => 'none',
       'authenticatorSelection' => [
+        // The device's own authenticator (fingerprint, face, screen lock,
+        // Windows Hello) - not a phone over QR code or a USB security key.
+        'authenticatorAttachment' => 'platform',
         // Stored on the device, so login needs no username.
         'residentKey' => 'required',
         'requireResidentKey' => true,
@@ -81,6 +85,8 @@ class WebAuthnService
       ],
       // Stops the same authenticator being registered twice.
       'excludeCredentials' => self::credentialDescriptors($user),
+      // Tells the browser to go straight to this device's prompt.
+      'hints' => ['client-device'],
     ];
   }
 
@@ -169,6 +175,9 @@ class WebAuthnService
         'userVerification' => 'required',
         // Empty: the device offers whichever passkeys it holds for this site.
         'allowCredentials' => [],
+        // Go straight to this device's own passkeys (not "use a phone or
+        // security key").
+        'hints' => ['client-device'],
       ],
     ];
   }
