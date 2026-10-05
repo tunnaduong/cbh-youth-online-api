@@ -236,10 +236,16 @@ class ShopController extends Controller
   public function confirmChatOrder(Request $request, $messageId)
   {
     $user = $request->user();
+    // The spot the customer confirmed on the map on the slip (the shop's
+    // widget requires it; optional here so an older widget still works).
+    $pin = $request->validate([
+      'shipping_lat' => 'nullable|numeric|between:-90,90|required_with:shipping_lng',
+      'shipping_lng' => 'nullable|numeric|between:-180,180|required_with:shipping_lat',
+    ]);
     $created = false;
 
     try {
-      $order = DB::transaction(function () use ($user, $messageId, &$created) {
+      $order = DB::transaction(function () use ($user, $messageId, $pin, &$created) {
         // Locked, so two presses can't both place the order.
         $message = Message::lockForUpdate()->findOrFail($messageId);
         $draft = $message->metadata['shop_order_draft'] ?? null;
@@ -270,6 +276,8 @@ class ShopController extends Controller
           'phone' => $draft['phone'],
           'note' => $draft['note'] ?? null,
           'payment_method' => $draft['payment_method'],
+          'shipping_lat' => $pin['shipping_lat'] ?? null,
+          'shipping_lng' => $pin['shipping_lng'] ?? null,
         ]);
 
         $message->metadata = array_merge($message->metadata, [

@@ -362,6 +362,9 @@ class GenerateAiChatReply implements ShouldQueue
       'subtotal' => $subtotal,
       'shipping_fee' => $shippingFee,
       'total' => $total,
+      // Where the map on the slip opens: the map's best match for the address.
+      // The customer still has to confirm the spot there before ordering.
+      'suggested_location' => app(\App\Services\PlaceLookupService::class)->locate($address),
       // Set by confirmChatOrder once the customer has confirmed.
       'order_id' => null,
     ], null];
