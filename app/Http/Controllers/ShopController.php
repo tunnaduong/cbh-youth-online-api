@@ -286,6 +286,16 @@ class ShopController extends Controller
         $message->save();
         $created = true;
 
+        // The confirmed spot goes into the address book with these delivery
+        // details, so the next order to the same address starts with it.
+        if (isset($pin['shipping_lat'], $pin['shipping_lng'], $draft['recipient_name'], $draft['address'])) {
+          \App\Models\ShopAddress::savePin($user->id, [
+            'recipient_name' => $draft['recipient_name'],
+            'phone' => $draft['phone'],
+            'address' => $draft['address'],
+          ], (float) $pin['shipping_lat'], (float) $pin['shipping_lng']);
+        }
+
         return $order;
       });
     } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface | \Illuminate\Database\Eloquent\ModelNotFoundException $e) {
