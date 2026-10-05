@@ -114,6 +114,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Audit log table** (not run; needs `php artisan migrate`): `cyo_audit_logs` (`id`, `user_id` nullable FK, `action_type` e.g. `UPDATE_PROFILE` / `EDIT_POST` / `REPORT_BUG`, `old_data` + `new_data` JSON, `status` `pending` / `updated` / `resolved`, timestamps) with model `AppModelsAuditLog`. Nothing writes to it yet and there is no endpoint or admin screen for it.
+
 - **Passkeys: no forced device authenticator; both site names verify** (not run): registration no longer asks for `authenticatorAttachment: platform` and neither ceremony sends `hints` - the browser or OS offers whatever the device has (Windows Hello, Touch ID, a fingerprint reader, a security key, a phone). Verification accepts authenticator data for the current relying party (`www.chuyenbienhoa.com`) and for earlier ones (`services.webauthn.rp_ids`, `WEBAUTHN_RP_IDS`, default the bare domain).
 
 - **Passkeys belong to `www.chuyenbienhoa.com`** (relying-party id; was the bare domain; not run): the mobile app's native passkeys were refused by Android after the system sheet because `https://chuyenbienhoa.com/.well-known/assetlinks.json` answers with a redirect to www, which Google (and Apple) do not follow; on www the check passes. Default of `WEBAUTHN_RP_ID` changed - **if the server's `.env` sets `WEBAUTHN_RP_ID`, change it there too**. Passkeys created before this change were bound to the bare domain and can no longer be used: their owners log in with the password and add a passkey again.
