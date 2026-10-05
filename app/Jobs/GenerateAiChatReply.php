@@ -127,6 +127,23 @@ class GenerateAiChatReply implements ShouldQueue
         $shopContext,
         $this->describePlaceLookup($result['place_query'])
       );
+    } elseif (!empty($result['cancel_order_id'])) {
+      // The assistant was asked to cancel an order and the customer has
+      // confirmed: cancel it under the same rules as the "Hủy đơn" button,
+      // then let the assistant tell the customer what actually happened.
+      $outcome = app(\App\Http\Controllers\ShopController::class)
+        ->cancelOwnOrder((int) $conversation->created_by, (int) $result['cancel_order_id']);
+
+      $result = $aiChatService->askShopSupport(
+        $history,
+        (string) $triggerMessage->content,
+        // Rebuilt, so the order list the assistant reads shows the new state.
+        $this->buildShopContext($conversation),
+        "Kết quả hủy đơn #{$result['cancel_order_id']}: "
+          . ($outcome['ok'] ? 'ĐÃ HỦY THÀNH CÔNG. ' : 'KHÔNG HỦY ĐƯỢC. ')
+          . $outcome['message']
+          . ' Hãy báo lại đúng kết quả này cho khách, không nói khác đi.'
+      );
     }
 
     // What the assistant asked to attach, checked against the shop's own
