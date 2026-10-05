@@ -101,6 +101,56 @@ class AuthController extends Controller
   }
 
   /**
+   * Cloudflare Turnstile on the password login, for logins made from a web
+   * browser. Off until services.turnstile.secret (TURNSTILE_SECRET_KEY) is
+   * set.
+   *
+   * The mobile apps have no Turnstile widget and are let through (they say
+   * who they are with X-Client-Platform; older versions are recognised by
+   * not having a browser's User-Agent). A bot can claim to be the app, so
+   * this stops bots driving the web form or replaying its requests - not a
+   * script written against the API itself.
+   */
+  private function passesBotCheck(Request $request): bool
+  {
+    $secret = (string) config('services.turnstile.secret');
+    if ($secret === '') {
+      return true;
+    }
+
+    $platform = strtolower((string) $request->header('X-Client-Platform'));
+    $fromBrowser = $platform === 'web'
+      || ($platform === '' && str_starts_with((string) $request->userAgent(), 'Mozilla/'));
+    if (!$fromBrowser) {
+      return true;
+    }
+
+    $token = (string) $request->input('turnstile_token');
+    if ($token === '') {
+      return false;
+    }
+
+    try {
+      $response = Http::asForm()->timeout(8)->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+        'secret' => $secret,
+        'response' => $token,
+        'remoteip' => $request->ip(),
+      ]);
+    } catch (\Throwable $e) {
+      // Cloudflare can't be reached: don't lock everybody out of the site.
+      report($e);
+
+      return true;
+    }
+
+    if (!$response->successful()) {
+      return true;
+    }
+
+    return (bool) $response->json('success');
+  }
+
+  /**
    * Handle a login request to the application.
    *
    * @param  \Illuminate\Http\Request  $request
@@ -112,7 +162,18 @@ class AuthController extends Controller
       'username' => 'required|string',
       'password' => 'required|string',
       'device_token' => 'nullable|string',
+      'turnstile_token' => 'nullable|string|max:4096',
     ]);
+
+    if (!$this->passesBotCheck($request)) {
+      return response()->json([
+        'message' => 'Không xác minh được bạn không phải robot. Vui lòng tải lại trang và thử lại.',
+        'errors' => [
+          'captcha' => 'Không xác minh được bạn không phải robot. Vui lòng tải lại trang và thử lại.',
+        ],
+        'captcha_required' => true,
+      ], 422);
+    }
 
     // Retrieve the user by username or email
     $user = AuthAccount::where('username', $request->username)
