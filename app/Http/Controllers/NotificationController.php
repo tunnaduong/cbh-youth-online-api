@@ -267,8 +267,15 @@ class NotificationController extends Controller
           'p256dh' => $request->keys['p256dh'],
           'auth' => $request->keys['auth'],
           'expires_at' => $expiresAt,
-        ]
+        ] + $this->webPushLogin($request)
       );
+
+      // An endpoint is one browser: it now belongs to this account alone.
+      // Without this, switching accounts in a browser left the previous
+      // account's subscription in place and its pushes kept arriving there.
+      NotificationSubscription::where('endpoint', $request->endpoint)
+        ->where('user_id', '!=', $user->id)
+        ->delete();
 
       if ($isUpdate) {
         Log::info('Push subscription updated', [
@@ -454,6 +461,24 @@ class NotificationController extends Controller
         'error' => $e->getMessage(),
       ], 500);
     }
+  }
+
+  /**
+   * The login making a web push subscription, stored with it so that ending
+   * the login also ends its pushes (NotificationSubscription::removeForLogins).
+   * Empty until the column's migration has run.
+   */
+  private function webPushLogin(Request $request): array
+  {
+    if (!NotificationSubscription::linksToLogin()) {
+      return [];
+    }
+
+    $current = $request->user()?->currentAccessToken();
+
+    return [
+      'access_token_id' => $current instanceof \Laravel\Sanctum\PersonalAccessToken ? (int) $current->id : null,
+    ];
   }
 
   /**

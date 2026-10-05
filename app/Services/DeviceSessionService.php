@@ -216,6 +216,7 @@ class DeviceSessionService
       }
 
       $user->tokens()->whereIn('id', $ids)->delete();
+      \App\Models\NotificationSubscription::removeForLogins($ids);
 
       try {
         broadcast(new \App\Events\DeviceSessionsRevoked($user->id, $ids));
