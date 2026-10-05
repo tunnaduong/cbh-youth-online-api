@@ -185,7 +185,7 @@ class AuthController extends Controller
         'role' => $user->role ?? null,  // Include role if it exists
         // Name style, avatar frame, name icon: so the client can draw the
         // signed-in user (header, sidebar) without another request.
-        'profile_theme' => AppServicesProfileThemeService::forAuthor($user),
+        'profile_theme' => \App\Services\ProfileThemeService::forAuthor($user),
       ],
       'token' => $newToken->plainTextToken,
     ];
