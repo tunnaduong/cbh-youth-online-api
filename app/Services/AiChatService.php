@@ -52,10 +52,16 @@ Khi ĐÃ ĐỦ thông tin: tóm tắt ngắn gọn đơn hàng cho khách (sản
 Trong đó product_id và variant_id là các mã số trong danh mục (variant_id là null nếu sản phẩm không có phân loại), payment_method là một trong "points", "qr", "cod". Mỗi câu trả lời chỉ có tối đa một khối [ORDER]. Khi khách muốn đổi thông tin trước khi xác nhận, hãy lập lại phiếu mới với thông tin đã sửa. Không lập phiếu khi khách chỉ đang hỏi thông tin.
 
 KHÁCH ĐÃ TỪNG ĐẶT HÀNG
-Nếu dữ liệu có mục "Thông tin giao hàng khách đã dùng ở các đơn trước", đừng bắt khách nhập lại từ đầu:
+Nếu dữ liệu có mục "Sổ địa chỉ đã lưu của khách" (hoặc "Thông tin giao hàng khách đã dùng ở các đơn trước"), đừng bắt khách nhập lại từ đầu:
 - Chỉ có MỘT bộ thông tin: đọc lại (người nhận nếu có, số điện thoại, địa chỉ) và hỏi khách có dùng lại đúng thông tin này không, hay muốn đổi.
 - Có NHIỀU bộ khác nhau: liệt kê đánh số từng bộ và hỏi khách chọn bộ nào, hoặc nhập thông tin mới.
 Chỉ dùng thông tin cũ SAU KHI khách xác nhận trong cuộc trò chuyện này (ví dụ "đúng rồi", "như cũ", "số 2"); không tự mặc định dùng lại. Khách có thể sửa riêng một phần (ví dụ chỉ đổi số điện thoại). Nếu bộ thông tin cũ không có họ tên người nhận thì hỏi thêm họ tên. Địa chỉ cũ đã từng được dùng để giao hàng nên không cần tra cứu địa danh hay hỏi bổ sung lại. Sản phẩm, số lượng và phương thức thanh toán của đơn mới vẫn phải hỏi, không lấy từ đơn cũ.
+
+LƯU THÔNG TIN GIAO HÀNG
+Ngay khi bạn đã có ĐỦ họ tên người nhận, số điện thoại và địa chỉ giao hàng do khách cung cấp hoặc xác nhận (kể cả khi chưa chọn xong sản phẩm hay cách thanh toán), hãy gửi cho hệ thống để lưu vào sổ địa chỉ của khách, bằng cách thêm vào cuối câu trả lời đúng MỘT khối trên một dòng riêng (khối này không hiển thị cho khách):
+[ADDRESS]{"recipient_name":"họ tên người nhận","phone":"số điện thoại","address":"địa chỉ đầy đủ viết thành một dòng","place":null,"street":null,"ward":null,"district":null,"province":null}[/ADDRESS]
+Trong đó "address" là địa chỉ đầy đủ đúng như sẽ ghi trên đơn. Các trường còn lại là chính địa chỉ đó do bạn tách ra: place = tên địa danh (trường, công ty, tòa nhà...), street = số nhà và tên đường hoặc thôn/xóm, ward = phường/xã, district = quận/huyện/thành phố thuộc tỉnh, province = tỉnh/thành phố. Chỉ điền phần nào khách đã nói hoặc có trong kết quả tra cứu địa danh; phần nào không có thì để null, KHÔNG tự suy ra. Số điện thoại chỉ gồm chữ số; viết hoa tên riêng cho đúng; không thêm thông tin khách không cung cấp.
+Chỉ gửi khối [ADDRESS] khi thông tin là MỚI hoặc vừa được khách SỬA - không gửi lại bộ thông tin đã có nguyên vẹn trong "Sổ địa chỉ đã lưu của khách". Không cần nói với khách về việc lưu, trừ khi khách hỏi; nếu khách nói không muốn lưu thông tin thì không gửi khối này. Ở những lần sau, hệ thống sẽ đưa lại sổ địa chỉ này cho bạn trong "Dữ liệu của shop" - đó là nguồn duy nhất về thông tin giao hàng cũ của khách, đừng dựa vào trí nhớ.
 
 ĐỊA CHỈ GIAO HÀNG
 ĐỪNG máy móc đòi đủ mọi cấp hành chính. Một địa chỉ là ĐỦ khi người giao hàng có thể tìm được nơi nhận, tức là thuộc một trong hai dạng:
@@ -152,11 +158,22 @@ PROMPT;
     }
     $raw = preg_replace('/\[PLACE:[^\]]*\]/iu', '', $raw);
 
+    // Delivery details the assistant has finished collecting, for the
+    // customer's address book (GenerateAiChatReply parses and saves them).
+    $address = null;
+    if (preg_match('/\[ADDRESS\](.*?)\[\/ADDRESS\]/isu', $raw, $block)) {
+      $decoded = json_decode(trim(preg_replace('/```[a-zA-Z]*|```/', '', $block[1])), true);
+      $address = is_array($decoded) ? $decoded : null;
+    }
+    $raw = preg_replace('/\[ADDRESS\].*?\[\/ADDRESS\]/isu', '', $raw);
+    $raw = preg_replace('/\[\/?ADDRESS\][^\n]*/iu', '', $raw);
+
     [$text, $images, $order, $payOrderId] = $this->extractShopActions($raw);
     [$text] = $this->extractReaction($text);
 
     return [
       'place_query' => $placeQuery,
+      'address' => $address,
       'content' => $this->stripModelIdentity($this->stripMarkdown($text)),
       'reaction' => null,
       'images' => $images,

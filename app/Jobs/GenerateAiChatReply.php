@@ -141,6 +141,16 @@ class GenerateAiChatReply implements ShouldQueue
       $metadata['shop_images'] = $images;
     }
 
+    // Delivery details the assistant has finished collecting ([ADDRESS]):
+    // parsed and saved to the customer's address book, to be handed back to
+    // it on later orders (see buildShopContext).
+    if (is_array($result['address'] ?? null) && $customer) {
+      [$delivery] = \App\Models\ShopAddress::parse($result['address']);
+      if ($delivery) {
+        \App\Models\ShopAddress::remember($customer->id, $delivery);
+      }
+    }
+
     if (is_array($result['order'] ?? null) && $customer) {
       [$draft, $problem] = $this->buildOrderDraft($result['order'], $customer);
       if ($draft) {
@@ -248,28 +258,18 @@ class GenerateAiChatReply implements ShouldQueue
    */
   private function buildOrderDraft(array $raw, AuthAccount $customer): array
   {
-    $name = trim((string) ($raw['recipient_name'] ?? ''));
-    $phone = preg_replace('/[\s.\-()]/', '', (string) ($raw['phone'] ?? ''));
-    $phone = preg_replace('/^\+84/', '0', $phone);
-    $address = trim((string) ($raw['address'] ?? ''));
+    // Recipient, phone and address go through the same check as the saved
+    // address book.
+    [$delivery, $problem] = \App\Models\ShopAddress::parse($raw);
+    if (!$delivery) {
+      return [null, $problem];
+    }
+    $name = $delivery['recipient_name'];
+    $phone = $delivery['phone'];
+    $address = $delivery['address'];
     $method = strtolower(trim((string) ($raw['payment_method'] ?? '')));
     $note = trim((string) ($raw['note'] ?? ''));
 
-    // A reused address from an earlier chat order already starts with the
-    // recipient ("Name - address"): don't end up with the name twice.
-    if ($name !== '' && mb_stripos($address, $name . ' - ') === 0) {
-      $address = trim(mb_substr($address, mb_strlen($name) + 3));
-    }
-
-    if (mb_strlen($name) < 2) {
-      return [null, 'thiếu họ tên người nhận.'];
-    }
-    if (!preg_match('/^0\d{8,10}$/', $phone)) {
-      return [null, 'số điện thoại người nhận chưa hợp lệ.'];
-    }
-    if (mb_strlen($address) < 10) {
-      return [null, 'địa chỉ giao hàng chưa đầy đủ.'];
-    }
     if (!in_array($method, ['points', 'qr', 'cod'], true)) {
       return [null, 'chưa chọn phương thức thanh toán.'];
     }
@@ -327,6 +327,10 @@ class GenerateAiChatReply implements ShouldQueue
     if ($method === 'points' && $customer->getPoints() < \App\Services\PointsService::convertVNDToPoints($total)) {
       return [null, 'số điểm hiện có không đủ để thanh toán đơn này.'];
     }
+
+    // The order is complete, so its delivery details are worth keeping for
+    // next time (a no-op when they are already saved).
+    \App\Models\ShopAddress::remember($customer->id, $delivery);
 
     return [[
       'items' => $items,
@@ -474,10 +478,31 @@ class GenerateAiChatReply implements ShouldQueue
       ->limit(5)
       ->get();
 
-    // Delivery details the customer has used before, newest first and each
-    // distinct set once - offered back on the next order ("same as last
-    // time?", or "which of these?").
-    $savedDeliveries = \App\Models\ShopOrder::where('user_id', $conversation->created_by)
+    // The customer's address book: delivery details the assistant saved in
+    // earlier conversations (ShopAddress), most recently used first. Offered
+    // back on the next order ("same as last time?", or "which of these?").
+    $addressBook = \App\Models\ShopAddress::forCustomer((int) $conversation->created_by);
+
+    if ($addressBook->isNotEmpty()) {
+      $lines[] = 'Sổ địa chỉ đã lưu của khách (mới dùng nhất trước):';
+      foreach ($addressBook as $i => $saved) {
+        $parts = collect([
+          'địa danh' => $saved->place,
+          'đường' => $saved->street,
+          'phường/xã' => $saved->ward,
+          'quận/huyện' => $saved->district,
+          'tỉnh/thành' => $saved->province,
+        ])->filter()->map(fn($value, $label) => "{$label}: {$value}")->implode(', ');
+
+        $lines[] = ($i + 1) . ". Người nhận: {$saved->recipient_name}; số điện thoại: {$saved->phone}; địa chỉ: {$saved->address}"
+          . ($parts !== '' ? " ({$parts})" : '') . '.';
+      }
+    }
+
+    // Before the address book existed (or for orders placed on the checkout
+    // page) the only record is the orders themselves: used when the book is
+    // empty.
+    $savedDeliveries = $addressBook->isNotEmpty() ? collect() : \App\Models\ShopOrder::where('user_id', $conversation->created_by)
       ->orderByDesc('created_at')
       ->limit(15)
       ->get(['shipping_address', 'phone'])
