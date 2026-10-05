@@ -183,6 +183,9 @@ class AuthController extends Controller
         'email_verified_at' => $user->email_verified_at,
         'verified' => ($user->profile->verified ?? null) == 1 ? true : false,
         'role' => $user->role ?? null,  // Include role if it exists
+        // Name style, avatar frame, name icon: so the client can draw the
+        // signed-in user (header, sidebar) without another request.
+        'profile_theme' => AppServicesProfileThemeService::forAuthor($user),
       ],
       'token' => $newToken->plainTextToken,
     ];
