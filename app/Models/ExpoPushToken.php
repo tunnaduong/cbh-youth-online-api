@@ -44,6 +44,7 @@ class ExpoPushToken extends Model
         'device_id',
         'is_active',
         'last_used_at',
+        'access_token_id',
     ];
 
     /**
@@ -64,6 +65,54 @@ class ExpoPushToken extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(AuthAccount::class, 'user_id');
+    }
+
+    /**
+     * Whether push tokens can be linked to the login that registered them
+     * (the access_token_id column; false until its migration has run).
+     */
+    public static function linksToLogin(): bool
+    {
+        static $exists = null;
+
+        try {
+            return $exists ??= \Illuminate\Support\Facades\Schema::hasColumn('cyo_expo_push_tokens', 'access_token_id');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Stop pushing to the devices of these logins (personal_access_tokens
+     * ids): they were logged out or revoked. Never fails the caller.
+     *
+     * @param  int[]  $accessTokenIds
+     */
+    public static function deactivateForLogins(array $accessTokenIds): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $accessTokenIds)));
+        if (empty($ids) || !self::linksToLogin()) {
+            return;
+        }
+
+        try {
+            self::whereIn('access_token_id', $ids)->update(['is_active' => false]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Stop pushing to every device of a user: all their logins were ended
+     * (password reset by an admin, account deleted). Never fails the caller.
+     */
+    public static function deactivateForUser(int $userId): void
+    {
+        try {
+            self::where('user_id', $userId)->update(['is_active' => false]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**
