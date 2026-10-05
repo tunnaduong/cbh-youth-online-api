@@ -156,6 +156,49 @@ class ProfileThemeService
       'music' => 'pro',
       'book' => 'pro',
     ],
+    // The @username has its own style (Pro): the same fonts and effects the
+    // name can use, chosen separately. Colours: username_colors.
+    'username_font' => [
+      'default' => null,
+      'condensed' => 'pro',
+      'modern' => 'pro',
+      'bubbly' => 'pro',
+      'handwritten' => 'pro',
+      'script' => 'pro',
+      'comic' => 'pro',
+      'pixel' => 'pro',
+      'tech' => 'pro',
+      'gothic' => 'pro',
+      'heavy' => 'pro',
+      'spooky' => 'pro',
+      'flex' => 'pro',
+      'grotesk' => 'pro',
+      'montserrat' => 'pro',
+      'bevietnam' => 'pro',
+      'nunito' => 'pro',
+      'quicksand' => 'pro',
+      'comfortaa' => 'pro',
+      'manrope' => 'pro',
+      'raleway' => 'pro',
+      'exo' => 'pro',
+      'playfair' => 'pro',
+      'merriweather' => 'pro',
+      'robotoslab' => 'pro',
+      'lobster' => 'pro',
+      'pacifico' => 'pro',
+    ],
+    'username_effect' => [
+      'none' => null,
+      'solid' => 'pro',
+      'gradient' => 'pro',
+      'pop' => 'pro',
+      'toon' => 'pro',
+      'neon' => 'pro',
+      'rainbow' => 'pro',
+      'outline' => 'pro',
+    ],
+    // Older setting, kept so saved themes and older apps stay valid: clients
+    // only follow it when the username has no style of its own.
     // "name": the @username is drawn with the name's font and effect.
     'username_style' => [
       'default' => null,
@@ -251,12 +294,14 @@ class ProfileThemeService
    */
   public static function rules(): array
   {
-    $keys = implode(',', [...self::COLOR_FIELDS, ...self::GRADIENT_FIELDS, ...array_keys(self::OPTIONS), 'name_colors']);
+    $keys = implode(',', [...self::COLOR_FIELDS, ...self::GRADIENT_FIELDS, ...array_keys(self::OPTIONS), 'name_colors', 'username_colors']);
 
     $rules = [
       'profile_theme' => 'nullable|array:' . $keys,
       'profile_theme.name_colors' => ['nullable', 'array', 'min:1', 'max:2'],
       'profile_theme.name_colors.*' => ['string', 'regex:' . self::HEX_COLOR],
+      'profile_theme.username_colors' => ['nullable', 'array', 'min:1', 'max:2'],
+      'profile_theme.username_colors.*' => ['string', 'regex:' . self::HEX_COLOR],
     ];
 
     foreach ([...self::COLOR_FIELDS, ...self::GRADIENT_FIELDS] as $field) {
@@ -296,6 +341,12 @@ class ProfileThemeService
     $normalized['name_colors'] = [
       $color($nameColors[0] ?? null, self::DEFAULT_PRIMARY),
       $color($nameColors[1] ?? null, self::DEFAULT_ACCENT),
+    ];
+
+    $usernameColors = is_array($theme['username_colors'] ?? null) ? array_values($theme['username_colors']) : [];
+    $normalized['username_colors'] = [
+      $color($usernameColors[0] ?? null, self::DEFAULT_PRIMARY),
+      $color($usernameColors[1] ?? null, self::DEFAULT_ACCENT),
     ];
 
     // A second colour only means something next to a first one.
@@ -474,6 +525,9 @@ class ProfileThemeService
       'name_icon_emoji',
       'name_icon_tier',
       'username_style',
+      'username_font',
+      'username_effect',
+      'username_colors',
     ]));
   }
 
@@ -493,7 +547,7 @@ class ProfileThemeService
         'unlocked' => self::canCustomize($user) && self::tierReached($user, $tierId),
         // Server-hosted fonts carry their display name; the clients have
         // their own labels for everything else.
-        ...($field === 'name_font' && isset(self::SERVER_FONTS[$key])
+        ...(in_array($field, ['name_font', 'username_font'], true) && isset(self::SERVER_FONTS[$key])
           ? ['label' => self::SERVER_FONTS[$key]['label']]
           : []),
         ...($field === 'name_icon' ? ['icon' => self::NAME_ICONS[$key] ?? null, 'tier' => str_starts_with($key, 'tier_') ? substr($key, 5) : null] : []),
