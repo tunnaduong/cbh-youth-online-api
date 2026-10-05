@@ -78,6 +78,9 @@ class GenerateAiChatReply implements ShouldQueue
         'user_id' => $aiAccount->id,
         'content' => $result['content'],
         'type' => 'text',
+        // Shop support only: product photos, an order slip or a QR to pay,
+        // for the shop's chat widget to draw under the text.
+        'metadata' => $result['metadata'] ?? null,
         // A support thread reads as a normal back-and-forth, and a quoted
         // reply would also send the customer a "replied to you" notification
         // for every answer.
@@ -117,10 +120,210 @@ class GenerateAiChatReply implements ShouldQueue
       $this->buildShopContext($conversation)
     );
 
-    // No emoji reactions from the support assistant.
-    $result['reaction'] = null;
+    // What the assistant asked to attach, checked against the shop's own
+    // data: the model only ever names ids, the photos, prices and payment
+    // details all come from the database.
+    $customer = AuthAccount::find($conversation->created_by);
+    $content = trim($result['content']);
+    $metadata = [];
 
-    return $result;
+    $images = $this->resolveProductImages($result['images'] ?? []);
+    if ($images) {
+      $metadata['shop_images'] = $images;
+    }
+
+    if (is_array($result['order'] ?? null) && $customer) {
+      [$draft, $problem] = $this->buildOrderDraft($result['order'], $customer);
+      if ($draft) {
+        $metadata['shop_order_draft'] = $draft;
+      } else {
+        // The text most likely promises a slip that isn't there.
+        $content = trim($content . "\n\n(Mình chưa lập được phiếu đặt hàng: {$problem} Bạn kiểm tra lại giúp mình nhé.)");
+      }
+    }
+
+    if (!empty($result['pay_order_id']) && $customer) {
+      $payment = $this->resolvePayment((int) $result['pay_order_id'], $customer);
+      if ($payment) {
+        $metadata['shop_payment'] = $payment;
+      }
+    }
+
+    if ($content === '') {
+      // The model answered with markers only.
+      $content = match (true) {
+        isset($metadata['shop_order_draft']) => 'Mình đã lập phiếu đặt hàng bên dưới, bạn kiểm tra rồi bấm "Xác nhận đặt hàng" nhé.',
+        isset($metadata['shop_payment']) => 'Mình gửi lại mã QR thanh toán cho bạn nhé.',
+        isset($metadata['shop_images']) => 'Mình gửi bạn ảnh sản phẩm nhé.',
+        default => 'Xin lỗi, mình chưa hiểu ý bạn. Bạn nói rõ hơn giúp mình nhé.',
+      };
+    }
+
+    return [
+      'content' => $content,
+      // No emoji reactions from the support assistant.
+      'reaction' => null,
+      'metadata' => $metadata ?: null,
+    ];
+  }
+
+  /**
+   * Turns the [IMAGE:..] ids into what the widget shows: the product (or
+   * variant) photo stored by the shop, with its name and price. Products
+   * that are off sale or have no photo are skipped.
+   *
+   * @param  array<int, array{product_id: int, variant_id: ?int}>  $requests
+   */
+  private function resolveProductImages(array $requests): array
+  {
+    $images = [];
+
+    foreach ($requests as $request) {
+      $product = \App\Models\ShopProduct::where('is_active', true)->with('variants')->find($request['product_id']);
+      if (!$product) {
+        continue;
+      }
+      $variant = $request['variant_id'] ? $product->variants->firstWhere('id', $request['variant_id']) : null;
+      $url = $variant?->image_url ?: $product->image_url;
+      if (!$url || isset($images[$url])) {
+        continue;
+      }
+
+      $images[$url] = [
+        'product_id' => $product->id,
+        'variant_id' => $variant?->id,
+        'name' => $product->name,
+        'variant_label' => $variant?->label(),
+        'price' => (int) ($variant?->price ?? $product->price),
+        'image_url' => $url,
+      ];
+    }
+
+    return array_values($images);
+  }
+
+  /**
+   * Checks the assistant's [ORDER] block and turns it into the slip the
+   * customer confirms (ShopController::confirmChatOrder places the order
+   * from exactly this). Everything the model wrote is re-read from the
+   * database or validated here; a slip is only made when the order is
+   * complete: known products and variants in stock, a recipient, a phone
+   * number, a full address and a payment method.
+   *
+   * @return array{0: ?array, 1: ?string}  [slip, or null with the reason for the customer]
+   */
+  private function buildOrderDraft(array $raw, AuthAccount $customer): array
+  {
+    $name = trim((string) ($raw['recipient_name'] ?? ''));
+    $phone = preg_replace('/[\s.\-()]/', '', (string) ($raw['phone'] ?? ''));
+    $phone = preg_replace('/^\+84/', '0', $phone);
+    $address = trim((string) ($raw['address'] ?? ''));
+    $method = strtolower(trim((string) ($raw['payment_method'] ?? '')));
+    $note = trim((string) ($raw['note'] ?? ''));
+
+    if (mb_strlen($name) < 2) {
+      return [null, 'thiếu họ tên người nhận.'];
+    }
+    if (!preg_match('/^0\d{8,10}$/', $phone)) {
+      return [null, 'số điện thoại người nhận chưa hợp lệ.'];
+    }
+    if (mb_strlen($address) < 10) {
+      return [null, 'địa chỉ giao hàng chưa đầy đủ.'];
+    }
+    if (!in_array($method, ['points', 'qr', 'cod'], true)) {
+      return [null, 'chưa chọn phương thức thanh toán.'];
+    }
+    if (!is_array($raw['items'] ?? null) || !$raw['items']) {
+      return [null, 'chưa có sản phẩm nào.'];
+    }
+
+    $discount = $customer->student_verified_at
+      ? \App\Http\Controllers\StudentVerificationController::DISCOUNT_PERCENT / 100
+      : 0;
+    $items = [];
+    $subtotal = 0;
+
+    foreach (array_slice($raw['items'], 0, 20) as $line) {
+      $product = \App\Models\ShopProduct::where('is_active', true)->with('variants')->find((int) ($line['product_id'] ?? 0));
+      if (!$product) {
+        return [null, 'có sản phẩm không còn bán.'];
+      }
+
+      $variant = null;
+      if ($product->variants->isNotEmpty()) {
+        $variant = $product->variants->firstWhere('id', (int) ($line['variant_id'] ?? 0));
+        if (!$variant) {
+          return [null, "chưa chọn phân loại cho \"{$product->name}\"."];
+        }
+        $variant->setRelation('product', $product);
+      }
+
+      $quantity = (int) ($line['quantity'] ?? 0);
+      $stock = (int) ($variant?->stock ?? $product->stock);
+      if ($quantity < 1) {
+        return [null, "số lượng của \"{$product->name}\" chưa hợp lệ."];
+      }
+      if ($quantity > $stock) {
+        return [null, "\"{$product->name}\" chỉ còn {$stock} sản phẩm."];
+      }
+
+      $price = (int) round(($variant?->price ?? $product->price) * (1 - $discount));
+      $subtotal += $price * $quantity;
+      $items[] = [
+        'product_id' => $product->id,
+        'variant_id' => $variant?->id,
+        'quantity' => $quantity,
+        'name' => $product->name,
+        'variant_label' => $variant?->label(),
+        'price' => $price,
+        'image_url' => $variant?->image_url ?: $product->image_url,
+      ];
+    }
+
+    // Same fee ShopController::placeOrder adds.
+    $shippingFee = 15000;
+    $total = $subtotal + $shippingFee;
+
+    if ($method === 'points' && $customer->getPoints() < \App\Services\PointsService::convertVNDToPoints($total)) {
+      return [null, 'số điểm hiện có không đủ để thanh toán đơn này.'];
+    }
+
+    return [[
+      'items' => $items,
+      'recipient_name' => $name,
+      'phone' => $phone,
+      'address' => $address,
+      // An order has no recipient column: the name travels with the address.
+      'shipping_address' => "{$name} - {$address}",
+      'payment_method' => $method,
+      'note' => $note !== '' ? mb_substr($note, 0, 500) : null,
+      'discount_percent' => $discount > 0 ? (int) round($discount * 100) : null,
+      'subtotal' => $subtotal,
+      'shipping_fee' => $shippingFee,
+      'total' => $total,
+      // Set by confirmChatOrder once the customer has confirmed.
+      'order_id' => null,
+    ], null];
+  }
+
+  /**
+   * The QR and transfer details for [PAY:order], only for the customer's own
+   * order that is still waiting for a bank transfer.
+   */
+  private function resolvePayment(int $orderId, AuthAccount $customer): ?array
+  {
+    $order = \App\Models\ShopOrder::where('user_id', $customer->id)->find($orderId);
+    if (
+      !$order
+      || $order->payment_method !== 'qr'
+      || $order->payment_status !== 'pending'
+      || $order->status === 'cancelled'
+      || !$order->payment_code
+    ) {
+      return null;
+    }
+
+    return ['order_id' => $order->id] + app(\App\Http\Controllers\ShopController::class)->buildQrPayment($order);
   }
 
   /**
@@ -184,23 +387,94 @@ class GenerateAiChatReply implements ShouldQueue
       $lines[] = 'Chưa xác định được sản phẩm cụ thể mà khách đang hỏi.';
     }
 
+    // The catalogue, with the ids the assistant puts in its [ORDER] and
+    // [IMAGE] markers: "#12" is a product, "[34]" one of its variants.
+    $catalogue = \App\Models\ShopProduct::where('is_active', true)
+      ->with(['category', 'variants'])
+      ->orderBy('name')
+      ->limit(60)
+      ->get();
+
+    if ($catalogue->isNotEmpty()) {
+      $lines[] = 'Danh mục sản phẩm đang bán (mã sản phẩm sau dấu #, mã phân loại trong ngoặc vuông):';
+      foreach ($catalogue as $item) {
+        $line = "- #{$item->id} \"{$item->name}\""
+          . ($item->category ? " ({$item->category->name})" : '')
+          . ' - giá ' . $money($item->price)
+          . ' - còn ' . (int) $item->stock
+          . ($item->image_url ? ' - có ảnh' : ' - chưa có ảnh');
+
+        if ($item->variants->isNotEmpty()) {
+          $line .= ' - BẮT BUỘC chọn phân loại: ' . $item->variants
+            ->map(function ($variant) use ($item, $money) {
+              $variant->setRelation('product', $item);
+              return "[{$variant->id}] " . $variant->label()
+                . ' (giá ' . $money($variant->price) . ', còn ' . (int) $variant->stock
+                . ($variant->image_url ? ', có ảnh riêng' : '') . ')';
+            })
+            ->implode('; ');
+        }
+
+        $lines[] = $line . '.';
+      }
+    } else {
+      $lines[] = 'Hiện shop chưa có sản phẩm nào đang bán.';
+    }
+
+    if ($customer) {
+      $lines[] = $customer->student_verified_at
+        ? 'Khách là học sinh đã xác minh: được giảm ' . \App\Http\Controllers\StudentVerificationController::DISCOUNT_PERCENT . '% giá sản phẩm (không giảm phí vận chuyển).'
+        : 'Khách chưa xác minh học sinh nên không có giảm giá học sinh.';
+    }
+
     $orders = \App\Models\ShopOrder::where('user_id', $conversation->created_by)
       ->with('items.product')
       ->orderByDesc('created_at')
-      ->limit(3)
+      ->limit(5)
       ->get();
 
+    $statusLabels = [
+      'pending' => 'chờ xử lý',
+      'processing' => 'đang xử lý',
+      'shipped' => 'đang giao',
+      'completed' => 'hoàn tất',
+      'cancelled' => 'đã hủy',
+    ];
+    $methodLabels = ['points' => 'điểm', 'qr' => 'chuyển khoản QR', 'cod' => 'COD (trả khi nhận hàng)'];
+
     if ($orders->isNotEmpty()) {
-      $lines[] = 'Đơn hàng gần đây của khách:';
+      $lines[] = 'Đơn hàng gần đây của khách (dữ liệu thanh toán là của hệ thống, cập nhật tại thời điểm này):';
       foreach ($orders as $order) {
         $items = $order->items
           ->map(fn($item) => ($item->product->name ?? 'Sản phẩm đã xóa')
             . ($item->variant_label ? " ({$item->variant_label})" : '')
             . ' x' . $item->quantity)
           ->implode(', ');
-        $lines[] = "- Đơn #{$order->id} ngày " . $order->created_at->format('d/m/Y')
+
+        // Spelled out, with the exact transfer details for an unpaid QR
+        // order, so the assistant can answer "have I paid?" and "what do I
+        // write in the transfer?" from facts.
+        if ($order->status === 'cancelled') {
+          $payment = 'đơn đã hủy';
+        } elseif ($order->payment_status === 'paid') {
+          $payment = 'ĐÃ THANH TOÁN' . ($order->paid_at ? ' lúc ' . \Illuminate\Support\Carbon::parse($order->paid_at)->format('H:i d/m/Y') : '');
+        } elseif ($order->payment_method === 'cod') {
+          $payment = 'thanh toán khi nhận hàng (chưa thu tiền)';
+        } elseif ($order->payment_method === 'qr' && $order->payment_code) {
+          $payment = 'CHƯA THANH TOÁN - cần chuyển khoản đúng ' . $money($order->total_amount)
+            . ' tới ' . \App\Http\Controllers\ShopController::BANK_NAME
+            . ', số tài khoản ' . \App\Http\Controllers\ShopController::BANK_ACCOUNT
+            . ', chủ tài khoản ' . \App\Http\Controllers\ShopController::BANK_ACCOUNT_HOLDER
+            . ', nội dung chuyển khoản phải ghi chính xác: ' . $order->payment_code;
+        } else {
+          $payment = 'CHƯA THANH TOÁN';
+        }
+
+        $lines[] = "- Đơn #{$order->id} đặt lúc " . $order->created_at->format('H:i d/m/Y')
           . ": {$items}; tổng " . $money($order->total_amount)
-          . "; trạng thái: {$order->status}; thanh toán: {$order->payment_method} ({$order->payment_status}).";
+          . '; trạng thái: ' . ($statusLabels[$order->status] ?? $order->status)
+          . '; phương thức: ' . ($methodLabels[$order->payment_method] ?? $order->payment_method)
+          . "; thanh toán: {$payment}.";
       }
     } else {
       $lines[] = 'Khách chưa có đơn hàng nào.';

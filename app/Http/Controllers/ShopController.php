@@ -54,7 +54,7 @@ class ShopController extends Controller
 
   public function storeOrder(Request $request)
   {
-    $request->validate([
+    $data = $request->validate([
       'items' => 'required|array|min:1',
       'items.*.product_id' => 'required|exists:cyo_shop_products,id',
       'items.*.variant_id' => 'nullable|integer',
@@ -65,7 +65,20 @@ class ShopController extends Controller
       'payment_method' => 'required|in:points,qr,cod',
     ]);
 
-    $user = $request->user();
+    return response()->json($this->orderResponse($this->placeOrder($request->user(), $data)), 201);
+  }
+
+  /**
+   * Creates an order: reserves stock, prices the lines (student discount,
+   * shipping) and takes payment by points when that is the method. Shared by
+   * checkout (storeOrder) and by an order confirmed from the support chat
+   * (confirmChatOrder). Throws with a message for the customer when the
+   * order can't be placed.
+   *
+   * @param  array{items: array<int, array{product_id: int, variant_id?: ?int, quantity: int}>, shipping_address: string, phone: string, note?: ?string, payment_method: string}  $data
+   */
+  private function placeOrder(AuthAccount $user, array $data): ShopOrder
+  {
     // Read the rate off the same constant the /student-verification/status
     // endpoint reports to clients - hardcoding 0.10 here as well meant
     // changing the advertised discount would silently keep charging the old
@@ -74,11 +87,11 @@ class ShopController extends Controller
       ? StudentVerificationController::DISCOUNT_PERCENT / 100
       : 0;
 
-    $order = DB::transaction(function () use ($request, $user, $studentDiscount) {
+    $order = DB::transaction(function () use ($data, $user, $studentDiscount) {
       $totalAmount = 0;
       $items = [];
 
-      foreach ($request->items as $itemData) {
+      foreach ($data['items'] as $itemData) {
         $product = ShopProduct::lockForUpdate()->findOrFail($itemData['product_id']);
         $variant = null;
 
@@ -125,11 +138,11 @@ class ShopController extends Controller
         // up front; points/qr stay "pending" until payment actually lands
         // (points: a few lines below in this same transaction; qr: the
         // SePay webhook, see SEPayWebhookController::processDeposit).
-        'status' => $request->payment_method === 'cod' ? 'processing' : 'pending',
-        'shipping_address' => $request->shipping_address,
-        'phone' => $request->phone,
-        'note' => $request->note,
-        'payment_method' => $request->payment_method,
+        'status' => $data['payment_method'] === 'cod' ? 'processing' : 'pending',
+        'shipping_address' => $data['shipping_address'],
+        'phone' => $data['phone'],
+        'note' => $data['note'] ?? null,
+        'payment_method' => $data['payment_method'],
         'payment_status' => 'pending',
       ]);
 
@@ -137,7 +150,7 @@ class ShopController extends Controller
         $order->items()->create($item);
       }
 
-      if ($request->payment_method === 'points') {
+      if ($data['payment_method'] === 'points') {
         $pointsNeeded = PointsService::convertVNDToPoints($totalAmount);
         if (($user->points ?? 0) < $pointsNeeded) {
           throw new \Exception('Số dư điểm không đủ để thanh toán đơn hàng này.');
@@ -159,7 +172,7 @@ class ShopController extends Controller
           'status' => 'processing',
           'paid_at' => now(),
         ]);
-      } elseif ($request->payment_method === 'qr') {
+      } elseif ($data['payment_method'] === 'qr') {
         // Mirrors WalletController::createDepositRequest's MW<user_id><timestamp>
         // pattern - "GS" (Gift Shop) instead of "MW" is what lets the shared
         // SePay webhook tell an order payment apart from a wallet deposit.
@@ -170,23 +183,107 @@ class ShopController extends Controller
       return $order;
     });
 
+    return $order;
+  }
+
+  /** What a client gets back for a freshly placed order (with the QR to pay, if that's the method). */
+  private function orderResponse(ShopOrder $order): array
+  {
     $response = [
       'message' => 'Đơn hàng đã được tạo thành công.',
       'order' => $order->load('items.product'),
     ];
 
-    if ($order->payment_method === 'qr') {
+    if ($order->payment_method === 'qr' && $order->payment_status === 'pending') {
       $response['payment'] = $this->buildQrPayment($order);
     }
 
-    return response()->json($response, 201);
+    return $response;
+  }
+
+  /**
+   * "Xác nhận đặt hàng" on an order slip the AI assistant drew up in the
+   * support chat (see GenerateAiChatReply::buildOrderDraft): the slip lives
+   * in that message's metadata, already checked against the catalogue, and
+   * this turns it into a real order. Only the customer who owns the thread
+   * can confirm, a slip can be confirmed once (a second press returns the
+   * same order), and it expires after a day - prices and stock move on.
+   */
+  public function confirmChatOrder(Request $request, $messageId)
+  {
+    $user = $request->user();
+    $created = false;
+
+    try {
+      $order = DB::transaction(function () use ($user, $messageId, &$created) {
+        // Locked, so two presses can't both place the order.
+        $message = Message::lockForUpdate()->findOrFail($messageId);
+        $draft = $message->metadata['shop_order_draft'] ?? null;
+
+        $isOwnThread = Conversation::where('is_shop_support', true)
+          ->where('created_by', $user->id)
+          ->whereKey($message->conversation_id)
+          ->exists();
+        if (!$isOwnThread || !is_array($draft)) {
+          abort(404);
+        }
+
+        if (!empty($draft['order_id'])) {
+          return ShopOrder::where('user_id', $user->id)->findOrFail($draft['order_id']);
+        }
+
+        if ($message->created_at && $message->created_at->lt(now()->subDay())) {
+          throw new \Exception('Phiếu đặt hàng này đã hết hạn, bạn nhắn AI lập lại phiếu mới nhé.');
+        }
+
+        $order = $this->placeOrder($user, [
+          'items' => array_map(fn($item) => [
+            'product_id' => $item['product_id'],
+            'variant_id' => $item['variant_id'] ?? null,
+            'quantity' => $item['quantity'],
+          ], $draft['items']),
+          'shipping_address' => $draft['shipping_address'],
+          'phone' => $draft['phone'],
+          'note' => $draft['note'] ?? null,
+          'payment_method' => $draft['payment_method'],
+        ]);
+
+        $message->metadata = array_merge($message->metadata, [
+          'shop_order_draft' => array_merge($draft, ['order_id' => $order->id]),
+        ]);
+        $message->save();
+        $created = true;
+
+        return $order;
+      });
+    } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface | \Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+      throw $e;
+    } catch (\Throwable $e) {
+      // placeOrder's own messages (out of stock, not enough points...) are
+      // written for the customer.
+      return response()->json(['message' => $e->getMessage()], 422);
+    }
+
+    if ($created) {
+      // Lets the staff in the thread see that an order came out of the chat.
+      $conversation = Conversation::find(Message::whereKey($messageId)->value('conversation_id'));
+      if ($conversation) {
+        app(ChatController::class)->createSystemMessage(
+          $conversation,
+          "Khách đã xác nhận đặt đơn #{$order->id} qua chat (" . number_format($order->total_amount, 0, ',', '.') . ' đ).',
+          ['shop_order_id' => $order->id]
+        );
+      }
+    }
+
+    return response()->json($this->orderResponse($order), $created ? 201 : 200);
   }
 
   /**
    * QR + bank transfer details for an order awaiting payment - same shape
    * the frontend/mobile already render for wallet deposits.
    */
-  private function buildQrPayment(ShopOrder $order): array
+  public function buildQrPayment(ShopOrder $order): array
   {
     return [
       'payment_code' => $order->payment_code,
