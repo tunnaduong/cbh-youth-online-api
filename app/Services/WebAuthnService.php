@@ -36,7 +36,7 @@ class WebAuthnService
    */
   public static function rpId(): string
   {
-    return (string) config('services.webauthn.rp_id', 'chuyenbienhoa.com');
+    return (string) config('services.webauthn.rp_id', 'www.chuyenbienhoa.com');
   }
 
   /**

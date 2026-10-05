@@ -58,7 +58,11 @@ return [
   // must not change once users have registered; origins are the sites
   // allowed to run the passkey prompt (comma-separated).
   'webauthn' => [
-    'rp_id' => env('WEBAUTHN_RP_ID', 'chuyenbienhoa.com'),
+    // The host the passkeys belong to. It is the www host on purpose: iOS and
+    // Android only let the mobile app use passkeys of a host that serves
+    // /.well-known/apple-app-site-association and assetlinks.json itself,
+    // without a redirect - and the bare domain redirects to www.
+    'rp_id' => env('WEBAUTHN_RP_ID', 'www.chuyenbienhoa.com'),
     'origins' => env('WEBAUTHN_ORIGINS', 'https://chuyenbienhoa.com,https://www.chuyenbienhoa.com'),
     // The Android app asks for passkeys natively; its "origin" is the hash of
     // the certificate the APK is signed with:
