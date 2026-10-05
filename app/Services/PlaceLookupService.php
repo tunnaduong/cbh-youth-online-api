@@ -25,7 +25,23 @@ class PlaceLookupService
   private const VIETNAM_BBOX = '102.1,8.1,109.6,23.5';
 
   /**
-   * @return array{ok: bool, places: array<int, array{name: string, kind: ?string, where: string}>}
+   * Best guess at where an address is, to open the customer's map there:
+   * the first match, or null when nothing was found or the lookup failed.
+   * Only a starting point - the customer still confirms the spot themselves.
+   *
+   * @return array{lat: float, lng: float}|null
+   */
+  public function locate(string $address): ?array
+  {
+    $first = $this->search($address)['places'][0] ?? null;
+
+    return $first && $first['lat'] !== null && $first['lng'] !== null
+      ? ['lat' => $first['lat'], 'lng' => $first['lng']]
+      : null;
+  }
+
+  /**
+   * @return array{ok: bool, places: array<int, array{name: string, kind: ?string, where: string, lat: ?float, lng: ?float}>}
    *   `ok` is false when the lookup itself failed (network, timeout), so the
    *   caller can tell "couldn't check" from "checked, found nothing".
    */
@@ -67,6 +83,8 @@ class PlaceLookupService
           // OpenStreetMap's own category: school, university, hospital, marketplace...
           'kind' => $p['osm_value'] ?? null,
           'where' => $where,
+          'lat' => isset($feature['geometry']['coordinates'][1]) ? (float) $feature['geometry']['coordinates'][1] : null,
+          'lng' => isset($feature['geometry']['coordinates'][0]) ? (float) $feature['geometry']['coordinates'][0] : null,
         ];
       }
 

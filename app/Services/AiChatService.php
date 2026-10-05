@@ -63,6 +63,17 @@ Ngay khi bạn đã có ĐỦ họ tên người nhận, số điện thoại v�
 Trong đó "address" là địa chỉ đầy đủ đúng như sẽ ghi trên đơn. Các trường còn lại là chính địa chỉ đó do bạn tách ra: place = tên địa danh (trường, công ty, tòa nhà...), street = số nhà và tên đường hoặc thôn/xóm, ward = phường/xã, district = quận/huyện/thành phố thuộc tỉnh, province = tỉnh/thành phố. Chỉ điền phần nào khách đã nói hoặc có trong kết quả tra cứu địa danh; phần nào không có thì để null, KHÔNG tự suy ra. Số điện thoại chỉ gồm chữ số; viết hoa tên riêng cho đúng; không thêm thông tin khách không cung cấp.
 Chỉ gửi khối [ADDRESS] khi thông tin là MỚI hoặc vừa được khách SỬA - không gửi lại bộ thông tin đã có nguyên vẹn trong "Sổ địa chỉ đã lưu của khách". Không cần nói với khách về việc lưu, trừ khi khách hỏi; nếu khách nói không muốn lưu thông tin thì không gửi khối này. Ở những lần sau, hệ thống sẽ đưa lại sổ địa chỉ này cho bạn trong "Dữ liệu của shop" - đó là nguồn duy nhất về thông tin giao hàng cũ của khách, đừng dựa vào trí nhớ.
 
+QUẢN LÝ SỔ ĐỊA CHỈ
+Bạn có thể xem, thêm, sửa và xóa các mục trong "Sổ địa chỉ đã lưu của khách" khi khách yêu cầu hoặc khi thông tin của khách thay đổi. Mỗi mục có một mã địa chỉ nằm trong ngoặc vuông (ví dụ [7]).
+- XEM: khi khách hỏi các địa chỉ đã lưu, liệt kê đánh số theo đúng dữ liệu (người nhận, số điện thoại, địa chỉ, đã có ghim bản đồ hay chưa). Không đọc mã địa chỉ cho khách.
+- THÊM mục mới: dùng khối [ADDRESS] như phần trên (không có "id").
+- SỬA một mục đã có (đổi họ tên, số điện thoại hoặc địa chỉ của chính mục đó): xác định đúng mục khách muốn sửa và nội dung mới, rồi trả lời MỘT khối duy nhất, KHÔNG viết gì khác:
+[ADDRESS]{"id":7,"recipient_name":"...","phone":"...","address":"...","place":null,"street":null,"ward":null,"district":null,"province":null}[/ADDRESS]
+Ghi ĐẦY ĐỦ cả ba thông tin (họ tên, số điện thoại, địa chỉ) sau khi sửa - phần nào khách không đổi thì giữ nguyên như trong sổ. Nếu khách chỉ đổi họ tên hoặc số điện thoại thì ghim bản đồ được giữ lại; nếu đổi địa chỉ thì ghim cũ bị xóa và khách sẽ chọn lại vị trí khi đặt hàng. Khi khách muốn thêm một địa chỉ khác (không phải thay cho địa chỉ cũ) thì đó là THÊM, không phải SỬA.
+- XÓA một mục: hỏi khách xác nhận trước ("Bạn chắc chắn muốn xóa địa chỉ ... chứ?"). CHỈ SAU KHI khách xác nhận rõ ràng, trả lời MỘT dòng duy nhất "[ADDRESS_DELETE:mã địa chỉ]" (ví dụ [ADDRESS_DELETE:7]) và KHÔNG viết gì khác. Mỗi lần chỉ xóa một mục; khách muốn xóa hết thì xóa lần lượt, hỏi lại sau mỗi lần.
+Sau khi SỬA hoặc XÓA, hệ thống gửi lại cho bạn "Kết quả ... trong sổ địa chỉ": hãy báo cho khách đúng theo kết quả đó, không nói "đã sửa/đã xóa" trước khi có kết quả. Chỉ sửa, xóa mục thuộc sổ địa chỉ của chính khách này và chỉ khi khách yêu cầu. Sửa hay xóa trong sổ địa chỉ KHÔNG làm thay đổi các đơn đã đặt.
+GHIM BẢN ĐỒ: vị trí chính xác trên bản đồ do khách tự chọn trên phiếu đặt hàng, và được hệ thống tự lưu vào sổ địa chỉ khi khách xác nhận đơn. Bạn không tự đặt hay sửa tọa độ. Mục "đã có ghim bản đồ" nghĩa là lần đặt hàng tới phiếu sẽ có sẵn vị trí đó (khách vẫn đổi được); mục "chưa có ghim bản đồ" thì khách sẽ được yêu cầu chọn vị trí trên bản đồ của phiếu. Khi lập phiếu, hãy nhắc khách kiểm tra (hoặc chọn) vị trí trên bản đồ của phiếu trước khi bấm "Xác nhận đặt hàng".
+
 ĐỊA CHỈ GIAO HÀNG
 ĐỪNG máy móc đòi đủ mọi cấp hành chính. Một địa chỉ là ĐỦ khi người giao hàng có thể tìm được nơi nhận, tức là thuộc một trong hai dạng:
 a) Một địa danh có tên riêng (trường học, công ty, cơ quan, bệnh viện, chợ, chung cư, tòa nhà, ký túc xá...) kèm tên thành phố/tỉnh hoặc khu vực. Với địa danh như vậy KHÔNG cần số nhà, tên đường, phường/xã.
@@ -156,7 +167,7 @@ PROMPT;
     if ($followUp !== null) {
       $messages[] = [
         'role' => 'system',
-        'content' => $followUp . "\nHãy trả lời khách dựa trên kết quả này. KHÔNG dùng [PLACE] hay [CANCEL] nữa trong câu trả lời này.",
+        'content' => $followUp . "\nHãy trả lời khách dựa trên kết quả này. KHÔNG dùng [PLACE], [CANCEL], [ADDRESS_DELETE] hay khối [ADDRESS] có \"id\" nữa trong câu trả lời này.",
       ];
     }
 
@@ -185,6 +196,21 @@ PROMPT;
     $raw = preg_replace('/\[ADDRESS\].*?\[\/ADDRESS\]/isu', '', $raw);
     $raw = preg_replace('/\[\/?ADDRESS\][^\n]*/iu', '', $raw);
 
+    // Editing (an [ADDRESS] block carrying an "id") and deleting a saved
+    // entry are first-pass actions like [CANCEL]: done by the caller, which
+    // then asks again with the outcome. Not honoured on that second pass.
+    $addressDeleteId = null;
+    if (preg_match('/\[ADDRESS_DELETE:\s*#?(\d+)\s*\]/i', $raw, $delete)) {
+      $addressDeleteId = $followUp === null ? (int) $delete[1] : null;
+    }
+    $raw = preg_replace('/\[ADDRESS_DELETE:[^\]]*\]/i', '', $raw);
+
+    if ($address !== null) {
+      $address['id'] = isset($address['id']) && is_numeric($address['id']) && $followUp === null
+        ? (int) $address['id']
+        : null;
+    }
+
     [$text, $images, $order, $payOrderId] = $this->extractShopActions($raw);
     [$text] = $this->extractReaction($text);
 
@@ -192,6 +218,7 @@ PROMPT;
       'place_query' => $placeQuery,
       'cancel_order_id' => $cancelOrderId,
       'address' => $address,
+      'address_delete_id' => $addressDeleteId,
       'content' => $this->stripModelIdentity($this->stripMarkdown($text)),
       'reaction' => null,
       'images' => $images,

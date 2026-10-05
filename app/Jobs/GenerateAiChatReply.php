@@ -144,6 +144,32 @@ class GenerateAiChatReply implements ShouldQueue
           . $outcome['message']
           . ' Hãy báo lại đúng kết quả này cho khách, không nói khác đi.'
       );
+    } elseif (!empty($result['address_delete_id']) || !empty($result['address']['id'])) {
+      // The customer asked to change or remove an entry in their address
+      // book: do it, then let the assistant report what really happened.
+      $ownerId = (int) $conversation->created_by;
+
+      if (!empty($result['address_delete_id'])) {
+        $outcome = \App\Models\ShopAddress::deleteEntry($ownerId, (int) $result['address_delete_id']);
+        $what = "xóa địa chỉ [{$result['address_delete_id']}]";
+      } else {
+        [$delivery, $problem] = \App\Models\ShopAddress::parse($result['address']);
+        $outcome = $delivery
+          ? \App\Models\ShopAddress::updateEntry($ownerId, (int) $result['address']['id'], $delivery)
+          : ['ok' => false, 'message' => "Thông tin mới chưa hợp lệ: {$problem}"];
+        $what = "sửa địa chỉ [{$result['address']['id']}]";
+      }
+
+      $result = $aiChatService->askShopSupport(
+        $history,
+        (string) $triggerMessage->content,
+        // Rebuilt, so the address book the assistant reads is the new one.
+        $this->buildShopContext($conversation),
+        "Kết quả {$what} trong sổ địa chỉ: "
+          . ($outcome['ok'] ? 'THÀNH CÔNG. ' : 'KHÔNG THỰC HIỆN ĐƯỢC. ')
+          . $outcome['message']
+          . ' Hãy báo lại đúng kết quả này cho khách, không nói khác đi.'
+      );
     }
 
     // What the assistant asked to attach, checked against the shop's own
@@ -348,6 +374,7 @@ class GenerateAiChatReply implements ShouldQueue
     // The order is complete, so its delivery details are worth keeping for
     // next time (a no-op when they are already saved).
     \App\Models\ShopAddress::remember($customer->id, $delivery);
+    $savedPin = \App\Models\ShopAddress::pinFor($customer->id, $delivery);
 
     return [[
       'items' => $items,
@@ -362,6 +389,14 @@ class GenerateAiChatReply implements ShouldQueue
       'subtotal' => $subtotal,
       'shipping_fee' => $shippingFee,
       'total' => $total,
+      // The spot the customer confirmed on the map the last time they ordered
+      // to these same details (from the address book): the slip starts with
+      // it already pinned, and they can still change it.
+      'saved_location' => $savedPin,
+      // Otherwise, where the map on the slip opens: the map search's best
+      // match for the address. Only a starting point - the customer has to
+      // confirm the spot there before ordering.
+      'suggested_location' => $savedPin ?? app(\App\Services\PlaceLookupService::class)->locate($address),
       // Set by confirmChatOrder once the customer has confirmed.
       'order_id' => null,
     ], null];
@@ -501,7 +536,7 @@ class GenerateAiChatReply implements ShouldQueue
     $addressBook = \App\Models\ShopAddress::forCustomer((int) $conversation->created_by);
 
     if ($addressBook->isNotEmpty()) {
-      $lines[] = 'Sổ địa chỉ đã lưu của khách (mới dùng nhất trước):';
+      $lines[] = 'Sổ địa chỉ đã lưu của khách (mới dùng nhất trước; số trong ngoặc vuông là mã địa chỉ, dùng khi sửa hoặc xóa):';
       foreach ($addressBook as $i => $saved) {
         $parts = collect([
           'địa danh' => $saved->place,
@@ -511,8 +546,9 @@ class GenerateAiChatReply implements ShouldQueue
           'tỉnh/thành' => $saved->province,
         ])->filter()->map(fn($value, $label) => "{$label}: {$value}")->implode(', ');
 
-        $lines[] = ($i + 1) . ". Người nhận: {$saved->recipient_name}; số điện thoại: {$saved->phone}; địa chỉ: {$saved->address}"
-          . ($parts !== '' ? " ({$parts})" : '') . '.';
+        $lines[] = ($i + 1) . ". [{$saved->id}] Người nhận: {$saved->recipient_name}; số điện thoại: {$saved->phone}; địa chỉ: {$saved->address}"
+          . ($parts !== '' ? " ({$parts})" : '')
+          . ($saved->lat !== null && $saved->lng !== null ? '; đã có ghim bản đồ' : '; chưa có ghim bản đồ') . '.';
       }
     }
 
