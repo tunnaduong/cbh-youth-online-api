@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AuthAccount;
 use App\Models\TwoFactorTrustedDevice;
 use App\Services\TotpService;
+use App\Services\LoginApprovalService;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -88,6 +89,104 @@ class TwoFactorController extends Controller
     return response()->json([
       'method' => TwoFactorService::METHOD_EMAIL,
       'email' => TwoFactorService::maskEmail($user->email),
+    ]);
+  }
+
+  /**
+   * Turn on "approve on a logged-in device". There is no code to confirm:
+   * the account password (guardSetup) is the proof, and the first method to
+   * be turned on returns the recovery codes like confirm() does.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function setupDevice(Request $request)
+  {
+    $user = $request->user();
+
+    if ($response = $this->guardSetup($request, $user, TwoFactorService::METHOD_DEVICE)) {
+      return $response;
+    }
+
+    TwoFactorService::clearFailures($user);
+
+    $wasEnabled = $user->hasTwoFactorEnabled();
+    TwoFactorService::enableMethod($user, TwoFactorService::METHOD_DEVICE);
+
+    return response()->json([
+      'message' => 'Đã bật xác nhận đăng nhập trên thiết bị đã đăng nhập.',
+      'method' => TwoFactorService::METHOD_DEVICE,
+      // Null when another method was already on: the existing codes stay valid.
+      'recovery_codes' => $wasEnabled ? null : TwoFactorService::generateRecoveryCodes($user),
+      'status' => $this->statusPayload($user),
+    ]);
+  }
+
+  /**
+   * Logins waiting to be approved on this (logged-in) device.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function approvals(Request $request)
+  {
+    return response()->json([
+      'approvals' => LoginApprovalService::pendingFor($request->user()),
+    ]);
+  }
+
+  /**
+   * Approve (with the number shown on the device logging in) or deny a
+   * waiting login.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  string  $id
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function respondToApproval(Request $request, $id)
+  {
+    $request->validate([
+      'approve' => 'required|boolean',
+      'number' => 'nullable|integer|min:0|max:99',
+    ]);
+
+    $user = $request->user();
+
+    if ($response = $this->guardFailures($user)) {
+      return $response;
+    }
+
+    $approve = $request->boolean('approve');
+    $result = LoginApprovalService::respond(
+      $user,
+      (string) $id,
+      $approve,
+      $request->filled('number') ? (int) $request->input('number') : null
+    );
+
+    if ($result === 'not_found') {
+      return response()->json([
+        'message' => 'Yêu cầu đăng nhập này đã hết hạn hoặc đã được xử lý.',
+        'status' => 'expired',
+      ], 404);
+    }
+
+    if ($result === 'wrong_number') {
+      // Same limiter as wrong codes: the number must not be guessable by
+      // asking again and again.
+      TwoFactorService::hitFailure($user);
+
+      return response()->json([
+        'message' => 'Số bạn chọn không khớp. Yêu cầu đăng nhập đã bị từ chối.',
+        'status' => 'denied',
+      ], 422);
+    }
+
+    return response()->json([
+      'message' => $result === 'approved'
+        ? 'Đã cho phép đăng nhập.'
+        : 'Đã từ chối yêu cầu đăng nhập.',
+      'status' => $result,
     ]);
   }
 
@@ -197,7 +296,7 @@ class TwoFactorController extends Controller
   public function disable(Request $request)
   {
     $request->validate([
-      'method' => ['nullable', Rule::in([TwoFactorService::METHOD_TOTP, TwoFactorService::METHOD_EMAIL])],
+      'method' => ['nullable', Rule::in([TwoFactorService::METHOD_TOTP, TwoFactorService::METHOD_EMAIL, TwoFactorService::METHOD_DEVICE])],
     ]);
 
     $user = $request->user();

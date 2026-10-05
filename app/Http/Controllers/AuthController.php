@@ -9,6 +9,7 @@ use App\Models\UserProfile;
 use App\Notifications\VerifyEmail;
 use App\Services\DeviceSessionService;
 use App\Services\NotificationService;
+use App\Services\LoginApprovalService;
 use App\Services\TwoFactorService;
 use App\Services\WebAuthnService;
 use Illuminate\Http\Request;
@@ -273,6 +274,113 @@ class AuthController extends Controller
     }
 
     return response()->json($data);
+  }
+
+  /**
+   * Two-factor by approval on a logged-in device: start (or restart) the
+   * request for a pending login challenge. The account's other devices are
+   * notified; the answer is the number to show on this one.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function startLoginApproval(Request $request)
+  {
+    $request->validate(['challenge_token' => 'required|string']);
+
+    $challengeToken = $request->input('challenge_token');
+    $user = TwoFactorService::challengeUser($challengeToken);
+
+    if (!$user || !$user->hasTwoFactorEnabled()) {
+      return $this->challengeExpiredResponse();
+    }
+
+    if (!TwoFactorService::isMethodEnabled($user, TwoFactorService::METHOD_DEVICE)) {
+      return response()->json([
+        'message' => 'Tài khoản này không dùng xác nhận trên thiết bị đã đăng nhập.',
+      ], 422);
+    }
+
+    if ($user->isCurrentlyBanned()) {
+      TwoFactorService::forgetChallenge($challengeToken);
+
+      return $this->bannedResponse($user);
+    }
+
+    $approval = LoginApprovalService::start($user, $challengeToken, $request);
+
+    if (!$approval) {
+      return response()->json([
+        'message' => 'Bạn đã gửi yêu cầu quá nhiều lần. Hãy dùng phương thức khác hoặc đăng nhập lại.',
+      ], 429);
+    }
+
+    return response()->json($approval);
+  }
+
+  /**
+   * Polled by the device logging in. While nobody has answered: status
+   * "pending". Denied or timed out: "denied" / "expired". Approved: the
+   * normal login payload (once), plus status "approved".
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function loginApprovalStatus(Request $request)
+  {
+    $request->validate([
+      'challenge_token' => 'required|string',
+      'remember_device' => 'nullable|boolean',
+      'device_name' => 'nullable|string|max:255',
+      'device_token' => 'nullable|string',
+    ]);
+
+    $challengeToken = $request->input('challenge_token');
+    $user = TwoFactorService::challengeUser($challengeToken);
+
+    if (!$user || !TwoFactorService::isMethodEnabled($user, TwoFactorService::METHOD_DEVICE)) {
+      return $this->challengeExpiredResponse();
+    }
+
+    $status = LoginApprovalService::statusForChallenge($challengeToken);
+
+    if ($status !== LoginApprovalService::APPROVED) {
+      return response()->json(['status' => $status]);
+    }
+
+    if ($user->isCurrentlyBanned()) {
+      TwoFactorService::forgetChallenge($challengeToken);
+
+      return $this->bannedResponse($user);
+    }
+
+    // Once: a second poll that raced this one finds nothing to consume.
+    if (!LoginApprovalService::consume($challengeToken)) {
+      return response()->json(['status' => 'expired']);
+    }
+
+    // Same hand-over as a typed code (see loginTwoFactor).
+    $link = TwoFactorService::challengeLink($challengeToken);
+    if ($link && !$user->provider && !$user->provider_id) {
+      $user->forceFill([
+        'provider' => $link['provider'],
+        'provider_id' => $link['provider_id'],
+      ])->save();
+    }
+
+    TwoFactorService::forgetChallenge($challengeToken);
+
+    $data = $this->loginResponseData($user, $request, $link['provider'] ?? 'password', true);
+
+    if ($request->boolean('remember_device')) {
+      $data['device_token'] = TwoFactorService::trustDevice(
+        $user,
+        $request->input('device_name') ?: $request->userAgent(),
+        $request->input('device_token')
+      );
+    }
+
+    return response()->json($data + ['status' => LoginApprovalService::APPROVED]);
   }
 
   /**

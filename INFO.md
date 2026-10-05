@@ -114,6 +114,12 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Two-factor by approval on a logged-in device** (method `device`; not run; needs `php artisan migrate` for `cyo_auth_accounts.two_factor_device_confirmed_at`): like GitHub Mobile / Facebook. `LoginApprovalService` (all state in `Cache`, 5 min):
+  - Enable: `POST /two-factor/device` (password, like the other setups; no code to confirm; returns `recovery_codes` when it is the first method). Disable: `POST /two-factor/disable {method: "device"}`. `methods` in the status and in the login challenge now may contain `device`.
+  - Device logging in: `POST /login/two-factor/approval {challenge_token}` → `{number, expires_in}` (a two-digit number to display; at most 5 requests per challenge, each replaces the previous), then poll `POST /login/two-factor/approval/status {challenge_token, remember_device?, device_name?, device_token?}` → `{status: pending|denied|expired}` or, once approved, the normal login payload plus `status: approved` (consumed once).
+  - Logged-in devices: told by Expo push + web push (`data.type = login_approval`, `approval_id`) and the realtime event `login.approval` on `App.Models.User.{id}` (`LoginApprovalRequested`, carries only the id). `GET /two-factor/approvals` → `approvals: [{id, numbers:[3], platform, device_name, device_model, ip, created_at, expires_at}]`; `POST /two-factor/approvals/{id} {approve: bool, number}` - approving needs the number shown on the new device; a wrong number denies the request and counts towards the wrong-code limiter.
+  - Limits: an account whose only method is `device` and that is logged in nowhere else can only get in with a recovery code; clients older than this feature don't know the method.
+
 - **Logged-in devices show how each login was made** (not run; needs `php artisan migrate` for `personal_access_tokens.login_method` + `login_two_factor`): `GET /sessions` rows add `login_method` (`password`, `google`, `facebook`, `apple`, `passkey`, `register` = signed up on that device, `app` = web session handed over by the mobile app; null for older logins) and `login_two_factor` (the login went through the two-factor step). Written by `DeviceSessionService::recordLoginMethod()` from `AuthController::loginResponseData($user, $request, $method, $twoFactor)`, the register and web-handoff paths; it never fails a login, also before the migration has run.
 
 - **Passkeys from the native mobile app; device-only passkeys; admins have no rank** (not run):
