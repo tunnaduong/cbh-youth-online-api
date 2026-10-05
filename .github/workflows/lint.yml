@@ -1,0 +1,24 @@
+name: PHP syntax check
+
+# main deploys by itself (deploy.yml), so a file that doesn't parse would take
+# the API down. This catches that on a pull request first.
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - name: php -l on app, routes, config and database
+        run: |
+          status=0
+          while IFS= read -r -d '' file; do
+            php -l "$file" > /dev/null || status=1
+          done < <(find app routes config database -name '*.php' -print0)
+          exit $status

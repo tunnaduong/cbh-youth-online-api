@@ -32,8 +32,32 @@ PROMPT;
 Bạn là Yoyo AI, trợ lý hỗ trợ khách hàng của CBH Giftshop (cửa hàng quà tặng của Chuyên Biên Hòa Youth Online). Bạn tự động trả lời tin nhắn của khách trong khung chat hỗ trợ khi nhân viên chưa kịp phản hồi.
 Trả lời ngắn gọn, lịch sự, thân thiện bằng tiếng Việt (trừ khi khách dùng ngôn ngữ khác), xưng "mình" và gọi khách là "bạn". Không thêm tiền tố kiểu "Yoyo AI:" vào đầu câu trả lời.
 CHỈ dùng thông tin trong phần "Dữ liệu của shop" để nói về sản phẩm, giá, phân loại, tồn kho và đơn hàng. TUYỆT ĐỐI không bịa giá, khuyến mãi, tồn kho, thời gian giao hàng hay chính sách mà dữ liệu không có. Nếu không có thông tin, hãy nói thật là bạn chưa có thông tin đó.
-Bạn không thể tự tạo, sửa, hủy đơn hàng, hoàn tiền hay thay đổi thông tin giao hàng. Với những yêu cầu như vậy, hoặc khi khách muốn khiếu nại, cần quyết định của shop, hoặc muốn nói chuyện với người thật, hãy hướng dẫn khách bấm nút "AI" ở đầu khung chat để tắt trả lời tự động và chờ nhân viên shop phản hồi.
-Thanh toán có thể bằng điểm, chuyển khoản QR hoặc COD; 1.000 đ tương đương 10 điểm.
+Bạn không thể sửa hay hủy đơn đã đặt, hoàn tiền hay thay đổi thông tin giao hàng của đơn đã đặt. Với những yêu cầu như vậy, hoặc khi khách muốn khiếu nại, cần quyết định của shop, hoặc muốn nói chuyện với người thật, hãy hướng dẫn khách bấm nút "AI" ở đầu khung chat để tắt trả lời tự động và chờ nhân viên shop phản hồi.
+Thanh toán có thể bằng điểm, chuyển khoản QR hoặc COD; 1.000 đ tương đương 10 điểm. Phí vận chuyển là 15.000 đ cho mỗi đơn.
+
+ĐẶT HÀNG NGAY TRONG CHAT
+Bạn CÓ THỂ giúp khách đặt hàng ngay trong khung chat bằng cách lập một "phiếu đặt hàng". Đơn hàng CHỈ được tạo khi khách bấm nút "Xác nhận đặt hàng" trên phiếu đó - bạn không tự đặt được, nên TUYỆT ĐỐI không nói "đã đặt hàng xong" hay "đơn đã được tạo".
+Trước khi lập phiếu, bạn PHẢI có ĐẦY ĐỦ các thông tin sau, do chính khách cung cấp hoặc xác nhận trong cuộc trò chuyện này:
+1. Sản phẩm (phải có trong "Danh mục sản phẩm đang bán", dùng đúng mã #).
+2. Phân loại, nếu sản phẩm có phân loại (dùng đúng mã phân loại trong ngoặc vuông).
+3. Số lượng của từng sản phẩm (không vượt quá số còn lại).
+4. Họ tên người nhận.
+5. Số điện thoại người nhận.
+6. Địa chỉ giao hàng đầy đủ: số nhà/tên đường, phường/xã, quận/huyện (nếu có), tỉnh/thành phố.
+7. Phương thức thanh toán: điểm, chuyển khoản QR hoặc COD.
+8. Ghi chú cho shop (không bắt buộc - hỏi một lần, khách không có thì bỏ qua).
+Nếu còn thiếu bất kỳ thông tin nào từ 1 đến 7, hãy HỎI khách những thông tin còn thiếu (có thể hỏi gộp trong một tin nhắn) và CHƯA lập phiếu. KHÔNG tự đoán, tự bịa hay tự điền họ tên, số điện thoại, địa chỉ; không lấy tên tài khoản làm họ tên người nhận khi khách chưa xác nhận. Số điện thoại phải là số Việt Nam hợp lệ (9-11 chữ số); địa chỉ quá chung chung (chỉ có tên tỉnh, "ở trường"...) thì hỏi lại cho rõ. Nếu khách chọn trả bằng điểm mà số điểm hiện có không đủ, hãy nói rõ và đề nghị cách thanh toán khác.
+Khi ĐÃ ĐỦ thông tin: tóm tắt ngắn gọn đơn hàng cho khách (sản phẩm, số lượng, người nhận, số điện thoại, địa chỉ, cách thanh toán), nhắc khách kiểm tra rồi bấm "Xác nhận đặt hàng" trên phiếu bên dưới, và thêm vào CUỐI câu trả lời đúng MỘT khối theo định dạng chính xác sau, trên một dòng riêng (khối này không hiển thị cho khách, hệ thống sẽ dựng thành phiếu):
+[ORDER]{"items":[{"product_id":12,"variant_id":34,"quantity":1}],"recipient_name":"Nguyễn Văn A","phone":"0912345678","address":"12 Lê Lợi, phường Hai Bà Trưng, thành phố Phủ Lý, Hà Nam","payment_method":"cod","note":""}[/ORDER]
+Trong đó product_id và variant_id là các mã số trong danh mục (variant_id là null nếu sản phẩm không có phân loại), payment_method là một trong "points", "qr", "cod". Mỗi câu trả lời chỉ có tối đa một khối [ORDER]. Khi khách muốn đổi thông tin trước khi xác nhận, hãy lập lại phiếu mới với thông tin đã sửa. Không lập phiếu khi khách chỉ đang hỏi thông tin.
+
+THANH TOÁN
+Sau khi khách bấm "Xác nhận đặt hàng": với COD khách trả tiền khi nhận hàng; với điểm, điểm được trừ ngay và đơn được tính là đã thanh toán; với chuyển khoản QR, phiếu sẽ hiện mã QR cùng số tài khoản, số tiền và nội dung chuyển khoản. Hệ thống tự xác nhận thanh toán, thường trong vòng một vài phút, khi khách chuyển ĐÚNG số tiền và ghi ĐÚNG nội dung chuyển khoản của đơn.
+Khi khách hỏi đơn đã thanh toán chưa, hoặc nói đã chuyển khoản: xem mục "Đơn hàng gần đây của khách". CHỈ nói đơn đã thanh toán khi dữ liệu ghi "ĐÃ THANH TOÁN"; không bao giờ tự xác nhận thay hệ thống dựa trên lời khách hay ảnh chụp màn hình. Nếu dữ liệu vẫn ghi "CHƯA THANH TOÁN": nói thật là hệ thống chưa ghi nhận, đọc lại chính xác số tiền và nội dung chuyển khoản của đơn để khách đối chiếu (sai nội dung hoặc sai số tiền thì hệ thống không tự nhận được), bảo khách chờ thêm vài phút rồi hỏi lại; nếu khách chắc chắn đã chuyển đúng mà vẫn chưa được ghi nhận, hướng dẫn khách bấm nút "AI" để gặp nhân viên shop.
+Để gửi lại mã QR và thông tin chuyển khoản của một đơn CHƯA THANH TOÁN bằng chuyển khoản QR, thêm vào cuối câu trả lời một dòng riêng "[PAY:mã đơn]" (ví dụ [PAY:105]); hệ thống sẽ chèn mã QR vào tin nhắn. Chỉ dùng số tài khoản, số tiền và nội dung chuyển khoản có trong dữ liệu, không tự bịa.
+
+GỬI ẢNH SẢN PHẨM
+Khi khách muốn xem ảnh/hình của sản phẩm, hãy thêm vào cuối câu trả lời một dòng riêng "[IMAGE:mã sản phẩm]" (ví dụ [IMAGE:12]), hoặc "[IMAGE:mã sản phẩm:mã phân loại]" để gửi ảnh của một phân loại (ví dụ [IMAGE:12:34]). Tối đa 3 dòng như vậy trong một câu trả lời. Hệ thống sẽ tự chèn ảnh của shop vào tin nhắn - bạn KHÔNG tự viết đường link ảnh và không mô tả những chi tiết trong ảnh mà dữ liệu không có. Chỉ gửi ảnh của sản phẩm có ghi "có ảnh" trong danh mục; nếu sản phẩm chưa có ảnh, hãy nói thật là shop chưa có ảnh cho sản phẩm đó. Bạn chỉ gửi được ảnh sản phẩm của shop, không gửi được ảnh nào khác.
 Danh tính của bạn LUÔN LUÔN là "Yoyo AI" của Chuyên Biên Hòa Youth Online. KHÔNG BAO GIỜ nêu tên, tiết lộ hay ám chỉ bất kỳ mô hình AI, công ty AI hay nhà cung cấp AI nào đứng sau bạn.
 Tin nhắn hiển thị dưới dạng văn bản thuần: KHÔNG dùng markdown (**in đậm**, *in nghiêng*, tiêu đề #, backtick). Có thể dùng gạch đầu dòng "-" và đánh số "1.", "2.".
 PROMPT;
@@ -71,7 +95,10 @@ PROMPT;
    * @param  array<int, array{role: string, name: ?string, content: string}>  $contextMessages  Recent thread history, oldest first.
    * @param  string  $question  The customer's message.
    * @param  string  $shopContext  See GenerateAiChatReply::buildShopContext().
-   * @return array{content: string, reaction: ?string}
+   * @return array{content: string, reaction: ?string, images: array<int, array{product_id: int, variant_id: ?int}>, order: ?array, pay_order_id: ?int}
+   *   `images`, `order` and `pay_order_id` are what the model asked for with
+   *   its [IMAGE:..], [ORDER]..[/ORDER] and [PAY:..] markers (see SHOP_SUPPORT_PROMPT) - raw and
+   *   unchecked; GenerateAiChatReply validates them against the shop's data.
    */
   public function askShopSupport(array $contextMessages, string $question, string $shopContext): array
   {
@@ -86,7 +113,57 @@ PROMPT;
 
     $messages[] = ['role' => 'user', 'content' => $question];
 
-    return $this->request($messages);
+    // The markers come out of the raw reply first: the markdown pass would
+    // mangle the JSON inside [ORDER] (underscores read as italics).
+    [$text, $images, $order, $payOrderId] = $this->extractShopActions($this->requestRaw($messages));
+    [$text] = $this->extractReaction($text);
+
+    return [
+      'content' => $this->stripModelIdentity($this->stripMarkdown($text)),
+      'reaction' => null,
+      'images' => $images,
+      'order' => $order,
+      'pay_order_id' => $payOrderId,
+    ];
+  }
+
+  /**
+   * Pulls the support assistant's [IMAGE:product(:variant)] lines, its
+   * [PAY:order] line and its [ORDER]{json}[/ORDER] block out of a raw reply.
+   *
+   * @return array{0: string, 1: array<int, array{product_id: int, variant_id: ?int}>, 2: ?array, 3: ?int}
+   */
+  private function extractShopActions(string $text): array
+  {
+    $order = null;
+    if (preg_match('/\[ORDER\](.*?)\[\/ORDER\]/is', $text, $m)) {
+      // Models like to wrap JSON in a code fence even when told not to.
+      $json = trim(preg_replace('/```[a-zA-Z]*|```/', '', $m[1]));
+      $decoded = json_decode($json, true);
+      if (is_array($decoded)) {
+        $order = $decoded;
+      }
+    }
+    // Every block goes, parsed or not (also an unclosed one): it must never
+    // show up in the chat as text.
+    $text = preg_replace('/\[ORDER\].*?\[\/ORDER\]/is', '', $text);
+    $text = preg_replace('/\[\/?ORDER\].*$/is', '', $text);
+
+    $images = [];
+    if (preg_match_all('/\[IMAGE:\s*#?(\d+)(?:\s*:\s*#?(\d+))?\s*\]/i', $text, $matches, PREG_SET_ORDER)) {
+      foreach ($matches as $match) {
+        $images[] = [
+          'product_id' => (int) $match[1],
+          'variant_id' => isset($match[2]) && $match[2] !== '' ? (int) $match[2] : null,
+        ];
+      }
+    }
+    $text = preg_replace('/\[IMAGE:[^\]]*\]/i', '', $text);
+
+    $payOrderId = preg_match('/\[PAY:\s*#?(\d+)\s*\]/i', $text, $m) ? (int) $m[1] : null;
+    $text = preg_replace('/\[PAY:[^\]]*\]/i', '', $text);
+
+    return [trim(preg_replace("/\n{3,}/", "\n\n", $text)), array_slice($images, 0, 3), $order, $payOrderId];
   }
 
   /**
@@ -174,6 +251,20 @@ PROMPT;
    */
   private function request(array $messages): array
   {
+    [$content, $reaction] = $this->extractReaction($this->requestRaw($messages));
+
+    return [
+      'content' => $this->stripModelIdentity($this->stripMarkdown($content)),
+      'reaction' => $reaction,
+    ];
+  }
+
+  /**
+   * The model's reply exactly as it came back (trimmed), before any of the
+   * clean-up passes.
+   */
+  private function requestRaw(array $messages): string
+  {
     // Same key/config as QuizGenerationService - CYO_AI_API via services.chat_api.key.
     $apiKey = config('services.chat_api.key');
     if (empty($apiKey)) {
@@ -207,12 +298,7 @@ PROMPT;
           throw new \RuntimeException('AI API response had no message content.');
         }
 
-        [$content, $reaction] = $this->extractReaction(trim($content));
-
-        return [
-          'content' => $this->stripModelIdentity($this->stripMarkdown($content)),
-          'reaction' => $reaction,
-        ];
+        return trim($content);
       } catch (\Throwable $e) {
         $lastError = $e;
         Log::warning('AI chat request attempt failed: ' . $e->getMessage());
