@@ -20,11 +20,13 @@ class ShopAddress extends Model
   protected $fillable = [
     'user_id', 'recipient_name', 'phone', 'address',
     'place', 'street', 'ward', 'district', 'province',
-    'fingerprint', 'last_used_at',
+    'lat', 'lng', 'fingerprint', 'last_used_at',
   ];
 
   protected $casts = [
     'last_used_at' => 'datetime',
+    'lat' => 'float',
+    'lng' => 'float',
   ];
 
   /**
@@ -82,11 +84,7 @@ class ShopAddress extends Model
   public static function remember(int $userId, array $details): void
   {
     try {
-      $fingerprint = md5(mb_strtolower(preg_replace(
-        '/\s+/u',
-        ' ',
-        $details['recipient_name'] . '|' . $details['phone'] . '|' . $details['address']
-      )));
+      $fingerprint = self::fingerprintOf($details);
 
       $existing = self::where('user_id', $userId)->where('fingerprint', $fingerprint)->first();
       if ($existing) {
@@ -118,6 +116,122 @@ class ShopAddress extends Model
       }
     } catch (\Throwable $e) {
       Log::warning('Could not save shop address: ' . $e->getMessage());
+    }
+  }
+
+  /** What makes two saved entries "the same": recipient + phone + address, ignoring case and spacing. */
+  public static function fingerprintOf(array $details): string
+  {
+    return md5(mb_strtolower(preg_replace(
+      '/\s+/u',
+      ' ',
+      $details['recipient_name'] . '|' . $details['phone'] . '|' . $details['address']
+    )));
+  }
+
+  /**
+   * Remembers the spot the customer confirmed on the map for these delivery
+   * details (saving the details themselves first if they are new), so the
+   * next order to the same address opens with its pin already set.
+   */
+  public static function savePin(int $userId, array $details, float $lat, float $lng): void
+  {
+    try {
+      self::remember($userId, $details);
+      self::where('user_id', $userId)
+        ->where('fingerprint', self::fingerprintOf($details))
+        ->update(['lat' => round($lat, 7), 'lng' => round($lng, 7)]);
+    } catch (\Throwable $e) {
+      Log::warning('Could not save shop address pin: ' . $e->getMessage());
+    }
+  }
+
+  /**
+   * The saved map spot for these delivery details, if the customer has
+   * confirmed one before.
+   *
+   * @return array{lat: float, lng: float}|null
+   */
+  public static function pinFor(int $userId, array $details): ?array
+  {
+    try {
+      $entry = self::where('user_id', $userId)
+        ->where('fingerprint', self::fingerprintOf($details))
+        ->first();
+
+      return $entry && $entry->lat !== null && $entry->lng !== null
+        ? ['lat' => (float) $entry->lat, 'lng' => (float) $entry->lng]
+        : null;
+    } catch (\Throwable $e) {
+      return null;
+    }
+  }
+
+  /**
+   * Changes one of the customer's saved entries (the assistant, at the
+   * customer's request). A saved map spot is kept when only the name or the
+   * phone changes, and dropped when the address itself does - it would point
+   * at the old place.
+   *
+   * @param  array  $details  The first value returned by parse().
+   * @return array{ok: bool, message: string}
+   */
+  public static function updateEntry(int $userId, int $id, array $details): array
+  {
+    try {
+      $entry = self::where('user_id', $userId)->find($id);
+      if (!$entry) {
+        return ['ok' => false, 'message' => 'Không tìm thấy địa chỉ này trong sổ địa chỉ của khách.'];
+      }
+
+      $fingerprint = self::fingerprintOf($details);
+      // The edit makes it identical to another entry: keep one.
+      self::where('user_id', $userId)->where('fingerprint', $fingerprint)->where('id', '!=', $entry->id)->delete();
+
+      $normalise = fn($text) => mb_strtolower(preg_replace('/\s+/u', ' ', trim((string) $text)));
+      $addressChanged = $normalise($entry->address) !== $normalise($details['address']);
+
+      $entry->fill($details);
+      $entry->fingerprint = $fingerprint;
+      $entry->last_used_at = now();
+      // Only once the pin columns exist (a server that hasn't migrated yet).
+      if ($addressChanged && array_key_exists('lat', $entry->getAttributes())) {
+        $entry->lat = null;
+        $entry->lng = null;
+      }
+      $entry->save();
+
+      return [
+        'ok' => true,
+        'message' => 'Đã cập nhật địa chỉ trong sổ địa chỉ.'
+          . ($addressChanged ? ' Vì địa chỉ đã đổi nên ghim bản đồ cũ đã bị xóa, lần đặt hàng tới khách sẽ chọn lại vị trí trên bản đồ.' : ''),
+      ];
+    } catch (\Throwable $e) {
+      Log::warning('Could not update shop address: ' . $e->getMessage());
+
+      return ['ok' => false, 'message' => 'Hệ thống chưa cập nhật được địa chỉ lúc này.'];
+    }
+  }
+
+  /**
+   * Removes one of the customer's saved entries (the assistant, at the
+   * customer's request). Orders already placed keep their own copy of the
+   * address and are not touched.
+   *
+   * @return array{ok: bool, message: string}
+   */
+  public static function deleteEntry(int $userId, int $id): array
+  {
+    try {
+      $deleted = self::where('user_id', $userId)->where('id', $id)->delete();
+
+      return $deleted
+        ? ['ok' => true, 'message' => 'Đã xóa địa chỉ khỏi sổ địa chỉ.']
+        : ['ok' => false, 'message' => 'Không tìm thấy địa chỉ này trong sổ địa chỉ của khách.'];
+    } catch (\Throwable $e) {
+      Log::warning('Could not delete shop address: ' . $e->getMessage());
+
+      return ['ok' => false, 'message' => 'Hệ thống chưa xóa được địa chỉ lúc này.'];
     }
   }
 
