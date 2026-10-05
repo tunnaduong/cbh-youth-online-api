@@ -80,6 +80,8 @@ class DeviceSessionController extends Controller
     }
 
     $this->announceRevoked($request->user()->id, [(int) $id]);
+    // An app login takes the web sessions it handed over with it.
+    DeviceSessionService::revokeHandedOver($request->user(), (int) $id);
 
     return response()->json(['message' => 'Đã đăng xuất thiết bị.']);
   }

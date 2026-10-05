@@ -129,4 +129,49 @@ class DeviceSessionService
 
     return $value === '' ? null : Str::limit($value, $maxLength, '');
   }
+  /**
+   * Name of the token a web session gets when the mobile app hands its login
+   * over (POST /web-session/redeem): it carries the id of the app's own
+   * token, so those web sessions can be ended together with the app's.
+   */
+  public static function handoffTokenName(?int $appTokenId): string
+  {
+    return $appTokenId ? 'web-handoff:' . $appTokenId : 'web-handoff';
+  }
+
+  /**
+   * End the web sessions an app login handed over (its WebViews and in-app
+   * browser): logging out of the app, or revoking it from the devices list,
+   * must not leave those signed in. Pages still open are told to sign out
+   * (session.revoked); never fails the caller.
+   *
+   * @return int[]  ids of the tokens that were revoked
+   */
+  public static function revokeHandedOver(AuthAccount $user, ?int $appTokenId): array
+  {
+    if (!$appTokenId) {
+      return [];
+    }
+
+    try {
+      $ids = $user->tokens()->where('name', self::handoffTokenName($appTokenId))->pluck('id')->all();
+      if (empty($ids)) {
+        return [];
+      }
+
+      $user->tokens()->whereIn('id', $ids)->delete();
+
+      try {
+        broadcast(new \App\Events\DeviceSessionsRevoked($user->id, $ids));
+      } catch (\Throwable $e) {
+        // Reverb being down must not fail the logout itself.
+      }
+
+      return $ids;
+    } catch (\Throwable $e) {
+      report($e);
+
+      return [];
+    }
+  }
 }
