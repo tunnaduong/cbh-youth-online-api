@@ -167,7 +167,7 @@ PROMPT;
     if ($followUp !== null) {
       $messages[] = [
         'role' => 'system',
-        'content' => $followUp . "\nHãy trả lời khách dựa trên kết quả này. KHÔNG dùng [PLACE], [CANCEL], [ADDRESS_DELETE] hay khối [ADDRESS] có "id" nữa trong câu trả lời này.",
+        'content' => $followUp . "\nHãy trả lời khách dựa trên kết quả này. KHÔNG dùng [PLACE], [CANCEL], [ADDRESS_DELETE] hay khối [ADDRESS] có \"id\" nữa trong câu trả lời này.",
       ];
     }
 
