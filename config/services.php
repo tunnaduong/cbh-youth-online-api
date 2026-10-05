@@ -69,10 +69,11 @@ return [
     // The Android app asks for passkeys natively; its "origin" is the hash of
     // the certificate the APK is signed with:
     // android:apk-key-hash:<base64url(sha256 of the certificate)>, one per
-    // signing key, comma-separated. The default is the key the GitHub builds
-    // are signed with (keystores/debug.keystore in the mobile repo). The iOS
+    // signing key, comma-separated. The defaults are the key the GitHub builds
+    // are signed with (keystores/debug.keystore in the mobile repo) and the
+    // Google Play app-signing key (what a Play Store install is signed with). The iOS
     // app needs nothing here: it reports https://chuyenbienhoa.com.
-    'android_origins' => env('WEBAUTHN_ANDROID_ORIGINS', 'android:apk-key-hash:-sYXRdwJA3hvue3mKpYrOZ9zSPC7b4mbgzJmdZEDO5w'),
+    'android_origins' => env('WEBAUTHN_ANDROID_ORIGINS', 'android:apk-key-hash:-sYXRdwJA3hvue3mKpYrOZ9zSPC7b4mbgzJmdZEDO5w,android:apk-key-hash:1cNWdqBAPG4h10frQqptUkU8cHVExgzXM_Sv2jWkMr4'),
   ],
 
   'chat_api' => [
