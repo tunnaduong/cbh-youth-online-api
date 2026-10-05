@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\DeviceSessionsRevoked;
+use App\Services\DeviceSessionService;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
