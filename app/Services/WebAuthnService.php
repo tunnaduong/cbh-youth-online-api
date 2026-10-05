@@ -40,6 +40,18 @@ class WebAuthnService
   }
 
   /**
+   * Relying-party ids a passkey may have been made for: the current one and
+   * the ones used before it (services.webauthn.rp_ids), so a passkey made
+   * for the bare domain still verifies where a browser can still offer it.
+   */
+  public static function acceptedRpIds(): array
+  {
+    $ids = array_map('trim', explode(',', (string) config('services.webauthn.rp_ids', 'chuyenbienhoa.com')));
+
+    return array_values(array_unique(array_filter([self::rpId(), ...$ids])));
+  }
+
+  /**
    * Origins allowed to run the ceremony: the web site (which is also what
    * the iOS app reports) and the Android app, whose origin is the hash of
    * its signing certificate (services.webauthn.android_origins).
@@ -75,9 +87,6 @@ class WebAuthnService
       'timeout' => self::CHALLENGE_TTL * 1000,
       'attestation' => 'none',
       'authenticatorSelection' => [
-        // The device's own authenticator (fingerprint, face, screen lock,
-        // Windows Hello) - not a phone over QR code or a USB security key.
-        'authenticatorAttachment' => 'platform',
         // Stored on the device, so login needs no username.
         'residentKey' => 'required',
         'requireResidentKey' => true,
@@ -85,8 +94,6 @@ class WebAuthnService
       ],
       // Stops the same authenticator being registered twice.
       'excludeCredentials' => self::credentialDescriptors($user),
-      // Tells the browser to go straight to this device's prompt.
-      'hints' => ['client-device'],
     ];
   }
 
@@ -175,9 +182,6 @@ class WebAuthnService
         'userVerification' => 'required',
         // Empty: the device offers whichever passkeys it holds for this site.
         'allowCredentials' => [],
-        // Go straight to this device's own passkeys (not "use a phone or
-        // security key").
-        'hints' => ['client-device'],
       ],
     ];
   }
@@ -271,7 +275,15 @@ class WebAuthnService
 
     $flags = ord($authData[32]);
 
-    if (!hash_equals(hash('sha256', self::rpId(), true), substr($authData, 0, 32)) || !($flags & 0x01)) {
+    // For the relying party passkeys are made for now, or one they were made
+    // for before (the bare domain and www are the same site).
+    $rpIdHash = substr($authData, 0, 32);
+    $ours = false;
+    foreach (self::acceptedRpIds() as $rpId) {
+      $ours = $ours || hash_equals(hash('sha256', $rpId, true), $rpIdHash);
+    }
+
+    if (!$ours || !($flags & 0x01)) {
       return null;
     }
 

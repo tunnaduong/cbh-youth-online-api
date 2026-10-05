@@ -63,6 +63,8 @@ return [
     // /.well-known/apple-app-site-association and assetlinks.json itself,
     // without a redirect - and the bare domain redirects to www.
     'rp_id' => env('WEBAUTHN_RP_ID', 'www.chuyenbienhoa.com'),
+    // Earlier relying-party ids whose passkeys still verify (comma-separated).
+    'rp_ids' => env('WEBAUTHN_RP_IDS', 'chuyenbienhoa.com'),
     'origins' => env('WEBAUTHN_ORIGINS', 'https://chuyenbienhoa.com,https://www.chuyenbienhoa.com'),
     // The Android app asks for passkeys natively; its "origin" is the hash of
     // the certificate the APK is signed with:
