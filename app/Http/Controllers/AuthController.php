@@ -717,8 +717,14 @@ class AuthController extends Controller
     $user = $request->user();
 
     if ($user) {
-      // Revoke the token that was used to authenticate the current request
-      $user->currentAccessToken()->delete();
+      // Revoke the token that was used to authenticate the current request,
+      // and the web sessions it handed over (the app's WebViews and in-app
+      // browser are logged out together with the app).
+      $current = $user->currentAccessToken();
+      if ($current instanceof \Laravel\Sanctum\PersonalAccessToken) {
+        DeviceSessionService::revokeHandedOver($user, (int) $current->id);
+      }
+      $current->delete();
 
       return response()->json(['message' => 'Đăng xuất thành công.']);
     }
@@ -742,7 +748,13 @@ class AuthController extends Controller
   public function createWebHandoff(Request $request)
   {
     $code = Str::random(64);
-    Cache::put('web_handoff:' . $code, $request->user()->id, now()->addSeconds(60));
+    // With the id of the app's own token, so the web session can be ended
+    // together with it (see DeviceSessionService::revokeHandedOver).
+    $current = $request->user()->currentAccessToken();
+    Cache::put('web_handoff:' . $code, [
+      'user' => $request->user()->id,
+      'token' => $current instanceof \Laravel\Sanctum\PersonalAccessToken ? (int) $current->id : null,
+    ], now()->addSeconds(60));
 
     return response()->json(['code' => $code, 'expires_in' => 60]);
   }
@@ -760,7 +772,11 @@ class AuthController extends Controller
     $request->validate(['code' => 'required|string|size:64']);
 
     // pull = read + delete, so a code works exactly once.
-    $userId = Cache::pull('web_handoff:' . $request->input('code'));
+    // An array since the app's token id travels with it; a bare user id is a
+    // code issued just before that change was deployed.
+    $handoff = Cache::pull('web_handoff:' . $request->input('code'));
+    $userId = is_array($handoff) ? ($handoff['user'] ?? null) : $handoff;
+    $appTokenId = is_array($handoff) ? ($handoff['token'] ?? null) : null;
     $user = $userId ? AuthAccount::find($userId) : null;
 
     if (!$user) {
@@ -771,7 +787,7 @@ class AuthController extends Controller
       return $this->bannedResponse($user);
     }
 
-    $newToken = $user->createToken('web-handoff');
+    $newToken = $user->createToken(DeviceSessionService::handoffTokenName($appTokenId));
     DeviceSessionService::recordLoginMethod($newToken->accessToken, 'app');
 
     return response()->json([
