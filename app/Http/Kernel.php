@@ -46,6 +46,8 @@ class Kernel extends HttpKernel
       \Illuminate\Session\Middleware\StartSession::class,
       // 'throttle:api',
       \Illuminate\Routing\Middleware\SubstituteBindings::class,
+      // Audit log of what users do (cyo_audit_logs)
+      \App\Http\Middleware\RecordAuditLog::class,
     ],
   ];
 
