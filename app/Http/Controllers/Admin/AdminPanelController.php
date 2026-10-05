@@ -287,6 +287,11 @@ class AdminPanelController extends Controller
     // have left one behind.
     \App\Models\Passkey::where('user_id', $user->id)->delete();
 
+    \App\Models\AuditLog::record('ADMIN_RESET_PASSWORD', $user->id, [
+      'target_type' => 'account',
+      'target_id' => $user->id,
+    ]);
+
     return response()->json([
       'message' => "Đã đặt lại mật khẩu cho @{$user->username}. Hãy gửi mật khẩu tạm này cho người dùng và nhắc họ đổi lại ngay.",
       'password' => $password,
@@ -311,6 +316,11 @@ class AdminPanelController extends Controller
     }
 
     TwoFactorService::disable($user);
+
+    \App\Models\AuditLog::record('ADMIN_RESET_TWO_FACTOR', $user->id, [
+      'target_type' => 'account',
+      'target_id' => $user->id,
+    ]);
 
     return response()->json(['message' => "Đã tắt xác thực hai lớp của @{$user->username}."]);
   }
