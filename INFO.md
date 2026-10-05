@@ -114,6 +114,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Appearance in the lists that lacked it; anonymous authors hidden in search** (not run): `GET /search` users now carry `profile_theme` and `verified`; search **posts** no longer name the author of an anonymous post (same masked shape as the feed, plus `anonymous`). Post and comment vote lists (`TopicsController::getVotes`, `getVotesForComment`), followers / following and story groups / viewers gained `profile_theme` and/or `verified`. Also fixed a broken class reference in the login payload's `profile_theme` (it would have failed every login).
+
 - **"Pro" tier at 2000 points** (id `promax` - kept from its first name "Pro Max" - shown as "Thành viên Pro", `AuthAccount::tiers()`; not run). What it unlocks, all through `ProfileThemeService`:
   - **Name icon**: `profile_theme.name_icon` (`none` or one of 30 playful presets - fish, cat, frog, rocket, boba... - never a tick, so the verified badge stays unmistakable). The glyph is in `NAME_ICONS`; themes sent to clients carry it as `name_icon_emoji` (derived, never stored) and the editor options carry `icon`.
   - **Styled username**: `profile_theme.username_style` = `default` | `name` (the `@username` is drawn with the name's font and effect).

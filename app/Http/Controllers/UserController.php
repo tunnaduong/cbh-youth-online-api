@@ -460,6 +460,7 @@ class UserController extends Controller
         'profile_name' => $follower->follower->profile->profile_name ?? null,
         'profile_picture' => $follower->follower->avatarUrl(),
         'profile_theme' => ProfileThemeService::forAuthor($follower->follower),
+        'verified' => ($follower->follower->profile->verified ?? null) == 1,
       ];
 
       if (auth()->check()) {
@@ -488,6 +489,7 @@ class UserController extends Controller
         'profile_name' => $followed->followed->profile->profile_name ?? null,
         'profile_picture' => $followed->followed->avatarUrl(),
         'profile_theme' => ProfileThemeService::forAuthor($followed->followed),
+        'verified' => ($followed->followed->profile->verified ?? null) == 1,
         'isFollowed' => false,  // Default to false
       ];
 

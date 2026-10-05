@@ -90,6 +90,8 @@ class SearchController extends Controller
           'id' => $user->id,
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? $user->username,
+          'profile_theme' => ProfileThemeService::forAuthor($user),
+          'verified' => ($user->profile->verified ?? null) == 1,
           'bio' => $user->profile->bio ?? null,
         ];
       });
@@ -168,12 +170,21 @@ class SearchController extends Controller
       })->all(),
       'created_at' => $post->created_at->diffForHumans(),
       'is_edited' => $post->is_edited,
-      'author' => [
+      // An anonymous post names nobody here either (same shape the feed uses).
+      'author' => $post->anonymous ? [
+        'id' => null,
+        'username' => 'Ẩn danh',
+        'profile_name' => 'Người dùng ẩn danh',
+        'profile_theme' => null,
+        'verified' => false,
+      ] : [
         'id' => $post->user->id,
         'username' => $post->user->username,
         'profile_name' => $post->user->profile->profile_name ?? $post->user->username,
         'profile_theme' => ProfileThemeService::forAuthor($post->user),
+        'verified' => ($post->user->profile->verified ?? null) == 1,
       ],
+      'anonymous' => (bool) $post->anonymous,
       'stats' => [
         'views' => $post->views_count,
         'comments' => $post->comments_count,
