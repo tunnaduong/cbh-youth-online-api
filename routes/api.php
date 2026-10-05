@@ -276,6 +276,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/checkin/status', [DailyCheckinController::class, 'status']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/web-session/handoff', [AuthController::class, 'createWebHandoff']);
+    Route::post('/web-session/revoke', [AuthController::class, 'revokeWebHandoffs']);
     Route::post('/user/delete-account', [UserController::class, 'deleteAccount']);
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
     Route::post('/users/{username}/cover', [UserController::class, 'updateCoverPhoto']);
