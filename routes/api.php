@@ -509,6 +509,13 @@ Route::prefix('v1.0')->group(function () {
       Route::post('/admin/users/{id}/unban', [AdminController::class, 'unbanUser']);
     });
 
+    // Admin panel: audit log (read-only, except an entry's status)
+    Route::middleware('role:admin')->prefix('admin')->controller(\App\Http\Controllers\Admin\AuditLogController::class)->group(function () {
+      Route::get('/audit-logs', 'index');
+      Route::get('/audit-logs/action-types', 'actionTypes');
+      Route::patch('/audit-logs/{id}', 'updateStatus')->whereNumber('id');
+    });
+
     // Admin panel (Next.js /admin)
     Route::middleware('role:admin')->prefix('admin')->controller(\App\Http\Controllers\Admin\AdminPanelController::class)->group(function () {
       Route::get('/overview', 'overview');

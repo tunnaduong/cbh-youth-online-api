@@ -31,5 +31,28 @@ class AppServiceProvider extends ServiceProvider
     if (config('app.env') === 'production') {
       URL::forceScheme('https');
     }
+
+    // Audit log: what a member (or an admin on their behalf) changes on a
+    // profile or a post. Only the fields a person edits - not counters,
+    // timestamps or derived columns.
+    \App\Models\UserProfile::updated(function ($profile) {
+      \App\Models\AuditLog::recordChanges(
+        'UPDATE_PROFILE',
+        $profile,
+        ['profile_name', 'bio', 'birthday', 'gender', 'location', 'hide_email', 'profile_picture', 'cover_photo', 'profile_theme', 'verified'],
+        $profile->auth_account_id,
+        'profile'
+      );
+    });
+
+    \App\Models\Topic::updated(function ($topic) {
+      \App\Models\AuditLog::recordChanges(
+        'EDIT_POST',
+        $topic,
+        ['title', 'description', 'subforum_id', 'privacy', 'anonymous', 'hidden', 'pinned'],
+        $topic->user_id,
+        'topic'
+      );
+    });
   }
 }
