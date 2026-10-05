@@ -116,41 +116,41 @@ class ProfileThemeService
     // unmistakable. The glyph of each key is in NAME_ICONS.
     'name_icon' => [
       'none' => null,
-      'fish' => 'promax',
-      'cat' => 'promax',
-      'dog' => 'promax',
-      'frog' => 'promax',
-      'panda' => 'promax',
-      'fox' => 'promax',
-      'penguin' => 'promax',
-      'unicorn' => 'promax',
-      'dragon' => 'promax',
-      'octopus' => 'promax',
-      'butterfly' => 'promax',
-      'ghost' => 'promax',
-      'alien' => 'promax',
-      'robot' => 'promax',
-      'rocket' => 'promax',
-      'fire' => 'promax',
-      'lightning' => 'promax',
-      'star' => 'promax',
-      'moon' => 'promax',
-      'rainbow' => 'promax',
-      'crown' => 'promax',
-      'gem' => 'promax',
-      'clover' => 'promax',
-      'cactus' => 'promax',
-      'sakura' => 'promax',
-      'pizza' => 'promax',
-      'boba' => 'promax',
-      'game' => 'promax',
-      'music' => 'promax',
-      'book' => 'promax',
+      'fish' => 'pro',
+      'cat' => 'pro',
+      'dog' => 'pro',
+      'frog' => 'pro',
+      'panda' => 'pro',
+      'fox' => 'pro',
+      'penguin' => 'pro',
+      'unicorn' => 'pro',
+      'dragon' => 'pro',
+      'octopus' => 'pro',
+      'butterfly' => 'pro',
+      'ghost' => 'pro',
+      'alien' => 'pro',
+      'robot' => 'pro',
+      'rocket' => 'pro',
+      'fire' => 'pro',
+      'lightning' => 'pro',
+      'star' => 'pro',
+      'moon' => 'pro',
+      'rainbow' => 'pro',
+      'crown' => 'pro',
+      'gem' => 'pro',
+      'clover' => 'pro',
+      'cactus' => 'pro',
+      'sakura' => 'pro',
+      'pizza' => 'pro',
+      'boba' => 'pro',
+      'game' => 'pro',
+      'music' => 'pro',
+      'book' => 'pro',
     ],
     // "name": the @username is drawn with the name's font and effect.
     'username_style' => [
       'default' => null,
-      'name' => 'promax',
+      'name' => 'pro',
     ],
   ];
 
@@ -192,7 +192,7 @@ class ProfileThemeService
    * Tier from which a display name may hold emoji and decorative Unicode
    * (𝓓𝓪𝔂𝓼, 𝟐𝟖...). Below it a new name is limited to ordinary letters.
    */
-  public const FANCY_NAME_TIER = 'promax';
+  public const FANCY_NAME_TIER = 'pro';
 
   /**
    * Name fonts the clients don't bundle: the files live in public/fonts/name
