@@ -158,7 +158,7 @@ class AuthController extends Controller
    * @param  \Illuminate\Http\Request  $request
    * @return array
    */
-  private function loginResponseData($user, Request $request)
+  private function loginResponseData($user, Request $request, string $method = 'password', bool $twoFactor = false)
   {
     // Load the 'profile' relationship if the user exists
     $user->load('profile');
@@ -169,6 +169,7 @@ class AuthController extends Controller
     // Note which device this login is on, and email the owner if the account
     // has never been used on it before (not for an account created just now).
     DeviceSessionService::recordLogin($user, $newToken->accessToken, $request, !$user->wasRecentlyCreated);
+    DeviceSessionService::recordLoginMethod($newToken->accessToken, $method, $twoFactor);
 
     return [
       'user' => [
@@ -255,7 +256,8 @@ class AuthController extends Controller
 
     TwoFactorService::forgetChallenge($challengeToken);
 
-    $data = $this->loginResponseData($user, $request);
+    // The first step was either the password or a social login.
+    $data = $this->loginResponseData($user, $request, $link['provider'] ?? 'password', true);
 
     if ($request->boolean('remember_device')) {
       $data['device_token'] = TwoFactorService::trustDevice(
@@ -332,7 +334,7 @@ class AuthController extends Controller
       return response()->json(['code' => $code]);
     }
 
-    return response()->json($this->loginResponseData($user, $request));
+    return response()->json($this->loginResponseData($user, $request, 'passkey'));
   }
 
   /**
@@ -363,7 +365,7 @@ class AuthController extends Controller
       return $this->bannedResponse($user);
     }
 
-    return response()->json($this->loginResponseData($user, $request));
+    return response()->json($this->loginResponseData($user, $request, 'passkey'));
   }
 
   /**
@@ -481,6 +483,7 @@ class AuthController extends Controller
     // Remember the device they signed up on, so it isn't reported as a new
     // device the next time they log in from it.
     DeviceSessionService::recordLogin($account, $newToken->accessToken, $request, false);
+    DeviceSessionService::recordLoginMethod($newToken->accessToken, 'register');
 
     // Send the verification email
     $account->notify(new VerifyEmail);
@@ -596,8 +599,11 @@ class AuthController extends Controller
       return $this->bannedResponse($user);
     }
 
+    $newToken = $user->createToken('web-handoff');
+    DeviceSessionService::recordLoginMethod($newToken->accessToken, 'app');
+
     return response()->json([
-      'token' => $user->createToken('web-handoff')->plainTextToken,
+      'token' => $newToken->plainTextToken,
     ]);
   }
 
@@ -998,7 +1004,7 @@ class AuthController extends Controller
         return $this->bannedResponse($user);
       }
 
-      $data = $this->loginResponseData($user, $request);
+      $data = $this->loginResponseData($user, $request, $provider);
 
       return response()->json($data + [
         'accessToken' => $data['token'],
