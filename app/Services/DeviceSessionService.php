@@ -55,7 +55,7 @@ class DeviceSessionService
         'login_method' => $method,
         'login_two_factor' => $twoFactor,
       ])->save();
-    } catch (Throwable $e) {
+    } catch (\Throwable $e) {
       Log::warning('Could not record the login method', ['error' => $e->getMessage()]);
     }
   }
