@@ -870,6 +870,20 @@ class UserController extends Controller
       ...ProfileThemeService::rules(),
     ]);
 
+    // A new display name with emoji or decorative Unicode needs the Pro Max
+    // tier. Only checked when the name actually changes, so a name set
+    // earlier (or while the user had the points) is never rejected.
+    if (
+      isset($validatedData['profile_name'])
+      && $validatedData['profile_name'] !== ($user->profile->profile_name ?? null)
+      && ($nameError = ProfileThemeService::nameError($user, $validatedData['profile_name']))
+    ) {
+      return response()->json([
+        'message' => $nameError,
+        'errors' => ['profile_name' => [$nameError]],
+      ], 422);
+    }
+
     // Profile appearance - resetting it (null) is always allowed, setting it
     // needs the `custom_profile` privilege plus whatever each option requires.
     if (isset($validatedData['profile_theme'])) {

@@ -114,6 +114,12 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **"Pro Max" tier at 2000 points** (`promax`, "Thành viên Pro Max", `AuthAccount::tiers()`; not run). What it unlocks, all through `ProfileThemeService`:
+  - **Name icon**: `profile_theme.name_icon` (`none` or one of 30 playful presets - fish, cat, frog, rocket, boba... - never a tick, so the verified badge stays unmistakable). The glyph is in `NAME_ICONS`; themes sent to clients carry it as `name_icon_emoji` (derived, never stored) and the editor options carry `icon`.
+  - **Styled username**: `profile_theme.username_style` = `default` | `name` (the `@username` is drawn with the name's font and effect).
+  - Both are ordinary `OPTIONS` entries (validated, tier-locked and listed in `editorState()` like the others) and are part of `forAuthor()`, so they arrive wherever a name is shown: posts, comments, stories, chat, search, rankings, followers, notifications. The login payload's `user` now also has `profile_theme` (the `forAuthor()` part).
+  - **Fancy names**: emoji and decorative Unicode (𝟐𝟖 𝓓𝓪𝔂𝓼 𝓛𝓪𝓽𝓮𝓻, fullwidth, circled...) in `profile_name` need the tier. Below it `PUT` profile answers 422 with `errors.profile_name` when a **changed** name is not plain (`isPlainName()`: letters of ordinary scripts with their accents, digits, space, `. , ' _ -`). A name set earlier is never re-checked. `editorState()` adds `fancy_name {required_points, unlocked}`.
+
 - **Two-factor by approval on a logged-in device** (method `device`; not run; needs `php artisan migrate` for `cyo_auth_accounts.two_factor_device_confirmed_at`): like GitHub Mobile / Facebook. `LoginApprovalService` (all state in `Cache`, 5 min):
   - Enable: `POST /two-factor/device` (password, like the other setups; no code to confirm; returns `recovery_codes` when it is the first method). Disable: `POST /two-factor/disable {method: "device"}`. `methods` in the status and in the login challenge now may contain `device`.
   - Device logging in: `POST /login/two-factor/approval {challenge_token}` → `{number, expires_in}` (a two-digit number to display; at most 5 requests per challenge, each replaces the previous), then poll `POST /login/two-factor/approval/status {challenge_token, remember_device?, device_name?, device_token?}` → `{status: pending|denied|expired}` or, once approved, the normal login payload plus `status: approved` (consumed once).

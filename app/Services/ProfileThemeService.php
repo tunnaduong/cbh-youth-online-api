@@ -111,7 +111,88 @@ class ProfileThemeService
       'gold' => 'distinguished',
       'neon' => 'veteran',
     ],
+    // A small icon shown right after the name (Pro Max). Deliberately
+    // playful presets and never a tick: the verified badge must stay
+    // unmistakable. The glyph of each key is in NAME_ICONS.
+    'name_icon' => [
+      'none' => null,
+      'fish' => 'promax',
+      'cat' => 'promax',
+      'dog' => 'promax',
+      'frog' => 'promax',
+      'panda' => 'promax',
+      'fox' => 'promax',
+      'penguin' => 'promax',
+      'unicorn' => 'promax',
+      'dragon' => 'promax',
+      'octopus' => 'promax',
+      'butterfly' => 'promax',
+      'ghost' => 'promax',
+      'alien' => 'promax',
+      'robot' => 'promax',
+      'rocket' => 'promax',
+      'fire' => 'promax',
+      'lightning' => 'promax',
+      'star' => 'promax',
+      'moon' => 'promax',
+      'rainbow' => 'promax',
+      'crown' => 'promax',
+      'gem' => 'promax',
+      'clover' => 'promax',
+      'cactus' => 'promax',
+      'sakura' => 'promax',
+      'pizza' => 'promax',
+      'boba' => 'promax',
+      'game' => 'promax',
+      'music' => 'promax',
+      'book' => 'promax',
+    ],
+    // "name": the @username is drawn with the name's font and effect.
+    'username_style' => [
+      'default' => null,
+      'name' => 'promax',
+    ],
   ];
+
+  /** Glyph of each OPTIONS['name_icon'] key, sent to the clients. */
+  public const NAME_ICONS = [
+    'fish' => '🐟',
+    'cat' => '🐱',
+    'dog' => '🐶',
+    'frog' => '🐸',
+    'panda' => '🐼',
+    'fox' => '🦊',
+    'penguin' => '🐧',
+    'unicorn' => '🦄',
+    'dragon' => '🐉',
+    'octopus' => '🐙',
+    'butterfly' => '🦋',
+    'ghost' => '👻',
+    'alien' => '👽',
+    'robot' => '🤖',
+    'rocket' => '🚀',
+    'fire' => '🔥',
+    'lightning' => '⚡',
+    'star' => '⭐',
+    'moon' => '🌙',
+    'rainbow' => '🌈',
+    'crown' => '👑',
+    'gem' => '💎',
+    'clover' => '🍀',
+    'cactus' => '🌵',
+    'sakura' => '🌸',
+    'pizza' => '🍕',
+    'boba' => '🧋',
+    'game' => '🎮',
+    'music' => '🎵',
+    'book' => '📚',
+  ];
+
+  /**
+   * Tier from which a display name may hold emoji and decorative Unicode
+   * (𝓓𝓪𝔂𝓼, 𝟐𝟖...). Below it a new name is limited to ordinary letters.
+   */
+  public const FANCY_NAME_TIER = 'promax';
 
   /**
    * Name fonts the clients don't bundle: the files live in public/fonts/name
@@ -258,6 +339,43 @@ class ProfileThemeService
     return $errors;
   }
 
+  public static function canUseFancyName(AuthAccount $user): bool
+  {
+    return self::tierReached($user, self::FANCY_NAME_TIER);
+  }
+
+  /**
+   * Whether a display name only uses what every member may use: letters of
+   * ordinary scripts (with their accents), digits, spaces and a little
+   * punctuation. Emoji, symbols and the decorative alphabets (mathematical
+   * 𝓓𝓪𝔂𝓼 / 𝟐𝟖, fullwidth, circled letters - which Unicode files under
+   * "common" or as Latin look-alikes) are what FANCY_NAME_TIER unlocks.
+   */
+  public static function isPlainName(string $name): bool
+  {
+    if (preg_match('/[\x{FF00}-\x{FFEF}\x{2460}-\x{24FF}\x{1D00}-\x{1DBF}\x{2070}-\x{209F}\x{A720}-\x{A7FF}\x{AB30}-\x{AB6F}]/u', $name)) {
+      return false;
+    }
+
+    return (bool) preg_match(
+      '/\A[\p{Latin}\p{Cyrillic}\p{Greek}\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}\p{Thai}\p{Mn}0-9 .,\x27\x{2019}_\-]+\z/u',
+      $name
+    );
+  }
+
+  /**
+   * The error for a display name this user may not set yet, or null.
+   */
+  public static function nameError(AuthAccount $user, string $name): ?string
+  {
+    if (self::canUseFancyName($user) || self::isPlainName($name)) {
+      return null;
+    }
+
+    return 'Tên chỉ được dùng chữ cái, chữ số và dấu cách. Biểu tượng cảm xúc và ký tự đặc biệt cần đạt '
+      . self::tierMinPoints(self::FANCY_NAME_TIER) . ' điểm.';
+  }
+
   public static function canUseGradientColors(AuthAccount $user): bool
   {
     return self::canCustomize($user) && self::tierReached($user, self::GRADIENT_TIER);
@@ -306,6 +424,9 @@ class ProfileThemeService
       }
     }
 
+    // Derived, never stored: saves every client a table of glyphs.
+    $theme['name_icon_emoji'] = self::NAME_ICONS[$theme['name_icon']] ?? null;
+
     return $theme;
   }
 
@@ -331,6 +452,9 @@ class ProfileThemeService
       'name_effect',
       'name_colors',
       'avatar_frame',
+      'name_icon',
+      'name_icon_emoji',
+      'username_style',
     ]));
   }
 
@@ -353,6 +477,7 @@ class ProfileThemeService
         ...($field === 'name_font' && isset(self::SERVER_FONTS[$key])
           ? ['label' => self::SERVER_FONTS[$key]['label']]
           : []),
+        ...($field === 'name_icon' ? ['icon' => self::NAME_ICONS[$key] ?? null] : []),
       ])->values()->all();
     }
 
@@ -376,6 +501,11 @@ class ProfileThemeService
       'color_gradient' => [
         'required_points' => self::tierMinPoints(self::GRADIENT_TIER),
         'unlocked' => self::canUseGradientColors($user),
+      ],
+      // Emoji and decorative Unicode letters in the display name.
+      'fancy_name' => [
+        'required_points' => self::tierMinPoints(self::FANCY_NAME_TIER),
+        'unlocked' => self::canUseFancyName($user),
       ],
       'saved' => is_array($saved) && !empty($saved) ? self::normalize($saved) : null,
       'options' => $options,
