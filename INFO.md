@@ -114,7 +114,7 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
-- **"Pro Max" tier at 2000 points** (`promax`, "Thành viên Pro Max", `AuthAccount::tiers()`; not run). What it unlocks, all through `ProfileThemeService`:
+- **"Pro" tier at 2000 points** (id `promax` - kept from its first name "Pro Max" - shown as "Thành viên Pro", `AuthAccount::tiers()`; not run). What it unlocks, all through `ProfileThemeService`:
   - **Name icon**: `profile_theme.name_icon` (`none` or one of 30 playful presets - fish, cat, frog, rocket, boba... - never a tick, so the verified badge stays unmistakable). The glyph is in `NAME_ICONS`; themes sent to clients carry it as `name_icon_emoji` (derived, never stored) and the editor options carry `icon`.
   - **Styled username**: `profile_theme.username_style` = `default` | `name` (the `@username` is drawn with the name's font and effect).
   - Both are ordinary `OPTIONS` entries (validated, tier-locked and listed in `editorState()` like the others) and are part of `forAuthor()`, so they arrive wherever a name is shown: posts, comments, stories, chat, search, rankings, followers, notifications. The login payload's `user` now also has `profile_theme` (the `forAuthor()` part).
