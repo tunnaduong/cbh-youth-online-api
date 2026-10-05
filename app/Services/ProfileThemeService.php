@@ -452,11 +452,16 @@ class ProfileThemeService
   public static function forAuthor(?AuthAccount $user): ?array
   {
     $theme = $user ? self::forDisplay($user) : null;
+    // The member's tier travels with the theme, so every place that shows a
+    // name can draw the tier's icon after it (the default when the user
+    // picked no icon of their own) - also for members with no saved theme,
+    // who get an object holding nothing else.
+    $tierId = $user ? ($user->getMemberTier()['id'] ?? null) : null;
     if ($theme === null) {
-      return null;
+      return $tierId ? ['member_tier' => $tierId] : null;
     }
 
-    return array_intersect_key($theme, array_flip([
+    return ['member_tier' => $tierId] + array_intersect_key($theme, array_flip([
       'primary_color',
       'accent_color',
       'primary_color_2',
