@@ -1123,6 +1123,7 @@ class UserController extends Controller
 
     // Revoke all tokens for the user
     $user->tokens()->delete();
+    \App\Models\ExpoPushToken::deactivateForUser((int) $user->id);
 
     // Delete user and related data (cascade deletes should handle related records)
     $user->delete();

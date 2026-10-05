@@ -282,6 +282,7 @@ class AdminPanelController extends Controller
     $user->password = Hash::make($password);
     $user->save();
     $user->tokens()->delete();
+    \App\Models\ExpoPushToken::deactivateForUser((int) $user->id);
     TwoFactorService::forgetTrustedDevices($user->id);
     // A passkey logs in without the password, so whoever had access could
     // have left one behind.
@@ -343,6 +344,7 @@ class AdminPanelController extends Controller
 
     $username = $user->username;
     $user->tokens()->delete();
+    \App\Models\ExpoPushToken::deactivateForUser((int) $user->id);
     $user->delete();
 
     return response()->json(['message' => "Đã xóa tài khoản @{$username} và toàn bộ dữ liệu liên quan."]);
