@@ -20,6 +20,9 @@ class TwoFactorService
 {
   public const METHOD_TOTP = 'totp';
   public const METHOD_EMAIL = 'email';
+  // Approving the login on a device that is already logged in
+  // (LoginApprovalService). It has no code to type.
+  public const METHOD_DEVICE = 'device';
 
   public const ISSUER = 'CBH Youth Online';
 
@@ -125,6 +128,9 @@ class TwoFactorService
 
     if ($user->two_factor_totp_confirmed_at !== null && $user->two_factor_secret) {
       $methods[] = self::METHOD_TOTP;
+    }
+    if ($user->two_factor_device_confirmed_at !== null) {
+      $methods[] = self::METHOD_DEVICE;
     }
     if ($user->two_factor_email_confirmed_at !== null) {
       $methods[] = self::METHOD_EMAIL;
@@ -396,6 +402,11 @@ class TwoFactorService
     $user->two_factor_confirmed_at = null;
     $user->two_factor_totp_confirmed_at = null;
     $user->two_factor_email_confirmed_at = null;
+    // Only when the column is there: this also runs (admin reset) on a
+    // deploy that has not migrated yet, where writing it would fail.
+    if (array_key_exists('two_factor_device_confirmed_at', $user->getAttributes())) {
+      $user->two_factor_device_confirmed_at = null;
+    }
     $user->two_factor_last_step = null;
     $user->save();
 
@@ -410,6 +421,8 @@ class TwoFactorService
   {
     if ($method === self::METHOD_TOTP) {
       $user->two_factor_totp_confirmed_at = now();
+    } elseif ($method === self::METHOD_DEVICE) {
+      $user->two_factor_device_confirmed_at = now();
     } else {
       $user->two_factor_email_confirmed_at = now();
       self::forgetEmailSetup($user);
@@ -429,6 +442,8 @@ class TwoFactorService
       $user->two_factor_secret = null;
       $user->two_factor_totp_confirmed_at = null;
       $user->two_factor_last_step = null;
+    } elseif ($method === self::METHOD_DEVICE) {
+      $user->two_factor_device_confirmed_at = null;
     } else {
       $user->two_factor_email_confirmed_at = null;
       self::forgetEmailSetup($user);

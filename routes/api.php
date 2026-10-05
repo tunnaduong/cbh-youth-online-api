@@ -75,6 +75,9 @@ Route::prefix('v1.0')->group(function () {
   // here is only a coarse backstop.
   Route::post('/login/two-factor', [AuthController::class, 'loginTwoFactor'])->middleware('throttle:30,1');
   Route::post('/login/two-factor/resend', [AuthController::class, 'resendTwoFactorCode'])->middleware('throttle:30,1');
+  // Two-factor by approval on a logged-in device: ask, then poll.
+  Route::post('/login/two-factor/approval', [AuthController::class, 'startLoginApproval'])->middleware('throttle:10,1');
+  Route::post('/login/two-factor/approval/status', [AuthController::class, 'loginApprovalStatus'])->middleware('throttle:60,1');
   // Passkey login: no password and no two-factor step.
   Route::post('/login/passkey/options', [AuthController::class, 'passkeyLoginOptions'])->middleware('throttle:30,1');
   Route::post('/login/passkey', [AuthController::class, 'passkeyLogin'])->middleware('throttle:30,1');
@@ -284,6 +287,10 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/', [TwoFactorController::class, 'status']);
       Route::post('/totp', [TwoFactorController::class, 'setupTotp']);
       Route::post('/email', [TwoFactorController::class, 'setupEmail']);
+      Route::post('/device', [TwoFactorController::class, 'setupDevice']);
+      // Logins waiting to be approved on this device
+      Route::get('/approvals', [TwoFactorController::class, 'approvals']);
+      Route::post('/approvals/{id}', [TwoFactorController::class, 'respondToApproval']);
       Route::post('/email/send', [TwoFactorController::class, 'sendEmailCode']);
       Route::post('/confirm', [TwoFactorController::class, 'confirm']);
       Route::post('/disable', [TwoFactorController::class, 'disable']);

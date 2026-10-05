@@ -76,6 +76,7 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
     'two_factor_confirmed_at' => 'datetime',
     'two_factor_totp_confirmed_at' => 'datetime',
     'two_factor_email_confirmed_at' => 'datetime',
+    'two_factor_device_confirmed_at' => 'datetime',
     'two_factor_last_step' => 'integer',
     'two_factor_skip_social' => 'boolean',
   ];
@@ -92,14 +93,17 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
 
   /**
    * Whether logging in requires a second step: at least one method
-   * (authenticator app, email code) is confirmed. A method that was started
+   * (authenticator app, email code, approval on a logged-in device) is
+   * confirmed. A method that was started
    * but never confirmed with a code doesn't count.
    *
    * @return bool
    */
   public function hasTwoFactorEnabled(): bool
   {
-    return $this->two_factor_totp_confirmed_at !== null || $this->two_factor_email_confirmed_at !== null;
+    return $this->two_factor_totp_confirmed_at !== null
+      || $this->two_factor_email_confirmed_at !== null
+      || $this->two_factor_device_confirmed_at !== null;
   }
 
   /**
