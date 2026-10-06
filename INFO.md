@@ -45,7 +45,7 @@ Middleware aliases live in `app/Http/Kernel.php` (`optional.auth`, `not_banned`,
 - **Gift shop** — `ShopController` + `ShopProduct/ShopProductVariant/ShopCategory/ShopOrder/ShopOrderItem`: public catalog, orders (points / QR / COD, optional map pin → `maps_url`), cancelling until an order ships (points refunded, transfers flagged for refund), shop support chat with an AI assistant that can show product photos, draw up an order slip the customer confirms (`POST /shop/support/messages/{id}/order`) and resend the QR to pay; also managed in Filament (`app/Filament/Resources`).
 - **Student verification** — `StudentVerificationController` (student KYC; verified students get a shop discount).
 - **Study materials** — `StudyMaterialController`, categories, ratings, purchases with points, preview generation (`GenerateStudyMaterialPreview`, pdfparser/phpword).
-- **Quiz & games** — `QuizController` (AI-generated questions via Gemini keys `GEMINI_1..5`, `QuizGenerationService`), `CustomQuizController` (quizzes parsed from user documents), `GameController` (play sessions, leaderboard).
+- **Quiz & games** — `QuizController` (AI-generated questions via Gemini keys `GEMINI_1..5`, `QuizGenerationService`; online only - no question bank, an AI failure returns 503), `CustomQuizController` (quizzes parsed from user documents), `GameController` (play sessions, leaderboard).
 - **Notifications** — `NotificationController`, `NotificationSettingsController`, Expo token register/unregister, web push subscribe; weekly newsletter (`newsletter:send-weekly`, Monday 08:00) with unsubscribe.
 - **Misc** — `SearchController`, `UniversityController` (proxies Cốc Cốc học tập), `YouthNewsController`, `HelpCenterController`, `FeedbackController` (in-app bug reports/suggestions, guests allowed), `RecordingController`, `FileUploadController` (`/upload`, `/user-content/{id}`; image/video compression jobs), `FacebookWebhookController`.
 - **Admin** — Filament panel at `/admin` on this host (shop resources), plus the JSON admin API for the Next.js `/admin` (`Admin\*`, `AdminController`, `AdminBroadcast` + `SendAdminBroadcast` job).
@@ -113,6 +113,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 - New client endpoints go in `routes/api.php` under the right access tier. Keep response shapes stable: web, mobile and gift shop all consume them.
 
 ## Recent work (newest first)
+
+- **Quizzes are online only** (not run - no PHP on this machine): `QuizController::start` no longer saves AI-generated questions into the question bank (`QuizQuestion`, `cyo_quiz_questions`) or marks them seen (`cyo_quiz_question_seen`), and no longer falls back to bank questions when the AI call fails - it answers 503 "Không thể tạo câu hỏi lúc này…". The played set is still stored as a `QuizSet` (needed to grade answers and for share links). The model, its tables and `php artisan quiz:clear-cached` are kept, unused, so the existing bank rows can be cleared.
 
 - **`cyo_topics.cdn_image_id` is now `TEXT`** (was `varchar(255)`, about 50 image ids; **needs `php artisan migrate`**): a post imported from Facebook with 64 photos lost the ones that did not fit. The leftover index `cyo_topics_cdn_image_id_foreign` (from the old single-image foreign key) is dropped with it. `cdn_video_id` and `cdn_document_id` were already `TEXT`.
 
