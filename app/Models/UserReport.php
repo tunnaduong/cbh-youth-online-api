@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $user_id The ID of the user who submitted the report.
  * @property int $reported_user_id The ID of the user being reported.
  * @property int|null $topic_id The ID of the topic related to the report.
+ * @property int|null $comment_id The ID of the comment related to the report.
  * @property int|null $message_id The ID of the chat message related to the report.
  * @property string|null $reason
  * @property string $status
@@ -45,6 +46,7 @@ class UserReport extends Model
     'user_id',
     'reported_user_id',
     'topic_id',
+    'comment_id',
     'story_id',
     'message_id',
     'reason',
@@ -91,6 +93,16 @@ class UserReport extends Model
   public function topic()
   {
     return $this->belongsTo(Topic::class, 'topic_id');
+  }
+
+  /**
+   * Get the comment associated with the report.
+   *
+   * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+   */
+  public function comment()
+  {
+    return $this->belongsTo(TopicComment::class, 'comment_id');
   }
 
   /**

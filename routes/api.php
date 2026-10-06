@@ -386,6 +386,9 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/posts', [ActivityController::class, 'getCreatedPosts']);
     });
 
+    // Student / class violation reports from the app's "Báo cáo vi phạm" flow
+    Route::post('/violation-reports', [\App\Http\Controllers\ViolationReportController::class, 'store']);
+
     // User Reports
     Route::prefix('reports')->group(function () {
       Route::post('/', [UserReportController::class, 'store']);
@@ -515,6 +518,20 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/audit-logs', 'index');
       Route::get('/audit-logs/action-types', 'actionTypes');
       Route::patch('/audit-logs/{id}', 'updateStatus')->whereNumber('id');
+    });
+
+    // Admin: warn the author of a post / comment / chat message / story, or
+    // remove it (Admin\ContentModerationController).
+    Route::middleware('role:admin')->prefix('admin/moderation-actions')->controller(\App\Http\Controllers\Admin\ContentModerationController::class)->group(function () {
+      Route::post('/warn', 'warn');
+      Route::post('/remove', 'remove');
+    });
+
+    // Admin: student / class violation reports
+    Route::middleware('role:admin')->prefix('admin/violation-reports')->controller(\App\Http\Controllers\ViolationReportController::class)->group(function () {
+      Route::get('/', 'index');
+      Route::post('/{id}/review', 'review');
+      Route::delete('/{id}', 'destroy');
     });
 
     // Admin panel (Next.js /admin)

@@ -164,7 +164,8 @@ class PushNotificationService
 
     $payload = [
       'title' => $message,
-      'body' => $data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? '',
+      // A moderation notice's own note comes first (see createModerationActionNotification).
+      'body' => !empty($data['note']) ? $data['note'] : ($data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? ''),
       'icon' => (!$isAnonymous && $actor) ? (config('app.url') . "/v1.0/users/{$actor->username}/avatar") : '/images/icon.png',
       'badge' => '/images/badge.png',
       'tag' => "notification-{$notification->id}",
@@ -212,6 +213,20 @@ class PushNotificationService
   }
 
   /**
+   * "Bài viết" / "Bình luận" / "Tin nhắn" / "Tin" for a moderation notice.
+   */
+  private static function moderatedContentLabel(?string $contentType): string
+  {
+    return match ($contentType) {
+      'topic' => 'Bài viết',
+      'comment' => 'Bình luận',
+      'message' => 'Tin nhắn',
+      'story' => 'Tin',
+      default => 'Nội dung',
+    };
+  }
+
+  /**
    * Get notification message based on type.
    *
    * @param \App\Models\Notification $notification
@@ -248,7 +263,13 @@ class PushNotificationService
       'points_gifted' => "{$actorName} đã tặng bạn " . number_format((int) ($notification->data['amount'] ?? 0)) . ' điểm',
       'content_reported' => 'Nội dung của bạn đã bị báo cáo',
       'content_hidden' => 'Nội dung của bạn đã bị ẩn',
-      'content_deleted' => 'Nội dung của bạn đã bị xóa',
+      // Moderation notices from an admin (NotificationService::
+      // createModerationActionNotification); content_type names what it was.
+      'content_warning' => 'Cảnh cáo: ' . mb_strtolower(self::moderatedContentLabel($notification->data['content_type'] ?? null))
+        . ' gần đây của bạn có nội dung không phù hợp với tiêu chuẩn cộng đồng',
+      'content_deleted' => isset($notification->data['content_type'])
+        ? self::moderatedContentLabel($notification->data['content_type']) . ' của bạn đã bị xóa vì vi phạm tiêu chuẩn cộng đồng'
+        : 'Nội dung của bạn đã bị xóa',
       'content_pending_review' => (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết')
         . ' của bạn đang chờ kiểm duyệt',
       'content_approved' => (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết')
@@ -645,7 +666,8 @@ class PushNotificationService
 
     $payload = [
       'title' => $message,
-      'body' => $data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? '',
+      // A moderation notice's own note comes first (see createModerationActionNotification).
+      'body' => !empty($data['note']) ? $data['note'] : ($data['comment_excerpt'] ?? $data['topic_title'] ?? $data['message'] ?? ''),
       'channelId' => 'default',
       'sound' => 'default',
       'badge' => null,  // Will be set by app based on unread count
