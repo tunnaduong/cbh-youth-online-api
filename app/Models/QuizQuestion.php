@@ -5,10 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A single question in the reusable question bank. Every AI-generated
- * question ends up here (see QuizGenerationService via QuizController::
- * pickQuestions) so later quizzes can serve it "offline" (no AI call)
- * instead of always generating fresh - see QuizController::OFFLINE_RATIO.
+ * A question in the old reusable question bank. No longer written or read:
+ * quizzes are online only and always generated fresh by the AI (see
+ * QuizController::start). Kept with its table so existing rows can still be
+ * removed with `php artisan quiz:clear-cached`.
  *
  * @property int $id
  * @property string $topic
