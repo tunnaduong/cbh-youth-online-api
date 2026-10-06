@@ -690,6 +690,70 @@ class NotificationService
   }
 
   /**
+   * An admin's moderation notice to a content's author: `content_warning`
+   * (the content stays, the author is warned and the notice links to it) or
+   * `content_deleted` (the content was removed; no link, only what it was).
+   * Works for posts, comments, chat messages and stories. Always delivered,
+   * whatever the user's notification settings - it is an official notice.
+   *
+   * @param string $type content_warning|content_deleted
+   * @param string $contentType topic|comment|message|story
+   * @param mixed  $content Topic|TopicComment|Message|Story (still loaded, even when about to be deleted)
+   * @param string $note the admin's own words, optional
+   */
+  public static function createModerationActionNotification(int $userId, string $type, string $contentType, $content, string $note = ''): ?Notification
+  {
+    $linkable = $type === 'content_warning';
+    $data = ['content_type' => $contentType, 'note' => $note];
+
+    if ($content instanceof TopicComment || $content instanceof Topic) {
+      $topic = $content instanceof TopicComment ? $content->topic : $content;
+      $text = $content instanceof TopicComment ? $content->comment : $content->title;
+      $data['excerpt'] = mb_substr(trim(strip_tags((string) $text)), 0, 120);
+      if ($topic) {
+        $data['topic_title'] = $topic->title;
+      }
+      if ($linkable && $topic) {
+        $authorUsername = $topic->anonymous ? 'anonymous' : ($topic->user?->username ?? 'unknown');
+        $data['topic_id'] = $topic->id;
+        $data['topic_is_anonymous'] = (bool) $topic->anonymous;
+        $data['topic_author_username'] = $authorUsername;
+        $data['url'] = "/{$authorUsername}/posts/{$topic->id}-" . $topic->getSlug();
+        if ($content instanceof TopicComment) {
+          $data['comment_id'] = $content->id;
+          $data['url'] .= "#comment-{$content->id}";
+        }
+      }
+    } elseif ($content instanceof Message) {
+      $data['excerpt'] = mb_substr(trim(strip_tags((string) $content->content)), 0, 120);
+      if ($linkable) {
+        $data['conversation_id'] = $content->conversation_id;
+        $data['message_id'] = $content->id;
+        $data['url'] = "/chat?conversation={$content->conversation_id}&message={$content->id}";
+      }
+    } elseif ($content instanceof Story) {
+      if ($linkable) {
+        $data['story_id'] = $content->id;
+      }
+      $data['url'] = '/';
+    }
+
+    $data['url'] = $data['url'] ?? '/';
+    // Body of the push (and a fallback text for old clients): the admin's
+    // note when there is one, else what the content said.
+    $data['message'] = $note !== '' ? $note : ($data['excerpt'] ?? '');
+
+    return self::createAndPushNotification([
+      'user_id' => $userId,
+      'actor_id' => null, // Admin action
+      'type' => $type,
+      'notifiable_type' => $linkable ? get_class($content) : null,
+      'notifiable_id' => $linkable ? $content->id : null,
+      'data' => $data,
+    ]);
+  }
+
+  /**
    * Create a welcome notification for a user.
    *
    * @param int $userId

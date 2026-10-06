@@ -6,6 +6,7 @@ use App\Models\AuthAccount;
 use App\Models\Message;
 use App\Models\Story;
 use App\Models\Topic;
+use App\Models\TopicComment;
 use App\Models\UserReport;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -50,6 +51,11 @@ class UserReportController extends Controller
       'topic.author:id,username',
       'message',
       'message.conversation:id,name,type,is_public',
+      // A reported comment is shown with the post it sits on, so the admin
+      // can open it in place (#comment-<id>).
+      'comment:id,topic_id,user_id,comment,is_anonymous',
+      'comment.topic:id,title,user_id,anonymous',
+      'comment.topic.author:id,username',
       'reviewedBy',
     ]);
 
@@ -67,11 +73,14 @@ class UserReportController extends Controller
       case 'topic':
         $query->whereNotNull('topic_id');
         break;
+      case 'comment':
+        $query->whereNotNull('comment_id');
+        break;
       case 'story':
         $query->whereNotNull('story_id');
         break;
       case 'user':
-        $query->whereNull('message_id')->whereNull('topic_id')->whereNull('story_id');
+        $query->whereNull('message_id')->whereNull('topic_id')->whereNull('comment_id')->whereNull('story_id');
         break;
     }
 
@@ -84,6 +93,9 @@ class UserReportController extends Controller
     }
 
     $reports = $query->orderBy('created_at', 'desc')->paginate(15);
+    $reports->getCollection()->transform(function (UserReport $report) {
+      return $report->setAttribute('target', self::reportTarget($report));
+    });
 
     return response()->json($reports);
   }
@@ -110,6 +122,7 @@ class UserReportController extends Controller
     $request->validate([
       'reported_user_id' => 'nullable|exists:cyo_auth_accounts,id',
       'topic_id' => 'nullable|exists:cyo_topics,id',
+      'comment_id' => 'nullable|exists:cyo_topic_comments,id',
       'story_id' => 'nullable|exists:cyo_stories,id',
       'message_id' => 'nullable|exists:cyo_conversation_messages,id',
       'reason' => 'nullable|string|min:1',
@@ -138,6 +151,12 @@ class UserReportController extends Controller
     }
 
     $reportedUserId = $request->reported_user_id;
+
+    // A comment report names the comment's author, never someone else.
+    if ($request->comment_id) {
+      $comment = TopicComment::find($request->comment_id);
+      $reportedUserId = $comment?->user_id;
+    }
 
     // If reported_user_id is missing, try to resolve from topic or story
     if (!$reportedUserId) {
@@ -169,6 +188,8 @@ class UserReportController extends Controller
 
     if ($request->message_id) {
       $duplicateQuery->where('message_id', $request->message_id);
+    } elseif ($request->comment_id) {
+      $duplicateQuery->where('comment_id', $request->comment_id);
     } elseif ($request->topic_id) {
       $duplicateQuery->where('topic_id', $request->topic_id)
         ->whereNull('story_id')
@@ -196,6 +217,7 @@ class UserReportController extends Controller
       'user_id' => Auth::id(),
       'reported_user_id' => $reportedUserId,
       'topic_id' => $request->topic_id,
+      'comment_id' => $request->comment_id,
       'story_id' => $request->story_id,
       'message_id' => $request->message_id,
       'reason' => $request->reason,
@@ -294,9 +316,13 @@ class UserReportController extends Controller
       // Ban user if requested
       if ($request->ban_user) {
         $reportedUser = AuthAccount::find($report->reported_user_id);
+        // banned_at is what makes the ban count (AuthAccount::isCurrentlyBanned);
+        // it used to be left empty here, so a ban from a report never applied.
         $reportedUser->update([
+          'banned_at' => now(),
           'banned_until' => Carbon::now()->addDays($request->ban_duration),
-          'ban_reason' => $request->admin_notes
+          'ban_reason' => $request->admin_notes,
+          'banned_by' => Auth::id(),
         ]);
 
         // If there's a topic involved, hide it
@@ -324,6 +350,71 @@ class UserReportController extends Controller
         'error' => $e->getMessage()
       ], 500);
     }
+  }
+
+  /**
+   * Where the reported content can be seen, for the admin panel: a web path
+   * for a post or comment, the conversation + message for a chat message
+   * (the panel opens it in its chat viewer), the story id, or the profile.
+   * `content_type` / `content_id` are what the moderation actions take.
+   */
+  private static function reportTarget(UserReport $report): array
+  {
+    $postPath = function ($topic) {
+      if (!$topic) {
+        return null;
+      }
+      $username = $topic->anonymous ? 'anonymous' : ($topic->author?->username ?? 'anonymous');
+      return "/{$username}/posts/{$topic->id}-" . $topic->getSlug();
+    };
+
+    if ($report->comment_id) {
+      $path = $postPath($report->comment?->topic);
+      return [
+        'content_type' => 'comment',
+        'content_id' => $report->comment_id,
+        'exists' => (bool) $report->comment,
+        'url' => $path ? "{$path}#comment-{$report->comment_id}" : null,
+        'excerpt' => $report->comment ? mb_substr(strip_tags((string) $report->comment->comment), 0, 200) : null,
+      ];
+    }
+
+    if ($report->message_id) {
+      return [
+        'content_type' => 'message',
+        'content_id' => $report->message_id,
+        'exists' => (bool) ($report->message && !$report->message->trashed()),
+        'conversation_id' => $report->message?->conversation_id,
+        'message_id' => $report->message_id,
+        'excerpt' => $report->message ? mb_substr(strip_tags((string) $report->message->content), 0, 200) : null,
+      ];
+    }
+
+    if ($report->topic_id) {
+      return [
+        'content_type' => 'topic',
+        'content_id' => $report->topic_id,
+        'exists' => (bool) $report->topic,
+        'url' => $postPath($report->topic),
+        'excerpt' => $report->topic?->title,
+      ];
+    }
+
+    if ($report->story_id) {
+      return [
+        'content_type' => 'story',
+        'content_id' => $report->story_id,
+        'exists' => (bool) Story::find($report->story_id),
+        'story_id' => $report->story_id,
+      ];
+    }
+
+    return [
+      'content_type' => 'user',
+      'content_id' => $report->reported_user_id,
+      'exists' => (bool) $report->reportedUser,
+      'url' => $report->reportedUser ? '/' . $report->reportedUser->username : null,
+    ];
   }
 
   /**
