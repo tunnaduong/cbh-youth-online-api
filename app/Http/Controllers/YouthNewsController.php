@@ -72,6 +72,8 @@ class YouthNewsController extends Controller
       'image_urls' => $post->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
+      'video_urls' => $post->video_urls,
+      'is_muted' => $post->is_muted,
       'author' => [
         'id' => $post->user->id,
         'username' => $post->user->username,
