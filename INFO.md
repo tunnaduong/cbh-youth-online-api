@@ -114,6 +114,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **`cyo_topics.cdn_image_id` is now `TEXT`** (was `varchar(255)`, about 50 image ids; **needs `php artisan migrate`**): a post imported from Facebook with 64 photos lost the ones that did not fit. The leftover index `cyo_topics_cdn_image_id_foreign` (from the old single-image foreign key) is dropped with it. `cdn_video_id` and `cdn_document_id` were already `TEXT`.
+
 - **`GET /youth-news` returns videos**: `YouthNewsController::formatYouthNewsData` now includes `video_urls` and `is_muted` (it only had `image_urls`, so a Tin tức Đoàn post with a video showed it on the post page but not in the list). Found after ~100 posts from the Đoàn trường Facebook page were imported into subforum 32 by the sibling `cbh-scraped-content` scripts (direct DB insert, files named `{timestamp}_fb{facebook media id}` in `images/` / `videos/`).
 
 - **Gift shop AI: the map pin is optional** (prompt only). The shop no longer requires a pin on checkout or on the order slip; the assistant is told a pin is not required, never to hold a slip back for it, and to encourage it once (it helps deliver to the right spot). `confirmChatOrder` already accepted an order without `shipping_lat` / `shipping_lng`.
