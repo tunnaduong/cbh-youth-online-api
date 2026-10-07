@@ -114,7 +114,7 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
-- **`GET /topics/feed?mode=news`** (not run; no migration): the feed's fourth mode beside the personalized one, `latest` and `following` - posts of the youth union news subforum (`Topic::inNewsSubforum()`), newest first, 10 per page, in the feed's post shape (`formatTopicForList`), answered with `mode: "news"`. Unlike the other modes it works for guests. The mobile home feed's "Tin tức Đoàn" tab uses it; `GET /youth-news` (the web page, older shape) is unchanged.
+- **`GET /topics/feed?mode=youth-news`** (not run; no migration): the feed's fourth mode beside the personalized one, `latest` and `following` - posts of the youth union news subforum (`Topic::inNewsSubforum()`), newest first, 10 per page, in the feed's post shape (`formatTopicForList`), answered with `mode: "youth-news"`. Unlike the other modes it works for guests. The mobile home feed's "Tin tức Đoàn" tab uses it; `GET /youth-news` (the web page, older shape) is unchanged.
 
 - **Fix: unread chat count with read receipts off** (not run; no migration): `ChatController::getMessages` and `markAsRead` only moved the reader's `last_read_at` when `chat_read_receipts` was on, and `Conversation::unreadMessagesCount()` counts from that timestamp - so for someone who turned read receipts off, a conversation's unread count never returned to 0. `last_read_at` is now always updated; what others can see stays behind the setting (the messages' `read_at`, the `MessageRead` broadcast, and `seenBy()`, which already leaves out members with receipts off).
 
