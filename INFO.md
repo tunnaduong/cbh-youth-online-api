@@ -114,6 +114,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Quiz: site-wide points per finished set are 2 / 4 / 6 for 10 questions, scaled by the set's length** (not run - no PHP on this machine; no migration): `QuizController::globalPointsFor()` - easy 2, medium 4, hard 6 for a 10-question set, proportionally for other lengths (`round(rate x questions / 10)`, at least 1; 5 easy questions = 1, 20 hard = 12). It was a flat 1 / 2 / 3 whatever the length. Unchanged: paid once per set per user, never to the set's creator, not tied to the score; the quiz ranking still counts correct answers x 1 / 2 / 3 (`DIFFICULTY_POINTS`).
+
 - **Game XP: 1 per minute; every 5 XP adds 2 points** (not run - no PHP on this machine; no migration): `GameController::syncSession` gave 1 XP per 10 minutes and added that same number to the site-wide points. Now a session earns **1 XP per full minute** (still computed server-side from `started_at`), and the site-wide points grow by **2 for every 5 XP** of the player's total game XP - counted across all their sessions (`SECONDS_PER_XP`, `XP_PER_POINTS_STEP`, `POINTS_PER_STEP`), so five 1-minute plays count like one 5-minute play. The games leaderboard still ranks by XP. Quiz points are unchanged.
 
 - **Stories are moderated; admins are exempt from moderation** (not run - no PHP on this machine; **needs `php artisan migrate`** for `cyo_stories.moderation_status`):

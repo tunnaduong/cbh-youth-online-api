@@ -27,6 +27,30 @@ class QuizController extends Controller
     'hard' => 3,
   ];
 
+  // Site-wide points for finishing a question set, for a set of 10
+  // questions. A shorter or longer set is worth proportionally less or more
+  // (see globalPointsFor()). Not tied to the score: this rewards doing the
+  // set; the quiz ranking above is what rewards right answers.
+  private const GLOBAL_POINTS_PER_10_QUESTIONS = [
+    'easy' => 2,
+    'medium' => 4,
+    'hard' => 6,
+  ];
+
+  /**
+   * Site-wide points for completing this set: the difficulty's rate for 10
+   * questions, scaled by how many questions the set has (5 easy questions
+   * = 1 point, 20 hard ones = 12). At least 1.
+   */
+  private function globalPointsFor($quizSet): int
+  {
+    $perTen = self::GLOBAL_POINTS_PER_10_QUESTIONS[$quizSet->difficulty]
+      ?? self::GLOBAL_POINTS_PER_10_QUESTIONS['easy'];
+    $questions = (int) ($quizSet->question_count ?: count($quizSet->questions ?? []));
+
+    return max(1, (int) round($perTen * $questions / 10));
+  }
+
   /**
    * Topics the user can pick from in the setup UI - the same subjects used
    * by the study materials marketplace, plus "Khác" (handled client-side)
@@ -327,7 +351,7 @@ class QuizController extends Controller
     ]);
 
     if (!$isCreatorPlayingOwnQuiz && !$alreadyAwarded) {
-      $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+      $globalPoints = $this->globalPointsFor($quizSet);
       PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
     }
 
@@ -408,7 +432,7 @@ class QuizController extends Controller
       $play->save();
 
       if (!$isCreatorPlayingOwnQuiz && !$alreadyAwarded) {
-        $globalPoints = self::DIFFICULTY_POINTS[$quizSet->difficulty] ?? 1;
+        $globalPoints = $this->globalPointsFor($quizSet);
         PointsService::onQuizCompleted($user->id, $globalPoints, $play->id);
       }
 
