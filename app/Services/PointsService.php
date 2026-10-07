@@ -259,7 +259,9 @@ class PointsService
   }
 
   /**
-   * Add points for time spent playing a game (1 XP per full minute played).
+   * Add points for time spent playing a game. `$xp` is the number of points
+   * to add, already converted by GameController from game XP (1 XP per
+   * minute played; every 5 XP is worth 2 points).
    *
    * @param int $userId
    * @param int $xp

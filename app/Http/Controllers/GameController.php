@@ -147,16 +147,31 @@ class GameController extends Controller
 
   /**
    * Heartbeat/end shared logic: recompute duration server-side from
-   * started_at (never trust a client-supplied elapsed value), and award XP
-   * for every newly-completed 10-minute block since the last heartbeat.
+   * started_at (never trust a client-supplied elapsed value), and award
+   * 1 XP for every newly-completed minute since the last heartbeat.
+   *
+   * Game XP is its own score (the games leaderboard). It feeds the site-wide
+   * points at a fixed rate: every XP_PER_POINTS_STEP XP a player has earned
+   * in total - across all their sessions, so short plays add up - is worth
+   * POINTS_PER_STEP points.
    */
+  private const SECONDS_PER_XP = 60;
+  private const XP_PER_POINTS_STEP = 5;
+  private const POINTS_PER_STEP = 2;
+
   private function syncSession(GameSession $session, bool $closing): array
   {
     $now = now();
     $newDuration = max($session->duration_seconds, $session->started_at->diffInSeconds($now));
-    $previousBlocks = intdiv($session->duration_seconds, 600);
-    $newBlocks = intdiv($newDuration, 600);
+    $previousBlocks = intdiv($session->duration_seconds, self::SECONDS_PER_XP);
+    $newBlocks = intdiv($newDuration, self::SECONDS_PER_XP);
     $xpToAward = max(0, $newBlocks - $previousBlocks);
+
+    // The player's total before this award, to see how many 5-XP steps the
+    // award completes.
+    $totalBefore = $xpToAward > 0
+      ? (int) GameSession::where('user_id', $session->user_id)->sum('xp_earned')
+      : 0;
 
     $session->duration_seconds = $newDuration;
     $session->xp_earned += $xpToAward;
@@ -166,7 +181,12 @@ class GameController extends Controller
     $session->save();
 
     if ($xpToAward > 0) {
-      PointsService::onGamePlayed($session->user_id, $xpToAward, $session->id);
+      $steps = intdiv($totalBefore + $xpToAward, self::XP_PER_POINTS_STEP)
+        - intdiv($totalBefore, self::XP_PER_POINTS_STEP);
+
+      if ($steps > 0) {
+        PointsService::onGamePlayed($session->user_id, $steps * self::POINTS_PER_STEP, $session->id);
+      }
     }
 
     return [
