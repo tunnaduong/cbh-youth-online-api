@@ -383,12 +383,17 @@ class ChatController extends Controller
         ->where('user_id', '!=', $user->id)
         ->whereNull('read_at')
         ->update(['read_at' => now()]);
-
-      $conversation
-        ->participants()
-        ->where('user_id', $user->id)
-        ->update(['last_read_at' => now()]);
     }
+
+    // The reader's own bookmark, whatever the setting: the unread count is
+    // counted from it (Conversation::unreadMessagesCount). It used to be
+    // inside the check above, so with read receipts off the count never went
+    // back to 0. Others don't learn anything from it - seenBy() leaves out
+    // members who turned read receipts off.
+    $conversation
+      ->participants()
+      ->where('user_id', $user->id)
+      ->update(['last_read_at' => now()]);
 
     return response()->json($paginationData);
   }
@@ -1215,6 +1220,14 @@ TEXT;
     $settings = NotificationSettings::where('user_id', $user->id)->first();
     $readReceiptsEnabled = $settings ? ($settings->chat_read_receipts ?? true) : true;
 
+    // The reader's own bookmark is always moved (it is what the unread count
+    // is counted from); only what OTHERS can see - the messages' read_at and
+    // the "read" event - depends on the read receipts setting.
+    $conversation
+      ->participants()
+      ->where('user_id', $user->id)
+      ->update(['last_read_at' => now()]);
+
     if ($readReceiptsEnabled) {
       // Mark messages as read
       $conversation
@@ -1222,12 +1235,6 @@ TEXT;
         ->where('user_id', '!=', $user->id)
         ->whereNull('read_at')
         ->update(['read_at' => now()]);
-
-      // Update last_read_at for the user
-      $conversation
-        ->participants()
-        ->where('user_id', $user->id)
-        ->update(['last_read_at' => now()]);
 
       // Broadcast message read event
       broadcast(new MessageRead($conversation->id, $user->id))->toOthers();
