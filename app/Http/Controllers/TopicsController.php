@@ -395,7 +395,7 @@ class TopicsController extends Controller
     $userId = auth()->id();
 
     // The "Tin tức Đoàn" tab. Before the guest fallback: guests get it too.
-    if ($request->query('mode') === 'news') {
+    if ($request->query('mode') === 'youth-news') {
       return $this->newsFeed($request, $userId, max(1, (int) $request->query('page', 1)), 10);
     }
 
@@ -497,7 +497,7 @@ class TopicsController extends Controller
       ->paginate($perPage, ['*'], 'page', $page)
       ->through(fn($topic) => $this->formatTopicForList($topic, $request));
 
-    return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'news']));
+    return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'youth-news']));
   }
 
   private function latestFeed(Request $request, int $userId, int $page, int $perPage)
