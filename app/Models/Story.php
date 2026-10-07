@@ -119,6 +119,49 @@ class Story extends Model
     }
 
     /**
+     * Whether stories carry a moderation status (false until the column's
+     * migration has run, so nothing here breaks before it).
+     */
+    public static function hasModerationStatus(): bool
+    {
+        static $exists = null;
+
+        try {
+            return $exists ??= \Illuminate\Support\Facades\Schema::hasColumn('cyo_stories', 'moderation_status');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Stories this viewer may see as far as moderation goes: approved ones,
+     * plus their own whatever the status (an author sees their story while
+     * it waits for review). Admins review from the panel, not the feed.
+     */
+    public function scopeVisibleModeration($query, ?int $viewerId = null)
+    {
+        if (! self::hasModerationStatus()) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($viewerId) {
+            $q->where('moderation_status', 'approved');
+            if ($viewerId) {
+                $q->orWhere('user_id', $viewerId);
+            }
+        });
+    }
+
+    /**
+     * Whether this story is being held back (pending or rejected).
+     */
+    public function isHeldForModeration(): bool
+    {
+        return self::hasModerationStatus()
+            && in_array($this->moderation_status, ['pending', 'rejected'], true);
+    }
+
+    /**
      * Check if the story has expired.
      */
     public function hasExpired(): bool

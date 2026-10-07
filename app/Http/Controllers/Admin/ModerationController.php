@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ModerationQueue;
+use App\Models\Story;
 use App\Models\Topic;
 use App\Models\TopicComment;
 use App\Services\ContentModerationService;
@@ -71,7 +72,35 @@ class ModerationController extends Controller
                 ->get(['id', 'title', 'user_id', 'anonymous', 'cdn_image_id', 'cdn_document_id', 'cdn_video_id'])
                 ->keyBy('id');
 
+        // Stories: the reviewer has to see the photo / video itself, which is
+        // what the queue is holding them for.
+        $storyIds = $rows->where('content_type', 'story')->pluck('content_id')->unique();
+        $stories = $storyIds->isEmpty()
+            ? collect()
+            : Story::whereIn('id', $storyIds)
+                ->get(['id', 'user_id', 'content', 'media_type', 'media_url', 'video_first_frame_url', 'background_color', 'overlays', 'expires_at', 'created_at'])
+                ->keyBy('id');
+
         foreach ($rows as $row) {
+            if ($row->content_type === 'story') {
+                $story = $stories->get($row->content_id);
+                $row->setAttribute('topic', null);
+                $row->setAttribute('has_attachments', (bool) ($story && $story->media_url));
+                // Null when the story is gone (auto-rejected or deleted by
+                // its author): the snapshot is then all that is left.
+                $row->setAttribute('story', $story ? [
+                    'id' => $story->id,
+                    'text' => ContentModerationService::storyText($story),
+                    'media_type' => $story->media_type,
+                    'media_url' => $story->media_url,
+                    'video_first_frame_url' => $story->video_first_frame_url,
+                    'background_color' => $story->background_color,
+                    'expires_at' => $story->expires_at,
+                ] : null);
+
+                continue;
+            }
+
             $comment = $row->content_type === 'comment' ? $comments->get($row->content_id) : null;
             $topicId = $row->content_type === 'topic' ? $row->content_id : $comment?->topic_id;
             $topic = $topicId ? $topics->get($topicId) : null;
@@ -121,6 +150,28 @@ class ModerationController extends Controller
                 ContentModerationService::sendApprovedEmail($comment, 'comment');
                 ContentModerationService::notifyAuthorApproved($comment, 'comment');
             }
+        } elseif ($entry->content_type === 'story') {
+            if ($story = Story::find($entry->content_id)) {
+                // The 24 hours start when people can see it, not while it
+                // sat in the queue.
+                $lifetime = $story->expires_at && $story->created_at
+                    ? max(3600, $story->created_at->diffInSeconds($story->expires_at))
+                    : 86400;
+
+                $story->update([
+                    'moderation_status' => 'approved',
+                    'expires_at' => $story->expires_at ? now()->addSeconds($lifetime) : null,
+                ]);
+
+                ContentModerationService::notifyAuthorApproved($story, 'story');
+
+                try {
+                    // People tagged on it were not told while it was held.
+                    app(\App\Http\Controllers\StoryController::class)->notifyStoryMentions($story);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
         }
 
         $entry->update([
@@ -161,6 +212,11 @@ class ModerationController extends Controller
 
             if ($comment = TopicComment::find($entry->content_id)) {
                 ContentModerationService::notifyAuthorRejected($comment, 'comment', $reason);
+            }
+        } elseif ($entry->content_type === 'story') {
+            if ($story = Story::find($entry->content_id)) {
+                $story->update(['moderation_status' => 'rejected']);
+                ContentModerationService::notifyAuthorRejected($story, 'story', $reason);
             }
         }
 

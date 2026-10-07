@@ -654,6 +654,22 @@ class NotificationService
 
     $data = ['reason' => $reason];
 
+    // A story: no post to name or link to. `content_type` tells the clients
+    // to word the notice for a story and open the user's own stories.
+    if ($content instanceof \App\Models\Story) {
+      return self::createAndPushNotification([
+        'user_id' => $userId,
+        'actor_id' => null,  // Admin action
+        'type' => $type,
+        'notifiable_type' => get_class($content),
+        'notifiable_id' => $content->id,
+        'data' => $data + [
+          'content_type' => 'story',
+          'story_id' => $content->id,
+        ],
+      ]);
+    }
+
     $topic = $content instanceof TopicComment ? $content->topic : $content;
 
     if ($content instanceof TopicComment) {

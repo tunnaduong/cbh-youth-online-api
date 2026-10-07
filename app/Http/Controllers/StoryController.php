@@ -42,6 +42,8 @@ class StoryController extends Controller
 
         $query = Story::with(['user.profile', 'viewers', 'reactions'])
             ->active()
+            // Stories held for moderation are only shown to their author.
+            ->visibleModeration($request->user()?->id)
             ->whereIn('privacy', $privacyLevels);
 
         if ($request->user()) {
@@ -89,6 +91,8 @@ class StoryController extends Controller
                             'user_id' => $story->user_id,
                             'pinned' => $story->pinned,  // Add pinned status
                             'is_muted' => $story->is_muted,
+                            // 'pending' / 'rejected' only ever reach the author.
+                            'moderation_status' => $story->moderation_status ?? 'approved',
                             'viewers' => $story->viewers->where('user_id', '!=', $story->user_id)->values(),
                             'reactions' => $story->reactions->map(function ($reaction) {
                                 return [
@@ -224,11 +228,45 @@ class StoryController extends Controller
 
         $story = Story::create($data);
 
-        $this->notifyStoryMentions($story);
+        // Moderation, like posts and comments. Admins are exempt.
+        $moderation = ['action' => 'approved', 'message' => null];
+        if (! \App\Services\ContentModerationService::isExempt($request->user())) {
+            try {
+                $service = new \App\Services\ContentModerationService();
+                $moderation = $service->applyToStory(
+                    $story,
+                    $service->moderateStory(\App\Services\ContentModerationService::storyText($story))
+                );
+            } catch (\Throwable $e) {
+                // A broken check must not lose the story: hold nothing back.
+                Log::error('Story moderation failed', ['story_id' => $story->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        if ($moderation['action'] === 'rejected') {
+            $story->delete();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Tin bị từ chối: ' . $moderation['message'],
+                'moderation' => ['status' => 'rejected', 'reason' => $moderation['message']],
+            ], 422);
+        }
+
+        // People tagged on a story are told once they can actually open it:
+        // now, or when an admin approves it (Admin\ModerationController).
+        if ($moderation['action'] === 'approved') {
+            $this->notifyStoryMentions($story);
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
                 'status' => 'success',
+                'message' => $moderation['message'],
+                'moderation' => [
+                    'status' => $moderation['action'] === 'pending' ? 'pending' : 'approved',
+                    'message' => $moderation['message'],
+                ],
                 'data' => $story->load(['user', 'viewers', 'reactions']),
             ], 201);
         }
@@ -407,7 +445,7 @@ class StoryController extends Controller
     /**
      * Notify every user tagged with a mention sticker on a freshly posted story.
      */
-    private function notifyStoryMentions(Story $story): void
+    public function notifyStoryMentions(Story $story): void
     {
         $items = $story->overlays['items'] ?? [];
 
@@ -608,6 +646,21 @@ class StoryController extends Controller
             }
 
             return back()->with('error', 'Story not found');
+        }
+
+        // Held for moderation: only its author and the admins may open it.
+        if ($story->isHeldForModeration()) {
+            $viewer = $request->user();
+            if (! $viewer || ($viewer->id !== $story->user_id && $viewer->role !== 'admin')) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Story not found',
+                    ], 404);
+                }
+
+                return back()->with('error', 'Story not found');
+            }
         }
 
         $story->load(['user', 'viewers', 'reactions']);
