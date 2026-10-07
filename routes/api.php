@@ -10,6 +10,7 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\CustomFrameController;
 use App\Http\Controllers\CustomQuizController;
 use App\Http\Controllers\QuizController;
 use App\Http\Controllers\NameFontController;
@@ -281,6 +282,9 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/users/{username}/avatar', [UserController::class, 'updateAvatar']);
     Route::post('/users/{username}/cover', [UserController::class, 'updateCoverPhoto']);
     Route::put('/users/{username}/profile', [UserController::class, 'updateProfile']);
+    // The member's own image as avatar / profile frame (Pro Plus).
+    Route::post('/users/{username}/custom-frame', [CustomFrameController::class, 'store']);
+    Route::delete('/users/{username}/custom-frame/{kind}', [CustomFrameController::class, 'destroy'])->where('kind', 'avatar|profile');
     Route::post('/password/change', [PasswordResetController::class, 'changePassword']);
 
     // Two-factor authentication settings
@@ -549,6 +553,7 @@ Route::prefix('v1.0')->group(function () {
       Route::patch('/users/{id}', 'updateUser');
       Route::post('/users/{id}/reset-password', 'resetUserPassword');
       Route::post('/users/{id}/reset-two-factor', 'resetUserTwoFactor');
+      Route::delete('/users/{id}/custom-frames/{kind}', [CustomFrameController::class, 'adminDestroy'])->where('kind', 'avatar|profile');
       Route::delete('/users/{id}', 'deleteUser');
 
       Route::get('/pending-deposits', 'pendingDeposits');

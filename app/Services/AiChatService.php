@@ -17,6 +17,18 @@ class AiChatService
   private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
   private const MODEL = 'gemini-flash-lite';
 
+  // Its own system message so SYSTEM_PROMPT stays as it was. The lookup
+  // itself is SchoolKnowledgeService; GenerateAiChatReply::runAsk runs it
+  // and asks again with what it found.
+  private const SCHOOL_LOOKUP_PROMPT = <<<PROMPT
+TRA CỨU BÀI ĐĂNG CỦA ĐOÀN TRƯỜNG
+Bạn có thể tra cứu (chỉ đọc) các bài viết mà tài khoản Đoàn trường THPT Chuyên Biên Hòa đã đăng trên diễn đàn: thông báo, sự kiện, cuộc thi, hoạt động, phong trào, kết quả, tin tức của trường.
+- CHỈ tra cứu khi câu hỏi là về trường THPT Chuyên Biên Hòa hoặc Đoàn trường (ví dụ: một sự kiện, cuộc thi, thông báo, hoạt động, kết quả của trường) VÀ bạn không thể trả lời chắc chắn từ nội dung cuộc trò chuyện.
+- KHÔNG tra cứu cho bài tập, kiến thức chung, chuyện phiếm, câu hỏi về bản thân bạn hay về ứng dụng.
+- Để tra cứu, câu trả lời của bạn CHỈ gồm đúng một dòng "[SCHOOL: từ khóa]" với 2-6 từ khóa tiếng Việt có dấu nêu đúng chủ đề cần tìm (ví dụ "[SCHOOL: hội trại 26/3]", "[SCHOOL: kết quả học sinh giỏi quốc gia]"), không kèm chữ nào khác. Hệ thống sẽ tìm rồi hỏi lại bạn kèm kết quả.
+- Không bao giờ bịa thông tin về trường. Nếu không tra cứu và cũng không biết chắc, hãy nói là bạn không rõ.
+PROMPT;
+
   private const SYSTEM_PROMPT = <<<PROMPT
 Bạn là Yoyo AI, trợ lý AI trong ứng dụng cộng đồng học sinh Chuyên Biên Hòa Youth Online (CYO/CBH Youth Online).
 Bạn chỉ xuất hiện trong khung chat khi được người dùng gọi tới (bằng lệnh /ai hoặc khi họ trả lời tin nhắn của bạn).
@@ -114,11 +126,15 @@ PROMPT;
    * @param  array<int, array{role: string, name: ?string, content: string}>  $contextMessages  Chronological context, oldest first.
    * @param  string  $question  The triggering user message content (already stripped of the /ai prefix, if any).
    * @param  string|null  $conversationInfo  Basic chat/group info (name, type, member list) - see GenerateAiChatReply::buildConversationInfo().
-   * @return array{content: string, reaction: ?string}
+   * @param  string|null  $followUp  Result of the lookup the first answer asked for (second pass) - see SCHOOL_LOOKUP_PROMPT.
+   * @return array{content: string, reaction: ?string, school_query: ?string}
    */
-  public function askAi(array $contextMessages, string $question, ?string $conversationInfo = null): array
+  public function askAi(array $contextMessages, string $question, ?string $conversationInfo = null, ?string $followUp = null): array
   {
-    $messages = [['role' => 'system', 'content' => self::SYSTEM_PROMPT]];
+    $messages = [
+      ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
+      ['role' => 'system', 'content' => self::SCHOOL_LOOKUP_PROMPT],
+    ];
 
     if ($conversationInfo) {
       $messages[] = ['role' => 'system', 'content' => $conversationInfo];
@@ -130,7 +146,36 @@ PROMPT;
 
     $messages[] = ['role' => 'user', 'content' => $question];
 
-    return $this->request($messages);
+    // Second pass: what the lookup the assistant asked for found.
+    if ($followUp !== null) {
+      $messages[] = [
+        'role' => 'system',
+        'content' => $followUp . "\nKHÔNG dùng [SCHOOL:...] nữa trong câu trả lời này.",
+      ];
+    }
+
+    $raw = $this->requestRaw($messages);
+
+    // The marker never reaches the user; it is only acted on in the first
+    // pass, so one answer costs one lookup at most.
+    $schoolQuery = null;
+    if (preg_match('/\[SCHOOL:\s*([^\]]{2,200})\]/iu', $raw, $school)) {
+      $schoolQuery = $followUp === null ? trim($school[1]) : null;
+    }
+    $raw = preg_replace('/\[SCHOOL:[^\]]*\]/iu', '', $raw);
+
+    [$content, $reaction] = $this->extractReaction($raw);
+    $content = $this->stripModelIdentity($this->stripMarkdown($content));
+
+    if (trim($content) === '' && $schoolQuery === null) {
+      $content = 'Xin lỗi, Yoyo AI chưa tìm được câu trả lời cho câu hỏi này.';
+    }
+
+    return [
+      'content' => $content,
+      'reaction' => $reaction,
+      'school_query' => $schoolQuery,
+    ];
   }
 
   /**

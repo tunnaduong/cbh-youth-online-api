@@ -78,7 +78,12 @@ class ProfileThemeServiceTest extends TestCase
             'avatar_frame' => 'none',
             'profile_effect' => 'none',
             'profile_frame' => 'none',
+            'name_icon' => 'none',
+            'username_font' => 'default',
+            'username_effect' => 'none',
+            'username_style' => 'default',
             'name_colors' => [ProfileThemeService::DEFAULT_PRIMARY, ProfileThemeService::DEFAULT_ACCENT],
+            'username_colors' => [ProfileThemeService::DEFAULT_PRIMARY, ProfileThemeService::DEFAULT_ACCENT],
             'primary_color_2' => null,
             'accent_color_2' => null,
             'banner_color_2' => null,
@@ -191,12 +196,71 @@ class ProfileThemeServiceTest extends TestCase
         ]);
 
         $this->assertSame(
-            ['primary_color', 'accent_color', 'name_font', 'name_effect', 'avatar_frame', 'name_colors', 'primary_color_2', 'accent_color_2'],
+            [
+                'member_tier', 'primary_color', 'accent_color', 'name_font', 'name_effect', 'avatar_frame', 'name_icon',
+                'username_font', 'username_effect', 'username_style', 'name_colors', 'username_colors',
+                'primary_color_2', 'accent_color_2', 'avatar_frame_url', 'name_icon_emoji', 'name_icon_tier',
+            ],
             array_keys(ProfileThemeService::forAuthor($user))
         );
         $this->assertSame('veteran', ProfileThemeService::forAuthor($user)['avatar_frame']);
         $this->assertNull(ProfileThemeService::forAuthor($this->user(49, ['name_effect' => 'solid'])));
         $this->assertNull(ProfileThemeService::forAuthor(null));
+        // A member with no saved theme still carries their tier.
+        $this->assertSame(['member_tier' => 'active'], ProfileThemeService::forAuthor($this->user(150)));
+    }
+
+    public function test_custom_frames_need_the_pro_plus_tier_and_an_uploaded_image(): void
+    {
+        $theme = ProfileThemeService::normalize(['avatar_frame' => 'custom', 'profile_frame' => 'custom']);
+        $withImages = function (int $points) {
+            $user = $this->user($points, ['avatar_frame' => 'custom', 'profile_frame' => 'custom']);
+            $user->profile->custom_avatar_frame = 'frames/avatar/1_a.png';
+            $user->profile->custom_profile_frame = 'frames/profile/1_b.png';
+
+            return $user;
+        };
+
+        $this->assertTrue($this->passes(['avatar_frame' => 'custom', 'profile_frame' => 'custom']));
+        // A client can't name the image itself.
+        $this->assertFalse($this->passes(['avatar_frame_url' => 'https://example.com/x.png']));
+
+        $this->assertFalse(ProfileThemeService::canUseCustomFrames($this->user(2249)));
+        $this->assertTrue(ProfileThemeService::canUseCustomFrames($this->user(2250)));
+
+        // Below the tier: locked. At the tier without an image: upload first.
+        $this->assertSame(
+            ['Tùy chọn này cần đạt 2250 điểm.'],
+            ProfileThemeService::lockedErrors($withImages(2000), $theme)['profile_theme.avatar_frame']
+        );
+        $this->assertSame(
+            ['Hãy tải ảnh khung lên trước.'],
+            ProfileThemeService::lockedErrors($this->user(2250), $theme)['profile_theme.profile_frame']
+        );
+        $this->assertSame([], ProfileThemeService::lockedErrors($withImages(2250), $theme));
+
+        // Shown with the image's address; the profile one stays off the author theme.
+        $shown = ProfileThemeService::forDisplay($withImages(2250));
+        $this->assertSame('custom', $shown['avatar_frame']);
+        $this->assertStringEndsWith('/storage/frames/avatar/1_a.png', $shown['avatar_frame_url']);
+        $this->assertStringEndsWith('/storage/frames/profile/1_b.png', $shown['profile_frame_url']);
+        $author = ProfileThemeService::forAuthor($withImages(2250));
+        $this->assertSame('pro_plus', $author['member_tier']);
+        $this->assertStringEndsWith('/storage/frames/avatar/1_a.png', $author['avatar_frame_url']);
+        $this->assertArrayNotHasKey('profile_frame_url', $author);
+
+        // Points dropped, or the image was removed: no frame, no address.
+        foreach ([$withImages(2249), $this->user(2250, ['avatar_frame' => 'custom'])] as $user) {
+            $hidden = ProfileThemeService::forDisplay($user);
+            $this->assertSame('none', $hidden['avatar_frame']);
+            $this->assertNull($hidden['avatar_frame_url']);
+        }
+
+        $state = ProfileThemeService::editorState($withImages(2000));
+        $this->assertSame(2250, $state['custom_frames']['required_points']);
+        $this->assertFalse($state['custom_frames']['unlocked']);
+        $this->assertStringEndsWith('/storage/frames/avatar/1_a.png', $state['custom_frames']['avatar_url']);
+        $this->assertContains(['key' => 'custom', 'required_points' => 2250, 'unlocked' => false], $state['options']['profile_frame']);
     }
 
     public function test_animated_avatar_needs_the_veteran_tier(): void
@@ -211,8 +275,8 @@ class ProfileThemeServiceTest extends TestCase
 
         $this->assertSame(50, $state['required_points']);
         $this->assertSame(150, $state['current_points']);
-        $this->assertSame(['trainee', 'active', 'distinguished', 'veteran', 'premium'], array_column($state['tiers'], 'id'));
-        $this->assertSame([true, true, false, false, false], array_column($state['tiers'], 'reached'));
+        $this->assertSame(['trainee', 'active', 'distinguished', 'veteran', 'premium', 'pro', 'pro_plus'], array_column($state['tiers'], 'id'));
+        $this->assertSame([true, true, false, false, false, false, false], array_column($state['tiers'], 'reached'));
         $this->assertContains(['key' => 'rainbow', 'required_points' => 1500, 'unlocked' => false], $state['options']['name_effect']);
         $this->assertContains(['key' => 'outline', 'required_points' => 1500, 'unlocked' => false], $state['options']['name_effect']);
         // Server-hosted fonts are premium and carry their label.

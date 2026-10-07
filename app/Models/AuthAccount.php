@@ -370,6 +370,17 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
           'styled_username',
         ],
       ],
+      [
+        'id' => 'pro_plus',
+        'name' => 'Thành viên Pro Plus',
+        'badge_key' => 'badge_pro_plus',
+        'min_points' => 2250,
+        'privileges' => [
+          // An uploaded image as the frame around the avatar / the profile.
+          'custom_avatar_frame',
+          'custom_profile_frame',
+        ],
+      ],
     ];
   }
 

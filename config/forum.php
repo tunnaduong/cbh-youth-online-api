@@ -16,4 +16,17 @@ return [
     */
 
     'news_subforum_id' => env('FORUM_NEWS_SUBFORUM_ID', 32),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tài khoản Đoàn trường
+    |--------------------------------------------------------------------------
+    |
+    | Username của tài khoản Đoàn trường. Yoyo AI tra cứu (chỉ đọc) các bài
+    | viết công khai của tài khoản này khi cần trả lời câu hỏi về trường -
+    | xem App\Services\SchoolKnowledgeService.
+    |
+    */
+
+    'school_account' => env('FORUM_SCHOOL_ACCOUNT', 'DoanTruongCBH'),
 ];
