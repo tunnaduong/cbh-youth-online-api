@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Mail\ContentApprovedMail;
 use App\Mail\ContentPendingMail;
 use App\Mail\ContentRejectedMail;
+use App\Models\AuthAccount;
 use App\Models\ModerationQueue;
+use App\Models\Story;
 use App\Models\Topic;
 use App\Models\TopicComment;
 use Illuminate\Support\Facades\Http;
@@ -13,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * AI-powered content moderation for forum topics and comments.
+ * AI-powered content moderation for forum topics, comments and stories.
  *
  * Verdicts:
  *  - 'approved'     → publish immediately
@@ -73,6 +75,118 @@ PROMPT;
     {
         $content = "Bình luận: {$body}";
         return $this->callApi($content);
+    }
+
+    /**
+     * Admins are the moderators: what they post, comment or put in a story
+     * is published as it is - no AI check, no queue, and none of the
+     * "pending / approved / rejected" emails and notifications.
+     */
+    public static function isExempt(?AuthAccount $user): bool
+    {
+        return $user !== null && $user->role === 'admin';
+    }
+
+    /**
+     * Moderate the text on a story (its caption and text stickers). A story
+     * with no text has nothing for the model to read.
+     *
+     * @return array{verdict: string, reason: string}
+     */
+    public function moderateStory(string $text): array
+    {
+        if (trim($text) === '') {
+            return ['verdict' => 'approved', 'reason' => ''];
+        }
+
+        return $this->callApi("Tin (story) - chữ trên tin: {$text}");
+    }
+
+    /**
+     * Everything a person wrote on a story: the caption and the text
+     * stickers, link labels included.
+     */
+    public static function storyText(Story $story): string
+    {
+        $parts = [trim((string) $story->content)];
+
+        foreach (($story->overlays['items'] ?? []) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $parts[] = trim((string) ($item['text'] ?? ''));
+            $parts[] = trim((string) ($item['label'] ?? ''));
+            $parts[] = trim((string) ($item['url'] ?? ''));
+        }
+
+        return trim(implode("\n", array_filter($parts, fn ($part) => $part !== '')));
+    }
+
+    /**
+     * Apply a moderation result to a story. Returns ['action', 'message'].
+     *
+     * A story is a photo or a video, which the model never sees, so - like a
+     * post with attachments - a story the text check lets through is still
+     * held for a human unless it has no media at all.
+     */
+    public function applyToStory(Story $story, array $result): array
+    {
+        if (! Story::hasModerationStatus()) {
+            return ['action' => 'approved', 'message' => null];
+        }
+
+        $verdict = $result['verdict'];
+        $reason = $result['reason'] ?? '';
+
+        if ($verdict === 'approved' && ! empty($story->media_url)) {
+            $verdict = 'needs_review';
+            $reason = self::ATTACHMENT_REVIEW_REASON;
+        }
+
+        $snapshot = json_encode([
+            'body' => mb_substr(self::storyText($story), 0, 2000),
+            'media_type' => $story->media_type,
+            'media_url' => $story->media_url,
+            'video_first_frame_url' => $story->video_first_frame_url,
+            'background_color' => $story->background_color,
+        ]);
+
+        if ($verdict === 'approved') {
+            $story->update(['moderation_status' => 'approved']);
+
+            return ['action' => 'approved', 'message' => null];
+        }
+
+        if ($verdict === 'rejected') {
+            $story->update(['moderation_status' => 'rejected']);
+            ModerationQueue::create([
+                'content_type' => 'story',
+                'content_id' => $story->id,
+                'user_id' => $story->user_id,
+                'content_snapshot' => $snapshot,
+                'status' => 'rejected',
+                'ai_verdict' => 'rejected',
+                'ai_reason' => $reason,
+            ]);
+
+            return ['action' => 'rejected', 'message' => $reason ?: 'Tin không đạt tiêu chuẩn cộng đồng.'];
+        }
+
+        // needs_review
+        $story->update(['moderation_status' => 'pending']);
+        ModerationQueue::create([
+            'content_type' => 'story',
+            'content_id' => $story->id,
+            'user_id' => $story->user_id,
+            'content_snapshot' => $snapshot,
+            'status' => 'pending',
+            'ai_verdict' => 'needs_review',
+            'ai_reason' => $reason,
+        ]);
+        NotificationService::notifyAdminsPendingModeration($story, 'story', $reason);
+        self::notifyAuthorPending($story, 'story', $reason);
+
+        return ['action' => 'pending', 'message' => 'Tin của bạn đang chờ kiểm duyệt và sẽ hiển thị với mọi người sau khi được duyệt.'];
     }
 
     /**
@@ -279,6 +393,12 @@ PROMPT;
      */
     private static function mailAuthor($content, string $type, string $outcome, string $reason = ''): void
     {
+        // A story has no post title or page to put in an email: its author
+        // is told in the app (notification + push) only.
+        if ($type === 'story') {
+            return;
+        }
+
         $user = $content->user;
         // A comment's title comes from the post it lives on.
         $topic = $type === 'comment' ? $content->topic : $content;

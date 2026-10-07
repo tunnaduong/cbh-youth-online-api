@@ -270,15 +270,15 @@ class PushNotificationService
       'content_deleted' => isset($notification->data['content_type'])
         ? self::moderatedContentLabel($notification->data['content_type']) . ' của bạn đã bị xóa vì vi phạm tiêu chuẩn cộng đồng'
         : 'Nội dung của bạn đã bị xóa',
-      'content_pending_review' => (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết')
+      'content_pending_review' => (($notification->data['content_type'] ?? '') === 'story' ? 'Tin' : (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết'))
         . ' của bạn đang chờ kiểm duyệt',
-      'content_approved' => (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết')
+      'content_approved' => (($notification->data['content_type'] ?? '') === 'story' ? 'Tin' : (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết'))
         . ' của bạn đã được duyệt',
-      'content_rejected' => (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết')
+      'content_rejected' => (($notification->data['content_type'] ?? '') === 'story' ? 'Tin' : (isset($notification->data['comment_id']) ? 'Bình luận' : 'Bài viết'))
         . ' của bạn không được duyệt',
       'study_material_purchased' => $actorName . ' đã mua tài liệu của bạn (+' . ($notification->data['price'] ?? 0) . ' điểm)',
       'study_material_rated' => $actorName . ' đã đánh giá ' . ($notification->data['rating'] ?? 0) . '/5 ⭐ cho tài liệu của bạn',
-      'moderation_pending' => (($notification->data['content_type'] ?? '') === 'comment' ? 'Bình luận' : 'Bài viết')
+      'moderation_pending' => (match ($notification->data['content_type'] ?? '') { 'comment' => 'Bình luận', 'story' => 'Tin', default => 'Bài viết' })
         . ' của @' . ($notification->data['author_username'] ?? 'người dùng') . ' đang chờ kiểm duyệt',
       'system_message' => $notification->data['message'] ?? 'Bạn có thông báo mới',
     ];

@@ -1405,10 +1405,15 @@ class TopicsController extends Controller
 
     HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
 
-    // AI content moderation
-    $moderationService = new \App\Services\ContentModerationService();
-    $moderationResult = $moderationService->moderateTopic($topic->title, $topic->description ?? '');
-    $moderationOutcome = $moderationService->applyToTopic($topic, $moderationResult);
+    // AI content moderation. Admins are the moderators: their posts are
+    // published as they are - no check, no queue, no moderation emails.
+    if (\App\Services\ContentModerationService::isExempt($request->user())) {
+      $moderationOutcome = ['action' => 'approved', 'message' => null];
+    } else {
+      $moderationService = new \App\Services\ContentModerationService();
+      $moderationResult = $moderationService->moderateTopic($topic->title, $topic->description ?? '');
+      $moderationOutcome = $moderationService->applyToTopic($topic, $moderationResult);
+    }
 
     if ($moderationOutcome['action'] === 'rejected') {
       // Delete the topic and return error
@@ -2054,7 +2059,8 @@ class TopicsController extends Controller
     // go through this: the model can't read the image, so applyToComment
     // routes it to a human on the strength of the attachment alone - skipping
     // the check entirely would auto-publish images nobody has looked at.
-    if ($request->comment || !empty($imagePaths)) {
+    // Admins are exempt, as for posts.
+    if (($request->comment || !empty($imagePaths)) && !\App\Services\ContentModerationService::isExempt($request->user())) {
       $moderationService = new \App\Services\ContentModerationService();
       $moderationResult = $request->comment
         ? $moderationService->moderateComment($request->comment)
