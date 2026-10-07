@@ -394,6 +394,11 @@ class TopicsController extends Controller
   {
     $userId = auth()->id();
 
+    // The "Tin tức Đoàn" tab. Before the guest fallback: guests get it too.
+    if ($request->query('mode') === 'news') {
+      return $this->newsFeed($request, $userId, max(1, (int) $request->query('page', 1)), 10);
+    }
+
     if (!$userId) {
       return $this->index($request);
     }
@@ -476,6 +481,25 @@ class TopicsController extends Controller
    * @param  int  $perPage
    * @return \Illuminate\Http\JsonResponse
    */
+  /**
+   * Posts of the youth union news subforum ("Tin tức Đoàn"), newest first, in
+   * the feed's own post shape - /youth-news has an older shape of its own
+   * (rounded counts, relative dates, no profile theme), which the feed's
+   * post card can't draw.
+   */
+  private function newsFeed(Request $request, ?int $userId, int $page, int $perPage)
+  {
+    $topics = $this->visibleTopicsQuery($userId)
+      ->inNewsSubforum()
+      ->withCount(['views', 'comments'])
+      ->orderBy('created_at', 'desc')
+      ->with(['user', 'votes.user', 'cdnUserContent'])
+      ->paginate($perPage, ['*'], 'page', $page)
+      ->through(fn($topic) => $this->formatTopicForList($topic, $request));
+
+    return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'news']));
+  }
+
   private function latestFeed(Request $request, int $userId, int $page, int $perPage)
   {
     $topics = $this->visibleTopicsQuery($userId)
