@@ -26,7 +26,6 @@ class ContentModerationService
 {
     private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
     private const MODEL = 'gemini-auto';
-    private const API_KEY = 'REDACTED';
 
     /** Shown in the queue when media (not the text) is what needs a human. */
     private const ATTACHMENT_REVIEW_REASON = 'Có ảnh/video/tệp đính kèm - AI không đọc được, cần người kiểm duyệt xem.';
@@ -431,10 +430,17 @@ PROMPT;
 
     private function callApi(string $userContent): array
     {
+        // Same key/config as AiChatService - CYO_AI_API via services.chat_api.key.
+        $apiKey = config('services.chat_api.key');
+        if (empty($apiKey)) {
+            Log::error('ContentModerationService: CYO_AI_API key is not configured.');
+            return $this->fallback($userContent);
+        }
+
         try {
             $response = Http::timeout(10)
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . self::API_KEY,
+                    'Authorization' => 'Bearer ' . $apiKey,
                     'Content-Type' => 'application/json',
                 ])
                 ->post(self::API_URL, [
