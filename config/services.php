@@ -78,9 +78,11 @@ return [
     // android:apk-key-hash:<base64url(sha256 of the certificate)>, one per
     // signing key, comma-separated. The defaults are the key the GitHub builds
     // are signed with (keystores/debug.keystore in the mobile repo) and the
-    // Google Play app-signing key (what a Play Store install is signed with). The iOS
+    // Google Play app-signing key (what a Play Store install is signed with) -
+    // the third one, read off an installed Play build (SHA-256 AB:F8:D1...51:EF);
+    // the second was listed as that key earlier and is kept. The iOS
     // app needs nothing here: it reports https://chuyenbienhoa.com.
-    'android_origins' => env('WEBAUTHN_ANDROID_ORIGINS', 'android:apk-key-hash:-sYXRdwJA3hvue3mKpYrOZ9zSPC7b4mbgzJmdZEDO5w,android:apk-key-hash:1cNWdqBAPG4h10frQqptUkU8cHVExgzXM_Sv2jWkMr4'),
+    'android_origins' => env('WEBAUTHN_ANDROID_ORIGINS', 'android:apk-key-hash:-sYXRdwJA3hvue3mKpYrOZ9zSPC7b4mbgzJmdZEDO5w,android:apk-key-hash:1cNWdqBAPG4h10frQqptUkU8cHVExgzXM_Sv2jWkMr4,android:apk-key-hash:q_jRCjb27MRYEle2lCqiN57ZHKsOkl8UEj6OUH0XUe8'),
   ],
 
   'chat_api' => [
