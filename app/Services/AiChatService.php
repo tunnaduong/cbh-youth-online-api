@@ -23,10 +23,11 @@ class AiChatService
   private const SCHOOL_LOOKUP_PROMPT = <<<PROMPT
 TRA CỨU BÀI ĐĂNG CỦA ĐOÀN TRƯỜNG
 Bạn có thể tra cứu (chỉ đọc) các bài viết mà tài khoản Đoàn trường THPT Chuyên Biên Hòa đã đăng trên diễn đàn: thông báo, sự kiện, cuộc thi, hoạt động, phong trào, kết quả, tin tức của trường.
-- CHỈ tra cứu khi câu hỏi là về trường THPT Chuyên Biên Hòa hoặc Đoàn trường (ví dụ: một sự kiện, cuộc thi, thông báo, hoạt động, kết quả của trường) VÀ bạn không thể trả lời chắc chắn từ nội dung cuộc trò chuyện.
-- KHÔNG tra cứu cho bài tập, kiến thức chung, chuyện phiếm, câu hỏi về bản thân bạn hay về ứng dụng.
+Đây là một công cụ để bạn TỰ QUYẾT ĐỊNH có dùng hay không, không phải việc bắt buộc. Mặc định là trả lời bình thường bằng hiểu biết của bạn.
+- Chỉ tra cứu khi chính bạn thấy cần VÀ câu hỏi thuộc đúng loại nội dung Đoàn trường hay đăng: một sự kiện, phong trào, cuộc thi, hoạt động ngoại khóa, câu lạc bộ, thông báo hay kết quả cụ thể của trường mà bạn không biết chắc.
+- Không phải câu hỏi nào nhắc tới trường cũng cần tra cứu. Những câu hỏi khác về trường (lịch sử, địa chỉ, tuyển sinh, học tập, thầy cô, lời khuyên...) và mọi câu hỏi không liên quan tới Đoàn trường (bài tập, kiến thức chung, chuyện phiếm, câu hỏi về bản thân bạn hay về ứng dụng): trả lời trực tiếp, KHÔNG tra cứu, và không nhắc gì tới bài đăng của Đoàn trường.
 - Để tra cứu, câu trả lời của bạn CHỈ gồm đúng một dòng "[SCHOOL: từ khóa]" với 2-6 từ khóa tiếng Việt có dấu nêu đúng chủ đề cần tìm (ví dụ "[SCHOOL: hội trại 26/3]", "[SCHOOL: kết quả học sinh giỏi quốc gia]"), không kèm chữ nào khác. Ngày tháng thì viết dạng ngày/tháng như "26/3", "20/11"; dùng danh từ riêng và tên sự kiện, tránh các từ chung chung như "hoạt động", "thông tin", "trường". Hệ thống sẽ tìm rồi hỏi lại bạn kèm kết quả.
-- Không bao giờ bịa thông tin về trường. Nếu không tra cứu và cũng không biết chắc, hãy nói là bạn không rõ.
+- Không bịa các chi tiết cụ thể về trường (ngày giờ, kết quả, tên người). Điều gì không biết chắc thì nói là bạn không chắc.
 PROMPT;
 
   private const SYSTEM_PROMPT = <<<PROMPT

@@ -684,10 +684,10 @@ class GenerateAiChatReply implements ShouldQueue
     $head = "Kết quả tra cứu bài đăng của Đoàn trường cho \"{$query}\"";
 
     if (!$lookup['ok']) {
-      return "{$head}: hiện không tra cứu được. Hãy nói với người dùng là bạn chưa kiểm tra được thông tin này, không tự bịa câu trả lời.";
+      return "{$head}: hiện không tra cứu được. Hãy trả lời bằng hiểu biết của bạn nếu có thể; với chi tiết cụ thể mà bạn không biết chắc thì nói là hiện bạn chưa kiểm tra được, không tự bịa.";
     }
     if (!$lookup['posts']) {
-      return "{$head}: không tìm thấy bài đăng nào phù hợp. Hãy nói với người dùng là bạn không tìm thấy thông tin này trong các bài đăng của Đoàn trường, không tự bịa câu trả lời.";
+      return "{$head}: không tìm thấy bài đăng nào phù hợp. Nếu bạn trả lời được bằng hiểu biết của mình thì cứ trả lời bình thường; nếu câu hỏi cần chi tiết cụ thể mà bạn không biết, hãy nói là bạn không tìm thấy trong bài đăng của Đoàn trường, không tự bịa.";
     }
 
     $lines = [
@@ -696,7 +696,7 @@ class GenerateAiChatReply implements ShouldQueue
     foreach ($lookup['posts'] as $i => $post) {
       $lines[] = ($i + 1) . ". \"{$post['title']}\" (đăng ngày {$post['date']})\n   Link: {$post['url']}\n   Trích: {$post['excerpt']}";
     }
-    $lines[] = 'Hãy trả lời câu hỏi của người dùng dựa trên các bài này. Thông tin về một sự kiện thường nằm rải ở nhiều bài (thông báo, tường thuật, kết quả): hãy tổng hợp từ tất cả các bài liên quan thay vì chỉ một bài. Chỉ dùng thông tin có trong trích đoạn, nêu ngày đăng nếu thông tin có thể đã cũ, và kèm link của một đến ba bài liên quan nhất (dán nguyên link, không dùng markdown). Nếu các bài này không trả lời được câu hỏi, hãy nói là bạn không tìm thấy thông tin đó trong bài đăng của Đoàn trường.';
+    $lines[] = 'Các bài này chỉ là kết quả tìm theo từ khóa, có thể không liên quan: hãy tự đánh giá, chỉ dùng những bài thật sự liên quan tới câu hỏi và bỏ qua phần còn lại. Thông tin về một sự kiện thường nằm rải ở nhiều bài (thông báo, tường thuật, kết quả): hãy tổng hợp từ tất cả các bài liên quan thay vì chỉ một bài. Với những gì lấy từ bài đăng: không thêm chi tiết ngoài trích đoạn, nêu ngày đăng nếu thông tin có thể đã cũ, và kèm link của một đến ba bài đã dùng (dán nguyên link, không dùng markdown). Nếu không bài nào liên quan thì đừng nhắc tới chúng: trả lời bằng hiểu biết của bạn nếu có thể, còn chi tiết cụ thể không biết thì nói là bạn không tìm thấy trong bài đăng của Đoàn trường.';
 
     return implode("\n", $lines);
   }
