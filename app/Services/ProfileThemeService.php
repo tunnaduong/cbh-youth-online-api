@@ -24,6 +24,12 @@ use Illuminate\Validation\Rule;
  *     "profile_frame": one of OPTIONS['profile_frame']
  *   }
  *
+ * The "custom" avatar / profile frame is an image the member uploaded. Its
+ * file is not part of this JSON (a client could then point it anywhere): it
+ * is in cyo_user_profiles.custom_avatar_frame / custom_profile_frame, written
+ * only by CustomFrameService, and reaches clients as the derived
+ * avatar_frame_url / profile_frame_url.
+ *
  * Customizing at all needs the `custom_profile` tier privilege (Thành viên
  * tập sự, 50 points). On top of that each option names the member tier it
  * needs - the fancier the option, the higher the tier. Tiers follow the
@@ -97,6 +103,9 @@ class ProfileThemeService
       'active' => 'active',
       'distinguished' => 'distinguished',
       'veteran' => 'veteran',
+      // The member's own uploaded image (CustomFrameService); the theme then
+      // carries its address as avatar_frame_url.
+      'custom' => self::CUSTOM_FRAME_TIER,
     ],
     'profile_effect' => [
       'none' => null,
@@ -110,6 +119,8 @@ class ProfileThemeService
       'glow' => 'active',
       'gold' => 'distinguished',
       'neon' => 'veteran',
+      // Uploaded image, drawn as a nine-slice border: profile_frame_url.
+      'custom' => self::CUSTOM_FRAME_TIER,
     ],
     // A small icon shown right after the name (Pro tier). Deliberately
     // playful presets and never a tick: the verified badge must stay
@@ -125,6 +136,7 @@ class ProfileThemeService
       'tier_veteran' => 'pro',
       'tier_premium' => 'pro',
       'tier_pro' => 'pro',
+      'tier_pro_plus' => 'pro_plus',
       'fish' => 'pro',
       'cat' => 'pro',
       'dog' => 'pro',
@@ -273,6 +285,12 @@ class ProfileThemeService
     'pacifico' => ['label' => 'Pacifico', 'file' => 'Pacifico.ttf'],
   ];
 
+  /** Tier needed to use an uploaded image as the avatar / profile frame. */
+  public const CUSTOM_FRAME_TIER = 'pro_plus';
+
+  /** OPTIONS field of each kind of uploaded frame. */
+  public const CUSTOM_FRAME_FIELDS = ['avatar' => 'avatar_frame', 'profile' => 'profile_frame'];
+
   /** Tier needed to keep an uploaded GIF avatar animated. */
   public const ANIMATED_AVATAR_TIER = 'veteran';
 
@@ -386,6 +404,13 @@ class ProfileThemeService
       }
     }
 
+    // "custom" means "my uploaded image": there has to be one.
+    foreach (self::CUSTOM_FRAME_FIELDS as $kind => $field) {
+      if ($theme[$field] === 'custom' && !isset($errors['profile_theme.' . $field]) && self::customFrameUrl($user, $kind) === null) {
+        $errors['profile_theme.' . $field] = ['Hãy tải ảnh khung lên trước.'];
+      }
+    }
+
     if (!self::canUseGradientColors($user)) {
       foreach (self::GRADIENT_FIELDS as $field) {
         if (($theme[$field] ?? null) !== null) {
@@ -441,6 +466,31 @@ class ProfileThemeService
     return self::canCustomize($user) && self::tierReached($user, self::GRADIENT_TIER);
   }
 
+  public static function canUseCustomFrames(AuthAccount $user): bool
+  {
+    return self::canCustomize($user) && self::tierReached($user, self::CUSTOM_FRAME_TIER);
+  }
+
+  public static function customFramePoints(): ?int
+  {
+    return self::tierMinPoints(self::CUSTOM_FRAME_TIER);
+  }
+
+  /**
+   * Address of the image this user uploaded as their avatar / profile frame
+   * ($kind: "avatar" | "profile"), or null when they have none. Each upload
+   * gets a new file name, so the address can be cached for good.
+   */
+  public static function customFrameUrl(AuthAccount $user, string $kind): ?string
+  {
+    $path = $user->profile?->getAttribute('custom_' . $kind . '_frame');
+    if (!is_string($path) || $path === '') {
+      return null;
+    }
+
+    return rtrim((string) config('app.url'), '/') . '/storage/' . ltrim($path, '/');
+  }
+
   /**
    * The server-hosted name fonts, as GET /v1.0/name-fonts returns them.
    */
@@ -484,6 +534,16 @@ class ProfileThemeService
       }
     }
 
+    // An uploaded frame travels as its address; without a file (removed by
+    // the member or an admin) the choice falls back to no frame.
+    foreach (self::CUSTOM_FRAME_FIELDS as $kind => $field) {
+      $url = $theme[$field] === 'custom' ? self::customFrameUrl($user, $kind) : null;
+      if ($theme[$field] === 'custom' && $url === null) {
+        $theme[$field] = array_key_first(self::OPTIONS[$field]);
+      }
+      $theme[$field . '_url'] = $url;
+    }
+
     // Derived, never stored: saves every client a table of glyphs.
     $theme['name_icon_emoji'] = self::NAME_ICONS[$theme['name_icon']] ?? null;
     // "tier_veteran" -> "veteran": draw that tier's icon instead of a glyph.
@@ -521,6 +581,7 @@ class ProfileThemeService
       'name_effect',
       'name_colors',
       'avatar_frame',
+      'avatar_frame_url',
       'name_icon',
       'name_icon_emoji',
       'name_icon_tier',
@@ -579,6 +640,15 @@ class ProfileThemeService
       'fancy_name' => [
         'required_points' => self::tierMinPoints(self::FANCY_NAME_TIER),
         'unlocked' => self::canUseFancyName($user),
+      ],
+      // The member's own images for the "custom" avatar / profile frame.
+      // The files are listed even while locked, so the editor can show them.
+      'custom_frames' => [
+        'required_points' => self::customFramePoints(),
+        'unlocked' => self::canUseCustomFrames($user),
+        'avatar_url' => self::customFrameUrl($user, 'avatar'),
+        'profile_url' => self::customFrameUrl($user, 'profile'),
+        'rules' => CustomFrameService::rules(),
       ],
       'saved' => is_array($saved) && !empty($saved) ? self::normalize($saved) : null,
       'options' => $options,

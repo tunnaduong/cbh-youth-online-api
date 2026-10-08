@@ -34,6 +34,8 @@ Tùy chỉnh được khi đạt **Thành viên tập sự (50 điểm)** (quy�
 | Thành viên tiêu biểu | 500 | Phông: Cổ điển, Đậm chất, Gai góc · Hiệu ứng tên: Hoạt hình, Neon · Khung avatar: Vàng · Hiệu ứng hồ sơ: Tuyết rơi · Khung hồ sơ: Viền vàng |
 | Thành viên kỳ cựu | 1000 | Khung avatar: Cầu vồng (xoay) · Hiệu ứng hồ sơ: Cực quang · Khung hồ sơ: Neon xoay · Avatar GIF động |
 | Thành viên cao cấp | 1500 | Hiệu ứng tên: Cầu vồng, Viền chữ (tự chọn màu chữ và màu viền) · 15 phông do API cung cấp (Google Sans Flex, Space Grotesk, Montserrat, Be Vietnam Pro, Nunito, Quicksand, Comfortaa, Manrope, Raleway, Exo 2, Playfair Display, Merriweather, Roboto Slab, Lobster, Pacifico; xem `GET /v1.0/name-fonts`) · Màu chuyển sắc (màu thứ hai) cho màu chính, màu phụ và màu ảnh bìa |
+| Thành viên Pro | 2000 | Biểu tượng sau tên (`name_icon`) · Phông, hiệu ứng và màu riêng cho @username · Tên có emoji và ký tự trang trí |
+| Thành viên Pro Plus | 2250 | Khung avatar và khung trang cá nhân bằng ảnh tự tải lên (`avatar_frame` / `profile_frame` = `custom`) |
 
 Bảng này nằm ở `ProfileThemeService::OPTIONS` (API). Đổi mốc chỉ cần sửa ở đó; trình chỉnh sửa và cột "Mốc điểm" tự đọc từ API.
 
@@ -45,6 +47,7 @@ Bảng này nằm ở `ProfileThemeService::OPTIONS` (API). Đổi mốc chỉ c
 5. Sửa bio/tên mà không gửi `profile_theme` thì theme giữ nguyên.
 6. Không nhận CSS tự do: màu phải là hex 6 ký tự, các tùy chọn phải nằm trong danh sách.
 7. **Avatar GIF động:** chỉ hạng 1000 điểm, file ≤ 2MB, gần vuông (lệch ≤ 10%), được lưu nguyên file để giữ animation. Người dưới hạng upload GIF thì vẫn bị chuyển sang JPEG 156px như cũ (mất animation).
+8. **Khung tự tải lên (Pro Plus, 2250 điểm):** ảnh PNG hoặc WebP nền trong suốt, hình vuông (lệch ≤ 10%), cạnh 256–2048px, ≤ 5MB; API mã hóa lại thành PNG tĩnh (khung avatar 320px, khung trang cá nhân 480px). **Khung avatar** được vẽ chính giữa avatar với kích thước gấp 1,25 lần, nên vòng tròn ở giữa (64% chiều rộng ảnh) phải trong suốt - tối đa 10% được tô - để không bao giờ che mặt. **Khung trang cá nhân** được vẽ kiểu nine-slice: chỉ dùng 25% ngoài cùng của mỗi cạnh (góc giữ nguyên dáng, cạnh co giãn), phần giữa ảnh không bao giờ được vẽ. Cả hai phải có nét vẽ trong phần được dùng. Ảnh không nằm trong JSON `profile_theme` (client không thể tự đặt địa chỉ ảnh): tải lên qua `POST /v1.0/users/{username}/custom-frame`, client nhận địa chỉ qua `avatar_frame_url` / `profile_frame_url`. Không có hàng chờ duyệt (giống avatar và ảnh bìa); admin gỡ bằng `DELETE /v1.0/admin/users/{id}/custom-frames/{kind}`. Luật kiểm tra nằm ở `CustomFrameService`.
 
 ## 3. Giao diện
 

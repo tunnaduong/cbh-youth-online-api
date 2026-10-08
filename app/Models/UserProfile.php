@@ -45,7 +45,7 @@ class UserProfile extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'cover_photo', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'hide_email', 'verified', 'last_username_change', 'profile_theme'];
+    protected $fillable = ['auth_account_id', 'profile_name', 'profile_username', 'bio', 'profile_picture', 'cover_photo', 'oauth_profile_picture', 'birthday', 'gender', 'location', 'hide_email', 'verified', 'last_username_change', 'profile_theme', 'custom_avatar_frame', 'custom_profile_frame'];
 
     /**
      * @var array<string, string>
