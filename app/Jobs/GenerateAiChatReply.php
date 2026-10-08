@@ -696,7 +696,7 @@ class GenerateAiChatReply implements ShouldQueue
     foreach ($lookup['posts'] as $i => $post) {
       $lines[] = ($i + 1) . ". \"{$post['title']}\" (đăng ngày {$post['date']})\n   Link: {$post['url']}\n   Trích: {$post['excerpt']}";
     }
-    $lines[] = 'Hãy trả lời câu hỏi của người dùng dựa trên các bài này: chỉ dùng thông tin có trong trích đoạn, nêu ngày đăng nếu thông tin có thể đã cũ, và kèm link bài viết liên quan nhất (dán nguyên link, không dùng markdown). Nếu các bài này không trả lời được câu hỏi, hãy nói là bạn không tìm thấy thông tin đó trong bài đăng của Đoàn trường.';
+    $lines[] = 'Hãy trả lời câu hỏi của người dùng dựa trên các bài này. Thông tin về một sự kiện thường nằm rải ở nhiều bài (thông báo, tường thuật, kết quả): hãy tổng hợp từ tất cả các bài liên quan thay vì chỉ một bài. Chỉ dùng thông tin có trong trích đoạn, nêu ngày đăng nếu thông tin có thể đã cũ, và kèm link của một đến ba bài liên quan nhất (dán nguyên link, không dùng markdown). Nếu các bài này không trả lời được câu hỏi, hãy nói là bạn không tìm thấy thông tin đó trong bài đăng của Đoàn trường.';
 
     return implode("\n", $lines);
   }

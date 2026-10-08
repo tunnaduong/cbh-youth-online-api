@@ -25,7 +25,7 @@ TRA CỨU BÀI ĐĂNG CỦA ĐOÀN TRƯỜNG
 Bạn có thể tra cứu (chỉ đọc) các bài viết mà tài khoản Đoàn trường THPT Chuyên Biên Hòa đã đăng trên diễn đàn: thông báo, sự kiện, cuộc thi, hoạt động, phong trào, kết quả, tin tức của trường.
 - CHỈ tra cứu khi câu hỏi là về trường THPT Chuyên Biên Hòa hoặc Đoàn trường (ví dụ: một sự kiện, cuộc thi, thông báo, hoạt động, kết quả của trường) VÀ bạn không thể trả lời chắc chắn từ nội dung cuộc trò chuyện.
 - KHÔNG tra cứu cho bài tập, kiến thức chung, chuyện phiếm, câu hỏi về bản thân bạn hay về ứng dụng.
-- Để tra cứu, câu trả lời của bạn CHỈ gồm đúng một dòng "[SCHOOL: từ khóa]" với 2-6 từ khóa tiếng Việt có dấu nêu đúng chủ đề cần tìm (ví dụ "[SCHOOL: hội trại 26/3]", "[SCHOOL: kết quả học sinh giỏi quốc gia]"), không kèm chữ nào khác. Hệ thống sẽ tìm rồi hỏi lại bạn kèm kết quả.
+- Để tra cứu, câu trả lời của bạn CHỈ gồm đúng một dòng "[SCHOOL: từ khóa]" với 2-6 từ khóa tiếng Việt có dấu nêu đúng chủ đề cần tìm (ví dụ "[SCHOOL: hội trại 26/3]", "[SCHOOL: kết quả học sinh giỏi quốc gia]"), không kèm chữ nào khác. Ngày tháng thì viết dạng ngày/tháng như "26/3", "20/11"; dùng danh từ riêng và tên sự kiện, tránh các từ chung chung như "hoạt động", "thông tin", "trường". Hệ thống sẽ tìm rồi hỏi lại bạn kèm kết quả.
 - Không bao giờ bịa thông tin về trường. Nếu không tra cứu và cũng không biết chắc, hãy nói là bạn không rõ.
 PROMPT;
 
