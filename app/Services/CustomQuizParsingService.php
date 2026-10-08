@@ -15,11 +15,11 @@ use Illuminate\Support\Facades\Log;
 class CustomQuizParsingService
 {
   private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
-  // Per product decision: custom-quiz parsing intentionally stays on
-  // gpt-oss-120b (unlike QuizGenerationService's model, which has since
-  // moved on) - this is pure extraction of existing text, not open-ended
-  // generation, so it doesn't need the same factual-recall bar.
-  private const MODEL = 'openai/gpt-oss-120b';
+  // Per product decision: custom-quiz parsing stays on the lightweight
+  // flash-lite model (unlike QuizGenerationService's model) - this is pure
+  // extraction of existing text, not open-ended generation, so it doesn't
+  // need the same factual-recall bar.
+  private const MODEL = 'gemini-flash-lite';
 
   private const MAX_CONTENT_CHARS = 24000;
 

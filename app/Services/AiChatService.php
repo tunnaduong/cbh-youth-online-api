@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 class AiChatService
 {
   private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
-  private const MODEL = 'gemini-flash-lite';
+  private const MODEL = 'gemini-auto';
 
   // Its own system message so SYSTEM_PROMPT stays as it was. The lookup
   // itself is SchoolKnowledgeService; GenerateAiChatReply::runAsk runs it

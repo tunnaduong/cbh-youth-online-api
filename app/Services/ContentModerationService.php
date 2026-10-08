@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Mail;
 class ContentModerationService
 {
     private const API_URL = 'https://chat-api.chuyenbienhoa.com/v1/chat/completions';
-    private const MODEL = 'gemini-flash-lite';
+    private const MODEL = 'gemini-auto';
     private const API_KEY = 'REDACTED';
 
     /** Shown in the queue when media (not the text) is what needs a human. */
