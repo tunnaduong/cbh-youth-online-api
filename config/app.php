@@ -51,6 +51,7 @@ return [
    * |
    */
   'url' => env('APP_URL', 'http://localhost'),
+  'ui_url' => env('APP_UI_URL', 'https://chuyenbienhoa.com'),
   'asset_url' => env('ASSET_URL'),
 
   /*

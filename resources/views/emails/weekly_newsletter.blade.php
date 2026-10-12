@@ -10,7 +10,7 @@ Xin chào {{ $recipient->username }}, đây là những bài viết đáng chú 
 
 {{ $topic['vote_score'] }} điểm vote | {{ $topic['comments_count'] }} bình luận
 
-<x-mail::button :url="$baseUrl . '/' . $topic['author_username'] . '/posts/' . $topic['id']">
+<x-mail::button :url="$baseUrl . $topic['url']">
 Đọc bài viết
 </x-mail::button>
 

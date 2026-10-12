@@ -52,15 +52,14 @@ class SendWeeklyNewsletter extends Command
                     ->unique('id')
                     ->take(10)
                     ->map(fn (Topic $topic) => [
-                        'id' => $topic->id,
                         'title' => $topic->title,
+                        'url' => $topic->getUrl(),
                         'excerpt' => \Illuminate\Support\Str::limit(
                             strip_tags($topic->content_html ?: $topic->description),
                             220,
                         ),
                         'vote_score' => (int) ($topic->votes_sum_vote_value ?? 0),
                         'comments_count' => (int) ($topic->getRawOriginal('comments_count') ?? 0),
-                        'author_username' => $topic->user?->username ?: 'user',
                     ])
                     ->values()
                     ->all();

@@ -63,6 +63,6 @@ class ResetPasswordMail extends Mailable
      */
     protected function resetUrl()
     {
-        return env("APP_UI_URL", "http://localhost:3000") . '/password/reset/' . $this->token . '?email=' . $this->email;
+        return rtrim(config('app.ui_url'), '/') . '/password/reset/' . $this->token . '?email=' . $this->email;
     }
 }

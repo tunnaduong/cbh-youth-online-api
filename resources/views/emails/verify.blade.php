@@ -98,7 +98,7 @@
             <p>Trân trọng,</p>
             <p>Đội ngũ CBH Youth Online</p>
             <p>
-                <a href="{{ rtrim(env('APP_UI_URL', 'http://localhost:3000'), '/') . '/settings' }}">Cài đặt thông báo</a>
+                <a href="{{ rtrim(config('app.ui_url'), '/') . '/settings' }}">Cài đặt thông báo</a>
             </p>
         </div>
     </div>
