@@ -7,6 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendAdminBroadcast;
 use App\Models\AdminBroadcast;
 use App\Models\AdminMessageAccessLog;
+use App\Models\AuditLog;
+use App\Models\Feedback;
+use App\Models\ModerationQueue;
+use App\Models\StudentVerification;
+use App\Models\ViolationReport;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\AuthAccount;
@@ -82,6 +87,18 @@ class AdminPanelController extends Controller
       'pending_withdrawals' => WithdrawalRequest::where('status', 'pending')->count(),
       'pending_orders' => ShopOrder::where('status', 'pending')->count(),
       'study_materials' => StudyMaterial::count(),
+      // One number per sidebar section, so the dashboard can show every
+      // area of the panel with its own "needs attention" count.
+      'pending_moderation' => ModerationQueue::where('status', 'pending')->count(),
+      'pending_violations' => ViolationReport::where('status', 'pending')->count(),
+      'new_feedback' => Feedback::where('status', 'new')->count(),
+      'pending_student_verifications' => StudentVerification::where('status', 'pending')->count(),
+      'conversations' => Conversation::count(),
+      'messages_today' => Message::whereDate('created_at', today())->count(),
+      'broadcasts' => AdminBroadcast::count(),
+      'shop_products' => ShopProduct::count(),
+      'shop_categories' => ShopCategory::count(),
+      'audit_logs_today' => AuditLog::whereDate('created_at', today())->count(),
       'daily' => $this->dailySeries(14),
     ]);
   }
