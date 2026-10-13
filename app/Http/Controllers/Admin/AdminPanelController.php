@@ -258,7 +258,7 @@ class AdminPanelController extends Controller
     ]);
 
     $user = AuthAccount::findOrFail($id);
-    if (isset($data['role']) && $user->id === Auth::id() && $data['role'] !== 'admin') {
+    if (isset($data['role']) && $user->id === Auth::id() && !AuthAccount::isStaffRole($data['role'])) {
       return response()->json(['message' => 'Không thể tự hạ quyền của chính bạn.'], 403);
     }
 
@@ -290,7 +290,7 @@ class AdminPanelController extends Controller
     if ($user->id === Auth::id()) {
       return response()->json(['message' => 'Hãy đổi mật khẩu của chính bạn trong phần Cài đặt.'], 403);
     }
-    if ($user->role === 'admin') {
+    if ($user->isStaff()) {
       return response()->json(['message' => 'Không thể đặt lại mật khẩu của quản trị viên khác.'], 403);
     }
 
@@ -326,7 +326,7 @@ class AdminPanelController extends Controller
     $user = AuthAccount::findOrFail($id);
 
     // Same rule as resetUserPassword: one admin can't weaken another's login.
-    if ($user->role === 'admin' && $user->id !== Auth::id()) {
+    if ($user->isStaff() && $user->id !== Auth::id()) {
       return response()->json(['message' => 'Không thể tắt xác thực hai lớp của quản trị viên khác.'], 403);
     }
 
@@ -356,7 +356,7 @@ class AdminPanelController extends Controller
     if ($user->id === Auth::id()) {
       return response()->json(['message' => 'Không thể tự xóa tài khoản của chính bạn.'], 403);
     }
-    if ($user->role === 'admin') {
+    if ($user->isStaff()) {
       return response()->json(['message' => 'Không thể xóa tài khoản quản trị viên. Hãy hạ quyền trước khi xóa.'], 403);
     }
 

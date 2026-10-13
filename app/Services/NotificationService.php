@@ -1214,7 +1214,7 @@ class NotificationService
       'url' => '/admin/moderation',
     ];
 
-    $admins = \App\Models\AuthAccount::where('role', 'admin')
+    $admins = \App\Models\AuthAccount::staff()
       ->where('id', '!=', $content->user_id)
       ->get();
 
@@ -1271,7 +1271,7 @@ class NotificationService
    */
   public static function notifyAdmins(string $title, string $message, array $data = []): void
   {
-    $admins = \App\Models\AuthAccount::where('role', 'admin')->get();
+    $admins = \App\Models\AuthAccount::staff()->get();
 
     foreach ($admins as $admin) {
       self::createAndPushNotification([

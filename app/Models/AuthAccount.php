@@ -49,6 +49,13 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
   protected $table = 'cyo_auth_accounts';
 
   /**
+   * Roles with full admin rights. A teacher is on the same level as an admin:
+   * every check for "admin" (the `role:admin` middleware, hasRole('admin'),
+   * scopeRole('admin'), isStaff()) accepts both.
+   */
+  public const STAFF_ROLES = ['admin', 'teacher'];
+
+  /**
    * The attributes that are mass assignable.
    *
    * @var array<int, string>
@@ -82,13 +89,13 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
   ];
 
   /**
-   * Who may use the Filament panel (/admin on the API host): admins only,
+   * Who may use the Filament panel (/admin on the API host): admins and teachers only,
    * and not accounts with two-factor on - that login form has no second
    * step, so it must not become a way around it (they use the web admin).
    */
   public function canAccessPanel(\Filament\Panel $panel): bool
   {
-    return $this->role === 'admin' && !$this->hasTwoFactorEnabled();
+    return $this->isStaff() && !$this->hasTwoFactorEnabled();
   }
 
   /**
@@ -135,7 +142,43 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
    */
   public function scopeRole($query, $role)
   {
+    if ($role === 'admin') {
+      return $query->whereIn('role', self::STAFF_ROLES);
+    }
+
     return $query->where('role', $role);
+  }
+
+  /**
+   * Scope a query to admins and teachers.
+   */
+  public function scopeStaff($query)
+  {
+    return $query->whereIn('role', self::STAFF_ROLES);
+  }
+
+  /**
+   * Scope a query to everyone but admins and teachers (rankings, etc.).
+   */
+  public function scopeNotStaff($query)
+  {
+    return $query->whereNotIn('role', self::STAFF_ROLES);
+  }
+
+  /**
+   * Whether a role has admin rights (admin or teacher).
+   */
+  public static function isStaffRole(?string $role): bool
+  {
+    return in_array($role, self::STAFF_ROLES, true);
+  }
+
+  /**
+   * Whether this account has admin rights (admin or teacher).
+   */
+  public function isStaff(): bool
+  {
+    return self::isStaffRole($this->role);
   }
 
   /**
@@ -179,6 +222,10 @@ class AuthAccount extends Authenticatable implements MustVerifyEmail, \Filament\
    */
   public function hasRole(string $role): bool
   {
+    if ($role === 'admin') {
+      return $this->isStaff();
+    }
+
     return $this->role === $role;
   }
 

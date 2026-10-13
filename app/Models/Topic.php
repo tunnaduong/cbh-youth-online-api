@@ -535,6 +535,29 @@ class Topic extends Model
   }
 
   /**
+   * Scope a query to posts by ordinary members: leaves out the youth union
+   * account (forum.school_account) and admins / teachers, whose posts have
+   * their own places ("Tin tức Đoàn"). Used by the home page lists.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeFromMembers($query)
+  {
+    $schoolAccount = config('forum.school_account') ?: 'DoanTruongCBH';
+
+    return $query->whereNotIn(
+      $query->qualifyColumn('user_id'),
+      AuthAccount::query()
+        ->select('id')
+        ->where(function ($q) use ($schoolAccount) {
+          $q->whereIn('role', AuthAccount::STAFF_ROLES)
+            ->orWhere('username', $schoolAccount);
+        })
+    );
+  }
+
+  /**
    * Scope a query to only include topics in the "Tin tức Đoàn" subforum.
    *
    * @param  \Illuminate\Database\Eloquent\Builder  $query

@@ -83,7 +83,7 @@ PROMPT;
      */
     public static function isExempt(?AuthAccount $user): bool
     {
-        return $user !== null && $user->role === 'admin';
+        return $user !== null && \App\Models\AuthAccount::isStaffRole($user->role);
     }
 
     /**

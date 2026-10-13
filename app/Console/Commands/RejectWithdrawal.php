@@ -45,7 +45,7 @@ class RejectWithdrawal extends Command
     }
 
     // Tìm một admin để gán trách nhiệm
-    $admin = AuthAccount::where('role', 'admin')->first();
+    $admin = AuthAccount::staff()->first();
     $adminId = $admin ? $admin->id : null;
 
     $this->info("Đang xử lý yêu cầu #$id của User ID {$withdrawal->user_id}...");

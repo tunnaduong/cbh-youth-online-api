@@ -586,13 +586,10 @@ class ForumController extends Controller
         ->where('active', true)
         ->get();
 
-      if ($role === 'admin') {
+      // Admins and teachers are on the same level: both see every restriction.
+      if (AuthAccount::isStaffRole($role)) {
         $subforums = $subforums->filter(function ($subforum) {
-          return in_array($subforum->role_restriction, ['user', 'admin']);
-        });
-      } elseif ($role === 'teacher') {
-        $subforums = $subforums->filter(function ($subforum) {
-          return in_array($subforum->role_restriction, ['user', 'teacher']);
+          return in_array($subforum->role_restriction, ['user', 'admin', 'teacher']);
         });
       } else {
         $subforums = $subforums->filter(function ($subforum) {
@@ -960,6 +957,7 @@ class ForumController extends Controller
       ->where('hidden', false)
       ->notFromBlockedUsers()
       ->excludingNewsSubforum()
+      ->fromMembers()
       ->orderBy('created_at', 'desc')
       ->take(10);
 
@@ -996,6 +994,7 @@ class ForumController extends Controller
       ->where('hidden', false)
       ->notFromBlockedUsers()
       ->excludingNewsSubforum()
+      ->fromMembers()
       ->withCount('views')
       ->orderBy('views_count', 'desc')
       ->take(10);
@@ -1033,6 +1032,7 @@ class ForumController extends Controller
       ->where('hidden', false)
       ->notFromBlockedUsers()
       ->excludingNewsSubforum()
+      ->fromMembers()
       ->withCount(['comments', 'votes'])
       ->orderByRaw('(comments_count + votes_count) DESC')
       ->take(10);

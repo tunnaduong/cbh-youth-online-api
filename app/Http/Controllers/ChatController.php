@@ -587,7 +587,7 @@ class ChatController extends Controller
    */
   private function autoJoinShopSupportAdmin(Conversation $conversation, AuthAccount $user): void
   {
-    if ($conversation->is_shop_support && $user->role === 'admin' && !$conversation->hasParticipant($user->id)) {
+    if ($conversation->is_shop_support && $user->isStaff() && !$conversation->hasParticipant($user->id)) {
       $conversation->participants()->attach($user->id, ['role' => 'member']);
     }
   }
