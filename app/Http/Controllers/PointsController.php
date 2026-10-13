@@ -26,7 +26,7 @@ class PointsController extends Controller
       $limit = $request->query('limit', 8);
 
       $topUsers = AuthAccount::with(['profile'])
-        ->where('role', '!=', 'admin')
+        ->notStaff()
         ->notBlockedWithViewer()
         ->orderByDesc('points')
         ->limit($limit)

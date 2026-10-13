@@ -34,7 +34,7 @@ class PopulateCachedPoints extends Command
     $force = $this->option('force');
 
     // Get all users except admins
-    $users = AuthAccount::where('role', '!=', 'admin')->get();
+    $users = AuthAccount::notStaff()->get();
 
     if (!$force && $users->where('cached_points', '>', 0)->count() > 0) {
       $this->warn('Some users already have cached points. Use --force to update them.');

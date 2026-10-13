@@ -496,7 +496,7 @@ class ShopController extends Controller
       ->where('created_by', $user->id)
       ->first();
 
-    $adminIds = AuthAccount::where('role', 'admin')->pluck('id');
+    $adminIds = AuthAccount::staff()->pluck('id');
 
     if (!$conversation) {
       $conversation = Conversation::create([

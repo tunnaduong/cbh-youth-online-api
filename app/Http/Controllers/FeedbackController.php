@@ -66,7 +66,7 @@ class FeedbackController extends Controller
   {
     $feedback->load('user:id,username,email');
 
-    $emails = AuthAccount::where('role', 'admin')
+    $emails = AuthAccount::staff()
       ->whereNotNull('email')
       ->pluck('email')
       ->filter()

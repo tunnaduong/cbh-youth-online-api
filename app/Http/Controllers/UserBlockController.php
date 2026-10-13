@@ -105,7 +105,7 @@ class UserBlockController extends Controller
   {
     $feedVersion = Cache::get('feed_version', 1);
     foreach ($userIds as $userId) {
-      Cache::forget("feed_scores_v3_user_{$userId}_v{$feedVersion}");
+      Cache::forget("feed_scores_v4_user_{$userId}_v{$feedVersion}");
     }
   }
 

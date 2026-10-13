@@ -199,7 +199,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/forum-data', function () {
       $user = auth()->user();
 
-      $mainCategories = $user && $user->role == 'admin'
+      $mainCategories = $user && $user->isStaff()
         ? \App\Models\ForumMainCategory::select('id', 'name', 'arrange')
           ->with([
             'subforums' => function ($query) {
@@ -249,7 +249,7 @@ Route::prefix('v1.0')->group(function () {
       $userPoints = $user->getPoints();
 
       // Calculate user ranking
-      $rank = \App\Models\AuthAccount::where('role', '!=', 'admin')
+      $rank = \App\Models\AuthAccount::notStaff()
         ->where('points', '>', $userPoints)
         ->count() + 1;
 

@@ -174,7 +174,17 @@ class TopicsController extends Controller
    */
   public function index(Request $request)
   {
+    return $this->topicList($request, false);
+  }
+
+  /**
+   * The reverse-chronological topic list behind index() and the guest feed;
+   * $membersOnly drops posts of the youth union account and admins / teachers.
+   */
+  private function topicList(Request $request, bool $membersOnly)
+  {
     $query = $this->visibleTopicsQuery(auth()->id())
+      ->when($membersOnly, fn($q) => $q->fromMembers())
       ->select([
         'id',
         'subforum_id',
@@ -400,8 +410,10 @@ class TopicsController extends Controller
       return $this->newsFeed($request, $userId, max(1, (int) $request->query('page', 1)), 10);
     }
 
+    // The home feed shows members' posts only (Topic::scopeFromMembers): the
+    // youth union account and admins / teachers stay out of it.
     if (!$userId) {
-      return $this->index($request);
+      return $this->topicList($request, true);
     }
 
     $perPage = 10;
@@ -427,7 +439,7 @@ class TopicsController extends Controller
     // as soon as a new topic is created (see bumpFeedVersion()), instead of only
     // expiring after the 30-minute TTL.
     $feedVersion = Cache::get('feed_version', 1);
-    $cacheKey = "feed_scores_v3_user_{$userId}_v{$feedVersion}";  // v3: caches the ranked list, shuffling happens per request
+    $cacheKey = "feed_scores_v4_user_{$userId}_v{$feedVersion}";  // v4: members' posts only (v3: caches the ranked list, shuffling happens per request)
     $ranked = Cache::remember(
       $cacheKey,
       now()->addMinutes(30),
@@ -445,6 +457,7 @@ class TopicsController extends Controller
       // block filter here in case a block happened after it was built.
       $topicsById = Topic::whereIn('id', $pageIds)
         ->notFromBlockedUsers()
+        ->fromMembers()
         ->withCount(['views', 'comments'])
         ->with(['user.profile', 'votes.user', 'cdnUserContent'])
         ->get()
@@ -504,6 +517,7 @@ class TopicsController extends Controller
   private function latestFeed(Request $request, int $userId, int $page, int $perPage)
   {
     $topics = $this->visibleTopicsQuery($userId)
+      ->fromMembers()
       ->withCount(['views', 'comments'])
       ->orderBy('created_at', 'desc')
       ->with(['user', 'votes.user', 'cdnUserContent'])
@@ -595,6 +609,7 @@ class TopicsController extends Controller
     $cutoff = now()->subDays(90);
 
     $candidates = $this->visibleTopicsQuery($userId)
+      ->fromMembers()
       ->select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
       ->withSum('votes', 'vote_value')
       ->withCount(['comments as comments_total'])
@@ -2490,7 +2505,7 @@ class TopicsController extends Controller
   private function forgetPersonalizedFeedCache(int $userId): void
   {
     $feedVersion = Cache::get('feed_version', 1);
-    Cache::forget("feed_scores_v3_user_{$userId}_v{$feedVersion}");
+    Cache::forget("feed_scores_v4_user_{$userId}_v{$feedVersion}");
   }
 
   /**

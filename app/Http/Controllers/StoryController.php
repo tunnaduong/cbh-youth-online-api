@@ -651,7 +651,7 @@ class StoryController extends Controller
         // Held for moderation: only its author and the admins may open it.
         if ($story->isHeldForModeration()) {
             $viewer = $request->user();
-            if (! $viewer || ($viewer->id !== $story->user_id && $viewer->role !== 'admin')) {
+            if (! $viewer || ($viewer->id !== $story->user_id && !$viewer->isStaff())) {
                 if ($request->expectsJson()) {
                     return response()->json([
                         'status' => 'error',
