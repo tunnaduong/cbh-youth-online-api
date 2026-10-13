@@ -3382,6 +3382,7 @@ TEXT;
             'username' => $message->user->username ?? 'Ẩn danh',
             'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
             'avatar_url' => $message->user->avatarUrl(),
+            'profile_theme' => ProfileThemeService::forAuthor($message->user),
             'is_ai' => (bool) $message->user->is_ai,
           ] : [
             'id' => null,
@@ -3608,6 +3609,7 @@ TEXT;
         'username' => $message->user->username ?? 'Ẩn danh',
         'profile_name' => ($message->user->profile->profile_name ?? null) ?? $message->user->username ?? 'Ẩn danh',
         'avatar_url' => $message->user->avatarUrl(),
+        'profile_theme' => ProfileThemeService::forAuthor($message->user),
         'is_ai' => (bool) $message->user->is_ai,
       ] : [
         'id' => null,
@@ -3702,6 +3704,7 @@ TEXT;
           'username' => $user->username,
           'profile_name' => $user->profile->profile_name ?? $user->username,
           'avatar_url' => $user->avatarUrl(),
+          'profile_theme' => ProfileThemeService::forAuthor($user),
           'is_guest' => false,
           'last_activity' => $lastActivityString,
           'is_online' => $isOnline,
