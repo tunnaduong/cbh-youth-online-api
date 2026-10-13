@@ -322,6 +322,7 @@ class TopicsController extends Controller
       'image_urls' => $topic->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
+      'cover_url' => $topic->cover_url,
       'document_urls' => $topic->getDocuments()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
