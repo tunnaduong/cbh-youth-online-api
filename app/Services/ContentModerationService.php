@@ -30,6 +30,14 @@ class ContentModerationService
     /** Shown in the queue when media (not the text) is what needs a human. */
     private const ATTACHMENT_REVIEW_REASON = 'Có ảnh/video/tệp đính kèm - AI không đọc được, cần người kiểm duyệt xem.';
 
+    /** Photos are looked at by ImageModerationService; videos and documents still need a person. */
+    private ImageModerationService $images;
+
+    public function __construct()
+    {
+        $this->images = new ImageModerationService();
+    }
+
     private const SYSTEM_PROMPT = <<<PROMPT
 Bạn là hệ thống kiểm duyệt nội dung tự động của Chuyên Biên Hòa Youth Online (CYO) - cộng đồng học sinh THPT Chuyên Biên Hòa.
 
@@ -197,14 +205,17 @@ PROMPT;
         $verdict = $result['verdict'];
         $reason = $result['reason'] ?? '';
 
-        // The model only ever saw the title and body - it cannot look at an
-        // attached image, video or document. Never let it clear a post whose
-        // attachments nobody has reviewed: a clean caption over an abusive
-        // image would sail straight through. A rejection stands, since the
-        // text alone was already enough to refuse it.
-        if ($verdict === 'approved' && $topic->hasAttachments()) {
-            $verdict = 'needs_review';
-            $reason = self::ATTACHMENT_REVIEW_REASON;
+        // The text model never saw the attachments. Never let it clear a post
+        // whose attachments nobody has reviewed: a clean caption over an
+        // abusive image would sail straight through. Photos are checked by
+        // the vision model; a rejection stands, since the text alone was
+        // already enough to refuse it.
+        if ($verdict === 'approved') {
+            $attachmentReason = $this->reviewTopicAttachments($topic);
+            if ($attachmentReason !== null) {
+                $verdict = 'needs_review';
+                $reason = $attachmentReason;
+            }
         }
 
         $snapshot = json_encode([
@@ -254,6 +265,25 @@ PROMPT;
     }
 
     /**
+     * What is still to be checked on a post's attachments once the text is
+     * approved. Null when they are all clearly fine (photos the vision model
+     * approved); otherwise the reason to hold the post for a human.
+     */
+    private function reviewTopicAttachments(Topic $topic): ?string
+    {
+        // Videos and documents are not read by any model: a person looks at them.
+        if (trim((string) $topic->cdn_video_id) !== '' || trim((string) $topic->cdn_document_id) !== '') {
+            return self::ATTACHMENT_REVIEW_REASON;
+        }
+
+        if (trim((string) $topic->cdn_image_id) === '') {
+            return null;
+        }
+
+        return $this->images->reviewPaths($topic->getImageUrls()->pluck('file_path')->all());
+    }
+
+    /**
      * Apply moderation result to a comment. Returns ['action', 'message'].
      */
     public function applyToComment(TopicComment $comment, array $result): array
@@ -261,10 +291,13 @@ PROMPT;
         $verdict = $result['verdict'];
         $reason = $result['reason'] ?? '';
 
-        // Same rule as applyToTopic: the model never saw these images.
+        // Same rule as applyToTopic: the text model never saw these images.
         if ($verdict === 'approved' && !empty($comment->image_urls)) {
-            $verdict = 'needs_review';
-            $reason = self::ATTACHMENT_REVIEW_REASON;
+            $imageReason = $this->images->reviewPaths($comment->image_urls);
+            if ($imageReason !== null) {
+                $verdict = 'needs_review';
+                $reason = $imageReason;
+            }
         }
 
         $snapshot = json_encode([
