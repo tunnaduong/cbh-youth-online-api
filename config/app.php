@@ -51,7 +51,7 @@ return [
    * |
    */
   'url' => env('APP_URL', 'http://localhost'),
-  'ui_url' => env('APP_UI_URL', 'https://chuyenbienhoa.com'),
+  'ui_url' => env('APP_UI_URL') ?: str_replace('://api.', '://', rtrim(env('APP_URL', 'http://localhost'), '/')),
   'asset_url' => env('ASSET_URL'),
 
   /*
