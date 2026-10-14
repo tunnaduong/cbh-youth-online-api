@@ -28,7 +28,9 @@ class WeeklyNewsletterMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $baseUrl = rtrim(config('app.ui_url', env('APP_UI_URL', 'http://localhost:3000')), '/');
+        // Fallback must be the public site: a production .env without APP_UI_URL
+        // would otherwise put localhost links in every newsletter.
+        $baseUrl = rtrim(env('APP_UI_URL', 'https://chuyenbienhoa.com'), '/');
 
         return new Content(
             markdown: 'emails.weekly_newsletter',

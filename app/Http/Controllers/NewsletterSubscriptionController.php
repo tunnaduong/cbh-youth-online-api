@@ -20,7 +20,7 @@ class NewsletterSubscriptionController extends Controller
       ]
     );
 
-    $frontendUrl = rtrim(env('APP_UI_URL', 'http://localhost:3000'), '/');
+    $frontendUrl = rtrim(env('APP_UI_URL', 'https://chuyenbienhoa.com'), '/');
 
     return redirect()->away($frontendUrl . '/unsubscribe?status=success');
   }
