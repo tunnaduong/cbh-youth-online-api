@@ -551,6 +551,7 @@ Route::prefix('v1.0')->group(function () {
       Route::delete('/comments/{id}', 'deleteComment');
 
       Route::get('/users', 'users');
+      Route::post('/users', 'createUser');
       Route::patch('/users/{id}', 'updateUser');
       Route::post('/users/{id}/reset-password', 'resetUserPassword');
       Route::post('/users/{id}/reset-two-factor', 'resetUserTwoFactor');
