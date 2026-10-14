@@ -1832,9 +1832,32 @@ class TopicsController extends Controller
     $topic->privacy = $request->privacy ?? 'public';
     $topic->anonymous = $request->boolean('anonymous', false);
 
-    $topic->save();
+    // Content moderation: run on every edit unless the user is exempt.
+    if (!\App\Services\ContentModerationService::isExempt($request->user())) {
+      $moderationService = new \App\Services\ContentModerationService();
+      $moderationResult = $moderationService->moderateTopic($topic->title, $topic->description ?? '');
 
-    HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
+      if (($moderationResult['verdict'] ?? '') === 'rejected') {
+        return response()->json([
+          'message' => 'Bài viết bị từ chối: ' . ($moderationResult['reason'] ?? 'Nội dung không đạt tiêu chuẩn cộng đồng.'),
+          'moderation' => ['status' => 'rejected', 'reason' => $moderationResult['reason'] ?? null],
+        ], 422);
+      }
+
+      // Remove any stale queue entry for this topic so applyToTopic() creates a fresh one.
+      \App\Models\ModerationQueue::where('content_type', 'topic')
+        ->where('content_id', $topic->id)
+        ->whereIn('status', ['pending', 'rejected'])
+        ->delete();
+
+      $topic->save();
+      HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
+      $moderationOutcome = $moderationService->applyToTopic($topic, $moderationResult);
+    } else {
+      $topic->save();
+      HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
+      $moderationOutcome = ['action' => 'approved', 'message' => null];
+    }
 
     // Resolve @mentions in the updated text so clients can render them
     // immediately, matching updateComment() — no new notifications are
@@ -1843,8 +1866,14 @@ class TopicsController extends Controller
     $topicArray['mentions'] = $this->filterMentionsByBlock($this->resolveTopicMentions($topic->description), $topic->user_id);
 
     return response()->json([
-      'message' => 'Bài viết đã được cập nhật thành công',
-      'data' => $topicArray
+      'message' => $moderationOutcome['action'] === 'pending'
+        ? ($moderationOutcome['message'] ?? 'Bài viết đang chờ kiểm duyệt.')
+        : 'Bài viết đã được cập nhật thành công',
+      'data' => $topicArray,
+      'moderation' => [
+        'status' => $moderationOutcome['action'],
+        'message' => $moderationOutcome['message'],
+      ],
     ]);
   }
 
