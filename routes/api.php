@@ -104,6 +104,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/topics/pinned', [ForumController::class, 'getPinnedTopics']);
     Route::get('/topics/{id}/votes', [TopicsController::class, 'getVotes']);
     Route::get('/topics/{id}/comments', [TopicsController::class, 'getComments']);
+    Route::get('/topics/{id}/related', [TopicsController::class, 'related']);
     Route::get('/comments/{id}/votes', [TopicsController::class, 'getVotesForComment']);
 
     // Mention suggestions (accessible with optional auth)
