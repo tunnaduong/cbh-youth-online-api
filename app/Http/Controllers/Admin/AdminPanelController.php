@@ -26,17 +26,23 @@ use App\Models\ShopProductVariant;
 use App\Models\StudyMaterial;
 use App\Models\Topic;
 use App\Models\TopicComment;
+use App\Models\UserContent;
+use App\Models\UserProfile;
 use App\Models\UserReport;
 use App\Models\WithdrawalRequest;
 use App\Mail\ShopOrderCompletedMail;
+use App\Services\HeicImageConverter;
 use App\Services\PointsService;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\Facades\Image;
 
 /**
  * JSON endpoints backing the Next.js admin panel (/admin).
@@ -367,6 +373,139 @@ class AdminPanelController extends Controller
     $user->delete();
 
     return response()->json(['message' => "Đã xóa tài khoản @{$username} và toàn bộ dữ liệu liên quan."]);
+  }
+
+  /**
+   * Create an account by hand, for example a seeded member that posts for the
+   * forum. The email is always <username>@tunnaduong.com and is marked verified
+   * (nobody reads that inbox, so no verification mail is sent). Without a
+   * password a random one is generated and returned once.
+   */
+  public function createUser(Request $request)
+  {
+    $data = $request->validate([
+      // Same rules as AuthController::register, so a manual account can't
+      // break a username the public sign-up would refuse.
+      'username' => [
+        'required',
+        'string',
+        'min:3',
+        'max:21',
+        'regex:/^[a-zA-Z0-9_.-]+$/',
+        'unique:cyo_auth_accounts,username',
+        'not_in:all',
+        function ($attribute, $value, $fail) {
+          $reserved = AuthAccount::where('is_ai', true)->pluck('username');
+          if ($reserved->contains(fn($u) => strcasecmp($u, $value) === 0)) {
+            $fail('Tên người dùng này đã được sử dụng.');
+          }
+        },
+      ],
+      'name' => 'required|string|max:255',
+      'password' => 'nullable|string|min:6|max:255',
+      'avatar' => 'nullable|file|mimes:jpeg,png,jpg,gif,heic,heif|max:10240',
+    ]);
+
+    $email = $data['username'] . '@tunnaduong.com';
+    if (AuthAccount::where('email', $email)->exists()) {
+      return response()->json(['errors' => ['username' => ['Email ' . $email . ' đã được sử dụng.']]], 422);
+    }
+
+    $avatar = null;
+    if ($request->hasFile('avatar')) {
+      $avatar = $this->storeSeedAvatar($request->file('avatar'));
+      if ($avatar === null) {
+        return response()->json(['errors' => ['avatar' => ['Không đọc được ảnh này, hãy thử ảnh khác.']]], 422);
+      }
+    }
+
+    $generated = empty($data['password']);
+    $password = $generated ? Str::password(12, true, true, false) : $data['password'];
+
+    $account = DB::transaction(function () use ($data, $email, $password, $avatar) {
+      $account = AuthAccount::create([
+        'username' => $data['username'],
+        'password' => Hash::make($password),
+        'email' => $email,
+        'email_verified_at' => now(),
+      ]);
+
+      $profile = UserProfile::create([
+        'auth_account_id' => $account->id,
+        'profile_username' => $account->username,
+        'profile_name' => $data['name'],
+      ]);
+
+      if ($avatar !== null) {
+        $content = UserContent::create([
+          'user_id' => $account->id,
+          'file_name' => $avatar['file_name'],
+          'file_path' => $avatar['file_path'],
+          'file_type' => 'image/jpeg',
+          'file_size' => Storage::disk('public')->size($avatar['file_path']),
+        ]);
+        $profile->profile_picture = $content->id;
+        $profile->save();
+      }
+
+      return $account;
+    });
+
+    \App\Models\AuditLog::record('ADMIN_CREATE_USER', $account->id, [
+      'target_type' => 'account',
+      'target_id' => $account->id,
+    ]);
+
+    return response()->json([
+      'message' => "Đã tạo tài khoản @{$account->username}.",
+      'user' => [
+        'id' => $account->id,
+        'username' => $account->username,
+        'email' => $account->email,
+        'profile_name' => $data['name'],
+      ],
+      // Only sent back when generated here: a typed password is already known.
+      'password' => $generated ? $password : null,
+    ], 201);
+  }
+
+  /**
+   * Crop an uploaded picture to a square and store it as the avatar, the same
+   * way UserController::updateAvatar does. Null when the file can't be read.
+   *
+   * @return array{file_name: string, file_path: string}|null
+   */
+  private function storeSeedAvatar(UploadedFile $file): ?array
+  {
+    $sourcePath = $file->getRealPath();
+    $tmpHeic = null;
+
+    if (HeicImageConverter::isHeic($file)) {
+      $converted = HeicImageConverter::convertAndStore($file, 'avatars_tmp_heic');
+      if ($converted === null) {
+        return null;
+      }
+      $tmpHeic = $converted['path'];
+      $sourcePath = Storage::disk('public')->path($tmpHeic);
+    }
+
+    try {
+      $image = Image::make($sourcePath);
+      $size = min($image->width(), $image->height());
+      $image->crop($size, $size)->resize(156, 156);
+
+      $fileName = time() . '_' . Str::random(8) . '.jpg';
+      $filePath = 'avatars/' . $fileName;
+      Storage::disk('public')->put($filePath, (string) $image->encode('jpg', 82));
+
+      return ['file_name' => $fileName, 'file_path' => $filePath];
+    } catch (\Throwable $e) {
+      return null;
+    } finally {
+      if ($tmpHeic !== null) {
+        Storage::disk('public')->delete($tmpHeic);
+      }
+    }
   }
 
   // ---------------------------------------------------------------- Pending deposits

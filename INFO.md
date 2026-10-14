@@ -48,7 +48,7 @@ Middleware aliases live in `app/Http/Kernel.php` (`optional.auth`, `not_banned`,
 - **Quiz & games** — `QuizController` (AI-generated questions via Gemini keys `GEMINI_1..5`, `QuizGenerationService`; online only - no question bank, an AI failure returns 503), `CustomQuizController` (quizzes parsed from user documents), `GameController` (play sessions, leaderboard).
 - **Notifications** — `NotificationController`, `NotificationSettingsController`, Expo token register/unregister, web push subscribe; weekly newsletter (`newsletter:send-weekly`, Monday 08:00) with unsubscribe.
 - **Misc** — `SearchController`, `UniversityController` (proxies Cốc Cốc học tập), `YouthNewsController`, `HelpCenterController`, `FeedbackController` (in-app bug reports/suggestions, guests allowed), `RecordingController`, `FileUploadController` (`/upload`, `/user-content/{id}`; image/video compression jobs), `FacebookWebhookController`.
-- **Admin** — Filament panel at `/admin` on this host (shop resources), plus the JSON admin API for the Next.js `/admin` (`Admin\*`, `AdminController`, `AdminBroadcast` + `SendAdminBroadcast` job).
+- **Admin** — Filament panel at `/admin` on this host (shop resources), plus the JSON admin API for the Next.js `/admin` (`Admin\*`, `AdminController`, `AdminBroadcast` + `SendAdminBroadcast` job). Staff can also create accounts by hand (`POST /admin/users`, email `<username>@tunnaduong.com`).
 - **API docs** — `dedoc/scramble` (`config/scramble.php`).
 
 ## Project structure
@@ -113,6 +113,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 - New client endpoints go in `routes/api.php` under the right access tier. Keep response shapes stable: web, mobile and gift shop all consume them.
 
 ## Recent work (newest first)
+
+- **Admin can create accounts by hand (branch `claude/sharp-cerf-l3nye3`; tests in `tests/Feature/AdminCreateUserTest.php`):** `POST /v1.0/admin/users` (`AdminPanelController::createUser`, `role:admin`) makes an account for seeding the forum. Fields: `username` (same rules as public sign-up), `name` (profile name), optional `password` (min 6; left out = a random 12-character one, returned once as `password`), optional `avatar` image (cropped to a 156 px square like `UserController::updateAvatar`, HEIC too). The email is always `<username>@tunnaduong.com` and is marked verified, so no mail is sent. Role is the default `user`. Logged as `ADMIN_CREATE_USER`. Used by the Next.js `/admin/users` "Tạo người dùng" dialog.
 
 - **Weekly newsletter links point to the live site** (`php -l` only; no deploy needed beyond the code): `WeeklyNewsletterMail` and the newsletter unsubscribe redirect fell back to `http://localhost:3000` when `APP_UI_URL` was not set in `.env`, so every post button in the Monday email went to localhost. Both now fall back to `https://chuyenbienhoa.com`, like the other public-facing mails. Setting `APP_UI_URL` on the server still overrides it.
 
