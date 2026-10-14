@@ -383,9 +383,9 @@ class UserController extends Controller
     // counting "members with more points" told an admin with the most
     // points that they were #1. null = not ranked (the clients then show
     // the points without a rank).
-    $rank = $user->role === 'admin'
+    $rank = $user->isStaff()
       ? null
-      : AuthAccount::where('role', '!=', 'admin')
+      : AuthAccount::notStaff()
         ->where('points', '>', $userPoints)
         ->count() + 1;
 
@@ -1051,7 +1051,7 @@ class UserController extends Controller
   {
     try {
       $topUsers = AuthAccount::with(['profile'])
-        ->where('role', '!=', 'admin')  // Exclude admin users
+        ->notStaff()  // Exclude admins and teachers
         ->notBlockedWithViewer()
         ->orderByDesc('points')  // Use points for sorting
         ->limit(8)

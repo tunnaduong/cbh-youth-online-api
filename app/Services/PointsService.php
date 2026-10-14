@@ -186,7 +186,7 @@ class PointsService
   public static function getTopUsers($limit = 8)
   {
     return AuthAccount::with(['profile'])
-      ->where('role', '!=', 'admin')
+      ->notStaff()
       ->orderByDesc('points')
       ->limit($limit)
       ->get();
@@ -390,7 +390,7 @@ class PointsService
    */
   public static function canGiftPoints(AuthAccount $user): bool
   {
-    return ($user->role ?? null) === 'admin' || $user->hasPrivilege(self::GIFT_PRIVILEGE);
+    return \App\Models\AuthAccount::isStaffRole($user->role ?? null) || $user->hasPrivilege(self::GIFT_PRIVILEGE);
   }
 
   /**

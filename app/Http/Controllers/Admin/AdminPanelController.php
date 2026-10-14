@@ -7,6 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendAdminBroadcast;
 use App\Models\AdminBroadcast;
 use App\Models\AdminMessageAccessLog;
+use App\Models\AuditLog;
+use App\Models\Feedback;
+use App\Models\ModerationQueue;
+use App\Models\StudentVerification;
+use App\Models\ViolationReport;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\AuthAccount;
@@ -82,6 +87,18 @@ class AdminPanelController extends Controller
       'pending_withdrawals' => WithdrawalRequest::where('status', 'pending')->count(),
       'pending_orders' => ShopOrder::where('status', 'pending')->count(),
       'study_materials' => StudyMaterial::count(),
+      // One number per sidebar section, so the dashboard can show every
+      // area of the panel with its own "needs attention" count.
+      'pending_moderation' => ModerationQueue::where('status', 'pending')->count(),
+      'pending_violations' => ViolationReport::where('status', 'pending')->count(),
+      'new_feedback' => Feedback::where('status', 'new')->count(),
+      'pending_student_verifications' => StudentVerification::where('status', 'pending')->count(),
+      'conversations' => Conversation::count(),
+      'messages_today' => Message::whereDate('created_at', today())->count(),
+      'broadcasts' => AdminBroadcast::count(),
+      'shop_products' => ShopProduct::count(),
+      'shop_categories' => ShopCategory::count(),
+      'audit_logs_today' => AuditLog::whereDate('created_at', today())->count(),
       'daily' => $this->dailySeries(14),
     ]);
   }
@@ -241,7 +258,7 @@ class AdminPanelController extends Controller
     ]);
 
     $user = AuthAccount::findOrFail($id);
-    if (isset($data['role']) && $user->id === Auth::id() && $data['role'] !== 'admin') {
+    if (isset($data['role']) && $user->id === Auth::id() && !AuthAccount::isStaffRole($data['role'])) {
       return response()->json(['message' => 'Không thể tự hạ quyền của chính bạn.'], 403);
     }
 
@@ -273,7 +290,7 @@ class AdminPanelController extends Controller
     if ($user->id === Auth::id()) {
       return response()->json(['message' => 'Hãy đổi mật khẩu của chính bạn trong phần Cài đặt.'], 403);
     }
-    if ($user->role === 'admin') {
+    if ($user->isStaff()) {
       return response()->json(['message' => 'Không thể đặt lại mật khẩu của quản trị viên khác.'], 403);
     }
 
@@ -309,7 +326,7 @@ class AdminPanelController extends Controller
     $user = AuthAccount::findOrFail($id);
 
     // Same rule as resetUserPassword: one admin can't weaken another's login.
-    if ($user->role === 'admin' && $user->id !== Auth::id()) {
+    if ($user->isStaff() && $user->id !== Auth::id()) {
       return response()->json(['message' => 'Không thể tắt xác thực hai lớp của quản trị viên khác.'], 403);
     }
 
@@ -339,7 +356,7 @@ class AdminPanelController extends Controller
     if ($user->id === Auth::id()) {
       return response()->json(['message' => 'Không thể tự xóa tài khoản của chính bạn.'], 403);
     }
-    if ($user->role === 'admin') {
+    if ($user->isStaff()) {
       return response()->json(['message' => 'Không thể xóa tài khoản quản trị viên. Hãy hạ quyền trước khi xóa.'], 403);
     }
 

@@ -93,6 +93,17 @@ return [
     'key' => env('CYO_AI_API'),
   ],
 
+  'image_moderation' => [
+    // Photo check for forum posts and comments (ImageModerationService). Any
+    // OpenAI-compatible chat endpoint with a vision model works; the default
+    // is CometAPI with gemini-3-flash. The key lives in .env as
+    // IMAGE_MODERATION_API_KEY - never commit it or return it from any
+    // endpoint. Without a key every photo goes to the admin queue.
+    'url' => env('IMAGE_MODERATION_API_URL', 'https://api.cometapi.com/v1/chat/completions'),
+    'key' => env('IMAGE_MODERATION_API_KEY'),
+    'model' => env('IMAGE_MODERATION_MODEL', 'gemini-3-flash'),
+  ],
+
   'gemini' => [
     // Quiz question generation (QuizGenerationService) calls the Google AI
     // Studio API directly with one of these keys, picked at random each

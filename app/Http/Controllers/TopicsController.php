@@ -174,7 +174,17 @@ class TopicsController extends Controller
    */
   public function index(Request $request)
   {
+    return $this->topicList($request, false);
+  }
+
+  /**
+   * The reverse-chronological topic list behind index() and the guest feed;
+   * $membersOnly drops posts of the youth union account and admins / teachers.
+   */
+  private function topicList(Request $request, bool $membersOnly)
+  {
     $query = $this->visibleTopicsQuery(auth()->id())
+      ->when($membersOnly, fn($q) => $q->fromMembers())
       ->select([
         'id',
         'subforum_id',
@@ -203,6 +213,121 @@ class TopicsController extends Controller
 
     // Return the paginated topics as a JSON response
     return response()->json($topics);
+  }
+
+  /**
+   * Posts related to one post, shown under its comments: posts of the same
+   * subforum first, then posts whose titles share words with it or that share
+   * a hashtag. Candidates go through the same visibility rules as the listings,
+   * so a guest never gets a members-only or blocked author's post.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $id
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function related(Request $request, $id)
+  {
+    $topic = Topic::with('hashtags:id')->find($id);
+
+    if (
+      !$topic
+      || in_array($topic->moderation_status, ['pending', 'rejected'], true)
+      || \App\Support\UserBlocks::viewerIsBlockedWith((int) $topic->user_id)
+    ) {
+      return response()->json(['posts' => []]);
+    }
+
+    $words = $this->relatedKeywords($topic->title);
+    $tagIds = $topic->hashtags->pluck('id')->all();
+    $subforumId = $topic->subforum_id ? (int) $topic->subforum_id : null;
+
+    if (!$subforumId && empty($words) && empty($tagIds)) {
+      return response()->json(['posts' => []]);
+    }
+
+    // Only the newest candidates are scored: a long archive would make the
+    // scoring query slow, and recent posts are what readers look for anyway.
+    $pool = $this->visibleTopicsQuery(auth()->id())
+      ->where('id', '!=', $topic->id)
+      ->whereNotIn('moderation_status', ['pending', 'rejected'])
+      ->where(function ($q) use ($subforumId, $words, $tagIds) {
+        if ($subforumId) {
+          $q->orWhere('subforum_id', $subforumId);
+        }
+        foreach ($words as $word) {
+          $q->orWhere('title', 'like', '%' . $word . '%');
+        }
+        if (!empty($tagIds)) {
+          $q->orWhereHas('hashtags', fn($h) => $h->whereKey($tagIds));
+        }
+      })
+      ->with('hashtags:id')
+      ->select(['id', 'title', 'subforum_id', 'created_at'])
+      ->latest('created_at')
+      ->limit(200)
+      ->get();
+
+    $ranked = $pool
+      ->map(function ($row) use ($subforumId, $words, $tagIds) {
+        $score = 0;
+        if ($subforumId && (int) $row->subforum_id === $subforumId) {
+          $score += 3;
+        }
+        $title = mb_strtolower($row->title);
+        foreach ($words as $word) {
+          if (str_contains($title, $word)) {
+            $score += 2;
+          }
+        }
+        $score += 2 * count(array_intersect($tagIds, $row->hashtags->pluck('id')->all()));
+
+        return ['id' => $row->id, 'score' => $score, 'created' => $row->created_at->timestamp];
+      })
+      ->filter(fn($r) => $r['score'] > 0)
+      ->sortByDesc(fn($r) => [$r['score'], $r['created']])
+      ->take(6)
+      ->values();
+
+    if ($ranked->isEmpty()) {
+      return response()->json(['posts' => []]);
+    }
+
+    $ids = $ranked->pluck('id')->all();
+    $posts = Topic::with(['user.profile', 'cdnUserContent', 'votes.user', 'subforum'])
+      ->withCount(['comments', 'views'])
+      ->whereIn('id', $ids)
+      ->get()
+      ->sortBy(fn($t) => array_search($t->id, $ids, true))
+      ->values()
+      ->map(function ($t) use ($request) {
+        $data = $this->formatTopicForList($t, $request);
+        $data['subforum'] = $t->subforum
+          ? ['id' => $t->subforum->id, 'name' => $t->subforum->name]
+          : null;
+
+        return $data;
+      });
+
+    return response()->json(['posts' => $posts]);
+  }
+
+  /**
+   * The words of a title that can make two posts related: lowercase words of
+   * at least 3 characters, without common Vietnamese / English filler words.
+   *
+   * @return array<int, string>
+   */
+  private function relatedKeywords(string $title): array
+  {
+    $filler = ['và', 'của', 'các', 'cho', 'với', 'những', 'một', 'này', 'được', 'trong', 'khi', 'the', 'and', 'for', 'how', 'what'];
+
+    $words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($title), -1, PREG_SPLIT_NO_EMPTY);
+    $words = array_filter(
+      array_unique($words),
+      fn($w) => mb_strlen($w) >= 3 && !in_array($w, $filler, true)
+    );
+
+    return array_slice(array_values($words), 0, 6);
   }
 
   /**
@@ -322,6 +447,7 @@ class TopicsController extends Controller
       'image_urls' => $topic->getImageUrls()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
+      'cover_url' => $topic->cover_url,
       'document_urls' => $topic->getDocuments()->map(function ($content) {
         return config('app.url') . Storage::url($content->file_path);
       })->all(),
@@ -399,8 +525,10 @@ class TopicsController extends Controller
       return $this->newsFeed($request, $userId, max(1, (int) $request->query('page', 1)), 10);
     }
 
+    // The home feed shows members' posts only (Topic::scopeFromMembers): the
+    // youth union account and admins / teachers stay out of it.
     if (!$userId) {
-      return $this->index($request);
+      return $this->topicList($request, true);
     }
 
     $perPage = 10;
@@ -426,7 +554,7 @@ class TopicsController extends Controller
     // as soon as a new topic is created (see bumpFeedVersion()), instead of only
     // expiring after the 30-minute TTL.
     $feedVersion = Cache::get('feed_version', 1);
-    $cacheKey = "feed_scores_v3_user_{$userId}_v{$feedVersion}";  // v3: caches the ranked list, shuffling happens per request
+    $cacheKey = "feed_scores_v4_user_{$userId}_v{$feedVersion}";  // v4: members' posts only (v3: caches the ranked list, shuffling happens per request)
     $ranked = Cache::remember(
       $cacheKey,
       now()->addMinutes(30),
@@ -444,6 +572,7 @@ class TopicsController extends Controller
       // block filter here in case a block happened after it was built.
       $topicsById = Topic::whereIn('id', $pageIds)
         ->notFromBlockedUsers()
+        ->fromMembers()
         ->withCount(['views', 'comments'])
         ->with(['user.profile', 'votes.user', 'cdnUserContent'])
         ->get()
@@ -503,6 +632,7 @@ class TopicsController extends Controller
   private function latestFeed(Request $request, int $userId, int $page, int $perPage)
   {
     $topics = $this->visibleTopicsQuery($userId)
+      ->fromMembers()
       ->withCount(['views', 'comments'])
       ->orderBy('created_at', 'desc')
       ->with(['user', 'votes.user', 'cdnUserContent'])
@@ -594,6 +724,7 @@ class TopicsController extends Controller
     $cutoff = now()->subDays(90);
 
     $candidates = $this->visibleTopicsQuery($userId)
+      ->fromMembers()
       ->select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
       ->withSum('votes', 'vote_value')
       ->withCount(['comments as comments_total'])
@@ -2080,9 +2211,9 @@ class TopicsController extends Controller
     ]);
 
     // AI content moderation for comment. An image-only comment still has to
-    // go through this: the model can't read the image, so applyToComment
-    // routes it to a human on the strength of the attachment alone - skipping
-    // the check entirely would auto-publish images nobody has looked at.
+    // go through this: applyToComment has the vision model look at each photo,
+    // and holds the comment for a human unless every photo is clearly fine -
+    // skipping the check would auto-publish images nobody has looked at.
     // Admins are exempt, as for posts.
     if (($request->comment || !empty($imagePaths)) && !\App\Services\ContentModerationService::isExempt($request->user())) {
       $moderationService = new \App\Services\ContentModerationService();
@@ -2489,7 +2620,7 @@ class TopicsController extends Controller
   private function forgetPersonalizedFeedCache(int $userId): void
   {
     $feedVersion = Cache::get('feed_version', 1);
-    Cache::forget("feed_scores_v3_user_{$userId}_v{$feedVersion}");
+    Cache::forget("feed_scores_v4_user_{$userId}_v{$feedVersion}");
   }
 
   /**

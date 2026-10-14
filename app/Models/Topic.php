@@ -86,6 +86,7 @@ class Topic extends Model
     'is_muted',
     'cdn_video_id',
     'moderation_status',
+    'cover_image',
   ];
 
   /**
@@ -270,6 +271,17 @@ class Topic extends Model
     return $this->getImageUrls()->map(function ($content) {
       return config('app.url') . Storage::url($content->file_path);
     })->all();
+  }
+
+  /**
+   * Generated cover picture (first video frame / the text as a page), for
+   * posts with no photo. Null when there is none.
+   */
+  public function getCoverUrlAttribute(): ?string
+  {
+    return $this->cover_image
+      ? config('app.url') . Storage::url($this->cover_image)
+      : null;
   }
 
   /**
@@ -523,6 +535,29 @@ class Topic extends Model
   }
 
   /**
+   * Scope a query to posts by ordinary members: leaves out the youth union
+   * account (forum.school_account) and admins / teachers, whose posts have
+   * their own places ("Tin tức Đoàn"). Used by the home page lists.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @return \Illuminate\Database\Eloquent\Builder
+   */
+  public function scopeFromMembers($query)
+  {
+    $schoolAccount = config('forum.school_account') ?: 'DoanTruongCBH';
+
+    return $query->whereNotIn(
+      $query->qualifyColumn('user_id'),
+      AuthAccount::query()
+        ->select('id')
+        ->where(function ($q) use ($schoolAccount) {
+          $q->whereIn('role', AuthAccount::STAFF_ROLES)
+            ->orWhere('username', $schoolAccount);
+        })
+    );
+  }
+
+  /**
    * Scope a query to only include topics in the "Tin tức Đoàn" subforum.
    *
    * @param  \Illuminate\Database\Eloquent\Builder  $query
@@ -569,6 +604,17 @@ class Topic extends Model
       }
     });
 
+    // Cover picture for posts without a photo (first video frame or the text
+    // drawn as a page). Built in the queue; see TopicCoverService.
+    static::saved(function ($topic) {
+      if (
+        $topic->wasRecentlyCreated
+        || $topic->wasChanged(['title', 'description', 'cdn_image_id', 'cdn_video_id'])
+      ) {
+        \App\Jobs\GenerateTopicCover::dispatch($topic->id)->afterCommit();
+      }
+    });
+
     // Add points when a topic is created (+10 points)
     static::created(function ($topic) {
       PointsService::onPostCreated($topic->user_id);
@@ -583,6 +629,10 @@ class Topic extends Model
     // Deduct points when a topic is deleted (-10 points)
     static::deleted(function ($topic) {
       PointsService::onPostDeleted($topic->user_id);
+
+      if ($topic->cover_image) {
+        Storage::disk('public')->delete($topic->cover_image);
+      }
 
       // Remove any notifications that were sent referencing this topic
       Notification::where('notifiable_type', Topic::class)

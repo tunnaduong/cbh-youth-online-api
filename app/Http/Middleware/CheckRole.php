@@ -21,7 +21,13 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next, string $role): Response
     {
-        if (!$request->user() || $request->user()->role !== $role) {
+        $user = $request->user();
+        // `role:admin` also lets teachers in - they have the same rights.
+        $allowed = $user && ($role === 'admin'
+            ? \App\Models\AuthAccount::isStaffRole($user->role)
+            : $user->role === $role);
+
+        if (!$allowed) {
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'Unauthorized. Requires ' . $role . ' role.'], 403);
             }
