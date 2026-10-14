@@ -2096,9 +2096,9 @@ class TopicsController extends Controller
     ]);
 
     // AI content moderation for comment. An image-only comment still has to
-    // go through this: the model can't read the image, so applyToComment
-    // routes it to a human on the strength of the attachment alone - skipping
-    // the check entirely would auto-publish images nobody has looked at.
+    // go through this: applyToComment has the vision model look at each photo,
+    // and holds the comment for a human unless every photo is clearly fine -
+    // skipping the check would auto-publish images nobody has looked at.
     // Admins are exempt, as for posts.
     if (($request->comment || !empty($imagePaths)) && !\App\Services\ContentModerationService::isExempt($request->user())) {
       $moderationService = new \App\Services\ContentModerationService();
