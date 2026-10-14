@@ -351,6 +351,55 @@ class AdminPanelController extends Controller
   }
 
   /**
+   * Issue a short-lived token for an ordinary account, so the admin can sign
+   * in as it with one click (the web switches to it in the account switcher,
+   * so the admin can switch back). Same limits as resetting a password: never
+   * staff, and never a banned account, which would sidestep the ban.
+   */
+  public function impersonateUser($id)
+  {
+    $user = AuthAccount::with('profile')->findOrFail($id);
+
+    if ($user->id === Auth::id()) {
+      return response()->json(['message' => 'Bạn đang đăng nhập bằng tài khoản này rồi.'], 403);
+    }
+    if ($user->isStaff()) {
+      return response()->json(['message' => 'Không thể đăng nhập vào tài khoản quản trị viên khác.'], 403);
+    }
+    if ($user->isCurrentlyBanned()) {
+      return response()->json(['message' => 'Tài khoản này đang bị khóa. Hãy mở khóa trước.'], 403);
+    }
+
+    // Named after the admin so the device list shows whose access it is.
+    $token = $user->createToken('admin-impersonation:' . Auth::id(), ['*'], now()->addHours(12));
+
+    \App\Models\AuditLog::record('ADMIN_IMPERSONATE', $user->id, [
+      'target_type' => 'account',
+      'target_id' => $user->id,
+    ]);
+
+    // Same shape as the login response, so the web can store it as the
+    // signed-in user and the account switcher can show it.
+    return response()->json([
+      'message' => "Đang đăng nhập bằng @{$user->username}.",
+      'token' => $token->plainTextToken,
+      'user' => [
+        'id' => $user->id,
+        'username' => $user->username,
+        'email' => $user->email,
+        'profile_name' => $user->profile->profile_name ?? null,
+        'created_at' => $user->created_at,
+        'updated_at' => $user->updated_at,
+        'email_verified_at' => $user->email_verified_at,
+        'verified' => ($user->profile->verified ?? null) == 1,
+        'role' => $user->role ?? null,
+        'profile_theme' => \App\Services\ProfileThemeService::forAuthor($user),
+        'avatar_url' => $user->avatarUrl(),
+      ],
+    ]);
+  }
+
+  /**
    * Permanently delete an account. Everything hanging off it (posts, comments,
    * messages, wallet history, ...) goes with it through the schema's cascades,
    * so this is not reversible - banning is the recoverable option.
