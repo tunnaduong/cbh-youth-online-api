@@ -114,6 +114,16 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Self-hosted OTA (Over-The-Air) updates via Expo Updates Protocol v1** (`app/Http/Controllers/OtaController.php`, `app/Console/Commands/OtaCommand.php`, `app/Console/Commands/OtaRollbackCommand.php`, `routes/api.php`, `config/services.php`):
+  - Added self-hosted OTA updates server compliant with Expo Updates Protocol v1 (`multipart/mixed` responses with directives `noUpdateAvailable` and `rollBackToEmbedded`, manifest with base64url SHA-256 hashes).
+  - Endpoints:
+    - `GET /v1.0/ota/manifest`: returns manifest or directive based on `expo-platform`, `expo-runtime-version`, `expo-channel-name`, and `expo-current-update-id`. Also mirrored at top-level `/ota/manifest`.
+    - `GET /v1.0/ota/assets/{channel}/{runtimeVersion}/{updateId}/{path}`: streams JS bundles (`.js`, `.hbc`) and assets with immutable caching.
+    - `POST /v1.0/admin/ota/publish`: accepts `.zip` export of `dist/` (from `npx expo export`), computes base64url SHA-256 hashes, registers manifests, and activates the release. Protected by `OTA_DEPLOY_TOKEN` Bearer token or admin auth.
+    - `POST /v1.0/admin/ota/rollback`: instantly rolls back a channel to embedded binary or to a previous `update_id`.
+    - `GET /v1.0/admin/ota/history`: returns active release and history log.
+  - Artisan CLI commands: `php artisan ota:status` and `php artisan ota:rollback`.
+
 - **Admin can create accounts by hand (branch `claude/sharp-cerf-l3nye3`; tests in `tests/Feature/AdminCreateUserTest.php`):** `POST /v1.0/admin/users` (`AdminPanelController::createUser`, `role:admin`) makes an account for seeding the forum. Fields: `username` (same rules as public sign-up), `name` (profile name), optional `password` (min 6; left out = a random 12-character one, returned once as `password`), optional `avatar` image (cropped to a 156 px square like `UserController::updateAvatar`, HEIC too). The email is always `<username>@tunnaduong.com` and is marked verified, so no mail is sent. Role is the default `user`. Logged as `ADMIN_CREATE_USER`. Used by the Next.js `/admin/users` "Tạo người dùng" dialog.
 
 - **Weekly newsletter links point to the live site** (`php -l` only; no deploy needed beyond the code): `WeeklyNewsletterMail` and the newsletter unsubscribe redirect fell back to `http://localhost:3000` when `APP_UI_URL` was not set in `.env`, so every post button in the Monday email went to localhost. Both now fall back to `https://chuyenbienhoa.com`, like the other public-facing mails. Setting `APP_UI_URL` on the server still overrides it.

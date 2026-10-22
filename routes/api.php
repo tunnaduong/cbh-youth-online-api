@@ -18,6 +18,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PasskeyController;
 use App\Http\Controllers\NotificationSettingsController;
 use App\Http\Controllers\OnlineUserController;
+use App\Http\Controllers\OtaController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PointsController;
 use App\Http\Controllers\RecordingController;
@@ -88,6 +89,10 @@ Route::prefix('v1.0')->group(function () {
   // (served through Laravel so they carry CORS headers for the web).
   Route::get('/name-fonts', [NameFontController::class, 'index']);
   Route::get('/name-fonts/{file}', [NameFontController::class, 'show'])->where('file', '[A-Za-z0-9]+\.ttf');
+
+  // Over-The-Air (OTA) Updates for mobile app (Expo Updates Protocol v1)
+  Route::get('/ota/manifest', [OtaController::class, 'manifest']);
+  Route::get('/ota/assets/{channel}/{runtimeVersion}/{updateId}/{path}', [OtaController::class, 'asset'])->where('path', '.*');
   Route::post('/oauth/exchange', [AuthController::class, 'exchangeOAuthCode']);
   Route::get('/oauth/callback', [AuthController::class, 'oauthCallback']);
   Route::post('/web-session/redeem', [AuthController::class, 'redeemWebHandoff'])->middleware('throttle:20,1');
@@ -620,4 +625,13 @@ Route::prefix('v1.0')->group(function () {
     // SePay Webhook
     Route::post('/hooks/sepay-payment', [\SePay\SePay\Http\Controllers\SePayController::class, 'webhook']);
   });
+
+  // OTA Deployment & Rollback (handles bearer token OTA_DEPLOY_TOKEN or role:admin)
+  Route::post('/admin/ota/publish', [OtaController::class, 'publish']);
+  Route::post('/admin/ota/rollback', [OtaController::class, 'rollback']);
+  Route::get('/admin/ota/history', [OtaController::class, 'history']);
 });
+
+// Top-level OTA fallbacks in case client requests /ota/... without /v1.0 prefix
+Route::get('/ota/manifest', [OtaController::class, 'manifest']);
+Route::get('/ota/assets/{channel}/{runtimeVersion}/{updateId}/{path}', [OtaController::class, 'asset'])->where('path', '.*');

@@ -121,4 +121,8 @@ return [
     ])),
   ],
 
+  'ota' => [
+    'deploy_token' => env('OTA_DEPLOY_TOKEN'),
+  ],
+
 ];
