@@ -50,9 +50,13 @@ class OtaController extends Controller
 
     // Check if the current channel is marked for roll back to embedded binary
     if (!empty($current['rollback'])) {
+      $commitTime = !empty($current['created_at'])
+        ? \Illuminate\Support\Carbon::parse($current['created_at'])->utc()->format('Y-m-d\TH:i:s.v\Z')
+        : now('UTC')->format('Y-m-d\TH:i:s.v\Z');
+
       return $this->returnDirective($request, 'rollBackToEmbedded', [
         'parameters' => [
-          'commitTime' => $current['created_at'] ?? now()->toIso8601String(),
+          'commitTime' => $commitTime,
         ],
       ]);
     }
@@ -71,6 +75,11 @@ class OtaController extends Controller
     $manifest = json_decode((string) file_get_contents($manifestPath), true);
     if (!is_array($manifest)) {
       return $this->returnDirective($request, 'noUpdateAvailable');
+    }
+
+    // Ensure createdAt strictly adheres to ISO-8601 with milliseconds and UTC "Z" (required by RCTConvert NSDate:)
+    if (isset($manifest['createdAt'])) {
+      $manifest['createdAt'] = \Illuminate\Support\Carbon::parse($manifest['createdAt'])->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
 
     // Rewrite URLs dynamically to match incoming request host (works for localhost, staging, production)
@@ -135,7 +144,7 @@ class OtaController extends Controller
     }
 
     $updateId = (string) Str::uuid();
-    $createdAt = now()->toIso8601String();
+    $createdAt = now('UTC')->format('Y-m-d\TH:i:s.v\Z');
 
     $targetDir = storage_path("app/ota/{$channel}/{$runtimeVersion}/{$updateId}");
     File::ensureDirectoryExists($targetDir);
@@ -314,7 +323,7 @@ class OtaController extends Controller
     if ($target === 'embedded') {
       $current['rollback'] = true;
       $current['message'] = 'Rolled back to embedded binary';
-      $current['updated_at'] = now()->toIso8601String();
+      $current['updated_at'] = now('UTC')->format('Y-m-d\TH:i:s.v\Z');
     } else {
       $targetDir = "{$otaBaseDir}/{$target}";
       if (!is_dir($targetDir)) {
@@ -323,7 +332,7 @@ class OtaController extends Controller
       $current['update_id'] = $target;
       $current['rollback'] = false;
       $current['message'] = "Rolled back to update {$target}";
-      $current['updated_at'] = now()->toIso8601String();
+      $current['updated_at'] = now('UTC')->format('Y-m-d\TH:i:s.v\Z');
     }
 
     file_put_contents($currentFile, json_encode($current, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

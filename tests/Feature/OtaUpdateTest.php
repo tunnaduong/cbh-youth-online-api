@@ -99,6 +99,10 @@ class OtaUpdateTest extends TestCase
     $updateId = $response->json('update_id');
     $this->assertNotEmpty($updateId);
 
+    // Verify createdAt in response has ISO 8601 UTC with milliseconds and Z (required by RCTConvert NSDate:)
+    $createdAt = $response->json('created_at');
+    $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/', $createdAt);
+
     // Verify files on disk
     $otaDir = storage_path("app/ota/{$this->testChannel}/{$this->testRuntime}");
     $this->assertFileExists("{$otaDir}/current.json");
@@ -204,7 +208,7 @@ class OtaUpdateTest extends TestCase
     $assetResponse = $this->get("/v1.0/ota/assets/{$this->testChannel}/{$this->testRuntime}/{$updateId}/bundle.js");
     $assetResponse->assertStatus(200);
     $this->assertStringContainsString('immutable', $assetResponse->headers->get('Cache-Control'));
-    $this->assertSame('console.log("hello world");', $assetResponse->getContent());
+    $this->assertSame('console.log("hello world");', file_get_contents($assetResponse->getFile()->getPathname()));
 
     // 2. Directory traversal attempt
     $attackResponse = $this->get("/v1.0/ota/assets/{$this->testChannel}/{$this->testRuntime}/{$updateId}/../../../../etc/passwd");

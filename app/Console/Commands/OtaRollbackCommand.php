@@ -45,7 +45,7 @@ class OtaRollbackCommand extends Command
     if ($target === 'embedded') {
       $current['rollback'] = true;
       $current['message'] = 'Rolled back to embedded binary via CLI';
-      $current['updated_at'] = now()->toIso8601String();
+      $current['updated_at'] = now('UTC')->format('Y-m-d\TH:i:s.v\Z');
       $this->info("Successfully set rollback directive to embedded binary for channel [{$channel}].");
     } else {
       $targetDir = "{$otaDir}/{$target}";
@@ -56,7 +56,7 @@ class OtaRollbackCommand extends Command
       $current['update_id'] = $target;
       $current['rollback'] = false;
       $current['message'] = "Rolled back to update ID {$target} via CLI";
-      $current['updated_at'] = now()->toIso8601String();
+      $current['updated_at'] = now('UTC')->format('Y-m-d\TH:i:s.v\Z');
       $this->info("Successfully switched active update to [{$target}] for channel [{$channel}].");
     }
 
