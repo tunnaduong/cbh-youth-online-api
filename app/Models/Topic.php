@@ -535,9 +535,9 @@ class Topic extends Model
   }
 
   /**
-   * Scope a query to posts by ordinary members: leaves out the youth union
-   * account (forum.school_account) and admins / teachers, whose posts have
-   * their own places ("Tin tức Đoàn"). Used by the home page lists.
+   * Scope a query to posts for the home page lists: leaves out the youth union
+   * account (forum.school_account) and teachers, whose posts belong in their
+   * own places ("Tin tức Đoàn"). Admin posts are still included.
    *
    * @param  \Illuminate\Database\Eloquent\Builder  $query
    * @return \Illuminate\Database\Eloquent\Builder
@@ -551,7 +551,7 @@ class Topic extends Model
       AuthAccount::query()
         ->select('id')
         ->where(function ($q) use ($schoolAccount) {
-          $q->whereIn('role', AuthAccount::STAFF_ROLES)
+          $q->where('role', 'teacher')
             ->orWhere('username', $schoolAccount);
         })
     );

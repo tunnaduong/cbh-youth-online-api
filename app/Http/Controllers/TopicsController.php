@@ -179,7 +179,7 @@ class TopicsController extends Controller
 
   /**
    * The reverse-chronological topic list behind index() and the guest feed;
-   * $membersOnly drops posts of the youth union account and admins / teachers.
+   * $membersOnly drops posts of the youth union account and teachers.
    */
   private function topicList(Request $request, bool $membersOnly)
   {
@@ -525,8 +525,8 @@ class TopicsController extends Controller
       return $this->newsFeed($request, $userId, max(1, (int) $request->query('page', 1)), 10);
     }
 
-    // The home feed shows members' posts only (Topic::scopeFromMembers): the
-    // youth union account and admins / teachers stay out of it.
+    // The home feed shows members' and admins' posts (Topic::scopeFromMembers): the
+    // youth union account and teachers stay out of it.
     if (!$userId) {
       return $this->topicList($request, true);
     }
@@ -554,7 +554,7 @@ class TopicsController extends Controller
     // as soon as a new topic is created (see bumpFeedVersion()), instead of only
     // expiring after the 30-minute TTL.
     $feedVersion = Cache::get('feed_version', 1);
-    $cacheKey = "feed_scores_v4_user_{$userId}_v{$feedVersion}";  // v4: members' posts only (v3: caches the ranked list, shuffling happens per request)
+    $cacheKey = "feed_scores_v5_user_{$userId}_v{$feedVersion}";  // v5: teachers' posts excluded from home feed, admins' posts kept
     $ranked = Cache::remember(
       $cacheKey,
       now()->addMinutes(30),
@@ -2649,7 +2649,7 @@ class TopicsController extends Controller
   private function forgetPersonalizedFeedCache(int $userId): void
   {
     $feedVersion = Cache::get('feed_version', 1);
-    Cache::forget("feed_scores_v4_user_{$userId}_v{$feedVersion}");
+    Cache::forget("feed_scores_v5_user_{$userId}_v{$feedVersion}");
   }
 
   /**
