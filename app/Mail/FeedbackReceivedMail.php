@@ -46,7 +46,9 @@ class FeedbackReceivedMail extends Mailable implements ShouldQueue
       with: [
         'feedback' => $f,
         'typeLabel' => self::TYPE_LABELS[$f->type] ?? $f->type,
-        'platformLabel' => (self::PLATFORM_LABELS[$f->platform] ?? $f->platform) . ($f->app_version ? " {$f->app_version}" : ''),
+        'platformLabel' => (self::PLATFORM_LABELS[$f->platform] ?? $f->platform)
+          . ($f->app_version ? " {$f->app_version}" : '')
+          . ($f->ota_version ? " (OTA: {$f->ota_version})" : ''),
         'senderName' => $this->senderName(),
         'contactEmail' => $f->contact_email ?: $f->user?->email,
         'adminUrl' => 'https://www.chuyenbienhoa.com/admin/feedback',

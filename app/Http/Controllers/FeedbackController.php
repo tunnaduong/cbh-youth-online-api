@@ -31,6 +31,7 @@ class FeedbackController extends Controller
       'contact_email' => [$user ? 'nullable' : 'required', 'email', 'max:255'],
       'platform' => ['required', Rule::in(Feedback::PLATFORMS)],
       'app_version' => 'nullable|string|max:50',
+      'ota_version' => 'nullable|string|max:50',
       'device_info' => 'nullable|string|max:255',
       'page_url' => 'nullable|string|max:500',
     ], [

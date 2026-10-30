@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $contact_email
  * @property string $platform web | ios | android
  * @property string|null $app_version
+ * @property string|null $ota_version
  * @property string|null $device_info
  * @property string|null $page_url
  * @property string $status new | in_progress | resolved | closed
@@ -39,6 +40,7 @@ class Feedback extends Model
     'contact_email',
     'platform',
     'app_version',
+    'ota_version',
     'device_info',
     'page_url',
     'status',

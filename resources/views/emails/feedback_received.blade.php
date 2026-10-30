@@ -6,6 +6,9 @@
 <br>**Email liên hệ:** {{ $contactEmail }}
 @endif
 <br>**Nền tảng:** {{ $platformLabel }}
+@if ($feedback->ota_version)
+<br>**Phiên bản OTA:** {{ $feedback->ota_version }}
+@endif
 @if ($feedback->page_url)
 <br>**Trang/nguồn:** {{ $feedback->page_url }}
 @endif
