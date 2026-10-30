@@ -31,8 +31,8 @@ class OtaController extends Controller
       $platform = 'android';
     }
 
-    $runtimeVersion = (string) ($request->header('expo-runtime-version') ?: $request->query('runtime-version') ?: '7.4.10');
-    $channel = (string) ($request->header('expo-channel-name') ?: $request->query('channel') ?: 'production');
+    $runtimeVersion = $this->sanitizeRuntimeVersion((string) ($request->header('expo-runtime-version') ?: $request->query('runtime-version') ?: '7.4.10'));
+    $channel = $this->sanitizeChannel((string) ($request->header('expo-channel-name') ?: $request->query('channel') ?: 'production'));
     $currentUpdateId = (string) ($request->header('expo-current-update-id') ?: $request->query('current_update_id') ?: '');
 
     $otaDir = storage_path("app/ota/{$channel}/{$runtimeVersion}");
@@ -107,9 +107,13 @@ class OtaController extends Controller
    */
   public function asset(Request $request, string $channel, string $runtimeVersion, string $updateId, string $path)
   {
+    $cleanChannel = $this->sanitizeChannel($channel);
+    $cleanRuntime = $this->sanitizeRuntimeVersion($runtimeVersion);
+    $cleanUpdateId = preg_replace('/[^a-zA-Z0-9_\-]/', '', $updateId);
+
     // Sanitize path against directory traversal
     $cleanPath = str_replace(['..', '\\'], ['', '/'], $path);
-    $baseDir = storage_path("app/ota/{$channel}/{$runtimeVersion}/{$updateId}");
+    $baseDir = storage_path("app/ota/{$cleanChannel}/{$cleanRuntime}/{$cleanUpdateId}");
     $filePath = "{$baseDir}/{$cleanPath}";
 
     $realBase = realpath($baseDir);
@@ -134,8 +138,8 @@ class OtaController extends Controller
   {
     $this->authorizeOtaAdmin($request);
 
-    $channel = (string) $request->input('channel', 'production');
-    $runtimeVersion = (string) $request->input('runtime_version', '7.4.10');
+    $channel = $this->sanitizeChannel((string) $request->input('channel', 'production'));
+    $runtimeVersion = $this->sanitizeRuntimeVersion((string) $request->input('runtime_version', '7.4.10'));
     $message = (string) $request->input('message', 'OTA update via API');
 
     $file = $request->file('archive') ?: $request->file('file');
@@ -307,9 +311,9 @@ class OtaController extends Controller
   {
     $this->authorizeOtaAdmin($request);
 
-    $channel = (string) $request->input('channel', 'production');
-    $runtimeVersion = (string) $request->input('runtime_version', '7.4.10');
-    $target = (string) $request->input('target', 'embedded');
+    $channel = $this->sanitizeChannel((string) $request->input('channel', 'production'));
+    $runtimeVersion = $this->sanitizeRuntimeVersion((string) $request->input('runtime_version', '7.4.10'));
+    $target = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $request->input('target', 'embedded')) ?: 'embedded';
 
     $otaBaseDir = storage_path("app/ota/{$channel}/{$runtimeVersion}");
     $currentFile = "{$otaBaseDir}/current.json";
@@ -353,8 +357,8 @@ class OtaController extends Controller
   {
     $this->authorizeOtaAdmin($request);
 
-    $channel = (string) $request->query('channel', 'production');
-    $runtimeVersion = (string) $request->query('runtime_version', '7.4.10');
+    $channel = $this->sanitizeChannel((string) $request->query('channel', 'production'));
+    $runtimeVersion = $this->sanitizeRuntimeVersion((string) $request->query('runtime_version', '7.4.10'));
 
     $otaBaseDir = storage_path("app/ota/{$channel}/{$runtimeVersion}");
     $currentFile = "{$otaBaseDir}/current.json";
@@ -473,5 +477,23 @@ class OtaController extends Controller
     }
 
     abort(401, 'Unauthorized. Provide a valid OTA_DEPLOY_TOKEN or login as an administrator.');
+  }
+
+  /**
+   * Sanitize channel string to prevent directory traversal.
+   */
+  private function sanitizeChannel(string $channel): string
+  {
+    $clean = preg_replace('/[^a-zA-Z0-9_\-]/', '', $channel);
+    return !empty($clean) ? $clean : 'production';
+  }
+
+  /**
+   * Sanitize runtime version string to prevent directory traversal.
+   */
+  private function sanitizeRuntimeVersion(string $version): string
+  {
+    $clean = preg_replace('/[^a-zA-Z0-9_.\-]/', '', $version);
+    return !empty($clean) ? $clean : '7.4.10';
   }
 }

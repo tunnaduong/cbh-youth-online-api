@@ -215,6 +215,82 @@ class OtaUpdateTest extends TestCase
     $attackResponse->assertStatus(404);
   }
 
+  public function test_multiple_ota_channels_remain_isolated(): void
+  {
+    $channelProd = 'test-prod';
+    $channelPrev = 'test-preview';
+
+    $zipProd = $this->createMockExportZip();
+    $zipPrev = $this->createMockExportZip();
+
+    try {
+      // 1. Publish to test-prod
+      $resProd = $this->withHeaders([
+        'Authorization' => "Bearer {$this->deployToken}",
+      ])->post('/v1.0/admin/ota/publish', [
+        'channel' => $channelProd,
+        'runtime_version' => $this->testRuntime,
+        'message' => 'Prod release',
+        'archive' => $zipProd,
+      ]);
+      $resProd->assertStatus(200);
+      $prodUpdateId = $resProd->json('update_id');
+
+      // 2. Publish to test-preview
+      $resPrev = $this->withHeaders([
+        'Authorization' => "Bearer {$this->deployToken}",
+      ])->post('/v1.0/admin/ota/publish', [
+        'channel' => $channelPrev,
+        'runtime_version' => $this->testRuntime,
+        'message' => 'Preview release',
+        'archive' => $zipPrev,
+      ]);
+      $resPrev->assertStatus(200);
+      $prevUpdateId = $resPrev->json('update_id');
+
+      $this->assertNotEquals($prodUpdateId, $prevUpdateId);
+
+      // 3. Query manifest for test-prod
+      $manifestProd = $this->withHeaders([
+        'expo-platform' => 'android',
+        'expo-runtime-version' => $this->testRuntime,
+        'expo-channel-name' => $channelProd,
+        'expo-protocol-version' => '1',
+      ])->get('/v1.0/ota/manifest');
+      $manifestProd->assertStatus(200);
+      $this->assertStringContainsString($prodUpdateId, $manifestProd->getContent());
+      $this->assertStringNotContainsString($prevUpdateId, $manifestProd->getContent());
+
+      // 4. Query manifest for test-preview
+      $manifestPrev = $this->withHeaders([
+        'expo-platform' => 'android',
+        'expo-runtime-version' => $this->testRuntime,
+        'expo-channel-name' => $channelPrev,
+        'expo-protocol-version' => '1',
+      ])->get('/v1.0/ota/manifest');
+      $manifestPrev->assertStatus(200);
+      $this->assertStringContainsString($prevUpdateId, $manifestPrev->getContent());
+      $this->assertStringNotContainsString($prodUpdateId, $manifestPrev->getContent());
+
+      // 5. Query manifest for an unpublished channel
+      $manifestOther = $this->withHeaders([
+        'expo-platform' => 'android',
+        'expo-runtime-version' => $this->testRuntime,
+        'expo-channel-name' => 'test-other',
+        'expo-protocol-version' => '1',
+      ])->get('/v1.0/ota/manifest');
+      $manifestOther->assertStatus(200);
+      $this->assertStringContainsString('noUpdateAvailable', $manifestOther->getContent());
+    } finally {
+      if (File::isDirectory(storage_path("app/ota/{$channelProd}"))) {
+        File::deleteDirectory(storage_path("app/ota/{$channelProd}"));
+      }
+      if (File::isDirectory(storage_path("app/ota/{$channelPrev}"))) {
+        File::deleteDirectory(storage_path("app/ota/{$channelPrev}"));
+      }
+    }
+  }
+
   /**
    * Helper to build a mock exported Expo dist zip archive.
    */
