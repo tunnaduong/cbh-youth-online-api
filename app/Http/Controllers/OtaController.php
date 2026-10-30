@@ -141,6 +141,8 @@ class OtaController extends Controller
     $channel = $this->sanitizeChannel((string) $request->input('channel', 'production'));
     $runtimeVersion = $this->sanitizeRuntimeVersion((string) $request->input('runtime_version', '7.4.10'));
     $message = (string) $request->input('message', 'OTA update via API');
+    $buildNumber = (int) $request->input('build_number', 0);
+    $minNativeBuild = (int) $request->input('min_native_build', 0);
 
     $file = $request->file('archive') ?: $request->file('file');
     if (!$file || !$file->isValid()) {
@@ -231,6 +233,8 @@ class OtaController extends Controller
         'metadata' => [
           'message' => $message,
           'channel' => $channel,
+          'build_number' => $buildNumber,
+          'min_native_build' => $minNativeBuild,
         ],
         'extra' => [
           'expoClient' => [
@@ -279,6 +283,8 @@ class OtaController extends Controller
       'message' => $message,
       'channel' => $channel,
       'runtime_version' => $runtimeVersion,
+      'build_number' => $buildNumber,
+      'min_native_build' => $minNativeBuild,
       'platforms' => $processedPlatforms,
       'rollback' => false,
     ];
@@ -300,6 +306,8 @@ class OtaController extends Controller
       'runtime_version' => $runtimeVersion,
       'platforms' => $processedPlatforms,
       'message' => $message,
+      'build_number' => $buildNumber,
+      'min_native_build' => $minNativeBuild,
       'created_at' => $createdAt,
     ]);
   }
