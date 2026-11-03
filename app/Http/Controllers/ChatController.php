@@ -118,6 +118,8 @@ class ChatController extends Controller
               ? ($previewMessage->user->profile->profile_name ?? $previewMessage->user->username)
               : null,
             'is_myself' => $previewMessage->user_id === $user->id,
+            'is_read' => $this->isMessageReadByOthers($conversation, $previewMessage, $user->id),
+            'read_at' => $previewMessage->read_at ? $previewMessage->read_at->toISOString() : null,
             'is_recalled' => (bool) $previewMessage->is_recalled,
             'created_at' => $previewMessage->created_at ? $previewMessage->created_at->toISOString() : null,
             'created_at_human' => $previewMessage->created_at ? $previewMessage->created_at->diffForHumans() : null,
@@ -167,6 +169,8 @@ class ChatController extends Controller
               ? ($publicPreviewMessage->user->profile->profile_name ?? $publicPreviewMessage->user->username)
               : null,
             'is_myself' => $publicPreviewMessage->user_id === $user->id,
+            'is_read' => $this->isMessageReadByOthers($publicChat, $publicPreviewMessage, $user->id),
+            'read_at' => $publicPreviewMessage->read_at ? $publicPreviewMessage->read_at->toISOString() : null,
             'is_recalled' => (bool) $publicPreviewMessage->is_recalled,
             'created_at' => $publicPreviewMessage->created_at ? $publicPreviewMessage->created_at->toISOString() : null,
             'created_at_human' => $publicPreviewMessage->created_at ? $publicPreviewMessage->created_at->diffForHumans() : null,
@@ -200,6 +204,43 @@ class ChatController extends Controller
       ->orderBy('created_at', 'desc')
       ->with('user.profile')
       ->first();
+  }
+
+  /**
+   * Determine whether the given latest message (sent by the viewer) has
+   * been read by at least one other participant in the conversation.
+   */
+  private function isMessageReadByOthers(Conversation $conversation, $message, $userId): bool
+  {
+    if (!$message || (int) $message->user_id !== (int) $userId) {
+      return false;
+    }
+
+    if ($message->read_at !== null) {
+      return true;
+    }
+
+    if (!$message->created_at) {
+      return false;
+    }
+
+    $createdAt = $message->created_at instanceof Carbon
+      ? $message->created_at
+      : Carbon::parse($message->created_at);
+
+    if ($conversation->relationLoaded('participants')) {
+      foreach ($conversation->participants as $participant) {
+        if ((int) $participant->id === (int) $userId) {
+          continue;
+        }
+        $lastRead = $participant->pivot?->last_read_at;
+        if ($lastRead && Carbon::parse($lastRead)->gte($createdAt)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   /**
