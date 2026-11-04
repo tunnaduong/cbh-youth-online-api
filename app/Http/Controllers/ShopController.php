@@ -40,9 +40,17 @@ class ShopController extends Controller
     return response()->json($query->paginate(12));
   }
 
-  public function show($id)
+  public function show($identifier)
   {
-    $product = ShopProduct::with(['category', 'variants'])->findOrFail($id);
+    $product = ShopProduct::with(['category', 'variants'])
+      ->where(function ($q) use ($identifier) {
+        $q->where('slug', $identifier);
+        if (is_numeric($identifier)) {
+          $q->orWhere('id', (int) $identifier);
+        }
+      })
+      ->firstOrFail();
+
     return response()->json($product);
   }
 
@@ -546,7 +554,12 @@ class ShopController extends Controller
    */
   public function contactShop(Request $request, $id)
   {
-    $product = ShopProduct::findOrFail($id);
+    $product = ShopProduct::where(function ($q) use ($id) {
+      $q->where('slug', $id);
+      if (is_numeric($id)) {
+        $q->orWhere('id', (int) $id);
+      }
+    })->firstOrFail();
     $user = $request->user();
     $variant = $request->filled('variant_id')
       ? ShopProductVariant::where('product_id', $product->id)->find($request->input('variant_id'))
