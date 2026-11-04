@@ -278,6 +278,7 @@ class GenerateAiChatReply implements ShouldQueue
 
       $images[$url] = [
         'product_id' => $product->id,
+        'slug' => $product->slug,
         'variant_id' => $variant?->id,
         'name' => $product->name,
         'variant_label' => $variant?->label(),
