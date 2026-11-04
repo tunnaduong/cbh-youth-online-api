@@ -14,7 +14,7 @@ class ShopProduct extends Model
 
   protected $fillable = [
     'name', 'slug', 'sku', 'description', 'price',
-    'stock', 'image_url', 'options', 'category_id', 'is_active'
+    'stock', 'image_url', 'image_urls', 'options', 'category_id', 'is_active'
   ];
 
   protected $casts = [
@@ -22,7 +22,19 @@ class ShopProduct extends Model
     'price' => 'integer',
     'stock' => 'integer',
     'options' => 'array',
+    'image_urls' => 'array',
   ];
+
+  public function getImageUrlsAttribute($value)
+  {
+    if ($value) {
+      $decoded = is_string($value) ? json_decode($value, true) : $value;
+      if (is_array($decoded) && count($decoded) > 0) {
+        return array_values($decoded);
+      }
+    }
+    return !empty($this->attributes['image_url']) ? [$this->attributes['image_url']] : [];
+  }
 
   public function variants()
   {

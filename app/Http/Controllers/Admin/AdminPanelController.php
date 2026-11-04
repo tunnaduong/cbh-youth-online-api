@@ -707,7 +707,9 @@ class AdminPanelController extends Controller
       'description' => 'nullable|string',
       'price' => 'required|integer|min:0',
       'stock' => 'required|integer|min:0',
-      'image_url' => 'nullable|string|max:255',
+      'image_url' => 'nullable|string|max:500',
+      'image_urls' => 'nullable|array|max:50',
+      'image_urls.*' => 'required|string|max:500',
       'category_id' => 'required|exists:cyo_shop_categories,id',
       'is_active' => 'boolean',
       'options' => 'nullable|array|max:3',
@@ -720,9 +722,17 @@ class AdminPanelController extends Controller
       'variants.*.sku' => 'nullable|string|max:64|distinct',
       'variants.*.price' => 'required|integer|min:0',
       'variants.*.stock' => 'required|integer|min:0',
-      'variants.*.image_url' => 'nullable|string|max:255',
+      'variants.*.image_url' => 'nullable|string|max:500',
     ]);
     $data['slug'] = $data['slug'] ?: Str::slug($data['name']) . '-' . Str::lower(Str::random(4));
+
+    if (array_key_exists('image_urls', $data)) {
+      $imageUrls = array_values(array_filter($data['image_urls'] ?? [], fn($u) => !empty($u) && is_string($u)));
+      $data['image_urls'] = $imageUrls;
+      $data['image_url'] = $imageUrls[0] ?? null;
+    } elseif (!empty($data['image_url'])) {
+      $data['image_urls'] = [$data['image_url']];
+    }
 
     $options = array_values($data['options'] ?? []);
     $variants = $options ? ($data['variants'] ?? []) : [];
