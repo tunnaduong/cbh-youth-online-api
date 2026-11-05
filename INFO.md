@@ -114,6 +114,17 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **WebRTC Voice & Video Call API & Realtime Signaling** (`database/migrations/2026_11_05_000001_create_cyo_calls_table.php`, `app/Models/Call.php`, `app/Http/Controllers/CallController.php`, `app/Events/Call*.php`, `routes/api.php`):
+  - **Database & Model**: Added `cyo_calls` table and `Call` Eloquent model supporting 1-1 voice and video call sessions with full lifecycle (`ringing`, `accepted`, `rejected`, `busy`, `ended`, `missed`, `cancelled`), timestamps, and duration calculation.
+  - **Endpoints (`/v1.0/chat/...`)**:
+    - `POST /conversations/{id}/call/initiate`: checks 2-way blocks and concurrent active calls, initiates call, broadcasts `CallInitiated`.
+    - `POST /calls/{id}/answer`: transitions status to `accepted`, marks `accepted_at`, broadcasts `CallAnswered`.
+    - `POST /calls/{id}/reject`: marks call rejected/busy, creates missed call message in conversation, broadcasts `CallRejected`.
+    - `POST /calls/{id}/end`: ends call, computes call duration, creates call message in conversation (`Cuộc gọi thoại/video kết thúc - XX:XX`), broadcasts `CallEnded`.
+    - `POST /calls/{id}/signal`: ultra-low latency WebRTC SDP offer/answer and ICE candidate relay via `CallSignaled`.
+    - `GET /ice-servers`: returns default Google STUN servers and optional custom STUN/TURN servers from environment.
+  - **Broadcast Events (`ShouldBroadcastNow`)**: `CallInitiated` (dispatched on `App.Models.User.{receiver_id}` and `chat.{conversation_id}`), `CallAnswered`, `CallRejected`, `CallEnded`, and `CallSignaled` (dispatched on `chat.{conversation_id}`).
+
 - **Home feed excludes teachers' posts, keeps admins' posts** (`php -l` clean; unit test in `tests/Unit/TopicFromMembersTest.php`; no migration): `Topic::scopeFromMembers()` now excludes only `role === 'teacher'` (and the youth union account `forum.school_account`), allowing posts by `role === 'admin'` to appear on the homepage (`/v1.0/home`, `/v1.0/topics/feed` in personalized, `mode=latest`, and guest feeds). Feed cache key bumped to `feed_scores_v5_*`.
 
 - **Self-hosted OTA (Over-The-Air) updates via Expo Updates Protocol v1** (`app/Http/Controllers/OtaController.php`, `app/Console/Commands/OtaCommand.php`, `app/Console/Commands/OtaRollbackCommand.php`, `routes/api.php`, `config/services.php`):

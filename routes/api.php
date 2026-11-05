@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CallController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FileUploadController;
@@ -467,6 +468,14 @@ Route::prefix('v1.0')->group(function () {
       Route::post('conversations/{conversationId}/background', [ChatController::class, 'uploadConversationBackground']);
       Route::post('conversations/{conversationId}/background/select', [ChatController::class, 'selectConversationBackground']);
       Route::delete('conversations/{conversationId}/background', [ChatController::class, 'resetConversationBackground']);
+
+      // WebRTC Voice & Video Calls
+      Route::get('ice-servers', [CallController::class, 'iceServers']);
+      Route::post('conversations/{conversationId}/call/initiate', [CallController::class, 'initiate']);
+      Route::post('calls/{id}/answer', [CallController::class, 'answer']);
+      Route::post('calls/{id}/reject', [CallController::class, 'reject']);
+      Route::post('calls/{id}/end', [CallController::class, 'end']);
+      Route::post('calls/{id}/signal', [CallController::class, 'signal']);
     });
 
     // Study Materials
