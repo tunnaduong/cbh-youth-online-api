@@ -71,10 +71,17 @@ class CallController extends Controller
       ->first();
 
     if ($activeCall) {
-      return response()->json([
-        'message' => 'Đang có một cuộc gọi khác diễn ra trong cuộc trò chuyện này.',
-        'call' => $this->formatCallPayload($activeCall, $user, $receiver),
-      ], 409);
+      if ($activeCall->status === 'ringing' && ((int) $activeCall->caller_id === (int) $user->id || $activeCall->created_at < now()->subMinutes(1))) {
+        $activeCall->status = 'cancelled';
+        $activeCall->end_reason = 'cancelled';
+        $activeCall->ended_at = now();
+        $activeCall->save();
+      } else {
+        return response()->json([
+          'message' => 'Đang có một cuộc gọi khác diễn ra trong cuộc trò chuyện này.',
+          'call' => $this->formatCallPayload($activeCall, $user, $receiver),
+        ], 409);
+      }
     }
 
     $type = $request->input('type', 'audio') === 'video' ? 'video' : 'audio';
@@ -319,8 +326,8 @@ class CallController extends Controller
       'status' => $call->status,
       'duration' => $call->duration ?? 0,
       'end_reason' => $reason,
-      'started_at' => $call->started_at?->toISOString(),
-      'ended_at' => $call->ended_at?->toISOString(),
+      'started_at' => $call->started_at?->toIso8601String(),
+      'ended_at' => $call->ended_at?->toIso8601String(),
     ];
 
     $message = Message::create([
@@ -350,7 +357,7 @@ class CallController extends Controller
         'is_ai' => false,
         'profile_theme' => $caller ? ProfileThemeService::forAuthor($caller) : null,
       ],
-      'created_at' => $message->created_at?->toISOString(),
+      'created_at' => $message->created_at?->toIso8601String(),
       'created_at_human' => $message->created_at?->diffForHumans(),
       'read_at' => null,
       'metadata' => $metadata,
@@ -389,9 +396,9 @@ class CallController extends Controller
       'conversation_id' => (int) $call->conversation_id,
       'type' => $call->type,
       'status' => $call->status,
-      'started_at' => $call->started_at?->toISOString(),
-      'accepted_at' => $call->accepted_at?->toISOString(),
-      'ended_at' => $call->ended_at?->toISOString(),
+      'started_at' => $call->started_at?->toIso8601String(),
+      'accepted_at' => $call->accepted_at?->toIso8601String(),
+      'ended_at' => $call->ended_at?->toIso8601String(),
       'duration' => $call->duration,
       'end_reason' => $call->end_reason,
       'caller' => $caller ? [
