@@ -91,6 +91,11 @@ class UserBlocks
     return in_array($userIdB, self::eitherWayIds($userIdA), true);
   }
 
+  public static function areBlocked(int $userIdA, int $userIdB): bool
+  {
+    return self::isBlockedEitherWay($userIdA, $userIdB);
+  }
+
   /**
    * Whether the current viewer and $otherUserId are blocked either way.
    * Guests are never blocked.

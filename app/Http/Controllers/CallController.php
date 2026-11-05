@@ -57,7 +57,7 @@ class CallController extends Controller
       }
 
       // Check block status both ways
-      if (UserBlocks::areBlocked((int) $user->id, (int) $receiver->id)) {
+      if (UserBlocks::isBlockedEitherWay((int) $user->id, (int) $receiver->id)) {
         return response()->json([
           'message' => 'Không thể thực hiện cuộc gọi với người dùng này.',
         ], 403);
@@ -352,7 +352,7 @@ class CallController extends Controller
       'sender' => [
         'id' => $caller?->id,
         'username' => $caller?->username ?? 'system',
-        'profile_name' => $caller?->profile->profile_name ?? $caller?->username ?? 'Người dùng',
+        'profile_name' => $caller?->profile?->profile_name ?? $caller?->username ?? 'Người dùng',
         'avatar_url' => $caller?->avatarUrl(),
         'is_ai' => false,
         'profile_theme' => $caller ? ProfileThemeService::forAuthor($caller) : null,
