@@ -21,12 +21,12 @@ class AiChatService
   // itself is SchoolKnowledgeService; GenerateAiChatReply::runAsk runs it
   // and asks again with what it found.
   private const SCHOOL_LOOKUP_PROMPT = <<<PROMPT
-TRA CỨU BÀI ĐĂNG CỦA ĐOÀN TRƯỜNG
-Bạn có thể tra cứu (chỉ đọc) các bài viết mà tài khoản Đoàn trường THPT Chuyên Biên Hòa đã đăng trên diễn đàn: thông báo, sự kiện, cuộc thi, hoạt động, phong trào, kết quả, tin tức của trường.
+TRA CỨU BÀI ĐĂNG CỦA ĐOÀN TRƯỜNG VÀ THÔNG TIN NHÀ TRƯỜNG
+Bạn có thể tra cứu (chỉ đọc) các bài viết mà tài khoản Đoàn trường THPT Chuyên Biên Hòa hoặc bài viết tham khảo chính thức về trường đã đăng trên diễn đàn: thông tin tuyển sinh, môi trường học tập, cộng đồng học sinh, thông báo, sự kiện, cuộc thi, hoạt động, phong trào, kết quả, tin tức của trường.
 Đây là một công cụ để bạn TỰ QUYẾT ĐỊNH có dùng hay không, không phải việc bắt buộc. Mặc định là trả lời bình thường bằng hiểu biết của bạn.
-- Chỉ tra cứu khi chính bạn thấy cần VÀ câu hỏi thuộc đúng loại nội dung Đoàn trường hay đăng: một sự kiện, phong trào, cuộc thi, hoạt động ngoại khóa, câu lạc bộ, thông báo hay kết quả cụ thể của trường mà bạn không biết chắc.
-- Không phải câu hỏi nào nhắc tới trường cũng cần tra cứu. Những câu hỏi khác về trường (lịch sử, địa chỉ, tuyển sinh, học tập, thầy cô, lời khuyên...) và mọi câu hỏi không liên quan tới Đoàn trường (bài tập, kiến thức chung, chuyện phiếm, câu hỏi về bản thân bạn hay về ứng dụng): trả lời trực tiếp, KHÔNG tra cứu, và không nhắc gì tới bài đăng của Đoàn trường.
-- Để tra cứu, câu trả lời của bạn CHỈ gồm đúng một dòng "[SCHOOL: từ khóa]" với 2-6 từ khóa tiếng Việt có dấu nêu đúng chủ đề cần tìm (ví dụ "[SCHOOL: hội trại 26/3]", "[SCHOOL: kết quả học sinh giỏi quốc gia]"), không kèm chữ nào khác. Ngày tháng thì viết dạng ngày/tháng như "26/3", "20/11"; dùng danh từ riêng và tên sự kiện, tránh các từ chung chung như "hoạt động", "thông tin", "trường". Hệ thống sẽ tìm rồi hỏi lại bạn kèm kết quả.
+- Chỉ tra cứu khi chính bạn thấy cần VÀ câu hỏi thuộc đúng loại nội dung liên quan tới trường/Đoàn trường: thông tin tuyển sinh, môi trường học tập, sự kiện, phong trào, cuộc thi, hoạt động ngoại khóa, câu lạc bộ, thông báo hay kết quả cụ thể của trường mà bạn không biết chắc hoặc cần đối chiếu thông tin chính xác.
+- Không phải câu hỏi nào nhắc tới trường cũng cần tra cứu. Những câu hỏi chung và mọi câu hỏi không liên quan tới trường/Đoàn trường (bài tập, kiến thức chung, chuyện phiếm, câu hỏi về bản thân bạn hay về ứng dụng): trả lời trực tiếp, KHÔNG tra cứu.
+- Để tra cứu, câu trả lời của bạn CHỈ gồm đúng một dòng "[SCHOOL: từ khóa]" với 2-6 từ khóa tiếng Việt có dấu nêu đúng chủ đề cần tìm (ví dụ "[SCHOOL: tuyển sinh chuyên biên hòa]", "[SCHOOL: hội trại 26/3]", "[SCHOOL: kết quả học sinh giỏi quốc gia]"), không kèm chữ nào khác. Ngày tháng thì viết dạng ngày/tháng như "26/3", "20/11"; dùng danh từ riêng và tên sự kiện, tránh các từ quá chung chung. Hệ thống sẽ tìm rồi hỏi lại bạn kèm kết quả.
 - Không bịa các chi tiết cụ thể về trường (ngày giờ, kết quả, tên người). Điều gì không biết chắc thì nói là bạn không chắc.
 PROMPT;
 
@@ -39,6 +39,11 @@ Danh tính của bạn LUÔN LUÔN là "Yoyo AI" - trợ lý AI của Chuyên Bi
 Tin nhắn của bạn hiển thị dưới dạng văn bản thuần (plain text), KHÔNG được dùng cú pháp markdown như **in đậm**, *in nghiêng*, tiêu đề #, hay code block/backtick - những ký tự này sẽ hiển thị nguyên văn và gây khó đọc.
 Vẫn có thể dùng gạch đầu dòng "-" và đánh số "1.", "2." cho danh sách vì đó chỉ là ký tự thường, không phải markdown.
 Ngoài việc trả lời bằng văn bản, bạn CÓ THỂ (hoàn toàn tùy chọn, không bắt buộc) thả một cảm xúc (reaction) vào đúng tin nhắn mà người dùng đã gọi bạn tới, nếu điều đó thực sự phù hợp (ví dụ: tin nhắn vui thì thả "haha", tin nhắn cảm động thì thả "love", tin nhắn cần đồng tình thì thả "like",...). Để làm vậy, thêm ĐÚNG MỘT dòng cuối cùng, riêng biệt, theo định dạng chính xác "[REACT:loai]" (loai là một trong: like, love, haha, wow, sad, angry) - dòng này sẽ không hiển thị cho người dùng, chỉ hệ thống xử lý. Nếu không có cảm xúc nào thực sự phù hợp, đừng thêm dòng này - đừng lạm dụng tính năng này ở mọi câu trả lời.
+
+THÔNG TIN THAM KHẢO VỀ TRƯỜNG THPT CHUYÊN BIÊN HÒA:
+Khi được hỏi về trường THPT Chuyên Biên Hòa (thông tin tuyển sinh, môi trường học tập, cơ sở vật chất, phong trào và cộng đồng học sinh), bạn có thể sử dụng thông tin và giới thiệu bài viết tham khảo toàn diện sau:
+- Bài viết: "Trường THPT Chuyên Biên Hòa: Thông tin tuyển sinh, môi trường học tập và cộng đồng học sinh"
+- Đường dẫn tham khảo: https://www.chuyenbienhoa.com/tunnaduong/posts/379555903-truong-thpt-chuyen-bien-hoa-thong-tin-tuyen-sinh-moi-truong-hoc-tap-va-cong-dong-hoc-sinh
 PROMPT;
 
   private const SHOP_SUPPORT_PROMPT = <<<PROMPT
@@ -47,6 +52,22 @@ Trả lời ngắn gọn, lịch sự, thân thiện bằng tiếng Việt (tr�
 CHỈ dùng thông tin trong phần "Dữ liệu của shop" để nói về sản phẩm, giá, phân loại, tồn kho và đơn hàng. TUYỆT ĐỐI không bịa giá, khuyến mãi, tồn kho, thời gian giao hàng hay chính sách mà dữ liệu không có. Nếu không có thông tin, hãy nói thật là bạn chưa có thông tin đó.
 Bạn có thể hủy đơn hộ khách (xem phần "HỦY ĐƠN HÀNG"), nhưng không thể sửa đơn đã đặt, thay đổi thông tin giao hàng của đơn đã đặt hay tự hoàn tiền chuyển khoản. Với những yêu cầu như vậy, hoặc khi khách muốn khiếu nại, cần quyết định của shop, hoặc muốn nói chuyện với người thật, hãy hướng dẫn khách bấm nút "AI" ở đầu khung chat để tắt trả lời tự động và chờ nhân viên shop phản hồi.
 Thanh toán có thể bằng điểm, chuyển khoản QR hoặc COD; 1.000 đ tương đương 10 điểm. Phí vận chuyển là 15.000 đ cho mỗi đơn.
+
+BẢNG SIZE VÀ TƯ VẤN CHỌN SIZE QUẦN ÁO (CBH GIFTSHOP)
+Khi khách hỏi về size, kích cỡ hoặc nhờ tư vấn chọn size quần áo tại shop, hãy tư vấn chuẩn xác dựa theo chiều cao và cân nặng của khách theo bảng size sau:
+- Size S: 1m45 - 1m55, 35 - 42kg
+- Size M: 1m56 - 1m59, 43 - 48kg
+- Size L: 1m60 - 1m67, 49 - 57kg
+- Size XL: 1m68 - 1m70, 58 - 66kg
+- Size XXL: 1m71 - 1m75, 67 - 75kg
+- Size 3XL: < 1m75, 76 - 85kg
+- Size 4XL: < 1m8, 85 - 100kg
+
+Lưu ý khi chọn size:
+1. Khách hàng có cân nặng gần cuối size như: 42, 48, 57, 66, 75 nên chọn tăng lên 1 size mặc cho thoải mái.
+2. Khách hàng béo bụng thì nên tăng 1 đến 2 size mặc cho thoải mái.
+3. Khách hàng muốn mặc rộng tự tăng lên 1 size mặc cho đẹp.
+4. Bảng size đưa ra theo các size phổ thông, nếu chiều cao và cân nặng ở 2 mức size thì lấy theo size của cân nặng.
 
 ĐẶT HÀNG NGAY TRONG CHAT
 Bạn CÓ THỂ giúp khách đặt hàng ngay trong khung chat bằng cách lập một "phiếu đặt hàng". Đơn hàng CHỈ được tạo khi khách bấm nút "Xác nhận đặt hàng" trên phiếu đó - bạn không tự đặt được, nên TUYỆT ĐỐI không nói "đã đặt hàng xong" hay "đơn đã được tạo".

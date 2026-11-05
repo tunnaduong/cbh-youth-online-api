@@ -23,6 +23,9 @@ class SchoolKnowledgeService
   /** Used when the config has no value (a config cache from before the key existed). */
   private const DEFAULT_ACCOUNT = 'DoanTruongCBH';
 
+  /** Canonical reference posts about the school (e.g. admissions, environment) regardless of author. */
+  private const REFERENCE_TOPIC_IDS = [379555903];
+
   private const MAX_TERMS = 6;
 
   /** One subject is often spread over several posts (announcement, recap, results). */
@@ -67,7 +70,13 @@ class SchoolKnowledgeService
       }
 
       $candidates = Topic::query()
-        ->where('user_id', $account->id)
+        ->with('user:id,username')
+        ->where(function ($q) use ($account) {
+          if ($account) {
+            $q->where('user_id', $account->id);
+          }
+          $q->orWhereIn('id', self::REFERENCE_TOPIC_IDS);
+        })
         ->where('hidden', 0)
         ->where('privacy', 'public')
         ->where('moderation_status', 'approved')
@@ -83,7 +92,7 @@ class SchoolKnowledgeService
         })
         ->orderBy('created_at', 'desc')
         ->limit(self::MAX_CANDIDATES)
-        ->get(['id', 'title', 'description', 'content_html', 'created_at']);
+        ->get(['id', 'user_id', 'title', 'description', 'content_html', 'created_at']);
 
       // Which words each post really has (the database matches loosely:
       // parts of words, any accents).
@@ -137,7 +146,7 @@ class SchoolKnowledgeService
         ->map(fn($row) => [
           'title' => trim((string) $row['topic']->title),
           'date' => $row['topic']->created_at ? $row['topic']->created_at->format('d/m/Y') : '',
-          'url' => $baseUrl . '/' . $account->username . '/posts/' . $row['topic']->id . '-' . $row['topic']->getSlug(),
+          'url' => $baseUrl . '/' . ($row['topic']->user?->username ?: $account->username) . '/posts/' . $row['topic']->id . '-' . $row['topic']->getSlug(),
           'excerpt' => self::excerpt($row['text'], $byWeight),
         ])
         ->values()
