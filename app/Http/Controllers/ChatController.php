@@ -397,6 +397,7 @@ class ChatController extends Controller
 
     $paginationData = [
       'current_page' => $page,
+      'has_more_pages' => $hasMorePages,
       'data' => $messages->values()->all(),
       'first_page_url' => url("/v1.0/chat/conversations/{$conversationId}/messages?page=1"),
       'from' => $offset + 1,
