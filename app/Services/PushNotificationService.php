@@ -933,4 +933,73 @@ class PushNotificationService
       return 0;
     }
   }
+
+  /**
+   * Send Expo push notifications for incoming voice / video calls.
+   *
+   * @param int $userId
+   * @param array $callData
+   * @param \App\Models\Conversation $conversation
+   * @return int Number of notifications sent successfully
+   */
+  public static function sendExpoCallPushNotification(int $userId, array $callData, Conversation $conversation): int
+  {
+    try {
+      $tokens = ExpoPushToken::where('user_id', $userId)
+        ->where('is_active', true)
+        ->get();
+
+      if ($tokens->isEmpty()) {
+        return 0;
+      }
+
+      $caller = $callData['caller'] ?? [];
+      $callerName = $caller['profile_name'] ?? $caller['name'] ?? $caller['username'] ?? 'Ai đó';
+      $isGroup = $conversation->type === 'group';
+      $callType = ($callData['type'] ?? 'audio') === 'video' ? 'video' : 'thoại';
+
+      $title = $isGroup && $conversation->name
+        ? "Cuộc gọi {$callType} nhóm: {$conversation->name}"
+        : "Cuộc gọi {$callType} đến";
+
+      $body = $isGroup && $conversation->name
+        ? "{$callerName} đang gọi trong nhóm {$conversation->name}"
+        : "{$callerName} đang gọi cho bạn";
+
+      $payload = [
+        'to' => $tokens->pluck('expo_push_token')->toArray(),
+        'title' => $title,
+        'body' => $body,
+        'sound' => 'default',
+        'priority' => 'high',
+        'channelId' => 'calls',
+        'data' => [
+          'type' => 'incoming_call',
+          'call_id' => $callData['id'] ?? null,
+          'conversation_id' => $conversation->id,
+          'call' => $callData,
+          'url' => "/chat?conversation={$conversation->id}&call=" . ($callData['id'] ?? ''),
+        ],
+      ];
+
+      $sentCount = self::sendExpoPushNotifications($tokens->pluck('expo_push_token')->toArray(), $payload);
+
+      if ($sentCount > 0) {
+        ExpoPushToken::where('user_id', $userId)
+          ->where('is_active', true)
+          ->whereIn('expo_push_token', $tokens->pluck('expo_push_token')->toArray())
+          ->update(['last_used_at' => now()]);
+      }
+
+      return $sentCount;
+    } catch (\Exception $e) {
+      Log::error('Error sending Expo call push notification', [
+        'user_id' => $userId,
+        'call_id' => $callData['id'] ?? null,
+        'conversation_id' => $conversation->id,
+        'error' => $e->getMessage(),
+      ]);
+      return 0;
+    }
+  }
 }

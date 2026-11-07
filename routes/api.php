@@ -471,6 +471,7 @@ Route::prefix('v1.0')->group(function () {
 
       // WebRTC Voice & Video Calls
       Route::get('ice-servers', [CallController::class, 'iceServers']);
+      Route::get('calls/active', [CallController::class, 'activeCall']);
       Route::post('conversations/{conversationId}/call/initiate', [CallController::class, 'initiate']);
       Route::post('calls/{id}/answer', [CallController::class, 'answer']);
       Route::post('calls/{id}/reject', [CallController::class, 'reject']);

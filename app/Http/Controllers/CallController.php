@@ -13,6 +13,7 @@ use App\Models\Call;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\ProfileThemeService;
+use App\Services\PushNotificationService;
 use App\Support\UserBlocks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,38 @@ class CallController extends Controller
   public function iceServers()
   {
     return response()->json([
+      'ice_servers' => $this->getIceServersList(),
+    ]);
+  }
+
+  /**
+   * Get the current active or ringing call for the authenticated user, if any.
+   */
+  public function activeCall(Request $request)
+  {
+    $user = Auth::user();
+
+    $call = Call::where(function ($q) use ($user) {
+        $q->where('caller_id', $user->id)
+          ->orWhere('receiver_id', $user->id)
+          ->orWhereHas('conversation.participants', function ($pq) use ($user) {
+            $pq->where('auth_account.id', $user->id);
+          });
+      })
+      ->whereIn('status', ['ringing', 'accepted'])
+      ->where('created_at', '>=', now()->subMinutes(2))
+      ->latest()
+      ->first();
+
+    if (!$call) {
+      return response()->json(['call' => null]);
+    }
+
+    $caller = AuthAccount::with('profile')->find($call->caller_id);
+    $receiver = $call->receiver_id ? AuthAccount::with('profile')->find($call->receiver_id) : null;
+
+    return response()->json([
+      'call' => $this->formatCallPayload($call, $caller, $receiver),
       'ice_servers' => $this->getIceServersList(),
     ]);
   }
@@ -99,6 +132,21 @@ class CallController extends Controller
 
     // Broadcast CallInitiated immediately to conversation and recipient's user channel
     broadcast(new CallInitiated($conversation->id, $callPayload, $receiver?->id));
+
+    // Dispatch high-priority push notifications to offline / background participants
+    try {
+      if ($conversation->type === 'group') {
+        foreach ($conversation->participants as $participant) {
+          if ((int) $participant->id !== (int) $user->id) {
+            PushNotificationService::sendExpoCallPushNotification($participant->id, $callPayload, $conversation);
+          }
+        }
+      } elseif ($receiver) {
+        PushNotificationService::sendExpoCallPushNotification($receiver->id, $callPayload, $conversation);
+      }
+    } catch (\Throwable $e) {
+      \Illuminate\Support\Facades\Log::warning('Failed sending call push notification: ' . $e->getMessage());
+    }
 
     return response()->json([
       'call' => $callPayload,
