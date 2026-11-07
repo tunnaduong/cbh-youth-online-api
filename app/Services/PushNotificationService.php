@@ -973,6 +973,8 @@ class PushNotificationService
         'sound' => 'default',
         'priority' => 'high',
         'channelId' => 'calls',
+        'categoryId' => 'incoming_call',
+        '_displayInForeground' => true,
         'data' => [
           'type' => 'incoming_call',
           'call_id' => $callData['id'] ?? null,
