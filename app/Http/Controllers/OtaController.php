@@ -82,6 +82,14 @@ class OtaController extends Controller
       $manifest['createdAt'] = \Illuminate\Support\Carbon::parse($manifest['createdAt'])->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
 
+    // Ensure launchAsset has a unique key matching its content hash, preventing expo-updates from
+    // reusing an older cached bundle on sequential updates.
+    if (isset($manifest['launchAsset'])) {
+      if (empty($manifest['launchAsset']['key']) || $manifest['launchAsset']['key'] === 'bundle') {
+        $manifest['launchAsset']['key'] = $manifest['launchAsset']['hash'] ?? "bundle-{$updateId}";
+      }
+    }
+
     // Rewrite URLs dynamically to match incoming request host (works for localhost, staging, production)
     $baseUrl = rtrim($request->schemeAndHttpHost(), '/') . "/v1.0/ota/assets/{$channel}/{$runtimeVersion}/{$updateId}/";
     if (isset($manifest['launchAsset']['path'])) {
@@ -224,7 +232,7 @@ class OtaController extends Controller
         'createdAt' => $createdAt,
         'runtimeVersion' => $runtimeVersion,
         'launchAsset' => [
-          'key' => 'bundle',
+          'key' => $bundleHash,
           'contentType' => 'application/javascript',
           'path' => $bundleRelPath,
           'hash' => $bundleHash,
