@@ -78,23 +78,34 @@ class CallController extends Controller
       ], 403);
     }
 
+    // Disallow group calls
+    if ($conversation->type === 'group' || !empty($conversation->is_group)) {
+      return response()->json([
+        'message' => 'Tính năng cuộc gọi chỉ hỗ trợ cuộc trò chuyện 1-1, không hỗ trợ nhóm.',
+      ], 422);
+    }
+
     // Direct (1-on-1) call checks
-    $receiver = null;
-    if ($conversation->type !== 'group') {
-      $receiver = $conversation->participants->firstWhere('id', '!=', $user->id);
+    $receiver = $conversation->participants->firstWhere('id', '!=', $user->id);
 
-      if (!$receiver) {
-        return response()->json([
-          'message' => 'Không tìm thấy người nhận cuộc gọi.',
-        ], 404);
-      }
+    if (!$receiver) {
+      return response()->json([
+        'message' => 'Không tìm thấy người nhận cuộc gọi.',
+      ], 404);
+    }
 
-      // Check block status both ways
-      if (UserBlocks::isBlockedEitherWay((int) $user->id, (int) $receiver->id)) {
-        return response()->json([
-          'message' => 'Không thể thực hiện cuộc gọi với người dùng này.',
-        ], 403);
-      }
+    // Disallow calls to AI bots
+    if (!empty($receiver->is_ai) || ($receiver->role ?? '') === 'ai') {
+      return response()->json([
+        'message' => 'Không thể thực hiện cuộc gọi với trợ lý AI.',
+      ], 422);
+    }
+
+    // Check block status both ways
+    if (UserBlocks::isBlockedEitherWay((int) $user->id, (int) $receiver->id)) {
+      return response()->json([
+        'message' => 'Không thể thực hiện cuộc gọi với người dùng này.',
+      ], 403);
     }
 
     // Check if an ongoing or ringing call is already active
@@ -305,8 +316,8 @@ class CallController extends Controller
     $user = Auth::user();
 
     $request->validate([
-      'type' => 'required|in:offer,answer,candidate',
-      'payload' => 'required',
+      'type' => 'required|in:offer,answer,candidate,ringing',
+      'payload' => 'nullable',
     ]);
 
     $call = Call::find($id);
