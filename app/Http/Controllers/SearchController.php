@@ -72,12 +72,19 @@ class SearchController extends Controller
    */
   public function suggestions(Request $request)
   {
+    $q = trim((string)$request->query('q', ''));
+    $cleanQ = ltrim($q, '#');
+
     // Fetch top hashtags sorted by topic count
-    $trendingHashtags = Hashtag::withCount('topics')
+    $query = Hashtag::withCount('topics')
       ->having('topics_count', '>', 0)
-      ->orderByDesc('topics_count')
-      ->limit(8)
-      ->get(['id', 'tag']);
+      ->orderByDesc('topics_count');
+
+    if ($cleanQ !== '') {
+      $query->where('tag', 'like', "%{$cleanQ}%");
+    }
+
+    $trendingHashtags = $query->limit(8)->get(['id', 'tag']);
 
     $tags = [];
     foreach ($trendingHashtags as $ht) {
@@ -97,6 +104,12 @@ class SearchController extends Controller
       ['label' => 'thptqg', 'icon' => 'school-outline', 'type' => 'hashtag'],
       ['label' => 'tamchuyen', 'icon' => 'chatbubbles-outline', 'type' => 'hashtag'],
     ];
+
+    if ($cleanQ !== '') {
+      $fallbackTags = array_values(array_filter($fallbackTags, function ($fb) use ($cleanQ) {
+        return stripos($fb['label'], $cleanQ) !== false;
+      }));
+    }
 
     $existingLabels = array_column($tags, 'label');
     foreach ($fallbackTags as $fb) {
