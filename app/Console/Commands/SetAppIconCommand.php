@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use App\Models\AuditLog;
 
 class SetAppIconCommand extends Command
 {
@@ -70,10 +71,22 @@ class SetAppIconCommand extends Command
     $isForce = (bool) $this->option('force');
     $reason = $this->option('reason');
 
+    $previousIconConfig = $currentConfig['app_icon'] ?? null;
+
     // Handle "reset" command keyword
     if (strtolower($iconArg) === 'reset' || strtolower($iconArg) === 'clear') {
       unset($currentConfig['app_icon']);
       file_put_contents($configFile, json_encode($currentConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+      AuditLog::record('ADMIN_CHANGE_APP_ICON', null, [
+        'actor_type' => 'cli_artisan',
+        'target_type' => 'system_config',
+        'old' => $previousIconConfig,
+        'new' => null,
+        'action_detail' => 'Reset to seasonal auto calendar via CLI',
+        'status' => AuditLog::STATUS_RESOLVED,
+      ]);
+
       $this->info("✓ Reset remote icon override. App will automatically follow the seasonal calendar.");
       return $this->showStatus($currentConfig);
     }
@@ -110,6 +123,15 @@ class SetAppIconCommand extends Command
     ];
 
     file_put_contents($configFile, json_encode($currentConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    AuditLog::record('ADMIN_CHANGE_APP_ICON', null, [
+      'actor_type' => 'cli_artisan',
+      'target_type' => 'system_config',
+      'old' => $previousIconConfig,
+      'new' => $currentConfig['app_icon'],
+      'action_detail' => "CLI override icon to {$matchedIcon} (force=" . ($isForce ? 'true' : 'false') . ")",
+      'status' => AuditLog::STATUS_RESOLVED,
+    ]);
 
     $this->info("✓ App icon directive updated successfully!");
     $this->table(

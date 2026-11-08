@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use App\Models\AuditLog;
 
 /**
  * Controller providing mobile and web client dynamic application configuration,
@@ -66,7 +67,11 @@ class AppConfigController extends Controller
         'target_icon' => $activeIcon,
         'force' => (bool) $isForce,
         'seasonal_icon' => $seasonalIcon,
+        'seasonal_reason' => $seasonalReason,
+        'admin_override' => $forcedIcon,
+        'override_reason' => $overrideReason,
         'reason' => $activeReason,
+        'updated_at' => $iconConfig['updated_at'] ?? null,
         'server_time' => $now->toIso8601String(),
       ],
     ]);
@@ -102,6 +107,8 @@ class AppConfigController extends Controller
       $currentConfig = [];
     }
 
+    $previousIconConfig = $currentConfig['app_icon'] ?? null;
+
     $currentConfig['app_icon'] = [
       'icon' => $validated['icon'] ?? null,
       'force' => (bool) ($validated['force'] ?? false),
@@ -110,6 +117,16 @@ class AppConfigController extends Controller
     ];
 
     file_put_contents($configFile, json_encode($currentConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Record server-side change in Audit Log diary
+    $adminUser = auth('sanctum')->user() ?: $request->user();
+    AuditLog::record('ADMIN_CHANGE_APP_ICON', $adminUser?->id, [
+      'actor_id' => $adminUser?->id,
+      'target_type' => 'system_config',
+      'old' => $previousIconConfig,
+      'new' => $currentConfig['app_icon'],
+      'status' => AuditLog::STATUS_RESOLVED,
+    ]);
 
     return response()->json([
       'message' => 'Cập nhật cấu hình biểu tượng ứng dụng thành công.',
