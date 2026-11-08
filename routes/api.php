@@ -630,6 +630,9 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/messages/search', 'searchMessages');
       Route::get('/messages/access-logs', 'messageAccessLogs');
       Route::delete('/messages/{id}', 'deleteMessage');
+
+      // Mobile app launcher icon management
+      Route::post('/app-icon', [\App\Http\Controllers\AppConfigController::class, 'updateAppIcon']);
     });
 
     // SePay Webhook

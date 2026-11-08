@@ -129,11 +129,11 @@ class AppConfigController extends Controller
       return;
     }
 
-    $user = auth('sanctum')->user();
-    if ($user && method_exists($user, 'isAdmin') && $user->isAdmin()) {
+    $user = auth('sanctum')->user() ?: $request->user();
+    if ($user && \App\Models\AuthAccount::isStaffRole($user->role)) {
       return;
     }
 
-    abort(401, 'Unauthorized. Cần quyền quản trị viên.');
+    abort(403, 'Forbidden. Cần tài khoản quản trị viên hoặc giáo viên.');
   }
 }
