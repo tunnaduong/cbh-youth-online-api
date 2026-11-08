@@ -46,10 +46,11 @@ class AppConfigController extends Controller
       $seasonalIcon = 'Christmas';
       $seasonalReason = "Mừng mùa lễ Giáng Sinh";
     }
-    // New Year season: Dec 28 to Jan 5
-    elseif (($month === 12 && $day >= 28) || ($month === 1 && $day <= 5)) {
+    // New Year season: From Tết Dương Lịch (Dec 28) through Tết Âm Lịch (Lunar New Year) and Rằm tháng Giêng
+    // Runs from Dec 28 through January, February, and through March 5 for 2026 Tết Bính Ngọ
+    elseif (($month === 12 && $day >= 28) || $month === 1 || $month === 2 || ($now->year === 2026 && $month === 3 && $day <= 5)) {
       $seasonalIcon = 'NewYear2026';
-      $seasonalReason = "Chào đón Năm mới 2026";
+      $seasonalReason = "Chào đón Năm mới & Tết cổ truyền";
     }
 
     // Admin override from storage/app/app_config.json if set
@@ -80,8 +81,11 @@ class AppConfigController extends Controller
       ],
       'ota_update' => [
         'force' => (bool) $isForceOta,
+        'min_version' => $otaConfig['min_version'] ?? (isset($otaConfig['min_build']) && $otaConfig['min_build'] !== '' ? (string) $otaConfig['min_build'] : null),
+        'max_version' => $otaConfig['max_version'] ?? (isset($otaConfig['max_build']) && $otaConfig['max_build'] !== '' ? (string) $otaConfig['max_build'] : null),
         'min_build' => isset($otaConfig['min_build']) && $otaConfig['min_build'] !== '' ? (int) $otaConfig['min_build'] : null,
-        'channel' => !empty($otaConfig['channel']) ? $otaConfig['channel'] : null,
+        'max_build' => isset($otaConfig['max_build']) && $otaConfig['max_build'] !== '' ? (int) $otaConfig['max_build'] : null,
+        'channel' => !empty($otaConfig['channel']) ? $otaConfig['channel'] : 'all',
         'message' => $otaConfig['message'] ?? null,
         'updated_at' => $otaConfig['updated_at'] ?? null,
       ],
@@ -92,7 +96,7 @@ class AppConfigController extends Controller
    * Admin endpoint to update app OTA configuration.
    *
    * POST /v1.0/admin/app-ota
-   * Body: { force: boolean, min_build?: number|null, channel?: string|null, message?: string|null }
+   * Body: { force: boolean, min_version?: string|null, max_version?: string|null, min_build?: number|null, max_build?: number|null, channel?: string|null, message?: string|null }
    */
   public function updateAppOta(Request $request)
   {
@@ -100,8 +104,11 @@ class AppConfigController extends Controller
 
     $validated = $request->validate([
       'force' => 'required|boolean',
+      'min_version' => 'nullable|string|max:50',
+      'max_version' => 'nullable|string|max:50',
       'min_build' => 'nullable|integer|min:1',
-      'channel' => 'nullable|string|in:production,preview',
+      'max_build' => 'nullable|integer|min:1',
+      'channel' => 'nullable|string|in:all,production,preview',
       'message' => 'nullable|string|max:255',
     ]);
 
@@ -121,10 +128,35 @@ class AppConfigController extends Controller
 
     $previousOtaConfig = $currentConfig['ota_update'] ?? null;
 
+    // Handle min_version / min_build sync (oldest version affected)
+    $minVersion = $validated['min_version'] ?? null;
+    $minBuild = isset($validated['min_build']) && $validated['min_build'] !== '' ? (int) $validated['min_build'] : null;
+    if ($minBuild === null && $minVersion !== null && ctype_digit($minVersion)) {
+      $minBuild = (int) $minVersion;
+    }
+    if ($minVersion === null && $minBuild !== null) {
+      $minVersion = (string) $minBuild;
+    }
+
+    // Handle max_version / max_build sync (highest version forced to upgrade)
+    $maxVersion = $validated['max_version'] ?? null;
+    $maxBuild = isset($validated['max_build']) && $validated['max_build'] !== '' ? (int) $validated['max_build'] : null;
+    if ($maxBuild === null && $maxVersion !== null && ctype_digit($maxVersion)) {
+      $maxBuild = (int) $maxVersion;
+    }
+    if ($maxVersion === null && $maxBuild !== null) {
+      $maxVersion = (string) $maxBuild;
+    }
+
+    $channel = !empty($validated['channel']) ? $validated['channel'] : 'all';
+
     $currentConfig['ota_update'] = [
       'force' => (bool) $validated['force'],
-      'min_build' => isset($validated['min_build']) && $validated['min_build'] !== '' ? (int) $validated['min_build'] : null,
-      'channel' => $validated['channel'] ?? null,
+      'min_version' => $minVersion,
+      'max_version' => $maxVersion,
+      'min_build' => $minBuild,
+      'max_build' => $maxBuild,
+      'channel' => $channel,
       'message' => $validated['message'] ?? null,
       'updated_at' => Carbon::now('Asia/Ho_Chi_Minh')->toIso8601String(),
     ];
@@ -158,10 +190,15 @@ class AppConfigController extends Controller
     $this->authorizeAdmin($request);
 
     $validated = $request->validate([
-      'icon' => 'nullable|string|in:default,Dark,ClearDark,ClearLight,TintedDark,TintedLight,TeachersDay,Classic,Christmas,NewYear2026,SchoolCrest',
+      'icon' => 'nullable|string|in:default,Dark,ClearDark,ClearLight,TintedDark,TintedLight,TeachersDay,Classic,Christmas,NewYear2026,NewYear,SchoolCrest',
       'force' => 'nullable|boolean',
       'reason' => 'nullable|string|max:255',
     ]);
+
+    $targetIcon = $validated['icon'] ?? null;
+    if ($targetIcon === 'NewYear') {
+      $targetIcon = 'NewYear2026';
+    }
 
     $configFile = storage_path('app/app_config.json');
     $configDir = dirname($configFile);
@@ -180,7 +217,7 @@ class AppConfigController extends Controller
     $previousIconConfig = $currentConfig['app_icon'] ?? null;
 
     $currentConfig['app_icon'] = [
-      'icon' => $validated['icon'] ?? null,
+      'icon' => $targetIcon,
       'force' => (bool) ($validated['force'] ?? false),
       'reason' => $validated['reason'] ?? null,
       'updated_at' => Carbon::now()->toIso8601String(),

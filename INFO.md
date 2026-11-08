@@ -169,6 +169,13 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **OTA Force Upgrade bounds (`min_version`, `max_version`), All branches option & Lunar New Year season extension**:
+  - `AppConfigController`:
+    - Extended New Year seasonal icon (`NewYear2026`) to run from Tết Dương Lịch (Dec 28) all the way through the end of Tết Âm Lịch (Lunar New Year / Rằm tháng Giêng, through March 5 for 2026 Tết Bính Ngọ). Added `NewYear` preset alias.
+    - Added `min_version` (oldest affected version/build) and `max_version` (highest version/build forced to upgrade) to `ota_update` config and validation in `GET /v1.0/app/config` and `POST /v1.0/admin/app-ota`.
+    - Added `all` branch option for target channel (`channel: all`), mandating all branches to force upgrade to the latest build in each respective branch.
+  - `SetForceOtaCommand` (`php artisan app:ota`): Added `--min-version=`, `--max-version=`, `--max-build=`, and allowed `--channel=all`.
+  - `SetAppIconCommand` (`php artisan app:icon`): Updated seasonal calendar check and accepted `NewYear` alias.
 - **Remote Forced OTA Auto-Update & Management (`GET /v1.0/app/config`, `POST /v1.0/admin/app-ota`, `php artisan app:ota`)**:
   - `AppConfigController`: Added `ota_update` payload to `GET /v1.0/app/config` returning `{ force, min_build, channel, message, updated_at }`. Added `POST /v1.0/admin/app-ota` for administrators/staff to mandate OTA auto-updates across mobile clients regardless of client in-app settings.
   - **Artisan Console Command (`php artisan app:ota`)**: Command in `App\Console\Commands\SetForceOtaCommand.php` with `{action?}` (`status`, `force`, `reset`, `unforce`), `--force`, `--min-build=`, `--channel=`, `--message=`, `--status`.

@@ -34,6 +34,7 @@ class SetAppIconCommand extends Command
     'TeachersDay',
     'Christmas',
     'NewYear2026',
+    'NewYear',
     'Dark',
     'ClearDark',
     'ClearLight',
@@ -98,6 +99,10 @@ class SetAppIconCommand extends Command
         $matchedIcon = $valid;
         break;
       }
+    }
+
+    if ($matchedIcon === 'NewYear') {
+      $matchedIcon = 'NewYear2026';
     }
 
     if (!$matchedIcon) {
@@ -165,9 +170,9 @@ class SetAppIconCommand extends Command
     } elseif ($month === 12 && $day >= 18 && $day <= 27) {
       $seasonalIcon = 'Christmas';
       $seasonalReason = "Mừng mùa lễ Giáng Sinh";
-    } elseif (($month === 12 && $day >= 28) || ($month === 1 && $day <= 5)) {
+    } elseif (($month === 12 && $day >= 28) || $month === 1 || $month === 2 || ($now->year === 2026 && $month === 3 && $day <= 5)) {
       $seasonalIcon = 'NewYear2026';
-      $seasonalReason = "Chào đón Năm mới 2026";
+      $seasonalReason = "Chào đón Năm mới & Tết cổ truyền";
     }
 
     $override = $currentConfig['app_icon'] ?? null;
