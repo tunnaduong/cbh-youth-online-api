@@ -636,6 +636,10 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/hooks/sepay-payment', [\SePay\SePay\Http\Controllers\SePayController::class, 'webhook']);
   });
 
+  // App dynamic configuration & seasonal launcher icon directives
+  Route::get('/app/config', [\App\Http\Controllers\AppConfigController::class, 'index']);
+  Route::post('/admin/app-icon', [\App\Http\Controllers\AppConfigController::class, 'updateAppIcon']);
+
   // OTA Deployment & Rollback (handles bearer token OTA_DEPLOY_TOKEN or role:admin)
   Route::post('/admin/ota/publish', [OtaController::class, 'publish']);
   Route::post('/admin/ota/rollback', [OtaController::class, 'rollback']);
