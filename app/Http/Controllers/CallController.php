@@ -45,7 +45,16 @@ class CallController extends Controller
           });
       })
       ->whereIn('status', ['ringing', 'accepted'])
-      ->where('created_at', '>=', now()->subMinutes(2))
+      ->where(function ($q) {
+        // Ringing calls expire after 45 seconds; accepted ongoing calls allowed up to 2 minutes without activity
+        $q->where(function ($rq) {
+          $rq->where('status', 'ringing')
+            ->where('created_at', '>=', now()->subSeconds(45));
+        })->orWhere(function ($aq) {
+          $aq->where('status', 'accepted')
+            ->where('created_at', '>=', now()->subMinutes(2));
+        });
+      })
       ->latest()
       ->first();
 
@@ -115,7 +124,7 @@ class CallController extends Controller
       ->first();
 
     if ($activeCall) {
-      if ($activeCall->status === 'ringing' && ((int) $activeCall->caller_id === (int) $user->id || $activeCall->created_at < now()->subMinutes(1))) {
+      if ($activeCall->status === 'ringing' && ((int) $activeCall->caller_id === (int) $user->id || $activeCall->created_at < now()->subSeconds(45))) {
         $activeCall->status = 'cancelled';
         $activeCall->end_reason = 'cancelled';
         $activeCall->ended_at = now();
