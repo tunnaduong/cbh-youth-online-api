@@ -62,6 +62,10 @@ class AppConfigController extends Controller
     $activeIcon = $forcedIcon ?: $seasonalIcon;
     $activeReason = $forcedIcon ? $overrideReason : $seasonalReason;
 
+    // OTA update configuration
+    $otaConfig = $storedConfig['ota_update'] ?? [];
+    $isForceOta = !empty($otaConfig['force']);
+
     return response()->json([
       'app_icon' => [
         'target_icon' => $activeIcon,
@@ -74,6 +78,72 @@ class AppConfigController extends Controller
         'updated_at' => $iconConfig['updated_at'] ?? null,
         'server_time' => $now->toIso8601String(),
       ],
+      'ota_update' => [
+        'force' => (bool) $isForceOta,
+        'min_build' => isset($otaConfig['min_build']) && $otaConfig['min_build'] !== '' ? (int) $otaConfig['min_build'] : null,
+        'channel' => !empty($otaConfig['channel']) ? $otaConfig['channel'] : null,
+        'message' => $otaConfig['message'] ?? null,
+        'updated_at' => $otaConfig['updated_at'] ?? null,
+      ],
+    ]);
+  }
+
+  /**
+   * Admin endpoint to update app OTA configuration.
+   *
+   * POST /v1.0/admin/app-ota
+   * Body: { force: boolean, min_build?: number|null, channel?: string|null, message?: string|null }
+   */
+  public function updateAppOta(Request $request)
+  {
+    $this->authorizeAdmin($request);
+
+    $validated = $request->validate([
+      'force' => 'required|boolean',
+      'min_build' => 'nullable|integer|min:1',
+      'channel' => 'nullable|string|in:production,preview',
+      'message' => 'nullable|string|max:255',
+    ]);
+
+    $configFile = storage_path('app/app_config.json');
+    $configDir = dirname($configFile);
+    if (!is_dir($configDir)) {
+      @mkdir($configDir, 0755, true);
+    }
+
+    $currentConfig = file_exists($configFile)
+      ? json_decode((string) file_get_contents($configFile), true)
+      : [];
+
+    if (!is_array($currentConfig)) {
+      $currentConfig = [];
+    }
+
+    $previousOtaConfig = $currentConfig['ota_update'] ?? null;
+
+    $currentConfig['ota_update'] = [
+      'force' => (bool) $validated['force'],
+      'min_build' => isset($validated['min_build']) && $validated['min_build'] !== '' ? (int) $validated['min_build'] : null,
+      'channel' => $validated['channel'] ?? null,
+      'message' => $validated['message'] ?? null,
+      'updated_at' => Carbon::now('Asia/Ho_Chi_Minh')->toIso8601String(),
+    ];
+
+    file_put_contents($configFile, json_encode($currentConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    // Record server-side change in Audit Log diary
+    $adminUser = auth('sanctum')->user() ?: $request->user();
+    AuditLog::record('ADMIN_FORCE_OTA_UPDATE', $adminUser?->id, [
+      'actor_id' => $adminUser?->id,
+      'target_type' => 'system_config',
+      'old' => $previousOtaConfig,
+      'new' => $currentConfig['ota_update'],
+      'status' => AuditLog::STATUS_RESOLVED,
+    ]);
+
+    return response()->json([
+      'message' => 'Cập nhật cấu hình bắt buộc nâng cấp (OTA) thành công.',
+      'ota_update' => $currentConfig['ota_update'],
     ]);
   }
 

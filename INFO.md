@@ -169,6 +169,11 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Remote Forced OTA Auto-Update & Management (`GET /v1.0/app/config`, `POST /v1.0/admin/app-ota`, `php artisan app:ota`)**:
+  - `AppConfigController`: Added `ota_update` payload to `GET /v1.0/app/config` returning `{ force, min_build, channel, message, updated_at }`. Added `POST /v1.0/admin/app-ota` for administrators/staff to mandate OTA auto-updates across mobile clients regardless of client in-app settings.
+  - **Artisan Console Command (`php artisan app:ota`)**: Command in `App\Console\Commands\SetForceOtaCommand.php` with `{action?}` (`status`, `force`, `reset`, `unforce`), `--force`, `--min-build=`, `--channel=`, `--message=`, `--status`.
+  - **Audit Logging**: All changes are logged into `cyo_audit_logs` under `ADMIN_FORCE_OTA_UPDATE`.
+
 - **Dynamic App Configuration & Seasonal Launcher Icon Directives (`GET /v1.0/app/config`, `POST /v1.0/admin/app-icon`)**:
   - `AppConfigController`: Added dynamic app configuration endpoint serving seasonal icon directives based on Vietnam server calendar (`Asia/Ho_Chi_Minh`):
     - Week of 20/11 (Nov 14 to Nov 21): `TeachersDay` (Kỷ niệm Ngày Nhà giáo Việt Nam 20/11)

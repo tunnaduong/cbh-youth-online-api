@@ -631,8 +631,9 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/messages/access-logs', 'messageAccessLogs');
       Route::delete('/messages/{id}', 'deleteMessage');
 
-      // Mobile app launcher icon management
+      // Mobile app launcher icon management & forced OTA auto-updates
       Route::post('/app-icon', [\App\Http\Controllers\AppConfigController::class, 'updateAppIcon']);
+      Route::post('/app-ota', [\App\Http\Controllers\AppConfigController::class, 'updateAppOta']);
     });
 
     // SePay Webhook
@@ -642,6 +643,7 @@ Route::prefix('v1.0')->group(function () {
   // App dynamic configuration & seasonal launcher icon directives
   Route::get('/app/config', [\App\Http\Controllers\AppConfigController::class, 'index']);
   Route::post('/admin/app-icon', [\App\Http\Controllers\AppConfigController::class, 'updateAppIcon']);
+  Route::post('/admin/app-ota', [\App\Http\Controllers\AppConfigController::class, 'updateAppOta']);
 
   // OTA Deployment & Rollback (handles bearer token OTA_DEPLOY_TOKEN or role:admin)
   Route::post('/admin/ota/publish', [OtaController::class, 'publish']);
