@@ -47,10 +47,13 @@ class AppConfigController extends Controller
       $seasonalReason = "Mừng mùa lễ Giáng Sinh";
     }
     // New Year season: From Tết Dương Lịch (Dec 28) through Tết Âm Lịch (Lunar New Year) and Rằm tháng Giêng
-    // Runs from Dec 28 through January, February, and through March 5 for 2026 Tết Bính Ngọ
-    elseif (($month === 12 && $day >= 28) || $month === 1 || $month === 2 || ($now->year === 2026 && $month === 3 && $day <= 5)) {
-      $seasonalIcon = 'NewYear2026';
-      $seasonalReason = "Chào đón Năm mới & Tết cổ truyền";
+    // Automatically selects NewYear2026 or NewYear2027 depending on the calendar cycle
+    elseif (($month === 12 && $day >= 28) || $month === 1 || $month === 2 || ($now->year === 2026 && $month === 3 && $day <= 5) || ($now->year === 2027 && $month === 3 && $day <= 5)) {
+      $is2027Season = ($now->year === 2026 && $month === 12) || ($now->year === 2027);
+      $seasonalIcon = $is2027Season ? 'NewYear2027' : 'NewYear2026';
+      $seasonalReason = $is2027Season
+        ? "Chào đón Năm mới 2027 & Tết Đinh Mùi"
+        : "Chào đón Năm mới 2026 & Tết Bính Ngọ";
     }
 
     // Admin override from storage/app/app_config.json if set
@@ -190,14 +193,14 @@ class AppConfigController extends Controller
     $this->authorizeAdmin($request);
 
     $validated = $request->validate([
-      'icon' => 'nullable|string|in:default,Dark,ClearDark,ClearLight,TintedDark,TintedLight,TeachersDay,Classic,Christmas,NewYear2026,NewYear,SchoolCrest',
+      'icon' => 'nullable|string|in:default,Dark,ClearDark,ClearLight,TintedDark,TintedLight,TeachersDay,Classic,Christmas,NewYear2026,NewYear2027,NewYear,SchoolCrest',
       'force' => 'nullable|boolean',
       'reason' => 'nullable|string|max:255',
     ]);
 
     $targetIcon = $validated['icon'] ?? null;
     if ($targetIcon === 'NewYear') {
-      $targetIcon = 'NewYear2026';
+      $targetIcon = now()->year >= 2027 ? 'NewYear2027' : 'NewYear2026';
     }
 
     $configFile = storage_path('app/app_config.json');

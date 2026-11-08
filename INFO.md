@@ -169,6 +169,9 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **NewYear2027 Preset, Lunar New Year cycle automatic selection & SetAppIcon command update**:
+  - `AppConfigController`: Added `NewYear2027` to allowed validation in `POST /v1.0/admin/app-icon`. Automated calendar selects `NewYear2027` for late 2026 / 2027 Tết season (Đinh Mùi).
+  - `SetAppIconCommand` (`php artisan app:icon`): Added `NewYear2027` to `VALID_ICONS`.
 - **OTA Force Upgrade bounds (`min_version`, `max_version`), All branches option & Lunar New Year season extension**:
   - `AppConfigController`:
     - Extended New Year seasonal icon (`NewYear2026`) to run from Tết Dương Lịch (Dec 28) all the way through the end of Tết Âm Lịch (Lunar New Year / Rằm tháng Giêng, through March 5 for 2026 Tết Bính Ngọ). Added `NewYear` preset alias.

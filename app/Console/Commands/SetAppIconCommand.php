@@ -34,6 +34,7 @@ class SetAppIconCommand extends Command
     'TeachersDay',
     'Christmas',
     'NewYear2026',
+    'NewYear2027',
     'NewYear',
     'Dark',
     'ClearDark',
@@ -102,7 +103,7 @@ class SetAppIconCommand extends Command
     }
 
     if ($matchedIcon === 'NewYear') {
-      $matchedIcon = 'NewYear2026';
+      $matchedIcon = now()->year >= 2027 ? 'NewYear2027' : 'NewYear2026';
     }
 
     if (!$matchedIcon) {
