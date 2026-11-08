@@ -41,7 +41,7 @@ class CallController extends Controller
         $q->where('caller_id', $user->id)
           ->orWhere('receiver_id', $user->id)
           ->orWhereHas('conversation.participants', function ($pq) use ($user) {
-            $pq->where('auth_account.id', $user->id);
+            $pq->where('cyo_auth_accounts.id', $user->id);
           });
       })
       ->whereIn('status', ['ringing', 'accepted'])

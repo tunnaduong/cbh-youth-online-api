@@ -114,6 +114,9 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Fix SQL error in active call lookup (`GET /v1.0/chat/calls/active`)**:
+  - `CallController::activeCall()`: Fixed column reference `auth_account.id` to `cyo_auth_accounts.id` inside the `conversation.participants` subquery constraint. Prevents MySQL error 1054 (`Unknown column 'auth_account.id' in 'where clause'`).
+
 - **WebRTC Voice & Video Call API & Realtime Signaling** (`database/migrations/2026_11_05_000001_create_cyo_calls_table.php`, `app/Models/Call.php`, `app/Http/Controllers/CallController.php`, `app/Events/Call*.php`, `routes/api.php`):
   - **Database & Model**: Added `cyo_calls` table and `Call` Eloquent model supporting 1-1 voice and video call sessions with full lifecycle (`ringing`, `accepted`, `rejected`, `busy`, `ended`, `missed`, `cancelled`), timestamps, and duration calculation.
   - **Endpoints (`/v1.0/chat/...`)**:
@@ -166,8 +169,6 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 - **Bug reports & feedback: include `ota_version` for debugging** (**run `php artisan migrate`**): added `ota_version` column to `cyo_feedback` table (`2026_10_30_000001_add_ota_version_to_cyo_feedback_table.php`), `Feedback` model, `FeedbackController::store()`, and admin notification email template (`FeedbackReceivedMail` and `emails.feedback_received`).
 
 - **`GET /v1.0/admin/overview`: a count per sidebar section** (not run - no PHP on this machine; no migration): added `pending_moderation`, `pending_violations`, `new_feedback`, `pending_student_verifications`, `conversations`, `messages_today`, `broadcasts`, `shop_products`, `shop_categories`, `audit_logs_today` next to the existing keys (`AdminPanelController::overview`), so the web `/admin` dashboard can show every sidebar item with its own figure. Existing keys are unchanged.
-
-## Recent work (newest first)
 
 - **NewYear2027 Preset, Lunar New Year cycle automatic selection & SetAppIcon command update**:
   - `AppConfigController`: Added `NewYear2027` to allowed validation in `POST /v1.0/admin/app-icon`. Automated calendar selects `NewYear2027` for late 2026 / 2027 Tết season (Đinh Mùi).
