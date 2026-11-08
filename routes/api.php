@@ -149,6 +149,7 @@ Route::prefix('v1.0')->group(function () {
   // Search & Stories (optional auth so followers-only content stays visible to followers)
   Route::middleware('optional.auth')->group(function () {
     Route::get('search', [SearchController::class, 'search']);
+    Route::get('search/suggestions', [SearchController::class, 'suggestions']);
     Route::get('stories', [StoryController::class, 'index']);
   });
 

@@ -65,6 +65,55 @@ class SearchController extends Controller
   }
 
   /**
+   * Get trending / suggested search topics and hashtags from server.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function suggestions(Request $request)
+  {
+    // Fetch top hashtags sorted by topic count
+    $trendingHashtags = Hashtag::withCount('topics')
+      ->having('topics_count', '>', 0)
+      ->orderByDesc('topics_count')
+      ->limit(8)
+      ->get(['id', 'tag']);
+
+    $tags = [];
+    foreach ($trendingHashtags as $ht) {
+      $tags[] = [
+        'label' => $ht->tag,
+        'icon' => 'pricetag-outline',
+        'type' => 'hashtag',
+      ];
+    }
+
+    // Default curated suggestions if database has few hashtags
+    $fallbackTags = [
+      ['label' => 'thptchuyenbienhoa', 'icon' => 'sparkles-outline', 'type' => 'hashtag'],
+      ['label' => 'hoatdongdoan', 'icon' => 'megaphone-outline', 'type' => 'hashtag'],
+      ['label' => 'hoctap', 'icon' => 'book-outline', 'type' => 'hashtag'],
+      ['label' => 'caulacbo', 'icon' => 'people-outline', 'type' => 'hashtag'],
+      ['label' => 'thptqg', 'icon' => 'school-outline', 'type' => 'hashtag'],
+      ['label' => 'tamchuyen', 'icon' => 'chatbubbles-outline', 'type' => 'hashtag'],
+    ];
+
+    $existingLabels = array_column($tags, 'label');
+    foreach ($fallbackTags as $fb) {
+      if (!in_array($fb['label'], $existingLabels, true) && count($tags) < 8) {
+        $tags[] = $fb;
+      }
+    }
+
+    return response()->json([
+      'status' => 'success',
+      'data' => [
+        'topics' => $tags,
+      ]
+    ]);
+  }
+
+  /**
    * Search for users by username, profile name, or bio.
    *
    * @param  string  $query
