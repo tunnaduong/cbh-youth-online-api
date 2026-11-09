@@ -36,6 +36,12 @@ class RouteServiceProvider extends ServiceProvider
       return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
     });
 
+    // WebRTC call signaling (SDP offer/answer + trickle ICE candidates) bursts
+    // 30-60 requests within a few seconds per call; give it a dedicated high limit.
+    RateLimiter::for('calls', function (Request $request) {
+      return Limit::perMinute(1000)->by('calls:' . ($request->user()?->id ?: $request->ip()));
+    });
+
     // Each AI quiz generation call burns AI credit across the shared
     // GEMINI_1..GEMINI_5 keys - cap it at 1 per user per minute so nobody
     // can spam /quiz/start and drain them.

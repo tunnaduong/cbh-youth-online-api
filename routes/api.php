@@ -471,14 +471,17 @@ Route::prefix('v1.0')->group(function () {
       Route::post('conversations/{conversationId}/background/select', [ChatController::class, 'selectConversationBackground']);
       Route::delete('conversations/{conversationId}/background', [ChatController::class, 'resetConversationBackground']);
 
-      // WebRTC Voice & Video Calls
-      Route::get('ice-servers', [CallController::class, 'iceServers']);
-      Route::get('calls/active', [CallController::class, 'activeCall']);
-      Route::post('conversations/{conversationId}/call/initiate', [CallController::class, 'initiate']);
-      Route::post('calls/{id}/answer', [CallController::class, 'answer']);
-      Route::post('calls/{id}/reject', [CallController::class, 'reject']);
-      Route::post('calls/{id}/end', [CallController::class, 'end']);
-      Route::post('calls/{id}/signal', [CallController::class, 'signal']);
+      // WebRTC Voice & Video Calls (exempt from 60/min api throttle due to trickle ICE bursts)
+      Route::withoutMiddleware(['throttle:api'])->middleware(['throttle:calls'])->group(function () {
+        Route::get('ice-servers', [CallController::class, 'iceServers']);
+        Route::get('calls/ice-servers', [CallController::class, 'iceServers']);
+        Route::get('calls/active', [CallController::class, 'activeCall']);
+        Route::post('conversations/{conversationId}/call/initiate', [CallController::class, 'initiate']);
+        Route::post('calls/{id}/answer', [CallController::class, 'answer']);
+        Route::post('calls/{id}/reject', [CallController::class, 'reject']);
+        Route::post('calls/{id}/end', [CallController::class, 'end']);
+        Route::post('calls/{id}/signal', [CallController::class, 'signal']);
+      });
     });
 
     // Study Materials

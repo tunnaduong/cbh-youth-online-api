@@ -17,6 +17,8 @@ use App\Services\PushNotificationService;
 use App\Support\UserBlocks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class CallController extends Controller
 {
@@ -36,30 +38,37 @@ class CallController extends Controller
   public function activeCall(Request $request)
   {
     $user = Auth::user();
+    $requestedCallId = $request->query('call_id');
 
-    $call = Call::where(function ($q) use ($user) {
-        $q->where('caller_id', $user->id)
-          ->orWhere('receiver_id', $user->id)
-          ->orWhereHas('conversation.participants', function ($pq) use ($user) {
-            $pq->where('cyo_auth_accounts.id', $user->id);
-          });
-      })
-      ->whereIn('status', ['ringing', 'accepted'])
-      ->where(function ($q) {
-        // Ringing calls expire after 45 seconds; accepted ongoing calls allowed up to 2 minutes without activity
-        $q->where(function ($rq) {
-          $rq->where('status', 'ringing')
-            ->where('created_at', '>=', now()->subSeconds(45));
-        })->orWhere(function ($aq) {
-          $aq->where('status', 'accepted')
-            ->where('created_at', '>=', now()->subMinutes(2));
+    $query = Call::where(function ($q) use ($user) {
+      $q->where('caller_id', $user->id)
+        ->orWhere('receiver_id', $user->id)
+        ->orWhereHas('conversation.participants', function ($pq) use ($user) {
+          $pq->where('cyo_auth_accounts.id', $user->id);
         });
-      })
-      ->latest()
-      ->first();
+    });
+
+    if ($requestedCallId) {
+      $call = (clone $query)->where('id', (int) $requestedCallId)->first();
+    } else {
+      $call = (clone $query)
+        ->whereIn('status', ['ringing', 'accepted'])
+        ->where(function ($q) {
+          // Ringing calls expire after 60 seconds; accepted ongoing calls allowed up to 60 minutes
+          $q->where(function ($rq) {
+            $rq->where('status', 'ringing')
+              ->where('created_at', '>=', now()->subSeconds(60));
+          })->orWhere(function ($aq) {
+            $aq->where('status', 'accepted')
+              ->where('created_at', '>=', now()->subMinutes(60));
+          });
+        })
+        ->latest()
+        ->first();
+    }
 
     if (!$call) {
-      return response()->json(['call' => null]);
+      return response()->json(['call' => null, 'signals' => []]);
     }
 
     $caller = AuthAccount::with('profile')->find($call->caller_id);
@@ -67,6 +76,7 @@ class CallController extends Controller
 
     return response()->json([
       'call' => $this->formatCallPayload($call, $caller, $receiver),
+      'signals' => Cache::get("call_signals:{$call->id}", []),
       'ice_servers' => $this->getIceServersList(),
     ]);
   }
@@ -150,8 +160,15 @@ class CallController extends Controller
 
     $callPayload = $this->formatCallPayload($call, $user, $receiver);
 
+    // Initialize empty signals cache for this call
+    Cache::put("call_signals:{$call->id}", [], now()->addMinutes(15));
+
     // Broadcast CallInitiated immediately to conversation and recipient's user channel
-    broadcast(new CallInitiated($conversation->id, $callPayload, $receiver?->id));
+    try {
+      broadcast(new CallInitiated($conversation->id, $callPayload, $receiver?->id));
+    } catch (\Throwable $e) {
+      Log::warning('Failed broadcasting CallInitiated: ' . $e->getMessage());
+    }
 
     // Dispatch high-priority push notifications to offline / background participants
     try {
@@ -214,10 +231,15 @@ class CallController extends Controller
       [$call->caller_id, $call->receiver_id]
     ))));
 
-    broadcast(new CallAnswered($call->conversation_id, $callPayload, $participantIds));
+    try {
+      broadcast(new CallAnswered($call->conversation_id, $callPayload, $participantIds));
+    } catch (\Throwable $e) {
+      Log::warning('Failed broadcasting CallAnswered: ' . $e->getMessage());
+    }
 
     return response()->json([
       'call' => $callPayload,
+      'signals' => Cache::get("call_signals:{$call->id}", []),
       'ice_servers' => $this->getIceServersList(),
     ]);
   }
@@ -259,7 +281,11 @@ class CallController extends Controller
     ))));
 
     // Broadcast rejection event
-    broadcast(new CallRejected($call->conversation_id, $call->id, $reason, $participantIds));
+    try {
+      broadcast(new CallRejected($call->conversation_id, $call->id, $reason, $participantIds));
+    } catch (\Throwable $e) {
+      Log::warning('Failed broadcasting CallRejected: ' . $e->getMessage());
+    }
 
     // Record rejected/missed call message in conversation
     $this->recordCallMessage($call, $reason);
@@ -322,7 +348,11 @@ class CallController extends Controller
       [$call->caller_id, $call->receiver_id]
     ))));
 
-    broadcast(new CallEnded($call->conversation_id, $callPayload, $participantIds));
+    try {
+      broadcast(new CallEnded($call->conversation_id, $callPayload, $participantIds));
+    } catch (\Throwable $e) {
+      Log::warning('Failed broadcasting CallEnded: ' . $e->getMessage());
+    }
 
     // Create call summary message in conversation
     $this->recordCallMessage($call, $reason);
@@ -353,6 +383,30 @@ class CallController extends Controller
       return response()->json(['message' => 'Cuộc gọi không còn hoạt động.'], 400);
     }
 
+    $type = $request->input('type');
+    $payload = $request->input('payload');
+
+    // Persist signal in cache so HTTP polling / sync_needed fallback always delivers 100% of signals
+    // even when SDP offer/answer exceeds Reverb/Pusher's 10KB WebSocket frame limit.
+    $cacheKey = "call_signals:{$call->id}";
+    $signals = Cache::get($cacheKey, []);
+    if (!is_array($signals)) {
+      $signals = [];
+    }
+    $seq = count($signals) + 1;
+    $signals[] = [
+      'seq' => $seq,
+      'call_id' => (int) $call->id,
+      'conversation_id' => (int) $call->conversation_id,
+      'sender_id' => (int) $user->id,
+      'type' => $type,
+      'payload' => $payload,
+    ];
+    if (count($signals) > 150) {
+      $signals = array_slice($signals, -150);
+    }
+    Cache::put($cacheKey, $signals, now()->addMinutes(15));
+
     $allParticipants = array_unique(array_filter(array_merge(
       $call->conversation ? $call->conversation->participants->pluck('id')->all() : [],
       [$call->caller_id, $call->receiver_id]
@@ -363,16 +417,66 @@ class CallController extends Controller
       fn($pid) => (int) $pid !== (int) $user->id
     ));
 
-    broadcast(new CallSignaled(
-      $call->conversation_id,
-      $call->id,
-      $user->id,
-      $request->input('type'),
-      $request->input('payload'),
-      $recipientIds
-    ))->toOthers();
+    $encodedPayload = json_encode($payload) ?: '';
 
-    return response()->json(['success' => true]);
+    // Reverb's default max_request_size is 10,000 bytes. Double-JSON encoding in Pusher protocol
+    // inflates a 5KB SDP to ~8.5KB. If encoded payload is > 3800 bytes, broadcast in 2800-byte chunks
+    // AND broadcast a sync_needed wakeup so both WebSocket chunking and HTTP cache polling succeed immediately.
+    if (($type === 'offer' || $type === 'answer') && strlen($encodedPayload) > 3800) {
+      $chunks = str_split($encodedPayload, 2800);
+      $totalChunks = count($chunks);
+      $chunkGroupId = $call->id . '_' . $type . '_' . $seq;
+
+      foreach ($chunks as $idx => $chunkStr) {
+        try {
+          broadcast(new CallSignaled(
+            $call->conversation_id,
+            $call->id,
+            $user->id,
+            'sdp_chunk',
+            [
+              'chunk_group_id' => $chunkGroupId,
+              'chunk_index' => $idx,
+              'total_chunks' => $totalChunks,
+              'original_type' => $type,
+              'chunk' => $chunkStr,
+              'seq' => $seq,
+            ],
+            $recipientIds
+          ))->toOthers();
+        } catch (\Throwable $e) {
+          Log::warning('Failed broadcasting SDP chunk: ' . $e->getMessage());
+        }
+      }
+    } else {
+      try {
+        broadcast(new CallSignaled(
+          $call->conversation_id,
+          $call->id,
+          $user->id,
+          $type,
+          $payload,
+          $recipientIds
+        ))->toOthers();
+      } catch (\Throwable $e) {
+        Log::warning('Failed broadcasting CallSignaled (' . $type . '): ' . $e->getMessage());
+        try {
+          broadcast(new CallSignaled(
+            $call->conversation_id,
+            $call->id,
+            $user->id,
+            'sync_needed',
+            ['seq' => $seq],
+            $recipientIds
+          ))->toOthers();
+        } catch (\Throwable $inner) {}
+      }
+    }
+
+    return response()->json([
+      'success' => true,
+      'seq' => $seq,
+    ]);
   }
 
   /**
