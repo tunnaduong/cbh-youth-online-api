@@ -114,6 +114,10 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **User Profile Videos Endpoint (`GET /v1.0/users/{username}/videos`)**:
+  - Added `UserController::getUserVideos()` and registered route `GET /v1.0/users/{username}/videos` in `routes/api.php` to fetch paginated videos uploaded in user's visible posts (`cdn_video_id`), matching `getUserPhotos` behavior and visibility rules.
+
+
 - **Fix SQL error in active call lookup (`GET /v1.0/chat/calls/active`)**:
   - `CallController::activeCall()`: Fixed column reference `auth_account.id` to `cyo_auth_accounts.id` inside the `conversation.participants` subquery constraint. Prevents MySQL error 1054 (`Unknown column 'auth_account.id' in 'where clause'`).
 
