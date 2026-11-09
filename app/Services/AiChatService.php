@@ -430,13 +430,23 @@ PROMPT;
    * Translate a post's title and description to a target language.
    * Supports: vi (Vietnamese), en (English), ru (Russian), zh (Simplified Chinese).
    *
-   * @param  string  $title
-   * @param  string  $description
+   * @param  string|null  $title
+   * @param  string|null  $description
    * @param  string  $targetLang
    * @return array{title: string, description: string}
    */
-  public function translatePost(string $title, string $description, string $targetLang): array
+  public function translatePost(?string $title, ?string $description, string $targetLang): array
   {
+    $cleanTitle = trim((string) ($title ?? ''));
+    $cleanDesc = trim((string) ($description ?? ''));
+
+    if ($cleanTitle === '' && $cleanDesc === '') {
+      return [
+        'title' => '',
+        'description' => '',
+      ];
+    }
+
     $langNames = [
       'vi' => 'tiếng Việt',
       'en' => 'tiếng Anh (English)',
@@ -462,8 +472,8 @@ Yêu cầu bắt buộc:
 PROMPT;
 
     $userPayload = json_encode([
-      'title' => $title,
-      'description' => $description,
+      'title' => $cleanTitle,
+      'description' => $cleanDesc,
     ], JSON_UNESCAPED_UNICODE);
 
     $messages = [
@@ -471,78 +481,174 @@ PROMPT;
       ['role' => 'user', 'content' => "Dịch bài viết sau sang {$targetLangName}:\n{$userPayload}"],
     ];
 
-    $raw = $this->requestRaw($messages);
+    $raw = $this->requestRaw($messages, true);
 
     // Strip code block fences ```json ... ``` if model wrapped them
     $clean = preg_replace('/^```(?:json)?\s*|\s*```$/isu', '', trim($raw));
     $decoded = json_decode($clean, true);
 
-    if (!is_array($decoded) || empty($decoded['title'])) {
-      if (preg_match('/\{[\s\S]*"title"[\s\S]*"description"[\s\S]*\}/u', $raw, $matches)) {
+    if (!is_array($decoded) || !isset($decoded['title'])) {
+      if (preg_match('/\{[\s\S]*"title"[\s\S]*"description"[\s\S]*\}/u', $clean, $matches)) {
         $decoded = json_decode($matches[0], true);
+      }
+    }
+
+    // Resilient fallback regex if json_decode failed on unescaped control characters/newlines
+    if (!is_array($decoded) || !isset($decoded['title'])) {
+      $extractedTitle = null;
+      $extractedDesc = null;
+
+      if (preg_match('/"title"\s*:\s*"((?:\\\\.|[^"\\\\])*)"/u', $clean, $m)) {
+        $extractedTitle = json_decode('"' . $m[1] . '"') ?? stripslashes($m[1]);
+      }
+      if (preg_match('/"description"\s*:\s*"([\s\S]*?)"\s*\}\s*$/u', $clean, $m)) {
+        $extractedDesc = $m[1];
+        $extractedDesc = str_replace(['\"', '\\\\', '\\n', '\\r', '\\t'], ['"', '\\', "\n", "\r", "\t"], $extractedDesc);
+      }
+
+      if ($extractedTitle !== null || $extractedDesc !== null) {
+        return [
+          'title' => (string) ($extractedTitle ?? $cleanTitle),
+          'description' => (string) ($extractedDesc ?? $cleanDesc),
+        ];
       }
     }
 
     if (is_array($decoded) && isset($decoded['title'])) {
       return [
-        'title' => (string) ($decoded['title'] ?? $title),
-        'description' => (string) ($decoded['description'] ?? $description),
+        'title' => (string) ($decoded['title'] ?? $cleanTitle),
+        'description' => (string) ($decoded['description'] ?? $cleanDesc),
       ];
     }
 
     return [
-      'title' => $title,
+      'title' => $cleanTitle,
       'description' => $raw,
     ];
   }
 
   /**
    * The model's reply exactly as it came back (trimmed), before any of the
-   * clean-up passes.
+   * clean-up passes. Supports primary CYO_AI_API proxy with automatic fallback
+   * to Google AI Studio Gemini API (GEMINI_1..5) if proxy fails or is not configured.
+   *
+   * @param  array  $messages
+   * @param  bool  $jsonResponse
+   * @return string
    */
-  private function requestRaw(array $messages): string
+  private function requestRaw(array $messages, bool $jsonResponse = false): string
   {
-    // Same key/config as QuizGenerationService - CYO_AI_API via services.chat_api.key.
     $apiKey = config('services.chat_api.key');
-    if (empty($apiKey)) {
-      throw new \RuntimeException('CYO_AI_API key is not configured.');
-    }
-
     $lastError = null;
 
-    for ($attempt = 0; $attempt < 2; $attempt++) {
-      try {
-        $response = Http::withToken($apiKey)
-          ->timeout(60)
-          ->post(self::API_URL, [
+    if (!empty($apiKey)) {
+      for ($attempt = 0; $attempt < 2; $attempt++) {
+        try {
+          $payload = [
             'model' => self::MODEL,
             'messages' => $messages,
             // Lower temperature favors more accurate/consistent answers
             // over creative variation, appropriate for a chat assistant
             // answering factual/contextual questions in-app.
             'temperature' => 0.2,
-          ]);
+          ];
+          if ($jsonResponse) {
+            $payload['response_format'] = ['type' => 'json_object'];
+          }
 
-        if ($response->status() === 429) {
-          throw new \RuntimeException('AI API rate limited (429).');
-        }
-        if (!$response->successful()) {
-          throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' . $response->body());
-        }
+          $response = Http::withToken($apiKey)
+            ->timeout(60)
+            ->post(self::API_URL, $payload);
 
-        $content = $response->json('choices.0.message.content');
-        if (!is_string($content) || trim($content) === '') {
-          throw new \RuntimeException('AI API response had no message content.');
-        }
+          if ($response->status() === 429) {
+            throw new \RuntimeException('AI API rate limited (429).');
+          }
+          if (!$response->successful()) {
+            throw new \RuntimeException('AI API returned HTTP ' . $response->status() . ': ' . $response->body());
+          }
 
-        return trim($content);
-      } catch (\Throwable $e) {
-        $lastError = $e;
-        Log::warning('AI chat request attempt failed: ' . $e->getMessage());
-        if (str_contains($e->getMessage(), '429')) {
-          break;
+          $content = $response->json('choices.0.message.content');
+          if (!is_string($content) || trim($content) === '') {
+            throw new \RuntimeException('AI API response had no message content.');
+          }
+
+          return trim($content);
+        } catch (\Throwable $e) {
+          $lastError = $e;
+          Log::warning('AI chat proxy attempt failed: ' . $e->getMessage());
+          if (str_contains($e->getMessage(), '429')) {
+            break;
+          }
         }
       }
+    }
+
+    // Direct Gemini fallback (GEMINI_1..5) if chat_api proxy is missing or failed
+    $geminiKeys = config('services.gemini.keys', []);
+    if (!empty($geminiKeys)) {
+      shuffle($geminiKeys);
+
+      $systemText = '';
+      $geminiContents = [];
+      foreach ($messages as $msg) {
+        $role = $msg['role'] ?? 'user';
+        $text = (string) ($msg['content'] ?? '');
+        if ($role === 'system') {
+          $systemText .= ($systemText ? "\n\n" : "") . $text;
+        } else {
+          $geminiContents[] = [
+            'role' => $role === 'assistant' ? 'model' : 'user',
+            'parts' => [['text' => $text]],
+          ];
+        }
+      }
+
+      if (empty($geminiContents)) {
+        $geminiContents[] = [
+          'role' => 'user',
+          'parts' => [['text' => $systemText ?: 'Hello']],
+        ];
+        $systemText = '';
+      }
+
+      $geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+      foreach ($geminiKeys as $gKey) {
+        try {
+          $body = [
+            'contents' => $geminiContents,
+            'generationConfig' => [
+              'temperature' => 0.2,
+            ],
+          ];
+          if ($systemText !== '') {
+            $body['systemInstruction'] = [
+              'parts' => [['text' => $systemText]],
+            ];
+          }
+          if ($jsonResponse) {
+            $body['generationConfig']['responseMimeType'] = 'application/json';
+          }
+
+          $response = Http::withHeaders(['x-goog-api-key' => $gKey])
+            ->timeout(60)
+            ->post($geminiUrl, $body);
+
+          if ($response->successful()) {
+            $text = $response->json('candidates.0.content.parts.0.text');
+            if (is_string($text) && trim($text) !== '') {
+              return trim($text);
+            }
+          }
+          Log::warning('Gemini fallback attempt failed: ' . $response->status() . ' ' . $response->body());
+        } catch (\Throwable $ge) {
+          Log::warning('Gemini fallback request failed: ' . $ge->getMessage());
+        }
+      }
+    }
+
+    if (empty($apiKey) && empty($geminiKeys)) {
+      throw new \RuntimeException('CYO_AI_API key is not configured.');
     }
 
     throw new \RuntimeException('Không thể lấy phản hồi từ AI: ' . ($lastError?->getMessage() ?? 'unknown error'));

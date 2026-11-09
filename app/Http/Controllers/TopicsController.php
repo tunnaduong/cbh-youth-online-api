@@ -353,6 +353,14 @@ class TopicsController extends Controller
       return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);
     }
 
+    if (in_array($topic->moderation_status, ['pending', 'rejected'], true)) {
+      $viewer = auth()->user();
+      $canBypass = $viewer && ($viewer->id === $topic->user_id || $viewer->hasRole('admin'));
+      if (!$canBypass) {
+        return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);
+      }
+    }
+
     $rawTarget = trim((string) $request->input('target_lang', 'vi'));
     $normalized = strtolower($rawTarget);
     if (!in_array($normalized, ['vi', 'en', 'ru', 'zh', 'zh-cn'], true)) {
@@ -372,13 +380,20 @@ class TopicsController extends Controller
       ]);
     }
 
+    $description = (string) ($topic->description ?? '');
+    if ($description === '' && !empty($topic->content_html)) {
+      $description = trim(strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $topic->content_html)));
+    }
+    $title = (string) ($topic->title ?? '');
+
     try {
-      $translated = $aiChatService->translatePost($topic->title, $topic->description, $normalized);
-      $translatedHtml = $this->convertMarkdownToHtml($translated['description']);
+      $translated = $aiChatService->translatePost($title, $description, $normalized);
+      $translatedDesc = (string) ($translated['description'] ?? '');
+      $translatedHtml = $translatedDesc !== '' ? $this->convertMarkdownToHtml($translatedDesc) : '';
 
       $result = [
-        'title' => $translated['title'],
-        'description' => $translated['description'],
+        'title' => $translated['title'] ?? $title,
+        'description' => $translatedDesc,
         'content_html' => $translatedHtml,
       ];
 
@@ -1920,19 +1935,26 @@ class TopicsController extends Controller
         ->whereIn('status', ['pending', 'rejected'])
         ->delete();
 
+      // Capture old timestamp before save() syncs updated_at
+      $oldTimestamp = $topic->updated_at ? $topic->updated_at->timestamp : 0;
+
       $topic->save();
       HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
       $moderationOutcome = $moderationService->applyToTopic($topic, $moderationResult);
     } else {
+      // Capture old timestamp before save() syncs updated_at
+      $oldTimestamp = $topic->updated_at ? $topic->updated_at->timestamp : 0;
+
       $topic->save();
       HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
       $moderationOutcome = ['action' => 'approved', 'message' => null];
     }
 
     // Clear cached AI translations for the old version of this post
-    $oldTimestamp = $topic->getOriginal('updated_at') ? Carbon::parse($topic->getOriginal('updated_at'))->timestamp : 0;
-    foreach (['vi', 'en', 'ru', 'zh', 'zh-cn'] as $l) {
-      Cache::forget("topic_trans:{$topic->id}:{$l}:{$oldTimestamp}");
+    if ($oldTimestamp > 0) {
+      foreach (['vi', 'en', 'ru', 'zh', 'zh-cn'] as $l) {
+        Cache::forget("topic_trans:{$topic->id}:{$l}:{$oldTimestamp}");
+      }
     }
 
     // Resolve @mentions in the updated text so clients can render them

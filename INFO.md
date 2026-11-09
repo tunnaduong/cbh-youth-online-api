@@ -114,8 +114,10 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
-- **Post Translation by Yoyo AI with Server-Side Caching** (`app/Services/AiChatService.php`, `app/Http/Controllers/TopicsController.php`, `routes/api.php`):
-  - Added `translatePost(string $title, string $description, string $targetLang): array` in `AiChatService.php` instructing Yoyo AI to translate forum post titles and markdown content while preserving 100% of markdown structure (headings, links, lists, code blocks, emojis, @mentions).
+- **Post Translation by Yoyo AI with Multi-Key Gemini Fallback & Server-Side Caching** (`app/Services/AiChatService.php`, `app/Http/Controllers/TopicsController.php`, `routes/api.php`):
+  - Added `translatePost(?string $title, ?string $description, string $targetLang): array` in `AiChatService.php` instructing Yoyo AI to translate forum post titles and markdown content while preserving 100% of markdown structure (headings, links, lists, code blocks, emojis, @mentions).
+  - Resilient AI execution in `AiChatService::requestRaw()`: supports primary CYO_AI_API proxy with automatic failover to Google AI Studio Gemini API (`GEMINI_1..5` keys) and JSON enforcement (`responseMimeType => application/json` / `response_format => json_object`), with regex fallback parser preventing unescaped multiline markdown JSON breaks.
+  - Handles nullable/empty descriptions, image-only/title-only posts, and extracts text from `content_html` when markdown description is absent.
   - Supports 4 languages: `vi` (Vietnamese), `en` (English), `ru` (Russian), and `zh` (Simplified Chinese).
   - Registered endpoint `POST /v1.0/topics/{id}/translate` in `routes/api.php` under `optional.auth` middleware.
   - Caches translation results in Laravel Cache (`topic_trans:{id}:{lang}:{updated_at_timestamp}`) for 30 days to eliminate duplicate AI calls. Any post edit via `TopicsController::update()` invalidates stale cache keys and bumps the timestamp version so translations remain updated.
