@@ -779,24 +779,27 @@ class UserController extends Controller
     $user = $this->findVisibleUserOrFail($username);
     $isOwnProfile = auth()->check() && auth()->id() === $user->id;
 
+    $type = $request->input('type', 'photo');
+    $isVideo = $type === 'video';
+    $field = $isVideo ? 'cdn_video_id' : 'cdn_image_id';
+
     $postsQuery = $user->posts()
       ->visibleToCurrentUser()
-      ->whereNotNull('cdn_image_id')
-      ->where('cdn_image_id', '!=', '')
+      ->whereNotNull($field)
+      ->where($field, '!=', '')
       ->latest();
 
     if (!$isOwnProfile) {
       $postsQuery->where('anonymous', false)->where('hidden', 0);
     }
 
-    $posts = $postsQuery->limit(200)->get(['id', 'title', 'anonymous', 'cdn_image_id', 'created_at']);
+    $posts = $postsQuery->limit(200)->get(['id', 'title', 'anonymous', $field, 'created_at']);
 
-    // Collect every image id first and resolve them in one query - calling
-    // $post->getImageUrls() per post would be one query per post.
+    // Collect every media id first and resolve them in one query
     $idsByPost = [];
     $allIds = [];
     foreach ($posts as $post) {
-      $ids = array_values(array_filter(explode(',', (string) $post->cdn_image_id)));
+      $ids = array_values(array_filter(explode(',', (string) $post->{$field})));
       $idsByPost[$post->id] = $ids;
       $allIds = array_merge($allIds, $ids);
     }
@@ -805,21 +808,19 @@ class UserController extends Controller
       ? collect()
       : UserContent::whereIn('id', $allIds)->get()->keyBy('id');
 
-    $photos = [];
+    $items = [];
     foreach ($posts as $post) {
-      foreach ($idsByPost[$post->id] as $imageId) {
-        $content = $contents->get($imageId);
+      foreach ($idsByPost[$post->id] as $mediaId) {
+        $content = $contents->get($mediaId);
         if (!$content) {
           continue;
         }
 
-        $photos[] = [
+        $items[] = [
           'id' => $content->id,
           'url' => config('app.url') . Storage::url($content->file_path),
           'post_id' => $post->id,
           'post_title' => $post->title,
-          // The post URL uses "anonymous" instead of the username for
-          // anonymous posts, same as the post cards do.
           'post_anonymous' => (bool) $post->anonymous,
           'created_at' => $post->created_at ? $post->created_at->toISOString() : null,
         ];
@@ -828,10 +829,10 @@ class UserController extends Controller
 
     $perPage = min(max((int) $request->input('per_page', 12), 1), 60);
     $page = max(1, (int) $request->input('page', 1));
-    $total = count($photos);
+    $total = count($items);
 
     return response()->json([
-      'data' => array_slice($photos, ($page - 1) * $perPage, $perPage),
+      'data' => array_slice($items, ($page - 1) * $perPage, $perPage),
       'total' => $total,
       'current_page' => $page,
       'per_page' => $perPage,
