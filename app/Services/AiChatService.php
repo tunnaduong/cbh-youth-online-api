@@ -427,6 +427,76 @@ PROMPT;
   }
 
   /**
+   * Translate a post's title and description to a target language.
+   * Supports: vi (Vietnamese), en (English), ru (Russian), zh (Simplified Chinese).
+   *
+   * @param  string  $title
+   * @param  string  $description
+   * @param  string  $targetLang
+   * @return array{title: string, description: string}
+   */
+  public function translatePost(string $title, string $description, string $targetLang): array
+  {
+    $langNames = [
+      'vi' => 'tiếng Việt',
+      'en' => 'tiếng Anh (English)',
+      'ru' => 'tiếng Nga (Русский)',
+      'zh' => 'tiếng Trung Giản thể (Simplified Chinese, 简体中文)',
+      'zh-cn' => 'tiếng Trung Giản thể (Simplified Chinese, 简体中文)',
+    ];
+
+    $normLang = strtolower(trim($targetLang));
+    $targetLangName = $langNames[$normLang] ?? ($langNames[substr($normLang, 0, 2)] ?? 'tiếng Việt');
+
+    $prompt = <<<PROMPT
+Bạn là Yoyo AI - trợ lý thông minh của Chuyên Biên Hòa Youth Online (CYO).
+Nhiệm vụ của bạn là dịch tiêu đề và nội dung bài viết diễn đàn sang {$targetLangName}.
+Yêu cầu bắt buộc:
+1. Dịch chuẩn xác, lưu loát, tự nhiên theo đúng văn phong diễn đàn học sinh / giới trẻ.
+2. Giữ nguyên 100% định dạng Markdown trong phần nội dung (tiêu đề #, danh sách -, *, đánh số 1., đường link [text](url), code block, in đậm, in nghiêng, emoji, @mention...). KHÔNG làm hỏng đường link URL hay thay đổi cú pháp @mention người dùng.
+3. Trả về kết quả CHỈ gồm đúng một khối JSON hợp lệ duy nhất (không có bất kỳ lời dẫn hay giải thích nào khác), với định dạng chính xác sau:
+{
+  "title": "tiêu đề đã dịch",
+  "description": "nội dung markdown đã dịch"
+}
+PROMPT;
+
+    $userPayload = json_encode([
+      'title' => $title,
+      'description' => $description,
+    ], JSON_UNESCAPED_UNICODE);
+
+    $messages = [
+      ['role' => 'system', 'content' => $prompt],
+      ['role' => 'user', 'content' => "Dịch bài viết sau sang {$targetLangName}:\n{$userPayload}"],
+    ];
+
+    $raw = $this->requestRaw($messages);
+
+    // Strip code block fences ```json ... ``` if model wrapped them
+    $clean = preg_replace('/^```(?:json)?\s*|\s*```$/isu', '', trim($raw));
+    $decoded = json_decode($clean, true);
+
+    if (!is_array($decoded) || empty($decoded['title'])) {
+      if (preg_match('/\{[\s\S]*"title"[\s\S]*"description"[\s\S]*\}/u', $raw, $matches)) {
+        $decoded = json_decode($matches[0], true);
+      }
+    }
+
+    if (is_array($decoded) && isset($decoded['title'])) {
+      return [
+        'title' => (string) ($decoded['title'] ?? $title),
+        'description' => (string) ($decoded['description'] ?? $description),
+      ];
+    }
+
+    return [
+      'title' => $title,
+      'description' => $raw,
+    ];
+  }
+
+  /**
    * The model's reply exactly as it came back (trimmed), before any of the
    * clean-up passes.
    */

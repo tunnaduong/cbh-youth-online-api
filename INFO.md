@@ -114,6 +114,12 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Post Translation by Yoyo AI with Server-Side Caching** (`app/Services/AiChatService.php`, `app/Http/Controllers/TopicsController.php`, `routes/api.php`):
+  - Added `translatePost(string $title, string $description, string $targetLang): array` in `AiChatService.php` instructing Yoyo AI to translate forum post titles and markdown content while preserving 100% of markdown structure (headings, links, lists, code blocks, emojis, @mentions).
+  - Supports 4 languages: `vi` (Vietnamese), `en` (English), `ru` (Russian), and `zh` (Simplified Chinese).
+  - Registered endpoint `POST /v1.0/topics/{id}/translate` in `routes/api.php` under `optional.auth` middleware.
+  - Caches translation results in Laravel Cache (`topic_trans:{id}:{lang}:{updated_at_timestamp}`) for 30 days to eliminate duplicate AI calls. Any post edit via `TopicsController::update()` invalidates stale cache keys and bumps the timestamp version so translations remain updated.
+
 - **Fix WebRTC Audio Failure: Reverb 10KB Payload Limit (SDP Chunking), `throttle:api` 429 on Trickle ICE, `/calls/ice-servers` Route & HTTP Signal Cache Sync** (`config/reverb.php`, `app/Providers/RouteServiceProvider.php`, `routes/api.php`, `app/Http/Controllers/CallController.php`):
   - **Reverb Payload Size & Automatic SDP Chunking**: Raised default `REVERB_APP_MAX_MESSAGE_SIZE` / `max_request_size` in `config/reverb.php` from `10_000` (10KB) to `100_000` (100KB). Additionally, `CallController::signal()` now automatically splits any WebRTC SDP `offer`/`answer` > 3,800 bytes into 2,800-byte `sdp_chunk` broadcasts so even a running Reverb daemon with the old 10KB limit in memory never throws `HTTP 413 Payload too large` / `BroadcastException` (HTTP 500) on SDP offers/answers.
   - **Dedicated `throttle:calls` Rate Limiter (1,000 req/min)**: Exempted `/v1.0/chat/calls/*` and `/v1.0/chat/conversations/{id}/call/initiate` from the 60 req/min `throttle:api` limiter (`Route::withoutMiddleware(['throttle:api'])->middleware(['throttle:calls'])`), preventing Trickle ICE candidate bursts (30–50 `POST /calls/{id}/signal` requests in 1s) from failing with **HTTP 429 Too Many Requests**.

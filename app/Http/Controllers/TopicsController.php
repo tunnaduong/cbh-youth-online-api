@@ -29,6 +29,7 @@ use League\CommonMark\Extension\Autolink\AutolinkExtension;
 use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
 use League\CommonMark\CommonMarkConverter;
 use App\Services\ProfileThemeService;
+use App\Services\AiChatService;
 
 /**
  * Handles all API-related actions for topics, including creation, retrieval, voting, and commenting.
@@ -328,6 +329,75 @@ class TopicsController extends Controller
     );
 
     return array_slice(array_values($words), 0, 6);
+  }
+
+  /**
+   * Translate a topic title and markdown description using Yoyo AI.
+   * Only supports 4 target languages: vi (Vietnamese), en (English), ru (Russian), zh (Simplified Chinese).
+   * Result is cached on server by topic ID, target language and updated_at timestamp
+   * to eliminate duplicate AI calls until the post is edited.
+   *
+   * @param  \Illuminate\Http\Request  $request
+   * @param  int  $id
+   * @param  \App\Services\AiChatService  $aiChatService
+   * @return \Illuminate\Http\JsonResponse
+   */
+  public function translate(Request $request, $id, AiChatService $aiChatService)
+  {
+    $topic = Topic::find($id);
+    if (!$topic) {
+      return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);
+    }
+
+    if (\App\Support\UserBlocks::viewerIsBlockedWith((int) $topic->user_id)) {
+      return response()->json(['message' => 'Không tìm thấy bài viết.'], 404);
+    }
+
+    $rawTarget = trim((string) $request->input('target_lang', 'vi'));
+    $normalized = strtolower($rawTarget);
+    if (!in_array($normalized, ['vi', 'en', 'ru', 'zh', 'zh-cn'], true)) {
+      $normalized = 'vi';
+    }
+
+    $version = $topic->updated_at ? $topic->updated_at->timestamp : 0;
+    $cacheKey = "topic_trans:{$topic->id}:{$normalized}:{$version}";
+
+    $cached = Cache::get($cacheKey);
+    if ($cached && is_array($cached)) {
+      return response()->json([
+        'success' => true,
+        'cached' => true,
+        'target_lang' => $normalized,
+        'translated' => $cached,
+      ]);
+    }
+
+    try {
+      $translated = $aiChatService->translatePost($topic->title, $topic->description, $normalized);
+      $translatedHtml = $this->convertMarkdownToHtml($translated['description']);
+
+      $result = [
+        'title' => $translated['title'],
+        'description' => $translated['description'],
+        'content_html' => $translatedHtml,
+      ];
+
+      // Cache for 30 days. Any edit to the post updates updated_at, naturally invalidating this cache.
+      Cache::put($cacheKey, $result, now()->addDays(30));
+
+      return response()->json([
+        'success' => true,
+        'cached' => false,
+        'target_lang' => $normalized,
+        'translated' => $result,
+      ]);
+    } catch (\Throwable $e) {
+      Log::error("Failed to translate topic {$topic->id} with Yoyo AI: " . $e->getMessage());
+      return response()->json([
+        'success' => false,
+        'message' => 'Không thể dịch bài viết bằng Yoyo AI: ' . $e->getMessage(),
+      ], 500);
+    }
   }
 
   /**
@@ -1857,6 +1927,12 @@ class TopicsController extends Controller
       $topic->save();
       HashtagService::syncTopicHashtags($topic, $hashtagResult['tags']);
       $moderationOutcome = ['action' => 'approved', 'message' => null];
+    }
+
+    // Clear cached AI translations for the old version of this post
+    $oldTimestamp = $topic->getOriginal('updated_at') ? Carbon::parse($topic->getOriginal('updated_at'))->timestamp : 0;
+    foreach (['vi', 'en', 'ru', 'zh', 'zh-cn'] as $l) {
+      Cache::forget("topic_trans:{$topic->id}:{$l}:{$oldTimestamp}");
     }
 
     // Resolve @mentions in the updated text so clients can render them
