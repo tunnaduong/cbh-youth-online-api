@@ -4,6 +4,7 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -18,17 +19,29 @@ class CallRejected implements ShouldBroadcastNow
   public $conversationId;
   public $callId;
   public $reason;
+  public $participantIds;
 
-  public function __construct(int $conversationId, int $callId, string $reason = 'rejected')
+  public function __construct(int $conversationId, int $callId, string $reason = 'rejected', array $participantIds = [])
   {
     $this->conversationId = $conversationId;
     $this->callId = $callId;
     $this->reason = $reason;
+    $this->participantIds = $participantIds;
   }
 
   public function broadcastOn()
   {
-    return new PresenceChannel('chat.' . $this->conversationId);
+    $channels = [
+      new PresenceChannel('chat.' . $this->conversationId),
+    ];
+
+    foreach (array_unique($this->participantIds) as $userId) {
+      if ($userId) {
+        $channels[] = new PrivateChannel('App.Models.User.' . $userId);
+      }
+    }
+
+    return $channels;
   }
 
   public function broadcastAs()

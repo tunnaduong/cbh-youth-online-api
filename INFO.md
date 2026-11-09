@@ -114,6 +114,10 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **WebRTC Call Signaling Delivery & TURN Relay Fallback** (`app/Events/CallAnswered.php`, `app/Events/CallSignaled.php`, `app/Events/CallRejected.php`, `app/Events/CallEnded.php`, `app/Http/Controllers/CallController.php`):
+  - `CallAnswered`, `CallSignaled`, `CallRejected`, and `CallEnded` now broadcast on both `PresenceChannel('chat.{conversationId}')` and each participant's persistent `PrivateChannel('App.Models.User.{userId}')`, eliminating dropped `ringing`, `offer`, `answer`, and `candidate` packets while clients are still authenticating the conversation presence channel.
+  - `CallController::getIceServersList()` now includes Cloudflare STUN (`stun:stun.cloudflare.com:3478`) and OpenRelay TURN fallback servers (UDP/TCP 80 & 443) when `WEBRTC_TURN_SERVER` is not set in environment.
+
 - **User Profile Videos Endpoint (`GET /v1.0/users/{username}/videos`)**:
   - Added `UserController::getUserVideos()` and registered route `GET /v1.0/users/{username}/videos` in `routes/api.php` to fetch paginated videos uploaded in user's visible posts (`cdn_video_id`), matching `getUserPhotos` behavior and visibility rules.
 

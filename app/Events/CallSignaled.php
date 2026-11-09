@@ -4,6 +4,7 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -20,19 +21,31 @@ class CallSignaled implements ShouldBroadcastNow
   public $senderId;
   public $type;
   public $payload;
+  public $recipientIds;
 
-  public function __construct(int $conversationId, int $callId, int $senderId, string $type, $payload)
+  public function __construct(int $conversationId, int $callId, int $senderId, string $type, $payload, array $recipientIds = [])
   {
     $this->conversationId = $conversationId;
     $this->callId = $callId;
     $this->senderId = $senderId;
     $this->type = $type;
     $this->payload = $payload;
+    $this->recipientIds = $recipientIds;
   }
 
   public function broadcastOn()
   {
-    return new PresenceChannel('chat.' . $this->conversationId);
+    $channels = [
+      new PresenceChannel('chat.' . $this->conversationId),
+    ];
+
+    foreach (array_unique($this->recipientIds) as $userId) {
+      if ($userId) {
+        $channels[] = new PrivateChannel('App.Models.User.' . $userId);
+      }
+    }
+
+    return $channels;
   }
 
   public function broadcastAs()

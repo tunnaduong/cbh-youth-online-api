@@ -209,7 +209,12 @@ class CallController extends Controller
 
     $callPayload = $this->formatCallPayload($call, $call->caller, $user);
 
-    broadcast(new CallAnswered($call->conversation_id, $callPayload));
+    $participantIds = array_values(array_unique(array_filter(array_merge(
+      $call->conversation->participants->pluck('id')->all(),
+      [$call->caller_id, $call->receiver_id]
+    ))));
+
+    broadcast(new CallAnswered($call->conversation_id, $callPayload, $participantIds));
 
     return response()->json([
       'call' => $callPayload,
@@ -248,8 +253,13 @@ class CallController extends Controller
     $call->ended_at = now();
     $call->save();
 
+    $participantIds = array_values(array_unique(array_filter(array_merge(
+      $call->conversation->participants->pluck('id')->all(),
+      [$call->caller_id, $call->receiver_id]
+    ))));
+
     // Broadcast rejection event
-    broadcast(new CallRejected($call->conversation_id, $call->id, $reason));
+    broadcast(new CallRejected($call->conversation_id, $call->id, $reason, $participantIds));
 
     // Record rejected/missed call message in conversation
     $this->recordCallMessage($call, $reason);
@@ -307,7 +317,12 @@ class CallController extends Controller
 
     $callPayload = $this->formatCallPayload($call, $call->caller, $call->receiver);
 
-    broadcast(new CallEnded($call->conversation_id, $callPayload));
+    $participantIds = array_values(array_unique(array_filter(array_merge(
+      $call->conversation->participants->pluck('id')->all(),
+      [$call->caller_id, $call->receiver_id]
+    ))));
+
+    broadcast(new CallEnded($call->conversation_id, $callPayload, $participantIds));
 
     // Create call summary message in conversation
     $this->recordCallMessage($call, $reason);
@@ -329,7 +344,7 @@ class CallController extends Controller
       'payload' => 'nullable',
     ]);
 
-    $call = Call::find($id);
+    $call = Call::with('conversation.participants')->find($id);
     if (!$call) {
       return response()->json(['message' => 'Không tìm thấy cuộc gọi.'], 404);
     }
@@ -338,12 +353,23 @@ class CallController extends Controller
       return response()->json(['message' => 'Cuộc gọi không còn hoạt động.'], 400);
     }
 
+    $allParticipants = array_unique(array_filter(array_merge(
+      $call->conversation ? $call->conversation->participants->pluck('id')->all() : [],
+      [$call->caller_id, $call->receiver_id]
+    )));
+
+    $recipientIds = array_values(array_filter(
+      $allParticipants,
+      fn($pid) => (int) $pid !== (int) $user->id
+    ));
+
     broadcast(new CallSignaled(
       $call->conversation_id,
       $call->id,
       $user->id,
       $request->input('type'),
-      $request->input('payload')
+      $request->input('payload'),
+      $recipientIds
     ))->toOthers();
 
     return response()->json(['success' => true]);
@@ -495,6 +521,7 @@ class CallController extends Controller
       ['urls' => 'stun:stun.l.google.com:19302'],
       ['urls' => 'stun:stun1.l.google.com:19302'],
       ['urls' => 'stun:stun2.l.google.com:19302'],
+      ['urls' => 'stun:stun.cloudflare.com:3478'],
     ];
 
     $customStun = env('WEBRTC_STUN_SERVERS');
@@ -513,6 +540,16 @@ class CallController extends Controller
       if ($turnUser) $turnConfig['username'] = $turnUser;
       if ($turnPass) $turnConfig['credential'] = $turnPass;
       $servers[] = $turnConfig;
+    } else {
+      $servers[] = [
+        'urls' => [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turn:openrelay.metered.ca:443?transport=tcp',
+        ],
+        'username' => 'openrelayproject',
+        'credential' => 'openrelayproject',
+      ];
     }
 
     return $servers;
