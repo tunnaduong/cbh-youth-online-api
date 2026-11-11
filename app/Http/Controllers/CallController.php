@@ -741,23 +741,35 @@ class CallController extends Controller
       ['urls' => 'stun:stun4.l.google.com:19302'],
     ];
 
-    $customStun = env('WEBRTC_STUN_SERVERS');
+    $customStun = config('services.webrtc.stun_servers');
     if ($customStun) {
       $urls = array_filter(array_map('trim', explode(',', $customStun)));
       if (!empty($urls)) {
-        $servers[] = ['urls' => $urls];
+        $servers[] = ['urls' => array_values($urls)];
       }
     }
 
-    $turnUrl = env('WEBRTC_TURN_SERVER');
-    $turnUser = env('WEBRTC_TURN_USERNAME');
-    $turnPass = env('WEBRTC_TURN_PASSWORD');
+    $turnUrl = config('services.webrtc.turn_server');
     if ($turnUrl) {
       // Several addresses separated by commas (e.g. the UDP, TCP and TLS forms of one server)
       $turnUrls = array_values(array_filter(array_map('trim', explode(',', $turnUrl))));
       $turnConfig = ['urls' => count($turnUrls) === 1 ? $turnUrls[0] : $turnUrls];
-      if ($turnUser) $turnConfig['username'] = $turnUser;
-      if ($turnPass) $turnConfig['credential'] = $turnPass;
+
+      $turnSecret = config('services.webrtc.turn_secret');
+      if ($turnSecret) {
+        // coturn "use-auth-secret": the username is "<expiry timestamp>:<user id>" and the
+        // password is its HMAC-SHA1 under the shared secret, so a login leaked from a
+        // client stops working when it expires.
+        $ttl = max(600, (int) config('services.webrtc.turn_ttl', 86400));
+        $username = (time() + $ttl) . ':' . (Auth::id() ?? 'guest');
+        $turnConfig['username'] = $username;
+        $turnConfig['credential'] = base64_encode(hash_hmac('sha1', $username, $turnSecret, true));
+      } else {
+        $turnUser = config('services.webrtc.turn_username');
+        $turnPass = config('services.webrtc.turn_password');
+        if ($turnUser) $turnConfig['username'] = $turnUser;
+        if ($turnPass) $turnConfig['credential'] = $turnPass;
+      }
       $servers[] = $turnConfig;
     }
 

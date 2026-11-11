@@ -88,7 +88,7 @@ Requirements: PHP ^8.1, Composer, MySQL, Node (only for the legacy Vite/Inertia 
 composer install
 npm install                 # also runs patch-package
 cp .env.example .env && php artisan key:generate
-# fill DB_*, MAIL_*, REVERB_*, GOOGLE_*/FACEBOOK_*/APPLE_CLIENT_ID, VAPID_*, CYO_AI_API, IMAGE_MODERATION_API_KEY, GEMINI_1..5, SePay, RECAPTCHA_*; optional FORUM_SCHOOL_ACCOUNT (default DoanTruongCBH)
+# fill DB_*, MAIL_*, REVERB_*, WEBRTC_TURN_SERVER + WEBRTC_TURN_SECRET (coturn, for calls), GOOGLE_*/FACEBOOK_*/APPLE_CLIENT_ID, VAPID_*, CYO_AI_API, IMAGE_MODERATION_API_KEY, GEMINI_1..5, SePay, RECAPTCHA_*; optional FORUM_SCHOOL_ACCOUNT (default DoanTruongCBH)
 php artisan migrate
 php artisan storage:link
 php artisan serve           # or: php artisan octane:start (RoadRunner)
@@ -114,6 +114,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 - New client endpoints go in `routes/api.php` under the right access tier. Keep response shapes stable: web, mobile and gift shop all consume them.
 
 ## Recent work (newest first)
+
+- **TURN settings are read from config; expiring TURN logins** (`config/services.php` `webrtc`, `CallController::getIceServersList`; `php -l` only; no migration): the controller read `WEBRTC_TURN_*` with `env()`, which returns null once `php artisan config:cache` has run - so a TURN server set in `.env` was never sent to clients. They are in `config('services.webrtc.*')` now. New `WEBRTC_TURN_SECRET` (coturn `use-auth-secret` / `static-auth-secret`): each client gets `username = <expiry>:<user id>`, `credential = base64(HMAC-SHA1(secret, username))`, valid `WEBRTC_TURN_TTL` seconds (default 86400); the fixed `WEBRTC_TURN_USERNAME` / `WEBRTC_TURN_PASSWORD` pair still works when no secret is set. **After editing `.env`: `php artisan config:cache`.**
 
 - **Calls: relay audio chunks carry their sequence number; several TURN addresses** (`app/Http/Controllers/CallController.php`; `php -l` only; no migration): the fallback `audio_chunk` broadcast now has `aseq` inside its payload (it was only in the HTTP poll's copy), so web and mobile play a chunk once although it arrives on two socket channels and in the poll. `WEBRTC_TURN_SERVER` may hold several addresses separated by commas. **Voice only stays clear when the two sides connect directly or through TURN**: without `WEBRTC_TURN_SERVER` / `WEBRTC_TURN_USERNAME` / `WEBRTC_TURN_PASSWORD` in `.env` (no TURN server is built in - only STUN), a call between networks that block direct connections runs on the HTTP relay (8 kHz, delayed).
 

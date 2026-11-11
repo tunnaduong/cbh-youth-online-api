@@ -125,4 +125,19 @@ return [
     'deploy_token' => env('OTA_DEPLOY_TOKEN'),
   ],
 
+  // WebRTC calls. Read here, not with env() in the controller: after
+  // `php artisan config:cache`, env() outside config files returns null.
+  'webrtc' => [
+    'stun_servers' => env('WEBRTC_STUN_SERVERS'),
+    // One or more TURN addresses separated by commas.
+    'turn_server' => env('WEBRTC_TURN_SERVER'),
+    // Either a shared secret (coturn `use-auth-secret` + `static-auth-secret`):
+    // each client gets a login that expires, the secret never leaves the server...
+    'turn_secret' => env('WEBRTC_TURN_SECRET'),
+    'turn_ttl' => (int) env('WEBRTC_TURN_TTL', 86400),
+    // ...or one fixed login (coturn `lt-cred-mech` + `user=name:password`).
+    'turn_username' => env('WEBRTC_TURN_USERNAME'),
+    'turn_password' => env('WEBRTC_TURN_PASSWORD'),
+  ],
+
 ];
