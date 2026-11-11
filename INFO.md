@@ -115,6 +115,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Markdown tables become `<table>`** (`app/Http/Controllers/TopicsController.php`, `TableExtension`; `php -l` only; no migration): `convertMarkdownToHtml` had no table support, so a `| a | b |` table was stored as one paragraph with pipes. Posts written before this keep their old `content_html`; saving them again (edit) re-renders it. The mobile app draws the grid with `components/MarkdownTable.js`.
+
 - **`LearningTipsTopicSeeder` can be run again safely** (seeded on the server; no migration): it skips a topic that the school account already has under the same title, so re-running it after a failed run no longer makes duplicates. The failed runs came from `storage/logs/laravel.log` being owned by `www` (775) while artisan ran as `pi`: any `Log::` call (here the points log in `Topic` creation) threw `UnexpectedValueException ... Permission denied`. **Run artisan as the web user** (`sudo -u www php artisan ...`), or add the shell user to the `www` group.
 
 - **Fix: a new post showed raw markdown in the feed right after posting** (`app/Http/Controllers/TopicsController.php`; `php -l` only; no migration): `POST /v1.0/topics` returned `content` = the raw markdown `description`, and the mobile app puts that response straight into the feed as the new post, whose card renders `content` as HTML - so `##`, `**` and `[..](..)` appeared as plain text on one line until the feed was refreshed. It now returns `content_html` (falling back to the markdown), the same shape the feed uses. The web composer does not read `content` from this response. Checked that `convertMarkdownToHtml` renders the guide file correctly (headings, lists, `<hr />`).

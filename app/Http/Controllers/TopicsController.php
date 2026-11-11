@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\Autolink\AutolinkExtension;
 use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
+use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\CommonMarkConverter;
 use App\Services\ProfileThemeService;
 use App\Services\AiChatService;
@@ -57,6 +58,8 @@ class TopicsController extends Controller
     $converter->getEnvironment()->addExtension(new AutolinkExtension());
     // ~~gạch ngang~~ - nút Strikethrough của trình soạn thảo trên app dùng cú pháp này
     $converter->getEnvironment()->addExtension(new StrikethroughExtension());
+    // | a | b | tables -> <table>; the clients draw the grid (mobile: MarkdownTable)
+    $converter->getEnvironment()->addExtension(new TableExtension());
 
     // 2. Chuyển Markdown → HTML
     $html = $converter->convert($markdown)->getContent();
