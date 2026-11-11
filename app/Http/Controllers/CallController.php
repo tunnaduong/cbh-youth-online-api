@@ -409,6 +409,11 @@ class CallController extends Controller
         Cache::put("call_audio_seq:{$call->id}", 1, now()->addMinutes(15));
         $aseq = 1;
       }
+      // The sequence number also travels inside the payload, so a client that gets
+      // the same chunk from two socket channels and the HTTP poll plays it once.
+      if (is_array($payload)) {
+        $payload['aseq'] = $aseq;
+      }
       $chunkEntry = [
         'aseq' => $aseq,
         'call_id' => (int) $call->id,
@@ -748,7 +753,9 @@ class CallController extends Controller
     $turnUser = env('WEBRTC_TURN_USERNAME');
     $turnPass = env('WEBRTC_TURN_PASSWORD');
     if ($turnUrl) {
-      $turnConfig = ['urls' => $turnUrl];
+      // Several addresses separated by commas (e.g. the UDP, TCP and TLS forms of one server)
+      $turnUrls = array_values(array_filter(array_map('trim', explode(',', $turnUrl))));
+      $turnConfig = ['urls' => count($turnUrls) === 1 ? $turnUrls[0] : $turnUrls];
       if ($turnUser) $turnConfig['username'] = $turnUser;
       if ($turnPass) $turnConfig['credential'] = $turnPass;
       $servers[] = $turnConfig;
