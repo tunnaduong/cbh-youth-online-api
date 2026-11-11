@@ -45,6 +45,7 @@ Middleware aliases live in `app/Http/Kernel.php` (`optional.auth`, `not_banned`,
 - **Gift shop** — `ShopController` + `ShopProduct/ShopProductVariant/ShopCategory/ShopOrder/ShopOrderItem`: public catalog, orders (points / QR / COD, optional map pin → `maps_url`), cancelling until an order ships (points refunded, transfers flagged for refund), shop support chat with an AI assistant that can show product photos, draw up an order slip the customer confirms (`POST /shop/support/messages/{id}/order`) and resend the QR to pay; also managed in Filament (`app/Filament/Resources`).
 - **Student verification** — `StudentVerificationController` (student KYC; verified students get a shop discount).
 - **Study materials** — `StudyMaterialController`, categories, ratings, purchases with points, preview generation (`GenerateStudyMaterialPreview`, pdfparser/phpword).
+- **Document printing** — `PrintRequestController`, `Admin\PrintRequestController`: users submit documents to print with file, page count, delivery method (class / office); staff approve, assign, track printing and delivery status; full state machine with timestamps.
 - **Quiz & games** — `QuizController` (AI-generated questions via Gemini keys `GEMINI_1..5`, `QuizGenerationService`; online only - no question bank, an AI failure returns 503), `CustomQuizController` (quizzes parsed from user documents), `GameController` (play sessions, leaderboard).
 - **Notifications** — `NotificationController`, `NotificationSettingsController`, Expo token register/unregister, web push subscribe; weekly newsletter (`newsletter:send-weekly`, Monday 08:00) with unsubscribe.
 - **Misc** — `SearchController`, `UniversityController` (proxies Cốc Cốc học tập), `YouthNewsController`, `HelpCenterController`, `FeedbackController` (in-app bug reports/suggestions, guests allowed), `RecordingController`, `FileUploadController` (`/upload`, `/user-content/{id}`; image/video compression jobs), `FacebookWebhookController`.
@@ -113,6 +114,12 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 - New client endpoints go in `routes/api.php` under the right access tier. Keep response shapes stable: web, mobile and gift shop all consume them.
 
 ## Recent work (newest first)
+
+- **Document Printing Request System** (`app/Models/PrintRequest.php`, `app/Http/Controllers/PrintRequestController.php`, `app/Http/Controllers/Admin/PrintRequestController.php`, `routes/api.php`, `database/migrations/2026_11_12_000001_create_cyo_print_requests_table.php`):
+  - **User endpoints** (`auth:sanctum`): `GET /v1.0/print-requests` (list), `POST /v1.0/print-requests` (submit), `GET /v1.0/print-requests/{id}` (view), `PUT /v1.0/print-requests/{id}` (update pending requests), `POST /v1.0/print-requests/{id}/cancel` (cancel).
+  - **Admin endpoints** (`role:admin`): `GET /v1.0/admin/print-requests` (list with filters), `GET /v1.0/admin/print-requests/{id}` (view details), `PUT /v1.0/admin/print-requests/{id}/status` (update status with timestamps), `POST /v1.0/admin/print-requests/{id}/assign` (assign staff member), `DELETE /v1.0/admin/print-requests/{id}` (delete).
+  - **Status workflow**: pending → approved/rejected/cancelled; approved → printing/cancelled; printing → ready/cancelled; ready → delivered/picked_up/cancelled; terminal states: delivered, picked_up, cancelled, rejected.
+  - **Database schema**: tracks user_id, assigned_staff_id, file_id (links to cyo_user_content), delivery_method (delivery_to_class / pickup_at_office), pages_count, class_or_location, status, and timestamps for each state transition.
 
 - **Post Translation by Yoyo AI with Multi-Key Gemini Fallback & Server-Side Caching** (`app/Services/AiChatService.php`, `app/Http/Controllers/TopicsController.php`, `routes/api.php`):
   - Added `translatePost(?string $title, ?string $description, string $targetLang): array` in `AiChatService.php` instructing Yoyo AI to translate forum post titles and markdown content while preserving 100% of markdown structure (headings, links, lists, code blocks, emojis, @mentions).
