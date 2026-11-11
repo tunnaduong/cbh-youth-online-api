@@ -32,13 +32,13 @@ class RandomPublishLearningTips extends Command
     $published = 0;
     foreach ($randomTips as $topic) {
       // Only publish if not already published recently
-      if ($topic->status === 'published' && $topic->updated_at->diffInDays() < 7) {
+      if (!$topic->hidden && $topic->updated_at->diffInDays() < 7) {
         $this->info("⏭️ Skipped: {$topic->title} (already published recently)");
         continue;
       }
 
       $topic->update([
-        'status' => 'published',
+        'hidden' => false, // Publish
         'updated_at' => now(),
       ]);
 

@@ -519,7 +519,10 @@ Thứ 7-CN: Ôn cuối tuần, chuẩn bị tuần tới
         'title' => $topicData['title'],
         'description' => $topicData['description'],
         'content_html' => $this->markdownToHtml($topicData['content_md']),
-        'status' => 'published',
+        'hidden' => false, // Published immediately
+        'pinned' => false,
+        'anonymous' => false,
+        'privacy' => 'public',
       ]);
     }
 
