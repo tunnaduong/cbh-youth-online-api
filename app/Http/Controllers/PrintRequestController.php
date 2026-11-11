@@ -26,7 +26,7 @@ class PrintRequestController extends Controller
     $validated = $request->validate([
       'title' => 'required|string|max:255',
       'description' => 'nullable|string|max:1000',
-      'file_id' => 'required|integer|exists:cyo_user_contents,id',
+      'file_id' => 'required|integer|exists:cyo_cdn_user_content,id',
       'pages_count' => 'required|integer|min:1|max:1000',
       'delivery_method' => 'required|in:delivery_to_class,pickup_at_office',
       'class_or_location' => 'required|string|max:255',
