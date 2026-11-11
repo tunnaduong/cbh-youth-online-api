@@ -76,7 +76,8 @@ class CallController extends Controller
 
     return response()->json([
       'call' => $this->formatCallPayload($call, $caller, $receiver),
-      'signals' => Cache::get("call_signals:{$call->id}", []),
+      'signals' => $this->getMergedCallSignals($call->id),
+      'audio_chunks' => Cache::get("call_audio:{$call->id}", []),
       'ice_servers' => $this->getIceServersList(),
     ]);
   }
@@ -162,6 +163,9 @@ class CallController extends Controller
 
     // Initialize empty signals cache for this call
     Cache::put("call_signals:{$call->id}", [], now()->addMinutes(15));
+    Cache::forget("call_offer:{$call->id}");
+    Cache::forget("call_answer:{$call->id}");
+    Cache::forget("call_audio:{$call->id}");
 
     // Broadcast CallInitiated immediately to conversation and recipient's user channel
     try {
@@ -239,7 +243,8 @@ class CallController extends Controller
 
     return response()->json([
       'call' => $callPayload,
-      'signals' => Cache::get("call_signals:{$call->id}", []),
+      'signals' => $this->getMergedCallSignals($call->id),
+      'audio_chunks' => Cache::get("call_audio:{$call->id}", []),
       'ice_servers' => $this->getIceServersList(),
     ]);
   }
@@ -363,14 +368,14 @@ class CallController extends Controller
   }
 
   /**
-   * Relay WebRTC signaling (Offer, Answer, ICE Candidate) to peer(s).
+   * Relay WebRTC signaling (Offer, Answer, ICE Candidate, Audio Chunk) to peer(s).
    */
   public function signal(Request $request, $id)
   {
     $user = Auth::user();
 
     $request->validate([
-      'type' => 'required|in:offer,answer,candidate,ringing',
+      'type' => 'required|in:offer,answer,candidate,ringing,audio_chunk',
       'payload' => 'nullable',
     ]);
 
@@ -386,27 +391,6 @@ class CallController extends Controller
     $type = $request->input('type');
     $payload = $request->input('payload');
 
-    // Persist signal in cache so HTTP polling / sync_needed fallback always delivers 100% of signals
-    // even when SDP offer/answer exceeds Reverb/Pusher's 10KB WebSocket frame limit.
-    $cacheKey = "call_signals:{$call->id}";
-    $signals = Cache::get($cacheKey, []);
-    if (!is_array($signals)) {
-      $signals = [];
-    }
-    $seq = count($signals) + 1;
-    $signals[] = [
-      'seq' => $seq,
-      'call_id' => (int) $call->id,
-      'conversation_id' => (int) $call->conversation_id,
-      'sender_id' => (int) $user->id,
-      'type' => $type,
-      'payload' => $payload,
-    ];
-    if (count($signals) > 150) {
-      $signals = array_slice($signals, -150);
-    }
-    Cache::put($cacheKey, $signals, now()->addMinutes(15));
-
     $allParticipants = array_unique(array_filter(array_merge(
       $call->conversation ? $call->conversation->participants->pluck('id')->all() : [],
       [$call->caller_id, $call->receiver_id]
@@ -416,6 +400,91 @@ class CallController extends Controller
       $allParticipants,
       fn($pid) => (int) $pid !== (int) $user->id
     ));
+
+    // Fast path for real-time fallback audio chunks (do not pollute SDP/ICE signal cache)
+    if ($type === 'audio_chunk') {
+      $audioKey = "call_audio:{$call->id}";
+      $aseq = (int) Cache::increment("call_audio_seq:{$call->id}");
+      if ($aseq <= 1) {
+        Cache::put("call_audio_seq:{$call->id}", 1, now()->addMinutes(15));
+        $aseq = 1;
+      }
+      $chunkEntry = [
+        'aseq' => $aseq,
+        'call_id' => (int) $call->id,
+        'conversation_id' => (int) $call->conversation_id,
+        'sender_id' => (int) $user->id,
+        'type' => 'audio_chunk',
+        'payload' => $payload,
+      ];
+      $chunks = Cache::get($audioKey, []);
+      if (!is_array($chunks)) {
+        $chunks = [];
+      }
+      $chunks[] = $chunkEntry;
+      if (count($chunks) > 12) {
+        $chunks = array_slice($chunks, -12);
+      }
+      Cache::put($audioKey, $chunks, now()->addMinutes(5));
+
+      try {
+        broadcast(new CallSignaled(
+          $call->conversation_id,
+          $call->id,
+          $user->id,
+          'audio_chunk',
+          $payload,
+          $recipientIds
+        ))->toOthers();
+      } catch (\Throwable $e) {
+        // HTTP polling fallback on call_audio:{id} will still deliver the chunk
+      }
+
+      return response()->json([
+        'success' => true,
+        'aseq' => $aseq,
+      ]);
+    }
+
+    // Persist signal in cache with atomic lock so concurrent trickle ICE requests
+    // never race and overwrite SDP offer/answer signals.
+    $cacheKey = "call_signals:{$call->id}";
+    $seq = 1;
+
+    $appendSignal = function () use ($cacheKey, $call, $user, $type, $payload, &$seq) {
+      $signals = Cache::get($cacheKey, []);
+      if (!is_array($signals)) {
+        $signals = [];
+      }
+      $lastSeq = !empty($signals) ? (int) ($signals[count($signals) - 1]['seq'] ?? count($signals)) : 0;
+      $seq = $lastSeq + 1;
+      $entry = [
+        'seq' => $seq,
+        'call_id' => (int) $call->id,
+        'conversation_id' => (int) $call->conversation_id,
+        'sender_id' => (int) $user->id,
+        'type' => $type,
+        'payload' => $payload,
+      ];
+      $signals[] = $entry;
+      if (count($signals) > 200) {
+        $signals = array_slice($signals, -200);
+      }
+      Cache::put($cacheKey, $signals, now()->addMinutes(15));
+
+      // Pin offer and answer in dedicated keys so they can never be lost or evicted
+      if ($type === 'offer') {
+        Cache::put("call_offer:{$call->id}", $entry, now()->addMinutes(15));
+      } elseif ($type === 'answer') {
+        Cache::put("call_answer:{$call->id}", $entry, now()->addMinutes(15));
+      }
+    };
+
+    try {
+      Cache::lock("lock:call_signals:{$call->id}", 5)->block(3, $appendSignal);
+    } catch (\Throwable $e) {
+      $appendSignal();
+    }
 
     $encodedPayload = json_encode($payload) ?: '';
 
@@ -617,15 +686,54 @@ class CallController extends Controller
   }
 
   /**
+   * Returns merged call signals ensuring pinned offer/answer are always present.
+   */
+  protected function getMergedCallSignals(int $callId): array
+  {
+    $signals = Cache::get("call_signals:{$callId}", []);
+    if (!is_array($signals)) {
+      $signals = [];
+    }
+
+    $hasOffer = false;
+    $hasAnswer = false;
+    foreach ($signals as $sig) {
+      if (($sig['type'] ?? '') === 'offer') {
+        $hasOffer = true;
+      } elseif (($sig['type'] ?? '') === 'answer') {
+        $hasAnswer = true;
+      }
+    }
+
+    if (!$hasOffer) {
+      $pinnedOffer = Cache::get("call_offer:{$callId}");
+      if (is_array($pinnedOffer)) {
+        array_unshift($signals, $pinnedOffer);
+      }
+    }
+
+    if (!$hasAnswer) {
+      $pinnedAnswer = Cache::get("call_answer:{$callId}");
+      if (is_array($pinnedAnswer)) {
+        $signals[] = $pinnedAnswer;
+      }
+    }
+
+    return $signals;
+  }
+
+  /**
    * Returns list of configured STUN/TURN servers.
    */
   protected function getIceServersList(): array
   {
     $servers = [
+      ['urls' => 'stun:stun.cloudflare.com:3478'],
       ['urls' => 'stun:stun.l.google.com:19302'],
       ['urls' => 'stun:stun1.l.google.com:19302'],
       ['urls' => 'stun:stun2.l.google.com:19302'],
-      ['urls' => 'stun:stun.cloudflare.com:3478'],
+      ['urls' => 'stun:stun3.l.google.com:19302'],
+      ['urls' => 'stun:stun4.l.google.com:19302'],
     ];
 
     $customStun = env('WEBRTC_STUN_SERVERS');
@@ -644,16 +752,6 @@ class CallController extends Controller
       if ($turnUser) $turnConfig['username'] = $turnUser;
       if ($turnPass) $turnConfig['credential'] = $turnPass;
       $servers[] = $turnConfig;
-    } else {
-      $servers[] = [
-        'urls' => [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp',
-        ],
-        'username' => 'openrelayproject',
-        'credential' => 'openrelayproject',
-      ];
     }
 
     return $servers;
