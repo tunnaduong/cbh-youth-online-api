@@ -735,6 +735,9 @@ class ChatController extends Controller
       if (!$replyTarget || (int) $replyTarget->conversation_id !== (int) $conversationId) {
         return response()->json(['message' => 'Tin nhắn được trả lời không thuộc cuộc trò chuyện này.'], 422);
       }
+      if ($replyTarget->is_recalled) {
+        return response()->json(['message' => 'Không thể trả lời tin nhắn đã bị thu hồi.'], 422);
+      }
     }
 
     $messageData = [
@@ -1441,9 +1444,10 @@ TEXT;
 
     return [
       'id' => $message->id,
-      'content' => $message->content,
+      'content' => $message->is_recalled ? null : $message->content,
       'type' => $message->type,
-      'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
+      'file_url' => ($message->is_recalled || !$message->file_url) ? null : $this->absoluteStorageUrl($message->file_url),
+      'is_recalled' => (bool) $message->is_recalled,
       'sender' => $sender,
     ];
   }
@@ -3407,11 +3411,12 @@ TEXT;
 
         return [
           'id' => $message->id,
-          'content' => $message->content,
+          'content' => $message->is_recalled ? null : $message->content,
           'type' => $message->type,
-          'file_url' => $message->file_url ? $this->absoluteStorageUrl($message->file_url) : null,
-          'file_urls' => $message->file_urls ? array_map(fn($p) => $this->absoluteStorageUrl($p), $message->file_urls) : null,
+          'file_url' => ($message->is_recalled || !$message->file_url) ? null : $this->absoluteStorageUrl($message->file_url),
+          'file_urls' => ($message->is_recalled || !$message->file_urls) ? null : array_map(fn($p) => $this->absoluteStorageUrl($p), $message->file_urls),
           'is_edited' => $message->is_edited,
+          'is_recalled' => (bool) $message->is_recalled,
           'is_guest' => $isGuest,
           'sender' => $isGuest ? [
             'id' => null,
@@ -3553,6 +3558,9 @@ TEXT;
       $replyTarget = Message::find($request->reply_to_message_id);
       if (!$replyTarget || (int) $replyTarget->conversation_id !== (int) $conversation->id) {
         return response()->json(['message' => 'Tin nhắn được trả lời không tồn tại trong cuộc trò chuyện này.'], 422);
+      }
+      if ($replyTarget->is_recalled) {
+        return response()->json(['message' => 'Không thể trả lời tin nhắn đã bị thu hồi.'], 422);
       }
     }
 
