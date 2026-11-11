@@ -42,6 +42,7 @@ use App\Http\Controllers\UniversityController;
 use App\Http\Controllers\YouthNewsController;
 use App\Http\Controllers\DailyCheckinController;
 use App\Http\Controllers\DeviceSessionController;
+use App\Http\Controllers\PrintRequestController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -441,6 +442,7 @@ Route::prefix('v1.0')->group(function () {
       Route::post('conversations', [ChatController::class, 'createPrivateConversation']);
       Route::post('conversations/{conversationId}/messages', [ChatController::class, 'sendMessage']);
       Route::post('conversations/{conversationId}/read', [ChatController::class, 'markAsRead']);
+      Route::post('conversations/{conversationId}/delivered', [ChatController::class, 'markAsDelivered']);
       Route::delete('messages/{messageId}', [ChatController::class, 'deleteMessage']);
       Route::put('messages/{messageId}', [ChatController::class, 'editMessage']);
       Route::post('messages/{messageId}/recall', [ChatController::class, 'recallMessage']);
@@ -503,6 +505,13 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/study-materials/{id}/ratings', [StudyMaterialRatingController::class, 'store']);
     Route::put('/ratings/{id}', [StudyMaterialRatingController::class, 'update']);
     Route::delete('/ratings/{id}', [StudyMaterialRatingController::class, 'destroy']);
+
+    // Print Requests
+    Route::get('/print-requests', [PrintRequestController::class, 'index']);
+    Route::post('/print-requests', [PrintRequestController::class, 'store']);
+    Route::get('/print-requests/{printRequest}', [PrintRequestController::class, 'show']);
+    Route::put('/print-requests/{printRequest}', [PrintRequestController::class, 'update']);
+    Route::post('/print-requests/{printRequest}/cancel', [PrintRequestController::class, 'cancel']);
 
     // Gift Shop Order
     Route::post('/shop/orders', [ShopController::class, 'storeOrder']);
@@ -624,6 +633,13 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/study-materials', 'studyMaterials');
       Route::patch('/study-materials/{id}', 'updateStudyMaterial');
       Route::delete('/study-materials/{id}', 'deleteStudyMaterial');
+
+      // Print Requests
+      Route::get('/print-requests', [\App\Http\Controllers\Admin\PrintRequestController::class, 'index']);
+      Route::get('/print-requests/{printRequest}', [\App\Http\Controllers\Admin\PrintRequestController::class, 'show']);
+      Route::put('/print-requests/{printRequest}/status', [\App\Http\Controllers\Admin\PrintRequestController::class, 'updateStatus']);
+      Route::post('/print-requests/{printRequest}/assign', [\App\Http\Controllers\Admin\PrintRequestController::class, 'assignStaff']);
+      Route::delete('/print-requests/{printRequest}', [\App\Http\Controllers\Admin\PrintRequestController::class, 'destroy']);
 
       Route::get('/broadcasts', 'broadcasts');
       Route::get('/broadcasts/audience', 'broadcastAudience');
