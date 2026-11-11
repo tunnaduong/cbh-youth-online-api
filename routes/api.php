@@ -637,6 +637,7 @@ Route::prefix('v1.0')->group(function () {
       // Print Requests
       Route::get('/print-requests', [\App\Http\Controllers\Admin\PrintRequestController::class, 'index']);
       Route::get('/print-requests/{printRequest}', [\App\Http\Controllers\Admin\PrintRequestController::class, 'show']);
+      Route::get('/print-requests/{printRequest}/file', [\App\Http\Controllers\Admin\PrintRequestController::class, 'file']);
       Route::put('/print-requests/{printRequest}/status', [\App\Http\Controllers\Admin\PrintRequestController::class, 'updateStatus']);
       Route::post('/print-requests/{printRequest}/assign', [\App\Http\Controllers\Admin\PrintRequestController::class, 'assignStaff']);
       Route::delete('/print-requests/{printRequest}', [\App\Http\Controllers\Admin\PrintRequestController::class, 'destroy']);

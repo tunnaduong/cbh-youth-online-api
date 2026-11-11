@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Models\PrintRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
 
 class PrintRequestController
 {
@@ -23,9 +24,12 @@ class PrintRequestController
 
     if ($search) {
       $search = '%' . $search . '%';
-      $query->whereHas('user', function ($q) use ($search) {
-        $q->where('username', 'like', $search);
-      })->orWhere('title', 'like', $search);
+      // Grouped, so the OR does not escape the status filter above.
+      $query->where(function ($q) use ($search) {
+        $q->whereHas('user', function ($u) use ($search) {
+          $u->where('username', 'like', $search);
+        })->orWhere('title', 'like', $search);
+      });
     }
 
     $requests = $query->orderBy('created_at', 'desc')
@@ -38,6 +42,29 @@ class PrintRequestController
   {
     $printRequest->load(['user', 'assignedStaff', 'file']);
     return response()->json($printRequest);
+  }
+
+  /**
+   * The uploaded document itself, inline. Served through Laravel (not the
+   * /storage link) so it carries the API's CORS headers: the admin preview
+   * fetches it as a blob and prints it from a same-origin frame.
+   */
+  public function file(PrintRequest $printRequest)
+  {
+    $file = $printRequest->file;
+    $disk = Storage::disk('public');
+
+    if (!$file || !$file->file_path || !$disk->exists($file->file_path)) {
+      return response()->json(['message' => 'Không tìm thấy tệp của yêu cầu này.'], 404);
+    }
+
+    $name = $file->file_name ?: basename($file->file_path);
+
+    return response()->file($disk->path($file->file_path), [
+      'Content-Type' => $file->file_type ?: 'application/octet-stream',
+      'Content-Disposition' => "inline; filename*=UTF-8''" . rawurlencode($name),
+      'Cache-Control' => 'private, max-age=300',
+    ]);
   }
 
   public function updateStatus(Request $request, PrintRequest $printRequest): JsonResponse

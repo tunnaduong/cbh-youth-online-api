@@ -115,6 +115,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Print requests: admin file endpoint, search fix, file_id table fix** (`php -l` only; no migration): `GET /v1.0/admin/print-requests/{id}/file` (`Admin\PrintRequestController::file`, `role:admin`) serves the uploaded document inline through Laravel (so it has the API's CORS headers) - the web admin preview fetches it as a blob and prints it from a same-origin frame. 404 when the file row or the file on the `public` disk is missing. The admin list's search is now grouped, so `orWhere('title')` no longer escapes the status filter. `POST /print-requests` validated `file_id` against a table that does not exist (`cyo_user_contents`); it is `cyo_cdn_user_content` (`UserContent`).
+
 - **Document Printing Request System** (`app/Models/PrintRequest.php`, `app/Http/Controllers/PrintRequestController.php`, `app/Http/Controllers/Admin/PrintRequestController.php`, `routes/api.php`, `database/migrations/2026_11_12_000001_create_cyo_print_requests_table.php`):
   - **User endpoints** (`auth:sanctum`): `GET /v1.0/print-requests` (list), `POST /v1.0/print-requests` (submit), `GET /v1.0/print-requests/{id}` (view), `PUT /v1.0/print-requests/{id}` (update pending requests), `POST /v1.0/print-requests/{id}/cancel` (cancel).
   - **Admin endpoints** (`role:admin`): `GET /v1.0/admin/print-requests` (list with filters), `GET /v1.0/admin/print-requests/{id}` (view details), `PUT /v1.0/admin/print-requests/{id}/status` (update status with timestamps), `POST /v1.0/admin/print-requests/{id}/assign` (assign staff member), `DELETE /v1.0/admin/print-requests/{id}` (delete).
