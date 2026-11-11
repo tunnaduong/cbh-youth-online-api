@@ -115,6 +115,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **`LearningTipsTopicSeeder` can be run again safely** (seeded on the server; no migration): it skips a topic that the school account already has under the same title, so re-running it after a failed run no longer makes duplicates. The failed runs came from `storage/logs/laravel.log` being owned by `www` (775) while artisan ran as `pi`: any `Log::` call (here the points log in `Topic` creation) threw `UnexpectedValueException ... Permission denied`. **Run artisan as the web user** (`sudo -u www php artisan ...`), or add the shell user to the `www` group.
+
 - **Print requests: admin file endpoint, search fix, file_id table fix** (`php -l` only; no migration): `GET /v1.0/admin/print-requests/{id}/file` (`Admin\PrintRequestController::file`, `role:admin`) serves the uploaded document inline through Laravel (so it has the API's CORS headers) - the web admin preview fetches it as a blob and prints it from a same-origin frame. 404 when the file row or the file on the `public` disk is missing. The admin list's search is now grouped, so `orWhere('title')` no longer escapes the status filter. `POST /print-requests` validated `file_id` against a table that does not exist (`cyo_user_contents`); it is `cyo_cdn_user_content` (`UserContent`).
 
 - **Document Printing Request System** (`app/Models/PrintRequest.php`, `app/Http/Controllers/PrintRequestController.php`, `app/Http/Controllers/Admin/PrintRequestController.php`, `routes/api.php`, `database/migrations/2026_11_12_000001_create_cyo_print_requests_table.php`):

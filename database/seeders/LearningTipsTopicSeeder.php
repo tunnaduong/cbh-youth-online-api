@@ -512,7 +512,17 @@ Thứ 7-CN: Ôn cuối tuần, chuẩn bị tuần tới
       ],
     ];
 
+    $created = 0;
     foreach ($topics as $topicData) {
+      // Re-running the seeder (e.g. after a failed run) must not duplicate posts.
+      $exists = Topic::where('user_id', $this->schoolAccountId)
+        ->where('title', $topicData['title'])
+        ->exists();
+      if ($exists) {
+        continue;
+      }
+
+      $created++;
       Topic::create([
         'user_id' => $this->schoolAccountId,
         'subforum_id' => $this->subforumId,
@@ -526,7 +536,7 @@ Thứ 7-CN: Ôn cuối tuần, chuẩn bị tuần tới
       ]);
     }
 
-    $this->command->info('✅ Successfully created ' . count($topics) . ' learning tips topics!');
+    $this->command->info('✅ Created ' . $created . ' learning tips topics (' . (count($topics) - $created) . ' already existed).');
   }
 
   private function markdownToHtml(string $markdown): string
