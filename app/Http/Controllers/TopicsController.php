@@ -1711,7 +1711,9 @@ class TopicsController extends Controller
       return response()->json([
         'id' => $topic->id,
         'title' => $topic->title,
-        'content' => $topic->description,
+        // Rendered HTML, like the feed's `content`: clients drop this response
+        // straight into the feed, and the raw markdown showed up as plain text.
+        'content' => $topic->content_html ?: $topic->description,
         'mentions' => $this->filterMentionsByBlock($resolvedTopicMentions, $topic->user_id),
         'image_urls' => $topic->getImageUrls()->map(function ($content) {
           return config('app.url') . Storage::url($content->file_path);
