@@ -18,6 +18,7 @@ use App\Support\UserBlocks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class CallController extends Controller
@@ -772,6 +773,66 @@ class CallController extends Controller
       }
       $servers[] = $turnConfig;
     }
+
+    foreach ($this->cloudflareTurnServers() as $server) {
+      $servers[] = $server;
+    }
+
+    return $servers;
+  }
+
+  /**
+   * TURN servers from Cloudflare Realtime, with a login valid for a day.
+   * Cached for an hour: this list is built on every call poll. A failed request
+   * is remembered for a minute so a Cloudflare outage cannot slow the polls down.
+   */
+  protected function cloudflareTurnServers(): array
+  {
+    $keyId = config('services.webrtc.cloudflare_turn_key_id');
+    $token = config('services.webrtc.cloudflare_turn_api_token');
+    if (!$keyId || !$token) {
+      return [];
+    }
+
+    $cacheKey = 'webrtc:cloudflare_turn:' . md5($keyId);
+    $cached = Cache::get($cacheKey);
+    if (is_array($cached)) {
+      return $cached;
+    }
+
+    $servers = [];
+    try {
+      $response = Http::withToken($token)
+        ->timeout(4)
+        ->post("https://rtc.live.cloudflare.com/v1/turn/keys/{$keyId}/credentials/generate-ice-servers", [
+          'ttl' => 86400,
+        ]);
+
+      if ($response->successful()) {
+        foreach ((array) $response->json('iceServers', []) as $server) {
+          // Browsers block port 53, and trying it only delays the connection.
+          $urls = array_values(array_filter(
+            (array) ($server['urls'] ?? []),
+            fn($url) => is_string($url) && !preg_match('/:53(\?|$)/', $url)
+          ));
+          // Only the entries with a login are TURN; STUN is already in the list.
+          if (empty($urls) || empty($server['username']) || empty($server['credential'])) {
+            continue;
+          }
+          $servers[] = [
+            'urls' => $urls,
+            'username' => $server['username'],
+            'credential' => $server['credential'],
+          ];
+        }
+      } else {
+        Log::warning('Cloudflare TURN credentials request failed: HTTP ' . $response->status());
+      }
+    } catch (\Throwable $e) {
+      Log::warning('Cloudflare TURN credentials request failed: ' . $e->getMessage());
+    }
+
+    Cache::put($cacheKey, $servers, empty($servers) ? now()->addMinute() : now()->addHour());
 
     return $servers;
   }

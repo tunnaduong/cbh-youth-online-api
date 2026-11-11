@@ -138,6 +138,10 @@ return [
     // ...or one fixed login (coturn `lt-cred-mech` + `user=name:password`).
     'turn_username' => env('WEBRTC_TURN_USERNAME'),
     'turn_password' => env('WEBRTC_TURN_PASSWORD'),
+    // Cloudflare Realtime TURN (no server of our own, nothing to open on the
+    // router): a TURN key's id and API token from the Cloudflare dashboard.
+    'cloudflare_turn_key_id' => env('CLOUDFLARE_TURN_KEY_ID'),
+    'cloudflare_turn_api_token' => env('CLOUDFLARE_TURN_API_TOKEN'),
   ],
 
 ];
