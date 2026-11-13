@@ -271,6 +271,7 @@ Route::prefix('v1.0')->group(function () {
     Route::get('/timetable', [TimetableController::class, 'show']);
     Route::put('/timetable', [TimetableController::class, 'update']);
     Route::delete('/timetable', [TimetableController::class, 'destroy']);
+    Route::post('/timetable/ai-import', [TimetableController::class, 'aiImport'])->middleware('throttle:10,1');
 
     // User & Profile
     Route::get('/user', function (Request $request) {

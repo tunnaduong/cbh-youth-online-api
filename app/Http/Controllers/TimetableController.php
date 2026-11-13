@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Timetable;
+use App\Services\TimetableAiService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -67,6 +69,75 @@ class TimetableController extends Controller
     Timetable::where('user_id', $request->user()->id)->delete();
 
     return response()->json(['data' => $this->demo(), 'is_demo' => true, 'updated_at' => null]);
+  }
+
+  // Per account per day: each call sends a photo or text to a paid model.
+  const AI_DAILY_LIMIT = 30;
+
+  /**
+   * POST /v1.0/timetable/ai-import (multipart) { text?, image?, current? }
+   * → { data, note }. Reads a timetable from free text and/or a photo with AI
+   * and returns it cleaned, without saving: the client shows it in the editor
+   * for the user to check, then saves with PUT. `current` (JSON of the
+   * schedule being edited) lets the model keep subject names when the input
+   * only has bell times.
+   */
+  public function aiImport(Request $request, TimetableAiService $ai)
+  {
+    $request->validate([
+      'text'    => 'nullable|string|max:4000',
+      'image'   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
+      'current' => 'nullable',
+    ], [
+      'image.mimes' => 'Ảnh phải là JPG, PNG hoặc WebP.',
+      'image.max'   => 'Ảnh tối đa 8 MB.',
+      'text.max'    => 'Nội dung tối đa 4000 ký tự.',
+    ]);
+
+    $text = trim((string) $request->input('text', ''));
+    $image = $request->file('image');
+    if ($text === '' && !$image) {
+      throw ValidationException::withMessages(['text' => 'Hãy nhập nội dung hoặc chọn ảnh thời khóa biểu.']);
+    }
+
+    $key = 'timetable_ai:' . $request->user()->id . ':' . now()->toDateString();
+    $used = (int) Cache::get($key, 0);
+    if ($used >= self::AI_DAILY_LIMIT) {
+      return response()->json(['message' => 'Bạn đã dùng hết ' . self::AI_DAILY_LIMIT . ' lượt nhập bằng AI hôm nay.'], 429);
+    }
+    Cache::put($key, $used + 1, now()->endOfDay());
+
+    $current = $request->input('current');
+    if (is_string($current)) {
+      $current = json_decode($current, true);
+    }
+    $current = is_array($current) ? $current : null;
+
+    try {
+      $result = $ai->parse($text, $image, $current);
+    } catch (\RuntimeException $e) {
+      // 424, not 5xx: the web shows its maintenance screen on any 5xx.
+      return $e->getMessage() === 'no_model'
+        ? response()->json(['message' => 'Tính năng nhập bằng AI đang tạm ngưng, bạn thử lại sau nhé.'], 424)
+        : response()->json(['message' => 'AI chưa đọc được thời khóa biểu, bạn thử viết rõ hơn hoặc chụp ảnh nét hơn.'], 422);
+    }
+
+    try {
+      $data = $this->normalize($result['schedule']);
+    } catch (ValidationException $e) {
+      return response()->json([
+        'message' => 'AI đọc ra lịch chưa hợp lệ (' . $e->getMessage() . ') Bạn thử lại hoặc sửa tay nhé.',
+      ], 422);
+    }
+
+    $blocks = array_sum(array_map('count', $data));
+    if ($blocks === 0) {
+      return response()->json([
+        'message' => $result['note'] ?: 'AI không tìm thấy tiết học nào trong nội dung này.',
+      ], 422);
+    }
+
+    return response()->json(['data' => $data, 'note' => $result['note']]);
   }
 
   /**
