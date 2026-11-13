@@ -904,6 +904,8 @@ class PushNotificationService
         'title' => $title,
         'body' => $body,
         'sound' => 'default',
+        // High priority so the phone wakes for it even in Doze (chat bubbles / instant notifications).
+        'priority' => 'high',
         'data' => [
           'type' => 'chat_message',
           'conversation_id' => $conversation->id,
