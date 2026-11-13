@@ -222,9 +222,11 @@ class ExamScoreController extends Controller
     return Http::withHeaders(self::HEADERS + ['Referer' => $base . '/'])->timeout(15);
   }
 
+  // 424, not 5xx: the web client treats any 5xx as "our API is down" and
+  // shows its maintenance screen, but here only the Sở's site is.
   private function unreachable()
   {
-    return response()->json(['message' => 'Không kết nối được máy chủ tra cứu điểm.'], 503);
+    return response()->json(['message' => 'Không kết nối được máy chủ tra cứu điểm.', 'reason' => 'upstream'], 424);
   }
 
   // GET /v1.0/exam-scores/ninh-binh-10/search?sbd=...
@@ -377,7 +379,7 @@ class ExamScoreController extends Controller
         // Lets the app tell a wrong/expired captcha (focus the code
         // field) from "no such candidate" without matching on text.
         'reason'  => str_contains(mb_strtolower($message), 'mã xác nhận') ? 'captcha' : 'not_found',
-      ], $res->status() >= 500 ? 503 : 422);
+      ], $res->status() >= 500 ? 424 : 422);
     }
 
     return response()->json([
