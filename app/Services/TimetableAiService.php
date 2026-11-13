@@ -58,7 +58,7 @@ PROMPT;
    * @return array{schedule: array, note: string}
    * @throws \RuntimeException when no model could be reached or the reply is not JSON
    */
-  public function parse(?string $text, ?UploadedFile $image, ?array $current = null): array
+  public function parse(?string $text, ?UploadedFile $image, ?array $current = null, ?string $className = null): array
   {
     $userText = "Chuyển thời khóa biểu sau thành JSON.";
     if ($text !== null && trim($text) !== '') {
@@ -66,6 +66,11 @@ PROMPT;
     }
     if ($image) {
       $userText .= "\n\n(Thời khóa biểu nằm trong ảnh đính kèm.)";
+    }
+    if ($className) {
+      $userText .= "\n\nLớp của người dùng: {$className} (số đầu là khối, phần sau là lớp chuyên, ví dụ 11C5 = khối 11, lớp C5)."
+        . " Nội dung/ảnh có thể chứa thời khóa biểu của NHIỀU lớp: chỉ lấy đúng cột/hàng/bảng của lớp {$className},"
+        . " bỏ qua mọi lớp khác. Nếu không tìm thấy lớp {$className}, trả schedule rỗng và ghi rõ trong note.";
     }
     if ($current && $this->hasLessons($current)) {
       $userText .= "\n\nLịch hiện tại (để lấy tên môn / ngày học khi nội dung trên không ghi):\n"

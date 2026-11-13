@@ -89,10 +89,12 @@ class TimetableController extends Controller
       'text'    => 'nullable|string|max:4000',
       'image'   => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
       'current' => 'nullable',
+      'class_name' => ['nullable', 'string', 'max:12', 'regex:/^(10|11|12)\p{L}[\p{L}0-9]{0,8}$/u'],
     ], [
       'image.mimes' => 'Ảnh phải là JPG, PNG hoặc WebP.',
       'image.max'   => 'Ảnh tối đa 8 MB.',
       'text.max'    => 'Nội dung tối đa 4000 ký tự.',
+      'class_name.regex' => 'Lớp phải gồm khối (10-12) và tên lớp, ví dụ 11C5.',
     ]);
 
     $text = trim((string) $request->input('text', ''));
@@ -108,6 +110,8 @@ class TimetableController extends Controller
     }
     Cache::put($key, $used + 1, now()->endOfDay());
 
+    $className = mb_strtoupper(trim((string) $request->input('class_name', ''))) ?: null;
+
     $current = $request->input('current');
     if (is_string($current)) {
       $current = json_decode($current, true);
@@ -119,7 +123,7 @@ class TimetableController extends Controller
     @set_time_limit(100);
 
     try {
-      $result = $ai->parse($text, $image, $current);
+      $result = $ai->parse($text, $image, $current, $className);
     } catch (\RuntimeException $e) {
       // 424, not 5xx: the web shows its maintenance screen on any 5xx.
       return $e->getMessage() === 'no_model'
