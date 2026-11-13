@@ -360,6 +360,21 @@ class CallController extends Controller
       Log::warning('Failed broadcasting CallEnded: ' . $e->getMessage());
     }
 
+    // The caller gave up before anyone answered: stop the ringing call screen
+    // on the callees' phones (Android full-screen call notification) and leave
+    // a missed-call notification there.
+    if ($reason === 'cancelled') {
+      try {
+        foreach ($participantIds as $participantId) {
+          if ((int) $participantId !== (int) $call->caller_id) {
+            PushNotificationService::sendCallCancelledPush((int) $participantId, $callPayload, $call->conversation);
+          }
+        }
+      } catch (\Throwable $e) {
+        Log::warning('Failed sending call cancelled push: ' . $e->getMessage());
+      }
+    }
+
     // Create call summary message in conversation
     $this->recordCallMessage($call, $reason);
 

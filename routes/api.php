@@ -365,6 +365,12 @@ Route::prefix('v1.0')->group(function () {
         Route::get('/tokens', [NotificationController::class, 'getExpoPushTokens']);
       });
 
+      // iOS VoIP (PushKit) token: incoming calls ring through CallKit
+      Route::prefix('voip')->group(function () {
+        Route::post('/register', [NotificationController::class, 'registerVoipPushToken']);
+        Route::delete('/unregister', [NotificationController::class, 'unregisterVoipPushToken']);
+      });
+
       // Delete notification (must be after specific routes like /unsubscribe)
       Route::delete('/{id}', [NotificationController::class, 'destroy']);
     });

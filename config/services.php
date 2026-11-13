@@ -127,6 +127,16 @@ return [
 
   // WebRTC calls. Read here, not with env() in the controller: after
   // `php artisan config:cache`, env() outside config files returns null.
+  // APNs auth key for VoIP pushes (incoming calls through CallKit on iOS),
+  // see App\Services\ApnsVoipService.
+  'apns' => [
+    'key_id' => env('APNS_KEY_ID'),
+    'team_id' => env('APNS_TEAM_ID', '62H5L8QDTS'),
+    'bundle_id' => env('APNS_BUNDLE_ID', 'com.fatties.youth'),
+    'private_key_path' => env('APNS_PRIVATE_KEY_PATH'),
+    'private_key' => env('APNS_PRIVATE_KEY'),
+  ],
+
   'webrtc' => [
     'stun_servers' => env('WEBRTC_STUN_SERVERS'),
     // One or more TURN addresses separated by commas.

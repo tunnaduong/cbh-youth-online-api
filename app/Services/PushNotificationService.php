@@ -945,17 +945,47 @@ class PushNotificationService
   public static function sendExpoCallPushNotification(int $userId, array $callData, Conversation $conversation): int
   {
     try {
+      $caller = $callData['caller'] ?? [];
+      $isGroup = $conversation->type === 'group';
+      // Small copy of the call for the push payloads (APNs allows 5 KB for
+      // VoIP, Expo 4 KB): the profile theme is not needed to ring.
+      $slimCall = [
+        'id' => $callData['id'] ?? null,
+        'conversation_id' => $callData['conversation_id'] ?? $conversation->id,
+        'type' => $callData['type'] ?? 'audio',
+        'status' => $callData['status'] ?? 'ringing',
+        'caller' => [
+          'id' => $caller['id'] ?? null,
+          'username' => $caller['username'] ?? null,
+          'profile_name' => $caller['profile_name'] ?? null,
+          'avatar_url' => $caller['avatar_url'] ?? null,
+        ],
+      ];
+      $conversationName = $isGroup ? $conversation->name : null;
+
+      // iOS: ring through CallKit with a VoIP push (needs APNS_* in .env).
+      // Devices reached this way don't also get the ordinary notification.
+      $voipSent = ApnsVoipService::sendIncomingCall($userId, [
+        'aps' => new \stdClass(),
+        'type' => 'incoming_call',
+        'call_id' => $slimCall['id'],
+        'conversation_id' => $conversation->id,
+        'conversation_name' => $conversationName,
+        'call' => $slimCall,
+      ]);
+
       $tokens = ExpoPushToken::where('user_id', $userId)
         ->where('is_active', true)
+        ->when($voipSent > 0, fn ($q) => $q->where(function ($q) {
+          $q->whereNull('device_type')->orWhere('device_type', '!=', 'ios');
+        }))
         ->get();
 
       if ($tokens->isEmpty()) {
-        return 0;
+        return $voipSent;
       }
 
-      $caller = $callData['caller'] ?? [];
       $callerName = $caller['profile_name'] ?? $caller['name'] ?? $caller['username'] ?? 'Ai đó';
-      $isGroup = $conversation->type === 'group';
       $callType = ($callData['type'] ?? 'audio') === 'video' ? 'video' : 'thoại';
 
       $title = $isGroup && $conversation->name
@@ -979,7 +1009,9 @@ class PushNotificationService
           'type' => 'incoming_call',
           'call_id' => $callData['id'] ?? null,
           'conversation_id' => $conversation->id,
-          'call' => $callData,
+          'conversation_name' => $conversationName,
+          // The Android app reads this to show its full-screen call screen.
+          'call' => $slimCall,
           'url' => "/chat?conversation={$conversation->id}&call=" . ($callData['id'] ?? ''),
         ],
       ];
@@ -993,12 +1025,57 @@ class PushNotificationService
           ->update(['last_used_at' => now()]);
       }
 
-      return $sentCount;
+      return $sentCount + $voipSent;
     } catch (\Exception $e) {
       Log::error('Error sending Expo call push notification', [
         'user_id' => $userId,
         'call_id' => $callData['id'] ?? null,
         'conversation_id' => $conversation->id,
+        'error' => $e->getMessage(),
+      ]);
+      return 0;
+    }
+  }
+
+  /**
+   * The caller hung up / nobody answered: tell the callee's devices. The
+   * Android app removes its ringing full-screen call notification on
+   * `call_cancelled`, and the text shows as a missed-call notification.
+   * (iOS: the app closes CallKit itself from the socket event / poll.)
+   */
+  public static function sendCallCancelledPush(int $userId, array $callData, Conversation $conversation): int
+  {
+    try {
+      $tokens = ExpoPushToken::where('user_id', $userId)->where('is_active', true)->get();
+      if ($tokens->isEmpty()) {
+        return 0;
+      }
+
+      $caller = $callData['caller'] ?? [];
+      $callerName = $caller['profile_name'] ?? $caller['username'] ?? 'Ai đó';
+      $isVideo = ($callData['type'] ?? 'audio') === 'video';
+
+      $payload = [
+        'title' => $isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi nhỡ',
+        'body' => $conversation->type === 'group' && $conversation->name
+          ? "{$callerName} đã gọi trong nhóm {$conversation->name}"
+          : "{$callerName} đã gọi cho bạn",
+        'sound' => 'default',
+        'priority' => 'high',
+        'channelId' => 'default',
+        'data' => [
+          'type' => 'call_cancelled',
+          'call_id' => $callData['id'] ?? null,
+          'conversation_id' => $conversation->id,
+          'url' => "/chat?conversation={$conversation->id}",
+        ],
+      ];
+
+      return self::sendExpoPushNotifications($tokens->pluck('expo_push_token')->toArray(), $payload);
+    } catch (\Throwable $e) {
+      Log::warning('Error sending call cancelled push', [
+        'user_id' => $userId,
+        'call_id' => $callData['id'] ?? null,
         'error' => $e->getMessage(),
       ]);
       return 0;

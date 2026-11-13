@@ -21,7 +21,7 @@ Laravel 10 backend behind **https://api.chuyenbienhoa.com** for CBH Youth Online
 - **All client routes are under `/v1.0`** (`routes/api.php`, `Route::prefix('v1.0')`). `routes/web.php` is a legacy Inertia/Blade site plus webhooks; clients don't use it.
 - **Auth = Laravel Sanctum personal access tokens** (`$user->createToken(...)`), sent as bearer tokens. Tokens don't expire (`sanctum.expiration` is null). The user model is `App\Models\AuthAccount` (with `UserProfile`).
 - **Realtime = Laravel Reverb** (Pusher protocol; clients use laravel-echo + pusher-js). Channels in `routes/channels.php`: private `App.Models.User.{id}`, presence `chat.{conversationId}`. Events in `app/Events` (MessageSent/Edited/Deleted/Recalled/Reacted/Read, AiTyping). Clients send `X-Socket-Id` so `broadcast()->toOthers()` skips the sender.
-- **Push**: Expo push tokens (mobile) and Web Push/VAPID (web), via `PushNotificationService` / `NotificationService`.
+- **Push**: Expo push tokens (mobile) and Web Push/VAPID (web), via `PushNotificationService` / `NotificationService`; iOS VoIP (PushKit) tokens for incoming calls go straight to APNs (`ApnsVoipService`).
 
 ## Route access tiers (`routes/api.php`)
 
@@ -88,7 +88,7 @@ Requirements: PHP ^8.1, Composer, MySQL, Node (only for the legacy Vite/Inertia 
 composer install
 npm install                 # also runs patch-package
 cp .env.example .env && php artisan key:generate
-# fill DB_*, MAIL_*, REVERB_*, WEBRTC_TURN_SERVER + WEBRTC_TURN_SECRET (coturn, for calls), GOOGLE_*/FACEBOOK_*/APPLE_CLIENT_ID, VAPID_*, CYO_AI_API, IMAGE_MODERATION_API_KEY, GEMINI_1..5, SePay, RECAPTCHA_*; optional FORUM_SCHOOL_ACCOUNT (default DoanTruongCBH)
+# fill DB_*, MAIL_*, REVERB_*, WEBRTC_TURN_SERVER + WEBRTC_TURN_SECRET (coturn, for calls), APNS_KEY_ID / APNS_TEAM_ID / APNS_PRIVATE_KEY_PATH (iOS CallKit call pushes), GOOGLE_*/FACEBOOK_*/APPLE_CLIENT_ID, VAPID_*, CYO_AI_API, IMAGE_MODERATION_API_KEY, GEMINI_1..5, SePay, RECAPTCHA_*; optional FORUM_SCHOOL_ACCOUNT (default DoanTruongCBH)
 php artisan migrate
 php artisan storage:link
 php artisan serve           # or: php artisan octane:start (RoadRunner)
@@ -114,6 +114,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 - New client endpoints go in `routes/api.php` under the right access tier. Keep response shapes stable: web, mobile and gift shop all consume them.
 
 ## Recent work (newest first)
+
+- **Incoming calls use the phone's own call screen** (`ApnsVoipService`, `VoipPushToken`, `PushNotificationService::sendExpoCallPushNotification` / `sendCallCancelledPush`; `php -l` + a JWT-signing check only, not sent to a real device; **run `php artisan migrate`** for `cyo_voip_push_tokens`): iOS devices register a PushKit token (`POST/DELETE /v1.0/notifications/voip/{register,unregister}`) and a call is sent to them as a VoIP push straight to APNs (HTTP/2, ES256 provider token cached 50 min, production host first, sandbox on `BadDeviceToken`, token deactivated on 410) - the app reports it to CallKit; those iOS devices then skip the Expo call notification. **Needs `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY_PATH` (or `APNS_PRIVATE_KEY`) in `.env`, then `php artisan config:cache`**; without them nothing changes on iOS. Android keeps the Expo push (the app turns it into a full-screen call); the call push data now carries a slim `call` (no profile theme) and `conversation_name`. When the caller hangs up before an answer, callees get a `call_cancelled` push ("Cuộc gọi nhỡ") that also stops the Android ringing.
 
 - **Cloudflare Realtime TURN for calls** (`CallController::cloudflareTurnServers`, `config/services.php` `webrtc`; `php -l` and a run against a fake response only - not tried with a real key; no migration): with `CLOUDFLARE_TURN_KEY_ID` + `CLOUDFLARE_TURN_API_TOKEN` in `.env`, the ICE server list gains Cloudflare's TURN addresses with a login valid for a day (`POST rtc.live.cloudflare.com/v1/turn/keys/{id}/credentials/generate-ice-servers`), cached an hour; a failed request is cached a minute and calls go on with STUN only. Port-53 addresses are dropped (browsers block them). Meant for this server, which sits at home behind a Cloudflare Tunnel: the tunnel carries HTTP only, so a coturn on the same machine would need ports forwarded on the router. Can be combined with `WEBRTC_TURN_SERVER`.
 

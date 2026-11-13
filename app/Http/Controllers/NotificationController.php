@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ExpoPushToken;
+use App\Models\VoipPushToken;
 use App\Models\Notification;
 use App\Models\NotificationSubscription;
 use Illuminate\Http\Request;
@@ -497,6 +498,47 @@ class NotificationController extends Controller
     return [
       'access_token_id' => $current instanceof \Laravel\Sanctum\PersonalAccessToken ? (int) $current->id : null,
     ];
+  }
+
+  /**
+   * Register this iOS device's VoIP (PushKit) token, used to ring incoming
+   * calls through CallKit. A token is one device: it moves to whoever signs in.
+   */
+  public function registerVoipPushToken(Request $request)
+  {
+    $request->validate([
+      'voip_token' => 'required|string|max:200|regex:/^[0-9a-fA-F]+$/',
+    ]);
+
+    $user = Auth::user();
+    $current = $request->user()?->currentAccessToken();
+
+    $token = VoipPushToken::updateOrCreate(
+      ['voip_token' => strtolower($request->voip_token)],
+      [
+        'user_id' => $user->id,
+        'is_active' => true,
+        'last_used_at' => now(),
+        'access_token_id' => $current instanceof \Laravel\Sanctum\PersonalAccessToken ? (int) $current->id : null,
+      ]
+    );
+
+    return response()->json([
+      'message' => 'VoIP token registered successfully',
+      'token' => ['id' => $token->id, 'is_active' => $token->is_active],
+    ]);
+  }
+
+  public function unregisterVoipPushToken(Request $request)
+  {
+    $user = Auth::user();
+    if ($user && $request->filled('voip_token')) {
+      VoipPushToken::where('user_id', $user->id)
+        ->where('voip_token', strtolower((string) $request->input('voip_token')))
+        ->update(['is_active' => false]);
+    }
+
+    return response()->json(['message' => 'VoIP token unregistered successfully']);
   }
 
   /**
