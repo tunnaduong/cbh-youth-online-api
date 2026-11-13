@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class TimetableAiServiceTest extends TestCase
 {
-  private const USER_TEXT = "Sáng tiết 1 từ 7h30 đến 8h15\nRa chs 15p\nSáng tiết 2 8h30 đến 9h15\nRa chs 5p\nTiết 3 9h20 dênd 10h10\nRa chs 10p\nTiết 4 10h20 đến 11h05\nChiều tiết 1 13h45 đến 14h30\nTiết 2 14h35 đến 15h20\nTiết 3 15h25 đến 16h10";
+  private const USER_TEXT = "Sáng tiết 1 từ 7h30 đến 8h15\nRa chs 15p\nSáng tiết 2 8h30 đến 9h15\nRa chs 10p\nTiết 3 9h25 dênd 10h10\nRa chs 10p\nTiết 4 10h20 đến 11h05\nChiều tiết 1 13h45 đến 14h30\nTiết 2 14h35 đến 15h20\nTiết 3 15h25 đến 16h10";
 
   // What a model typically answers for USER_TEXT: fenced, afternoon in 12-hour form.
   private function modelReply(): string
@@ -18,8 +18,8 @@ class TimetableAiServiceTest extends TestCase
       ['type' => 'hoc', 'start' => '07:30', 'end' => '08:15', 'subject' => 'Sáng - Tiết 1'],
       ['type' => 'nghi', 'start' => '08:15', 'end' => '08:30', 'label' => 'Ra chơi'],
       ['type' => 'hoc', 'start' => '08:30', 'end' => '09:15', 'subject' => 'Sáng - Tiết 2'],
-      ['type' => 'nghi', 'start' => '09:15', 'end' => '09:20', 'label' => 'Ra chơi'],
-      ['type' => 'hoc', 'start' => '09:20', 'end' => '10:10', 'subject' => 'Sáng - Tiết 3'],
+      ['type' => 'nghi', 'start' => '09:15', 'end' => '09:25', 'label' => 'Ra chơi'],
+      ['type' => 'hoc', 'start' => '09:25', 'end' => '10:10', 'subject' => 'Sáng - Tiết 3'],
       ['type' => 'nghi', 'start' => '10:10', 'end' => '10:20', 'label' => 'Ra chơi'],
       ['type' => 'hoc', 'start' => '10:20', 'end' => '11:05', 'subject' => 'Sáng - Tiết 4'],
       ['type' => 'hoc', 'start' => '01:45', 'end' => '02:30', 'subject' => 'Chiều - Tiết 1'],
@@ -53,6 +53,8 @@ class TimetableAiServiceTest extends TestCase
     $this->assertSame('16:10', $afternoon[2]['end']);
     $this->assertSame('nghi', $data['T2'][1]['type']);
     $this->assertSame('08:30', $data['T2'][1]['end']);
+    $this->assertSame(['09:15', '09:25'], [$data['T2'][3]['start'], $data['T2'][3]['end']]);
+    $this->assertSame('09:25', $data['T2'][4]['start']);
 
     Http::assertSent(fn($req) => str_contains(json_encode($req->data(), JSON_UNESCAPED_UNICODE), 'Ra chs 15p'));
   }
