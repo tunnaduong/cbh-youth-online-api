@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ExamScoreController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\FollowController;
@@ -127,6 +128,14 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/universities/options', [UniversityController::class, 'options']);
   Route::get('/universities/search', [UniversityController::class, 'search']);
   Route::get('/universities', [UniversityController::class, 'index']);
+
+  // Exam score lookup (proxy to provincial Sở GD&ĐT sites, e.g. Ninh Bình)
+  Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/exam-scores/ninh-binh-10/search', [ExamScoreController::class, 'grade10']);
+    Route::get('/exam-scores/{source}/config', [ExamScoreController::class, 'config']);
+    Route::get('/exam-scores/{source}/captcha', [ExamScoreController::class, 'captcha']);
+    Route::post('/exam-scores/{source}/search', [ExamScoreController::class, 'search']);
+  });
 
   // Games (browsing is public; starting/tracking a session requires auth, see below)
   Route::get('/games', [GameController::class, 'index']);
