@@ -151,6 +151,8 @@ class OtaController extends Controller
     $message = (string) $request->input('message', 'OTA update via API');
     $buildNumber = (int) $request->input('build_number', 0);
     $minNativeBuild = (int) $request->input('min_native_build', 0);
+    // Epoch ms of the git commit the update was built from (the app skips an update that is not newer than its own commit).
+    $commitTime = (int) $request->input('commit_time', 0);
 
     $file = $request->file('archive') ?: $request->file('file');
     if (!$file || !$file->isValid()) {
@@ -243,6 +245,7 @@ class OtaController extends Controller
           'channel' => $channel,
           'build_number' => $buildNumber,
           'min_native_build' => $minNativeBuild,
+          'commit_time' => $commitTime,
         ],
         'extra' => [
           'expoClient' => [
