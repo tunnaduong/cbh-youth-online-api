@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ExamScoreController;
+use App\Http\Controllers\TimetableController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FileUploadController;
 use App\Http\Controllers\FollowController;
@@ -128,6 +129,9 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/universities/options', [UniversityController::class, 'options']);
   Route::get('/universities/search', [UniversityController::class, 'search']);
   Route::get('/universities', [UniversityController::class, 'index']);
+
+  // Class timetable demo (guests see this; vaolop.app format)
+  Route::get('/timetable/demo', [TimetableController::class, 'demoSchedule']);
 
   // Exam score lookup (proxy to provincial Sở GD&ĐT sites, e.g. Ninh Bình)
   Route::middleware('throttle:30,1')->group(function () {
@@ -263,6 +267,11 @@ Route::prefix('v1.0')->group(function () {
   // --- AUTHENTICATION REQUIRED ROUTES ---
   // These routes require a valid Sanctum authentication token.
   Route::middleware(['auth:sanctum', 'not_banned', 'device_session'])->group(function () {
+    // Class timetable, one per account, shared by the web and the app
+    Route::get('/timetable', [TimetableController::class, 'show']);
+    Route::put('/timetable', [TimetableController::class, 'update']);
+    Route::delete('/timetable', [TimetableController::class, 'destroy']);
+
     // User & Profile
     Route::get('/user', function (Request $request) {
       $user = $request->user()->load('profile');

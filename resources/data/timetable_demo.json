@@ -1,0 +1,351 @@
+{
+  "T2": [
+    {
+      "type": "hoc",
+      "start": "07:00",
+      "end": "07:45",
+      "subject": "Toán"
+    },
+    {
+      "type": "hoc",
+      "start": "07:50",
+      "end": "08:35",
+      "subject": "Ngữ văn"
+    },
+    {
+      "type": "hoc",
+      "start": "08:40",
+      "end": "09:25",
+      "subject": "Tiếng Anh"
+    },
+    {
+      "type": "nghi",
+      "start": "09:25",
+      "end": "09:45",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "09:45",
+      "end": "10:30",
+      "subject": "Vật lí"
+    },
+    {
+      "type": "hoc",
+      "start": "10:35",
+      "end": "11:20",
+      "subject": "Hóa học"
+    },
+    {
+      "type": "hoc",
+      "start": "13:30",
+      "end": "14:15",
+      "subject": "Toán (hình)"
+    },
+    {
+      "type": "hoc",
+      "start": "14:20",
+      "end": "15:05",
+      "subject": "Sinh học"
+    },
+    {
+      "type": "nghi",
+      "start": "15:05",
+      "end": "15:25",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "15:25",
+      "end": "16:10",
+      "subject": "Lịch sử"
+    },
+    {
+      "type": "hoc",
+      "start": "16:15",
+      "end": "17:00",
+      "subject": "Thể dục"
+    }
+  ],
+  "T3": [
+    {
+      "type": "hoc",
+      "start": "07:00",
+      "end": "07:45",
+      "subject": "Toán"
+    },
+    {
+      "type": "hoc",
+      "start": "07:50",
+      "end": "08:35",
+      "subject": "Ngữ văn"
+    },
+    {
+      "type": "hoc",
+      "start": "08:40",
+      "end": "09:25",
+      "subject": "Tiếng Anh"
+    },
+    {
+      "type": "nghi",
+      "start": "09:25",
+      "end": "09:45",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "09:45",
+      "end": "10:30",
+      "subject": "Vật lí"
+    },
+    {
+      "type": "hoc",
+      "start": "10:35",
+      "end": "11:20",
+      "subject": "Hóa học"
+    },
+    {
+      "type": "hoc",
+      "start": "13:30",
+      "end": "14:15",
+      "subject": "Toán (hình)"
+    },
+    {
+      "type": "hoc",
+      "start": "14:20",
+      "end": "15:05",
+      "subject": "Sinh học"
+    },
+    {
+      "type": "nghi",
+      "start": "15:05",
+      "end": "15:25",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "15:25",
+      "end": "16:10",
+      "subject": "Lịch sử"
+    },
+    {
+      "type": "hoc",
+      "start": "16:15",
+      "end": "17:00",
+      "subject": "Thể dục"
+    }
+  ],
+  "T4": [
+    {
+      "type": "hoc",
+      "start": "07:00",
+      "end": "07:45",
+      "subject": "Toán"
+    },
+    {
+      "type": "hoc",
+      "start": "07:50",
+      "end": "08:35",
+      "subject": "Ngữ văn"
+    },
+    {
+      "type": "hoc",
+      "start": "08:40",
+      "end": "09:25",
+      "subject": "Tiếng Anh"
+    },
+    {
+      "type": "nghi",
+      "start": "09:25",
+      "end": "09:45",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "09:45",
+      "end": "10:30",
+      "subject": "Vật lí"
+    },
+    {
+      "type": "hoc",
+      "start": "10:35",
+      "end": "11:20",
+      "subject": "Hóa học"
+    }
+  ],
+  "T5": [
+    {
+      "type": "hoc",
+      "start": "07:00",
+      "end": "07:45",
+      "subject": "Toán"
+    },
+    {
+      "type": "hoc",
+      "start": "07:50",
+      "end": "08:35",
+      "subject": "Ngữ văn"
+    },
+    {
+      "type": "hoc",
+      "start": "08:40",
+      "end": "09:25",
+      "subject": "Tiếng Anh"
+    },
+    {
+      "type": "nghi",
+      "start": "09:25",
+      "end": "09:45",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "09:45",
+      "end": "10:30",
+      "subject": "Vật lí"
+    },
+    {
+      "type": "hoc",
+      "start": "10:35",
+      "end": "11:20",
+      "subject": "Hóa học"
+    },
+    {
+      "type": "hoc",
+      "start": "13:30",
+      "end": "14:15",
+      "subject": "Toán (hình)"
+    },
+    {
+      "type": "hoc",
+      "start": "14:20",
+      "end": "15:05",
+      "subject": "Sinh học"
+    },
+    {
+      "type": "nghi",
+      "start": "15:05",
+      "end": "15:25",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "15:25",
+      "end": "16:10",
+      "subject": "Lịch sử"
+    },
+    {
+      "type": "hoc",
+      "start": "16:15",
+      "end": "17:00",
+      "subject": "Thể dục"
+    }
+  ],
+  "T6": [
+    {
+      "type": "hoc",
+      "start": "07:00",
+      "end": "07:45",
+      "subject": "Toán"
+    },
+    {
+      "type": "hoc",
+      "start": "07:50",
+      "end": "08:35",
+      "subject": "Ngữ văn"
+    },
+    {
+      "type": "hoc",
+      "start": "08:40",
+      "end": "09:25",
+      "subject": "Tiếng Anh"
+    },
+    {
+      "type": "nghi",
+      "start": "09:25",
+      "end": "09:45",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "09:45",
+      "end": "10:30",
+      "subject": "Vật lí"
+    },
+    {
+      "type": "hoc",
+      "start": "10:35",
+      "end": "11:20",
+      "subject": "Hóa học"
+    },
+    {
+      "type": "hoc",
+      "start": "13:30",
+      "end": "14:15",
+      "subject": "Toán (hình)"
+    },
+    {
+      "type": "hoc",
+      "start": "14:20",
+      "end": "15:05",
+      "subject": "Sinh học"
+    },
+    {
+      "type": "nghi",
+      "start": "15:05",
+      "end": "15:25",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "15:25",
+      "end": "16:10",
+      "subject": "Lịch sử"
+    },
+    {
+      "type": "hoc",
+      "start": "16:15",
+      "end": "17:00",
+      "subject": "Thể dục"
+    }
+  ],
+  "T7": [
+    {
+      "type": "hoc",
+      "start": "07:00",
+      "end": "07:45",
+      "subject": "Toán"
+    },
+    {
+      "type": "hoc",
+      "start": "07:50",
+      "end": "08:35",
+      "subject": "Ngữ văn"
+    },
+    {
+      "type": "hoc",
+      "start": "08:40",
+      "end": "09:25",
+      "subject": "Tiếng Anh"
+    },
+    {
+      "type": "nghi",
+      "start": "09:25",
+      "end": "09:45",
+      "label": "Ra chơi"
+    },
+    {
+      "type": "hoc",
+      "start": "09:45",
+      "end": "10:30",
+      "subject": "Vật lí"
+    },
+    {
+      "type": "hoc",
+      "start": "10:35",
+      "end": "11:20",
+      "subject": "Hóa học"
+    }
+  ],
+  "CN": []
+}
