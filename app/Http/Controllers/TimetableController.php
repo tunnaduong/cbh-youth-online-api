@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Timetable;
 use App\Services\TimetableAiService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -113,13 +114,21 @@ class TimetableController extends Controller
     }
     $current = is_array($current) ? $current : null;
 
+    // PHP-FPM's default 30 s would kill a slow photo read halfway and send
+    // an empty 500; the service keeps itself under ~75 s (Cloudflare cuts at 100).
+    @set_time_limit(100);
+
     try {
       $result = $ai->parse($text, $image, $current);
     } catch (\RuntimeException $e) {
       // 424, not 5xx: the web shows its maintenance screen on any 5xx.
       return $e->getMessage() === 'no_model'
-        ? response()->json(['message' => 'Tính năng nhập bằng AI đang tạm ngưng, bạn thử lại sau nhé.'], 424)
+        ? response()->json(['message' => 'AI đang bận hoặc phản hồi quá lâu, bạn thử lại sau ít phút nhé.', 'reason' => 'ai_unavailable'], 424)
         : response()->json(['message' => 'AI chưa đọc được thời khóa biểu, bạn thử viết rõ hơn hoặc chụp ảnh nét hơn.'], 422);
+    } catch (\Throwable $e) {
+      Log::error('TimetableAi: import failed: ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
+
+      return response()->json(['message' => 'Có lỗi khi nhập bằng AI, bạn thử lại sau nhé.', 'reason' => 'ai_error'], 424);
     }
 
     try {

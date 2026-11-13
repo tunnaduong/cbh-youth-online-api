@@ -23,7 +23,17 @@ use Illuminate\Support\Facades\Log;
 class TimetableAiService
 {
   const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-  const TIMEOUT_SECONDS = 60;
+
+  /**
+   * Total time for all model calls of one import. The request goes through
+   * Cloudflare (cut at 100 s) and PHP-FPM, so tries must stop well before:
+   * a cut request reaches the app as an HTML error page, not our JSON.
+   */
+  const BUDGET_SECONDS = 75;
+  // A single call never gets more than this, so a slow first model leaves time for the fallback.
+  const MAX_CALL_SECONDS = 45;
+
+  private float $deadline = 0;
 
   const SYSTEM_PROMPT = <<<'PROMPT'
 Bạn chuyển thời khóa biểu của học sinh Việt Nam (đoạn chữ người dùng gõ, hoặc ảnh chụp thời khóa biểu) thành JSON.
@@ -62,6 +72,7 @@ PROMPT;
         . json_encode($current, JSON_UNESCAPED_UNICODE);
     }
 
+    $this->deadline = microtime(true) + self::BUDGET_SECONDS;
     $dataUri = $image ? 'data:' . $image->getMimeType() . ';base64,' . base64_encode($image->get()) : null;
 
     $raw = $this->askOpenAiCompatible($userText, $dataUri) ?? $this->askGemini($userText, $image);
@@ -83,6 +94,14 @@ PROMPT;
       'schedule' => $this->fixAfternoon($schedule),
       'note'     => is_string($json['note'] ?? null) ? mb_substr(trim($json['note']), 0, 300) : '',
     ];
+  }
+
+  // Seconds the next call may take, or 0 when the budget is spent.
+  private function timeLeft(): int
+  {
+    $left = (int) floor($this->deadline - microtime(true));
+
+    return $left < 8 ? 0 : min($left, self::MAX_CALL_SECONDS);
   }
 
   private function hasLessons(array $schedule): bool
@@ -108,25 +127,42 @@ PROMPT;
       $content[] = ['type' => 'image_url', 'image_url' => ['url' => $dataUri]];
     }
 
-    try {
-      $response = Http::withToken($config['key'])
-        ->timeout(self::TIMEOUT_SECONDS)
-        ->post($config['url'], [
-          'model'           => $config['model'],
-          'messages'        => [
+    // Some OpenAI-compatible gateways reject response_format for non-OpenAI
+    // models (HTTP 400); the prompt already asks for bare JSON, so retry without it.
+    foreach ([true, false] as $jsonMode) {
+      $timeout = $this->timeLeft();
+      if ($timeout === 0) {
+        return null;
+      }
+      $started = microtime(true);
+      try {
+        $payload = [
+          'model'       => $config['model'],
+          'messages'    => [
             ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
             ['role' => 'user', 'content' => $content],
           ],
-          'temperature'     => 0,
-          'response_format' => ['type' => 'json_object'],
-        ]);
-      $text = $response->json('choices.0.message.content');
-      if ($response->successful() && is_string($text) && trim($text) !== '') {
-        return $text;
+          'temperature' => 0,
+        ];
+        if ($jsonMode) {
+          $payload['response_format'] = ['type' => 'json_object'];
+        }
+        $response = Http::withToken($config['key'])->timeout($timeout)->post($config['url'], $payload);
+        $text = $response->json('choices.0.message.content');
+        if ($response->successful() && is_string($text) && trim($text) !== '') {
+          Log::info(sprintf('TimetableAi: vision model answered in %.1fs', microtime(true) - $started));
+
+          return $text;
+        }
+        Log::warning(sprintf('TimetableAi: vision endpoint HTTP %d after %.1fs: %s', $response->status(), microtime(true) - $started, mb_substr($response->body(), 0, 300)));
+        if (!($jsonMode && $response->status() === 400)) {
+          return null;
+        }
+      } catch (\Throwable $e) {
+        Log::warning(sprintf('TimetableAi: vision endpoint failed after %.1fs: %s', microtime(true) - $started, $e->getMessage()));
+
+        return null;
       }
-      Log::warning('TimetableAi: vision endpoint returned ' . $response->status());
-    } catch (\Throwable $e) {
-      Log::warning('TimetableAi: vision endpoint failed: ' . $e->getMessage());
     }
 
     return null;
@@ -146,9 +182,16 @@ PROMPT;
     }
 
     foreach ($keys as $key) {
+      $timeout = $this->timeLeft();
+      if ($timeout === 0) {
+        Log::warning('TimetableAi: out of time before trying another Gemini key');
+
+        return null;
+      }
+      $started = microtime(true);
       try {
         $response = Http::withHeaders(['x-goog-api-key' => $key])
-          ->timeout(self::TIMEOUT_SECONDS)
+          ->timeout($timeout)
           ->post(self::GEMINI_URL, [
             'systemInstruction' => ['parts' => [['text' => self::SYSTEM_PROMPT]]],
             'contents'          => [['role' => 'user', 'parts' => $parts]],
@@ -156,11 +199,13 @@ PROMPT;
           ]);
         $text = $response->json('candidates.0.content.parts.0.text');
         if ($response->successful() && is_string($text) && trim($text) !== '') {
+          Log::info(sprintf('TimetableAi: Gemini answered in %.1fs', microtime(true) - $started));
+
           return $text;
         }
-        Log::warning('TimetableAi: Gemini returned ' . $response->status());
+        Log::warning(sprintf('TimetableAi: Gemini HTTP %d after %.1fs: %s', $response->status(), microtime(true) - $started, mb_substr($response->body(), 0, 300)));
       } catch (\Throwable $e) {
-        Log::warning('TimetableAi: Gemini failed: ' . $e->getMessage());
+        Log::warning(sprintf('TimetableAi: Gemini failed after %.1fs: %s', microtime(true) - $started, $e->getMessage()));
       }
     }
 

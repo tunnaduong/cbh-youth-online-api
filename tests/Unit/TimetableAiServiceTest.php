@@ -77,6 +77,20 @@ class TimetableAiServiceTest extends TestCase
     });
   }
 
+  public function test_retries_without_response_format_when_gateway_rejects_it(): void
+  {
+    config(['services.image_moderation.key' => 'k', 'services.image_moderation.url' => 'https://vision.test/v1/chat', 'services.gemini.keys' => []]);
+    Http::fake(['vision.test/*' => Http::sequence()
+      ->push(['error' => ['message' => 'response_format is not supported']], 400)
+      ->push(['choices' => [['message' => ['content' => $this->modelReply()]]]])]);
+
+    $result = app(TimetableAiService::class)->parse(self::USER_TEXT, null, null);
+
+    $this->assertNotEmpty($result['schedule']['T2']);
+    $sent = Http::recorded()->map(fn($pair) => array_key_exists('response_format', $pair[0]->data()))->values()->all();
+    $this->assertSame([true, false], $sent);
+  }
+
   public function test_no_model_configured(): void
   {
     config(['services.image_moderation.key' => null, 'services.gemini.keys' => []]);
