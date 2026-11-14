@@ -29,7 +29,7 @@ This repository is the Laravel 10 backend served at `https://api.chuyenbienhoa.c
 - **Search:** Robust search functionality to find users and posts.
 - **Points & Wallet:** Daily check-in, point gifting, deposits via SePay bank transfer, and withdrawals. See [POINTS_SYSTEM_README.md](POINTS_SYSTEM_README.md).
 - **Gift Shop:** Product catalog and orders paid with points, QR transfer, or cash on delivery, with a discount for verified students.
-- **Learning Tools:** Study materials, AI-generated and custom quizzes, and mini games with leaderboards.
+- **Learning Tools:** Study materials, AI-generated and custom quizzes, and mini games with leaderboards. Games can be played without the ad stack, with progress saved to the account and shared across devices.
 - **Admin Panel:** Admin APIs used by the web app's `/admin` dashboard, plus a Filament panel, for managing users, forum content, moderation, reports, deposits and withdrawals, student verification, the shop, school classes, schedules, and student violations.
 - **Notification System:** In-app, email, Expo push (mobile), and Web Push notifications, plus a weekly newsletter.
 

@@ -13,6 +13,7 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\GameProxyController;
 use App\Http\Controllers\CustomFrameController;
 use App\Http\Controllers\CustomQuizController;
 use App\Http\Controllers\QuizController;
@@ -153,6 +154,15 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/quiz/{quizSetId}/preview', [QuizController::class, 'preview']);
   Route::get('/games/{slug}', [GameController::class, 'show']);
 
+  // Game proxy: the page and files of a game, ads removed, cookies kept on the
+  // server. Auth is the signed ticket in the path (the game iframe sends no
+  // bearer token), so these are outside the auth groups; they have their own
+  // rate limit because one game load is dozens of requests.
+  Route::withoutMiddleware(['throttle:api'])->middleware(['throttle:game-play'])->group(function () {
+    Route::get('/games/play/{ticket}/{path?}', [GameProxyController::class, 'serve'])->where('path', '.*');
+    Route::post('/games/play/{ticket}/_save', [GameProxyController::class, 'save']);
+  });
+
   // User Information
   Route::middleware('optional.auth')->group(function () {
     Route::get('/users/{username}/online-status', [UserController::class, 'getOnlineStatus']);
@@ -267,6 +277,9 @@ Route::prefix('v1.0')->group(function () {
   // --- AUTHENTICATION REQUIRED ROUTES ---
   // These routes require a valid Sanctum authentication token.
   Route::middleware(['auth:sanctum', 'not_banned', 'device_session'])->group(function () {
+    // Game proxy ticket (ad-free iframe URL; needs a logged-in player for cookies)
+    Route::post('/games/{slug}/play-ticket', [GameProxyController::class, 'ticket']);
+
     // Class timetable, one per account, shared by the web and the app
     Route::get('/timetable', [TimetableController::class, 'show']);
     Route::put('/timetable', [TimetableController::class, 'update']);

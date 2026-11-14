@@ -42,6 +42,12 @@ class RouteServiceProvider extends ServiceProvider
       return Limit::perMinute(1000)->by('calls:' . ($request->user()?->id ?: $request->ip()));
     });
 
+    // One game load is dozens of file requests; key by ticket so a busy
+    // household on one IP is not throttled together.
+    RateLimiter::for('game-play', function (Request $request) {
+      return Limit::perMinute(1500)->by('game-play:' . ($request->route('ticket') ?: $request->ip()));
+    });
+
     // Each AI quiz generation call burns AI credit across the shared
     // GEMINI_1..GEMINI_5 keys - cap it at 1 per user per minute so nobody
     // can spam /quiz/start and drain them.
