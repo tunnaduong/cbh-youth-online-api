@@ -108,6 +108,8 @@ class GameController extends Controller
       'iframe_url' => $game->iframe_url,
       // true: ask POST /games/{slug}/proxy-link for the address to embed
       'use_proxy' => GameProxyController::proxied($game),
+      // host of the proxy domain (the app lets that one host load in its game WebView)
+      'proxy_host' => GameProxyController::proxied($game) ? parse_url(config('gameproxy.public_url'), PHP_URL_HOST) : null,
     ]);
   }
 
