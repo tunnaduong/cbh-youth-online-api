@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $image_url
  * @property string $iframe_url
  * @property string $platform pc|mobile|both
+ * @property bool $use_proxy opened through the game proxy (save sync, ad blocking)
  * @property bool $is_active
  * @property int $sort_order
  */
@@ -31,12 +32,14 @@ class Game extends Model
     'image_url',
     'iframe_url',
     'platform',
+    'use_proxy',
     'is_active',
     'sort_order',
   ];
 
   protected $casts = [
     'is_active' => 'boolean',
+    'use_proxy' => 'boolean',
   ];
 
   public function sessions(): HasMany

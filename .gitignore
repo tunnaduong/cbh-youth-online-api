@@ -100,3 +100,4 @@ build/
 # Ignore system-wide .DS_Store recursively
 **/.DS_Store
 /rr.claude/*.tmp.*
+/game-proxy/bin/

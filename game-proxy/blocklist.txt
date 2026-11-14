@@ -1,0 +1,3 @@
+# Extra ad / tracker hosts for the game proxy, one per line (added to the
+# built-in list in blocklist.go). A host also blocks all its subdomains.
+# Lines starting with # are comments. Restart the proxy after editing.

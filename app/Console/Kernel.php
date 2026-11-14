@@ -29,6 +29,13 @@ class Kernel extends ConsoleKernel
         $schedule->command('stories:cleanup-expired')
             ->hourly()
             ->withoutOverlapping();
+
+        // Starts the game proxy (and brings it back after a crash). Does
+        // nothing unless GAME_PROXY_ENABLED + GAME_PROXY_AUTOSTART are on.
+        $schedule->command('game-proxy:ensure')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     /**

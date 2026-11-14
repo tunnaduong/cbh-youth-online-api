@@ -106,6 +106,8 @@ class GameController extends Controller
     return response()->json([
       ...$this->formatGame($game),
       'iframe_url' => $game->iframe_url,
+      // true: ask POST /games/{slug}/proxy-link for the address to embed
+      'use_proxy' => GameProxyController::proxied($game),
     ]);
   }
 

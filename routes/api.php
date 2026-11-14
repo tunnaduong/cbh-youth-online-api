@@ -13,6 +13,7 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ForumController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\GameProxyController;
 use App\Http\Controllers\CustomFrameController;
 use App\Http\Controllers\CustomQuizController;
 use App\Http\Controllers\QuizController;
@@ -152,6 +153,12 @@ Route::prefix('v1.0')->group(function () {
   Route::get('/quiz/topics', [QuizController::class, 'topics']);
   Route::get('/quiz/{quizSetId}/preview', [QuizController::class, 'preview']);
   Route::get('/games/{slug}', [GameController::class, 'show']);
+
+  // Internal: only the game proxy calls these (X-Game-Proxy-Key = shared secret).
+  Route::middleware(\App\Http\Middleware\GameProxyKey::class)->prefix('internal/game-proxy')->group(function () {
+    Route::get('/saves/{userId}/{slug}', [GameProxyController::class, 'internalShow'])->whereNumber('userId');
+    Route::put('/saves/{userId}/{slug}', [GameProxyController::class, 'internalUpdate'])->whereNumber('userId');
+  });
 
   // User Information
   Route::middleware('optional.auth')->group(function () {
@@ -355,6 +362,11 @@ Route::prefix('v1.0')->group(function () {
     Route::post('/quiz/{quizSetId}/restart', [QuizController::class, 'restart']);
     Route::post('/quiz/{quizSetId}/answer', [QuizController::class, 'answer']);
     Route::post('/quiz/{quizSetId}/submit', [QuizController::class, 'submit']);
+
+    // Game proxy: signed play link + the account's saved cookies / localStorage
+    Route::post('/games/{slug}/proxy-link', [GameProxyController::class, 'link']);
+    Route::get('/games/{slug}/save', [GameProxyController::class, 'show']);
+    Route::delete('/games/{slug}/save', [GameProxyController::class, 'destroy']);
 
     // Game play sessions (XP tracking)
     Route::post('/games/{slug}/sessions', [GameController::class, 'startSession']);
