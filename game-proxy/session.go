@@ -25,6 +25,7 @@ type Session struct {
 	upstream *url.URL
 	cookies  map[string]string // what the browser holds for the game
 	storage  map[string]string // localStorage as last pushed by the page
+	blocked  *Blocklist        // the global list + this game's own settings
 	version  int64             // updated_at of the stored save
 	dirty    bool
 	lastSeen time.Time
@@ -32,13 +33,14 @@ type Session struct {
 
 // Sessions is the table of live sessions, keyed by a hash of the token.
 type Sessions struct {
-	mu  sync.Mutex
-	m   map[string]*Session
-	api *API
+	mu   sync.Mutex
+	m    map[string]*Session
+	api  *API
+	base *Blocklist
 }
 
-func newSessions(api *API) *Sessions {
-	return &Sessions{m: map[string]*Session{}, api: api}
+func newSessions(api *API, base *Blocklist) *Sessions {
+	return &Sessions{m: map[string]*Session{}, api: api, base: base}
 }
 
 func tokenKey(token string) string {
@@ -69,7 +71,11 @@ func (s *Sessions) get(token string, claims *Claims) (*Session, error) {
 		upstream: up,
 		cookies:  map[string]string{},
 		storage:  map[string]string{},
+		blocked:  s.base,
 		lastSeen: time.Now(),
+	}
+	if o := claims.Options; o != nil {
+		sess.blocked = s.base.With(o.Block, o.Allow)
 	}
 	if data, err := s.api.load(claims.User, claims.Slug); err != nil {
 		// Playing still works without the save; it just starts fresh.

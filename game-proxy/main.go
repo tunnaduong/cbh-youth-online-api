@@ -49,7 +49,7 @@ func main() {
 		log.Fatal("GP_SECRET is empty - refusing to start")
 	}
 
-	s := &server{cfg: cfg, sessions: newSessions(newAPI(cfg))}
+	s := &server{cfg: cfg, sessions: newSessions(newAPI(cfg), cfg.Blocklist)}
 	s.proxy = s.newProxy()
 	go s.sessions.run()
 
@@ -340,7 +340,7 @@ func (s *server) modifyResponse(resp *http.Response) error {
 	body := replaceOrigin(raw, sess.upstream, origin)
 	if isHTML(ct) {
 		_, storage, version := sess.snapshot()
-		body = processHTML(body, s.cfg.Blocklist, headSnippet(storage, version, s.cfg.Blocklist))
+		body = processHTML(body, sess.blocked, headSnippet(storage, version, sess.blocked))
 		// Personal (it carries this account's save): never cache.
 		h.Set("Cache-Control", "private, no-store")
 	}

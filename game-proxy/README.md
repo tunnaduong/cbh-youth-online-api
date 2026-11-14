@@ -51,7 +51,12 @@ CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/game-proxy .
    chuyenbienhoa.com. The login cookie is set for `.chuyenbienhoa.com`, so any
    subdomain would send it to the game's scripts. Point it at this server, add
    TLS, and use `deploy/nginx-game-proxy.conf` for the site (aaPanel).
-4. Turn a game on: `UPDATE cyo_games SET use_proxy = 1 WHERE slug = '...'`.
+4. Per-game settings live in the database, set in `GameSeeder` like the rest of
+   a game's data (`php artisan db:seed --class=GameSeeder --force`): `use_proxy`
+   (Famobi games default to on) and `proxy_options`
+   `{"block_hosts": [...], "allow_hosts": [...]}` - extra ad hosts for that game,
+   and hosts never blocked for it. Laravel puts them in the signed play link, so
+   the proxy needs no database. Nothing is proxied until `GAME_PROXY_ENABLED=true`.
 5. Clients: `GET /v1.0/games/{slug}` returns `use_proxy`; when true, call
    `POST /v1.0/games/{slug}/proxy-link` and put `url` in the iframe.
 

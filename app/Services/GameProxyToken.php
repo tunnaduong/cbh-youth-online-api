@@ -12,14 +12,26 @@ namespace App\Services;
  */
 class GameProxyToken
 {
-  public static function make(int $userId, string $slug, string $upstreamUrl, ?int $ttl = null): string
+  /**
+   * @param array|null $options the game's proxy_options from the database
+   *        (block_hosts / allow_hosts); sent along so the proxy needs no
+   *        database of its own.
+   */
+  public static function make(int $userId, string $slug, string $upstreamUrl, ?int $ttl = null, ?array $options = null): string
   {
-    $payload = json_encode([
+    $claims = [
       'u' => $userId,
       'g' => $slug,
       'o' => $upstreamUrl,
       'e' => time() + ($ttl ?? (int) config('gameproxy.link_ttl')),
-    ], JSON_UNESCAPED_SLASHES);
+    ];
+
+    $x = self::cleanOptions($options);
+    if ($x) {
+      $claims['x'] = $x;
+    }
+
+    $payload = json_encode($claims, JSON_UNESCAPED_SLASHES);
 
     $body = self::b64($payload);
 
@@ -46,6 +58,23 @@ class GameProxyToken
     }
 
     return $payload;
+  }
+
+  /** Only host lists, only strings, no duplicates; empty when there is nothing to send. */
+  private static function cleanOptions(?array $options): array
+  {
+    $out = [];
+    foreach (['block_hosts' => 'b', 'allow_hosts' => 'a'] as $key => $short) {
+      $hosts = array_values(array_unique(array_filter(
+        (array) ($options[$key] ?? []),
+        fn($h) => is_string($h) && $h !== ''
+      )));
+      if ($hosts) {
+        $out[$short] = $hosts;
+      }
+    }
+
+    return $out;
   }
 
   private static function secret(): string

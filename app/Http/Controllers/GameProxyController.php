@@ -39,7 +39,7 @@ class GameProxyController extends Controller
     }
 
     $ttl = (int) config('gameproxy.link_ttl');
-    $token = GameProxyToken::make(Auth::id(), $game->slug, $game->iframe_url, $ttl);
+    $token = GameProxyToken::make(Auth::id(), $game->slug, $game->iframe_url, $ttl, $game->proxy_options);
 
     return response()->json([
       'enabled' => true,

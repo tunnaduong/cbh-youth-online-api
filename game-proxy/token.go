@@ -14,10 +14,18 @@ import (
 // (app/Services/GameProxyToken.php): who plays, which game, which address the
 // game is streamed from, and when the link stops working.
 type Claims struct {
-	User     int64  `json:"u"`
-	Slug     string `json:"g"`
-	Upstream string `json:"o"`
-	Expires  int64  `json:"e"`
+	User     int64          `json:"u"`
+	Slug     string         `json:"g"`
+	Upstream string         `json:"o"`
+	Expires  int64          `json:"e"`
+	Options  *ClaimsOptions `json:"x,omitempty"`
+}
+
+// ClaimsOptions are the game's proxy_options from Laravel's database:
+// extra ad hosts to block, and hosts that must never be blocked for it.
+type ClaimsOptions struct {
+	Block []string `json:"b"`
+	Allow []string `json:"a"`
 }
 
 var errBadToken = errors.New("invalid or expired token")

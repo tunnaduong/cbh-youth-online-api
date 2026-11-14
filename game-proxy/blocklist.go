@@ -90,5 +90,24 @@ func (b *Blocklist) URLBlocked(raw string) bool {
 	return b.HostBlocked(u.Hostname())
 }
 
+// With returns a copy with extra hosts blocked and some hosts never blocked.
+// It is how a game's own settings (from the database) apply to its sessions.
+func (b *Blocklist) With(block, allow []string) *Blocklist {
+	if len(block) == 0 && len(allow) == 0 {
+		return b
+	}
+	skip := map[string]bool{}
+	for _, h := range allow {
+		skip[strings.ToLower(strings.TrimSpace(h))] = true
+	}
+	hosts := make([]string, 0, len(b.list)+len(block))
+	for _, h := range append(append([]string{}, b.list...), block...) {
+		if !skip[strings.ToLower(strings.TrimSpace(h))] {
+			hosts = append(hosts, h)
+		}
+	}
+	return newBlocklist(hosts)
+}
+
 // List is the host list handed to the page-side shim.
 func (b *Blocklist) List() []string { return b.list }

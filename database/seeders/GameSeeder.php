@@ -697,7 +697,23 @@ class GameSeeder extends Seeder
       ],
     ];
 
+    // Per-game proxy settings live in the game's own data, like everything
+    // else here. An entry can set them itself:
+    //   'use_proxy' => true,
+    //   'proxy_options' => ['block_hosts' => ['ads.example.com'], 'allow_hosts' => []],
+    // - use_proxy: open it through the game proxy (save sync across devices,
+    //   ad blocking). Only takes effect while GAME_PROXY_ENABLED is on.
+    // - block_hosts: ad hosts blocked for this game on top of the built-in list.
+    // - allow_hosts: hosts never blocked for it (when blocking one makes the
+    //   game hang waiting for its ad).
+    // An entry that leaves them out keeps whatever the database already has
+    // (new games start with use_proxy off). Famobi games carry the ads, so they
+    // default to the proxy on - set 'use_proxy' => false on an entry to opt out.
     foreach ($games as $game) {
+      if (!array_key_exists('use_proxy', $game) && str_contains($game['iframe_url'], 'famobi.com')) {
+        $game['use_proxy'] = true;
+      }
+
       Game::updateOrCreate(['slug' => $game['slug']], $game);
     }
 

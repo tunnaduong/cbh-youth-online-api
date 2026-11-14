@@ -36,6 +36,22 @@ class GameProxyTokenTest extends TestCase
     $this->assertNull(GameProxyToken::verify($token));
   }
 
+  public function test_the_games_proxy_options_travel_in_the_token(): void
+  {
+    $token = GameProxyToken::make(1, 'g', 'https://a.example/', 3600, [
+      'block_hosts' => ['ads.example.com', 'ads.example.com', '', 5],
+      'allow_hosts' => ['cdn.example.com'],
+      'ignored' => ['x'],
+    ]);
+
+    $payload = GameProxyToken::verify($token);
+    $this->assertSame(['ads.example.com'], $payload['x']['b']);
+    $this->assertSame(['cdn.example.com'], $payload['x']['a']);
+
+    // No options: no "x" at all (keeps the token short and the vector below valid).
+    $this->assertArrayNotHasKey('x', GameProxyToken::verify(GameProxyToken::make(1, 'g', 'https://a.example/', 3600)));
+  }
+
   /** The Go server (game-proxy/token_test.go) checks this same vector. */
   public function test_matches_the_vector_the_go_server_verifies(): void
   {

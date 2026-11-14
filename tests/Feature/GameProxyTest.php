@@ -55,6 +55,20 @@ class GameProxyTest extends TestCase
         $this->assertSame('https://games.example.com/play/index.html', $payload['o']);
     }
 
+    public function test_the_link_carries_the_games_proxy_options_from_the_database(): void
+    {
+        $this->enable();
+        $game = $this->game();
+        $game->update(['proxy_options' => ['block_hosts' => ['ads.example.com'], 'allow_hosts' => ['cdn.example.com']]]);
+        Sanctum::actingAs(AuthAccount::factory()->create());
+
+        $url = $this->postJson('/api/v1.0/games/test-game/proxy-link')->json('url');
+        $payload = GameProxyToken::verify(substr($url, strlen('https://play.example.net/play?t=')));
+
+        $this->assertSame(['ads.example.com'], $payload['x']['b']);
+        $this->assertSame(['cdn.example.com'], $payload['x']['a']);
+    }
+
     public function test_link_says_disabled_when_the_proxy_is_off_or_the_game_is_not_proxied(): void
     {
         $this->game(false);
