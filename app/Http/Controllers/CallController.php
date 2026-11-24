@@ -391,7 +391,8 @@ class CallController extends Controller
     $user = Auth::user();
 
     $request->validate([
-      'type' => 'required|in:offer,answer,candidate,ringing,audio_chunk',
+      'type' => 'required|in:offer,answer,candidate,ringing,audio_chunk,video_state',
+      'type' => 'required|in:offer,answer,candidate,ringing,video_state',
       'payload' => 'nullable',
     ]);
 
