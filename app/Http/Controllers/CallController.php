@@ -77,7 +77,7 @@ class CallController extends Controller
 
     return response()->json([
       'call' => $this->formatCallPayload($call, $caller, $receiver),
-      'signals' => $this->getMergedCallSignals($call->id),
+      'signals' => $this->getMergedCallSignals($call->id, (int) $request->query('since_seq', 0)),
       'audio_chunks' => Cache::get("call_audio:{$call->id}", []),
       'ice_servers' => $this->getIceServersList(),
     ]);
@@ -244,7 +244,7 @@ class CallController extends Controller
 
     return response()->json([
       'call' => $callPayload,
-      'signals' => $this->getMergedCallSignals($call->id),
+      'signals' => $this->getMergedCallSignals($call->id, (int) $request->query('since_seq', 0)),
       'audio_chunks' => Cache::get("call_audio:{$call->id}", []),
       'ice_servers' => $this->getIceServersList(),
     ]);
@@ -276,7 +276,7 @@ class CallController extends Controller
     }
 
     $reason = $request->input('reason', 'rejected'); // 'rejected' or 'busy'
-    $call->status = $reason === 'busy' ? 'busy' : 'rejected';
+    $call->status = $reason === 'busy' ? 'busy' : ($reason === 'missed' ? 'missed' : 'rejected');
     $call->end_reason = $reason;
     $call->ended_at = now();
     $call->save();
@@ -392,13 +392,31 @@ class CallController extends Controller
 
     $request->validate([
       'type' => 'required|in:offer,answer,candidate,ringing,audio_chunk,video_state',
-      'type' => 'required|in:offer,answer,candidate,ringing,video_state',
       'payload' => 'nullable',
     ]);
+
+    // Signals can be large (video SDP), but never unbounded: they are cached and broadcast.
+    if (strlen(json_encode($request->input('payload')) ?: '') > 65536) {
+      return response()->json(['message' => 'Dữ liệu tín hiệu quá lớn.'], 422);
+    }
+    if (
+      $request->input('type') === 'video_state'
+      && filter_var(data_get($request->input('payload'), 'enabled'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) === null
+    ) {
+      return response()->json(['message' => 'Trạng thái camera không hợp lệ.'], 422);
+    }
 
     $call = Call::with('conversation.participants')->find($id);
     if (!$call) {
       return response()->json(['message' => 'Không tìm thấy cuộc gọi.'], 404);
+    }
+
+    // Only people in the call may inject signals (offer/answer/candidate) into it.
+    $isCallMember = (int) $call->caller_id === (int) $user->id
+      || (int) $call->receiver_id === (int) $user->id
+      || ($call->conversation && $call->conversation->hasParticipant($user->id));
+    if (!$isCallMember) {
+      return response()->json(['message' => 'Bạn không thuộc cuộc gọi này.'], 403);
     }
 
     if (!in_array($call->status, ['ringing', 'accepted'], true)) {
@@ -499,13 +517,23 @@ class CallController extends Controller
         Cache::put("call_offer:{$call->id}", $entry, now()->addMinutes(15));
       } elseif ($type === 'answer') {
         Cache::put("call_answer:{$call->id}", $entry, now()->addMinutes(15));
+      } elseif ($type === 'video_state') {
+        // Latest camera state per sender survives the 200-signal cap.
+        Cache::put("call_video_state:{$call->id}:{$user->id}", $entry, now()->addMinutes(15));
       }
     };
 
+    $appended = false;
     try {
-      Cache::lock("lock:call_signals:{$call->id}", 5)->block(3, $appendSignal);
+      Cache::lock("lock:call_signals:{$call->id}", 5)->block(3, function () use ($appendSignal, &$appended) {
+        $appendSignal();
+        $appended = true;
+      });
     } catch (\Throwable $e) {
-      $appendSignal();
+      // Lock busy or store without locks: append unlocked, but never twice.
+      if (!$appended) {
+        $appendSignal();
+      }
     }
 
     $encodedPayload = json_encode($payload) ?: '';
@@ -710,7 +738,7 @@ class CallController extends Controller
   /**
    * Returns merged call signals ensuring pinned offer/answer are always present.
    */
-  protected function getMergedCallSignals(int $callId): array
+  protected function getMergedCallSignals(int $callId, int $sinceSeq = 0): array
   {
     $signals = Cache::get("call_signals:{$callId}", []);
     if (!is_array($signals)) {
@@ -739,6 +767,32 @@ class CallController extends Controller
       if (is_array($pinnedAnswer)) {
         $signals[] = $pinnedAnswer;
       }
+    }
+
+    // Latest camera state of each side, even if the capped list dropped it.
+    $callRow = Call::select('id', 'caller_id', 'receiver_id')->find($callId);
+    foreach (array_filter([$callRow?->caller_id, $callRow?->receiver_id]) as $uid) {
+      $pinned = Cache::get("call_video_state:{$callId}:{$uid}");
+      if (!is_array($pinned)) {
+        continue;
+      }
+      $present = false;
+      foreach ($signals as $sig) {
+        if (($sig['seq'] ?? null) === ($pinned['seq'] ?? -1) && ($sig['type'] ?? '') === 'video_state') {
+          $present = true;
+          break;
+        }
+      }
+      if (!$present) {
+        $signals[] = $pinned;
+      }
+    }
+
+    if ($sinceSeq > 0) {
+      $signals = array_values(array_filter(
+        $signals,
+        fn($sig) => (int) ($sig['seq'] ?? 0) > $sinceSeq
+      ));
     }
 
     return $signals;
