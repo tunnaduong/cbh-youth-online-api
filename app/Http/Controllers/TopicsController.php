@@ -564,6 +564,7 @@ class TopicsController extends Controller
       // Archived posts are filtered out of every listing except the author's
       // own profile and archive, so this is really only ever true there.
       'archived' => (bool) $topic->hidden,
+      'hidden_from_latest' => (bool) $topic->hidden_from_latest,
       'is_edited' => $topic->is_edited,
       'is_muted' => $topic->is_muted,
       'time' => Carbon::parse($topic->created_at)->diffForHumans(),  // Time in human-readable format
@@ -721,6 +722,7 @@ class TopicsController extends Controller
   {
     $topics = $this->visibleTopicsQuery($userId)
       ->fromMembers()
+      ->where('hidden_from_latest', false)
       ->withCount(['views', 'comments'])
       ->orderBy('created_at', 'desc')
       ->with(['user', 'votes.user', 'cdnUserContent'])

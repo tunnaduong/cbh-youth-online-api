@@ -81,6 +81,7 @@ class Topic extends Model
     'cdn_image_id',
     'cdn_document_id',
     'hidden',
+    'hidden_from_latest',
     'anonymous',
     'privacy',
     'is_muted',

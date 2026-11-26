@@ -566,6 +566,10 @@ Route::prefix('v1.0')->group(function () {
 
     // Admin routes
     Route::middleware('role:admin')->group(function () {
+      Route::put('/admin/topics/{id}/hide-from-latest', [\App\Http\Controllers\Admin\TopicModerationController::class, 'toggleHideFromLatest']);
+    });
+
+    Route::middleware('role:admin')->group(function () {
       Route::get('/admin/withdrawal-requests/pending', [AdminController::class, 'getPendingWithdrawals']);
       Route::post('/admin/withdrawal-requests/{id}/approve', [AdminController::class, 'approveWithdrawal']);
       Route::post('/admin/withdrawal-requests/{id}/reject', [AdminController::class, 'rejectWithdrawal']);
