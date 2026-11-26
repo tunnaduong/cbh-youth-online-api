@@ -301,12 +301,22 @@ class OtaController extends Controller
     ];
     file_put_contents("{$otaBaseDir}/current.json", json_encode($currentRecord, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
-    // Append to history log
+    // Append to history log and prune old update bundles (keep at most 3)
     $historyFile = "{$otaBaseDir}/history.json";
     $history = file_exists($historyFile) ? (json_decode((string) file_get_contents($historyFile), true) ?: []) : [];
     array_unshift($history, $currentRecord);
-    if (count($history) > 20) {
-      $history = array_slice($history, 0, 20);
+    $maxBundles = 3;
+    if (count($history) > $maxBundles) {
+      $dropped = array_splice($history, $maxBundles);
+      foreach ($dropped as $old) {
+        $oldId = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) ($old['update_id'] ?? ''));
+        if ($oldId && $oldId !== $updateId) {
+          $oldDir = "{$otaBaseDir}/{$oldId}";
+          if (is_dir($oldDir)) {
+            File::deleteDirectory($oldDir);
+          }
+        }
+      }
     }
     file_put_contents($historyFile, json_encode($history, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 

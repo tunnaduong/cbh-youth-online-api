@@ -185,6 +185,7 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 - **Home feed excludes teachers' posts, keeps admins' posts** (`php -l` clean; unit test in `tests/Unit/TopicFromMembersTest.php`; no migration): `Topic::scopeFromMembers()` now excludes only `role === 'teacher'` (and the youth union account `forum.school_account`), allowing posts by `role === 'admin'` to appear on the homepage (`/v1.0/home`, `/v1.0/topics/feed` in personalized, `mode=latest`, and guest feeds). Feed cache key bumped to `feed_scores_v5_*`.
 
+- **OTA: giữ tối đa 3 bản update trên disk** (`OtaController::publish`; `php -l` only; no migration): sau mỗi lần publish, các update cũ hơn vị trí thứ 3 trong `history.json` sẽ bị xóa khỏi disk (`File::deleteDirectory`) để tiết kiệm băng thông; `history.json` cũng trim xuống còn 3 bản thay vì 20.
 - **Self-hosted OTA (Over-The-Air) updates via Expo Updates Protocol v1** (`app/Http/Controllers/OtaController.php`, `app/Console/Commands/OtaCommand.php`, `app/Console/Commands/OtaRollbackCommand.php`, `routes/api.php`, `config/services.php`):
   - Added self-hosted OTA updates server compliant with Expo Updates Protocol v1 (`multipart/mixed` responses with directives `noUpdateAvailable` and `rollBackToEmbedded`, manifest with base64url SHA-256 hashes).
   - Endpoints:
