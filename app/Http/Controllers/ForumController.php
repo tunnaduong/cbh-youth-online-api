@@ -952,12 +952,15 @@ class ForumController extends Controller
   // Lấy tất cả bài viết mới nhất trong tất cả các danh mục
   private function getLatestPosts()
   {
+    $isAdmin = auth()->user()?->hasRole('admin') ?? false;
+
     $query = Topic::select(['id', 'title', 'created_at', 'user_id', 'anonymous'])
       ->with(['user.profile'])
       ->where('hidden', false)
       ->notFromBlockedUsers()
       ->excludingNewsSubforum()
       ->fromMembers()
+      ->when(!$isAdmin, fn($q) => $q->where('hidden_from_latest', false))
       ->orderBy('created_at', 'desc')
       ->take(10);
 

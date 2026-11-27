@@ -187,8 +187,11 @@ class TopicsController extends Controller
    */
   private function topicList(Request $request, bool $membersOnly)
   {
+    $isAdmin = auth()->user()?->hasRole('admin') ?? false;
+
     $query = $this->visibleTopicsQuery(auth()->id())
       ->when($membersOnly, fn($q) => $q->fromMembers())
+      ->when($membersOnly && !$isAdmin, fn($q) => $q->where('hidden_from_latest', false))
       ->select([
         'id',
         'subforum_id',
@@ -200,6 +203,7 @@ class TopicsController extends Controller
         'updated_at',
         'privacy',
         'hidden',
+        'hidden_from_latest',
         'pinned',
         'anonymous',
         'cdn_image_id',
@@ -614,12 +618,6 @@ class TopicsController extends Controller
       return $this->newsFeed($request, $userId, max(1, (int) $request->query('page', 1)), 10);
     }
 
-    // The home feed shows members' and admins' posts (Topic::scopeFromMembers): the
-    // youth union account and teachers stay out of it.
-    if (!$userId) {
-      return $this->topicList($request, true);
-    }
-
     $perPage = 10;
     $page = max(1, (int) $request->query('page', 1));
 
@@ -629,6 +627,11 @@ class TopicsController extends Controller
 
     if ($request->query('mode') === 'following') {
       return $this->followingFeed($request, $userId, $page, $perPage);
+    }
+
+    // Guests have no personalized feed or following list; fall back to the latest feed.
+    if (!$userId) {
+      return $this->latestFeed($request, $userId, $page, $perPage);
     }
 
     // Optional per-visit shuffle seed ("slot machine"): the client generates a new
@@ -718,11 +721,13 @@ class TopicsController extends Controller
     return response()->json(array_merge($topics->toArray(), ['exhausted' => false, 'mode' => 'youth-news']));
   }
 
-  private function latestFeed(Request $request, int $userId, int $page, int $perPage)
+  private function latestFeed(Request $request, ?int $userId, int $page, int $perPage)
   {
+    $isAdmin = auth()->user()?->hasRole('admin') ?? false;
+
     $topics = $this->visibleTopicsQuery($userId)
       ->fromMembers()
-      ->where('hidden_from_latest', false)
+      ->when(!$isAdmin, fn($q) => $q->where('hidden_from_latest', false))
       ->withCount(['views', 'comments'])
       ->orderBy('created_at', 'desc')
       ->with(['user', 'votes.user', 'cdnUserContent'])
@@ -812,9 +817,11 @@ class TopicsController extends Controller
     // Limit the candidate pool to the last 90 days so the query stays fast
     // regardless of total post count. Pinned posts are included unconditionally.
     $cutoff = now()->subDays(90);
+    $isAdmin = auth()->user()?->hasRole('admin') ?? false;
 
     $candidates = $this->visibleTopicsQuery($userId)
       ->fromMembers()
+      ->when(!$isAdmin, fn($q) => $q->where('hidden_from_latest', false))
       ->select(['id', 'user_id', 'subforum_id', 'pinned', 'created_at'])
       ->withSum('votes', 'vote_value')
       ->withCount(['comments as comments_total'])
