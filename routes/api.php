@@ -190,6 +190,8 @@ Route::prefix('v1.0')->group(function () {
   Route::post('/webhooks/sepay', [SEPayWebhookController::class, 'handleWebhook']);
 
   // Push Notification VAPID Public Key (public endpoint)
+  Route::get('/ads', [\App\Http\Controllers\AdSlotController::class, 'index']);
+  Route::post('/ads/{id}/track', [\App\Http\Controllers\AdSlotController::class, 'track'])->middleware('throttle:120,1');
   Route::get('/notifications/vapid-public-key', [NotificationController::class, 'getVapidPublicKey']);
 
   // Public Chat (accessible to everyone, but can check auth if token provided)
@@ -682,6 +684,12 @@ Route::prefix('v1.0')->group(function () {
       Route::get('/messages/search', 'searchMessages');
       Route::get('/messages/access-logs', 'messageAccessLogs');
       Route::delete('/messages/{id}', 'deleteMessage');
+
+      // Ad slots (web /admin/ads)
+      Route::get('/ads', [\App\Http\Controllers\AdSlotController::class, 'adminIndex']);
+      Route::post('/ads', [\App\Http\Controllers\AdSlotController::class, 'adminSave']);
+      Route::put('/ads/{id}', [\App\Http\Controllers\AdSlotController::class, 'adminSave']);
+      Route::delete('/ads/{id}', [\App\Http\Controllers\AdSlotController::class, 'adminDestroy']);
 
       // Mobile app launcher icon management & forced OTA auto-updates
       Route::post('/app-icon', [\App\Http\Controllers\AppConfigController::class, 'updateAppIcon']);
