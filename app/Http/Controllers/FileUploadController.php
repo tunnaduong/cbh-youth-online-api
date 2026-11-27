@@ -87,7 +87,7 @@ class FileUploadController extends Controller
     }
 
     $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-    $fileName = time() . '_' . Str::slug($originalName) . '.' . $extension;
+    $fileName = time() . '_' . Str::random(6) . '_' . Str::slug($originalName) . '.' . $extension;
 
     $path = $file->storeAs($folder, $fileName, 'public');
 

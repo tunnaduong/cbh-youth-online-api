@@ -115,6 +115,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Upload filename collision fix** (`FileUploadController::upload`, no migration): `time() . '_' . Str::random(6) . '_' . Str::slug($originalName) . '.' . $extension` prevents concurrent uploads in the same second (e.g., eKYC selfie + student card via `Promise.all`) from overwriting each other on disk.
+
 - **Video calls hardening** (no PHP here, not run; no migration): `POST /chat/calls/{id}/signal` now 403s non-participants, caps payload at 64 KB, validates `video_state.enabled`, and accepts `audio_chunk` again (a duplicate `type` rule had disabled it). Latest `video_state` per side is pinned in cache; `GET /chat/calls/active?since_seq=N` returns only newer signals; lock fallback no longer double-appends; reject reason `missed` saves status `missed`. Tests: `tests/Feature/CallSignalTest.php` (run `php artisan test --filter=CallSignal`).
 
 - **Video calls: `video_state` signal** (no PHP here; no migration): `POST /chat/calls/{id}/signal` accepts type `video_state` (`payload {enabled}`) so the peer shows an avatar instead of a frozen frame. TURN settings: see the entries below / `.env.example`.
