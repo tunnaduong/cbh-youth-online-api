@@ -5,14 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A direct-sold ad creative shown on the web at a placement
- * (sidebar | post-bottom | feed-inline). Managed from web /admin/ads.
+ * A direct-sold ad creative shown on web or mobile at a placement
+ * (sidebar | post-bottom | feed-inline | mobile-home-header). Managed from web /admin/ads.
  */
 class AdSlot extends Model
 {
   protected $table = 'cyo_ad_slots';
 
-  public const PLACEMENTS = ['sidebar', 'post-bottom', 'feed-inline'];
+  public const PLACEMENTS = ['sidebar', 'post-bottom', 'feed-inline', 'mobile-home-header'];
 
   protected $fillable = [
     'name', 'placement', 'image_url', 'link_url', 'alt_text',

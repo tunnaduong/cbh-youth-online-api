@@ -12,10 +12,17 @@ class AdSlotController extends Controller
   public function index(Request $request)
   {
     $query = AdSlot::live()->orderByDesc('priority')->orderByDesc('id');
-    if ($placement = $request->query('placement')) {
+    $placement = $request->query('placement');
+    if ($placement) {
       $query->where('placement', $placement);
     }
-    return response()->json($query->get(['id', 'name', 'placement', 'image_url', 'link_url', 'alt_text', 'priority']));
+    $response = response()->json(
+      $query->get(['id', 'name', 'placement', 'image_url', 'link_url', 'alt_text', 'priority'])
+    );
+    if ($placement && AdSlot::where('placement', $placement)->exists()) {
+      $response->header('X-Placement-Managed', '1');
+    }
+    return $response;
   }
 
   public function track(Request $request, int $id)

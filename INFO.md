@@ -115,6 +115,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Mobile home header ad slot (`mobile-home-header`)** (`AdSlot`, `AdSlotController::index`, **run `php artisan migrate`** for `2026_11_28_000002_seed_seeli_mobile_home_header_ad`): added `mobile-home-header` to `AdSlot::PLACEMENTS` and seeded the SEELI wide banner (`https://chuyenbienhoa.com/images/ads/seeli-home-banner.jpg`). `GET /v1.0/ads?placement=...` now includes `X-Placement-Managed: 1` when any row exists for that placement so mobile hides its bundled fallback if an admin toggles all creatives off in `/admin/ads`.
+
 - **Upload filename collision fix** (`FileUploadController::upload`, no migration): `time() . '_' . Str::random(6) . '_' . Str::slug($originalName) . '.' . $extension` prevents concurrent uploads in the same second (e.g., eKYC selfie + student card via `Promise.all`) from overwriting each other on disk.
 
 - **Video calls hardening** (no PHP here, not run; no migration): `POST /chat/calls/{id}/signal` now 403s non-participants, caps payload at 64 KB, validates `video_state.enabled`, and accepts `audio_chunk` again (a duplicate `type` rule had disabled it). Latest `video_state` per side is pinned in cache; `GET /chat/calls/active?since_seq=N` returns only newer signals; lock fallback no longer double-appends; reject reason `missed` saves status `missed`. Tests: `tests/Feature/CallSignalTest.php` (run `php artisan test --filter=CallSignal`).
