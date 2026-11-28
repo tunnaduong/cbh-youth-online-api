@@ -254,12 +254,23 @@ class Topic extends Model
       return collect([]);
     }
 
-    $imageIds = array_filter(explode(',', $this->cdn_image_id));
+    $imageIds = array_values(array_filter(
+      array_map('trim', explode(',', (string) $this->cdn_image_id)),
+      fn($id) => ctype_digit($id) && (int) $id > 0
+    ));
+    if (empty($imageIds)) {
+      return collect([]);
+    }
+
+    $disk = Storage::disk('public');
+
     return UserContent::whereIn('id', $imageIds)
       ->orderByRaw("CASE id " . implode(' ', array_map(function ($id, $index) {
         return "WHEN {$id} THEN {$index}";
       }, $imageIds, array_keys($imageIds))) . " END")
-      ->get();
+      ->get()
+      ->filter(fn($content) => !empty($content->file_path) && $disk->exists($content->file_path))
+      ->values();
   }
 
   /**
@@ -327,7 +338,14 @@ class Topic extends Model
       return collect([]);
     }
 
-    $videoIds = array_filter(explode(',', $this->cdn_video_id));
+    $videoIds = array_values(array_filter(
+      array_map('trim', explode(',', (string) $this->cdn_video_id)),
+      fn($id) => ctype_digit($id) && (int) $id > 0
+    ));
+    if (empty($videoIds)) {
+      return collect([]);
+    }
+
     return UserContent::whereIn('id', $videoIds)
       ->orderByRaw("CASE id " . implode(' ', array_map(function ($id, $index) {
         return "WHEN {$id} THEN {$index}";

@@ -25,11 +25,25 @@ class TopicCoverService
   const HEIGHT = 750; // 16:10, the aspect ratio of the featured cards
   const DIRECTORY = 'covers';
 
-  /** Posts with their own photo need no generated cover. */
+  /** Whether the topic has at least one real photo file on disk. */
+  public static function hasUsablePhoto(Topic $topic): bool
+  {
+    if (trim((string) $topic->cdn_image_id) === '') {
+      return false;
+    }
+
+    return $topic->getImageUrls()->isNotEmpty();
+  }
+
+  /** Posts with their own usable photo need no generated cover. */
   public static function needsCover(Topic $topic): bool
   {
-    return empty($topic->cdn_image_id)
-      && trim(($topic->title ?? '') . ($topic->description ?? '')) !== '';
+    if (self::hasUsablePhoto($topic)) {
+      return false;
+    }
+
+    return trim(($topic->title ?? '') . ($topic->description ?? '')) !== ''
+      || trim((string) $topic->cdn_video_id) !== '';
   }
 
   /**
@@ -44,8 +58,10 @@ class TopicCoverService
       return null;
     }
 
-    $jpeg = $this->videoFrame($topic)
-      ?? $this->render((string) $topic->title, (string) $topic->description);
+    $jpeg = $this->videoFrame($topic);
+    if ($jpeg === null && trim(($topic->title ?? '') . ($topic->description ?? '')) !== '') {
+      $jpeg = $this->render((string) $topic->title, (string) $topic->description);
+    }
     if ($jpeg === null) {
       return null;
     }

@@ -17,15 +17,17 @@ class GenerateTopicCovers extends Command
 
   public function handle(TopicCoverService $covers): int
   {
-    $query = Topic::query()
-      ->where(fn($q) => $q->whereNull('cdn_image_id')->orWhere('cdn_image_id', ''))
-      ->orderBy('id');
+    $query = Topic::query()->orderBy('id');
 
-    if ($ids = $this->option('id')) {
-      $query->whereIn('id', $ids);
+    $explicitIds = array_values(array_filter(
+      array_map('trim', explode(',', implode(',', (array) $this->option('id')))),
+      fn($id) => $id !== ''
+    ));
+    if ($explicitIds) {
+      $query->whereIn('id', $explicitIds);
     }
     if (!$this->option('force')) {
-      $query->whereNull('cover_image');
+      $query->where(fn($q) => $q->whereNull('cover_image')->orWhere('cover_image', ''));
     }
 
     $limit = (int) $this->option('limit');
@@ -36,7 +38,23 @@ class GenerateTopicCovers extends Command
       if ($limit && ($done + $failed) >= $limit) {
         break;
       }
-      $path = $covers->generate($topic);
+
+      if (TopicCoverService::hasUsablePhoto($topic)) {
+        if ($explicitIds) {
+          $failed++;
+          $this->warn("#{$topic->id}: skipped (topic already has photo)");
+        }
+        continue;
+      }
+
+      try {
+        $path = $covers->generate($topic);
+      } catch (\Throwable $e) {
+        $failed++;
+        $this->warn("#{$topic->id}: failed ({$e->getMessage()})");
+        continue;
+      }
+
       if ($path) {
         $done++;
         $this->line("#{$topic->id} -> {$path}");
