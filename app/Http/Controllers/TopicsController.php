@@ -1379,26 +1379,26 @@ class TopicsController extends Controller
         'is_saved' => $isSaved,
         'is_owner' => auth()->check() && $topic->user_id === auth()->id(),
         'comments' => $formattedComments,
-        'images' => \App\Models\UserContent::whereIn('id', !empty($topic->cdn_image_id) ? explode(',', $topic->cdn_image_id) : [])->get()->map(function ($img) {
+        'images' => $topic->getImageUrls()->map(function ($img) {
           return [
             'id' => $img->id,
             'url' => config('app.url') . \Illuminate\Support\Facades\Storage::url($img->file_path)
           ];
-        }),
-        'documents' => \App\Models\UserContent::whereIn('id', !empty($topic->cdn_document_id) ? explode(',', $topic->cdn_document_id) : [])->get()->map(function ($doc) {
+        })->values(),
+        'documents' => $topic->getDocuments()->map(function ($doc) {
           return [
             'id' => $doc->id,
             'url' => config('app.url') . \Illuminate\Support\Facades\Storage::url($doc->file_path),
             'name' => $doc->file_name,
             'size' => $doc->file_size
           ];
-        }),
-        'videos' => \App\Models\UserContent::whereIn('id', !empty($topic->cdn_video_id) ? explode(',', $topic->cdn_video_id) : [])->get()->map(function ($vid) {
+        })->values(),
+        'videos' => $topic->getVideos()->map(function ($vid) {
           return [
             'id' => $vid->id,
             'url' => config('app.url') . \Illuminate\Support\Facades\Storage::url($vid->file_path)
           ];
-        }),
+        })->values(),
       ],
       'ogImage' => $ogImage,
       'comments' => $formattedComments
@@ -1793,6 +1793,7 @@ class TopicsController extends Controller
       'subforum_id' => 'nullable|exists:cyo_forum_subforums,id',
       'image_files' => 'nullable|array',
       'image_files.*' => 'file|mimes:jpg,jpeg,png,bmp,gif,svg,webp,heic,heif|max:10240',
+      'image_order' => 'nullable|string',
       'document_files' => 'nullable|array',
       'document_files.*' => 'file|mimes:pdf,doc,docx,txt|max:25600',
       'video_files' => 'nullable|array',
@@ -1829,16 +1830,18 @@ class TopicsController extends Controller
       $cdnVideoIds = !empty($topic->cdn_video_id) ? explode(',', $topic->cdn_video_id) : [];
     }
 
-    // Filter out any empty values
-    $cdnImageIds = array_filter($cdnImageIds);
-    $cdnDocumentIds = array_filter($cdnDocumentIds);
-    $cdnVideoIds = array_filter($cdnVideoIds);
+    // Filter out any empty values (trim whitespace so order tokens match cleanly)
+    $cdnImageIds = array_values(array_filter(array_map('trim', $cdnImageIds), fn($v) => $v !== ''));
+    $cdnDocumentIds = array_values(array_filter(array_map('trim', $cdnDocumentIds), fn($v) => $v !== ''));
+    $cdnVideoIds = array_values(array_filter(array_map('trim', $cdnVideoIds), fn($v) => $v !== ''));
 
     // Handle new image uploads
+    $keptImageIds = $cdnImageIds;
+    $newImageIdsByIndex = [];
     if ($request->hasFile('image_files')) {
       $files = $request->file('image_files');
 
-      foreach ($files as $file) {
+      foreach ($files as $fileIdx => $file) {
         if (\App\Services\HeicImageConverter::isHeic($file)) {
           $converted = \App\Services\HeicImageConverter::convertAndStore($file, 'images');
           if ($converted === null) {
@@ -1865,8 +1868,36 @@ class TopicsController extends Controller
           'file_size' => $fileSize,
         ]);
 
-        $cdnImageIds[] = $userContent->id;
+        $newImageIdsByIndex[$fileIdx] = (string) $userContent->id;
+        $cdnImageIds[] = (string) $userContent->id;
       }
+    }
+
+    // Optional unified ordering across kept existing images and newly uploaded
+    // image_files, e.g. "existing:12,new:0,existing:34,new:1". When omitted
+    // (older clients / mobile), keep the default kept-then-new order above.
+    if ($request->filled('image_order')) {
+      $keptLookup = array_flip(array_map('strval', $keptImageIds));
+      $orderedIds = [];
+      foreach (explode(',', (string) $request->input('image_order')) as $token) {
+        $token = trim($token);
+        if (str_starts_with($token, 'existing:')) {
+          $existingId = trim(substr($token, 9));
+          if ($existingId !== '' && isset($keptLookup[$existingId])) {
+            $orderedIds[] = $existingId;
+          }
+        } elseif (str_starts_with($token, 'new:')) {
+          $newIdx = trim(substr($token, 4));
+          if ($newIdx !== '' && ctype_digit($newIdx) && isset($newImageIdsByIndex[(int) $newIdx])) {
+            $orderedIds[] = $newImageIdsByIndex[(int) $newIdx];
+          }
+        }
+      }
+      // Defensively append any kept or newly uploaded IDs not mentioned in image_order
+      foreach ($cdnImageIds as $fallbackId) {
+        $orderedIds[] = (string) $fallbackId;
+      }
+      $cdnImageIds = array_values(array_unique($orderedIds));
     }
 
     // Handle new document uploads
@@ -1975,6 +2006,7 @@ class TopicsController extends Controller
     // immediately, matching updateComment() — no new notifications are
     // sent on edit, only on the initial post creation.
     $topicArray = $topic->toArray();
+    $topicArray['image_urls'] = $topic->image_urls;
     $topicArray['mentions'] = $this->filterMentionsByBlock($this->resolveTopicMentions($topic->description), $topic->user_id);
 
     return response()->json([

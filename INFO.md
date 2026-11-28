@@ -115,6 +115,8 @@ Cache note: the web-session handoff, two-factor login challenges and emailed cod
 
 ## Recent work (newest first)
 
+- **Preserve & reorder post images on show/update** (`app/Http/Controllers/TopicsController.php`; `php -l` verified; no migration): `show()` now returns `images`, `documents`, and `videos` via `Topic::getImageUrls()` / `getDocuments()` / `getVideos()` so edit screens receive attachments in the saved `cdn_*_id` order rather than primary-key order. `update()` accepts an optional comma-separated `image_order` (`existing:<id>,new:<index>,...`) to preserve arbitrary interleaved ordering between kept and newly uploaded `image_files` (backward-compatible when omitted) and includes `image_urls` in the JSON payload.
+
 - **HTML/script ad slots + mobile in-feed & comment placements** (`AdSlot`, `AdSlotController`, **run `php artisan migrate`** for `2026_11_28_000003_add_html_code_and_mobile_ad_slots`): added nullable `html_code` (and nullable `image_url`) to `cyo_ad_slots` plus placements `mobile-feed-inline` and `mobile-post-comments`, seeded with the Adsterra 300×250 and Native Banner scripts so admins can swap either images or HTML/script tags from `/admin/ads`.
 
 - **Mobile home header ad slot (`mobile-home-header`)** (`AdSlot`, `AdSlotController::index`, **run `php artisan migrate`** for `2026_11_28_000002_seed_seeli_mobile_home_header_ad`): added `mobile-home-header` to `AdSlot::PLACEMENTS` and seeded the SEELI wide banner (`https://chuyenbienhoa.com/images/ads/seeli-home-banner.jpg`). `GET /v1.0/ads?placement=...` now includes `X-Placement-Managed: 1` when any row exists for that placement so mobile hides its bundled fallback if an admin toggles all creatives off in `/admin/ads`.
