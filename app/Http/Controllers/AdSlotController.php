@@ -17,7 +17,7 @@ class AdSlotController extends Controller
       $query->where('placement', $placement);
     }
     $response = response()->json(
-      $query->get(['id', 'name', 'placement', 'image_url', 'link_url', 'alt_text', 'priority'])
+      $query->get(['id', 'name', 'placement', 'image_url', 'link_url', 'alt_text', 'html_code', 'priority'])
     );
     if ($placement && AdSlot::where('placement', $placement)->exists()) {
       $response->header('X-Placement-Managed', '1');
@@ -45,15 +45,19 @@ class AdSlotController extends Controller
     $data = $request->validate([
       'name' => 'required|string|max:255',
       'placement' => ['required', Rule::in(AdSlot::PLACEMENTS)],
-      'image_url' => 'required|string|max:500',
+      'image_url' => 'nullable|required_without:html_code|string|max:500',
       'link_url' => 'nullable|string|max:500',
       'alt_text' => 'nullable|string|max:255',
+      'html_code' => 'nullable|required_without:image_url|string|max:20000',
       'is_active' => 'boolean',
       'priority' => 'nullable|integer',
       'starts_at' => 'nullable|date',
       'ends_at' => 'nullable|date|after_or_equal:starts_at',
     ]);
     $data['priority'] = $data['priority'] ?? 0;
+    if (!empty($data['html_code'])) {
+      $data['image_url'] = $data['image_url'] ?? null;
+    }
 
     $ad = $id ? AdSlot::findOrFail($id) : new AdSlot();
     $ad->fill($data)->save();
